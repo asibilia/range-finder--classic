@@ -3,6 +3,6 @@
 ## Notes: Attack range indicators for Hunters
 ## Author: Truncha
 ## Version: 0.0.1
-## SavedVariables: RangeFinder_ClassicFrameData
+## SavedVariables: RangeFinderClassicData
 
 RangeFinder_Classic.xml

@@ -3,25 +3,48 @@ local WingClip = 8  -- Wing Clip ability slot number
 local AutoShot = 11 -- Auto Shot ability slot number
 
 function RangeFinder_Classic_LockFrame()
+  RangeFinderClassicData.isLocked = true
   RangeFinder_Classic_Frame:EnableMouse(false) -- Disables mouse interaction
   RangeFinder_Classic_Frame:SetMovable(false)  -- Disables moving the frame
-  print("RangeFinder_Classic frame locked.")
+  print("Range Finder Classic frame locked.")
 end
 
 function RangeFinder_Classic_UnlockFrame()
+  RangeFinderClassicData.isLocked = false
   RangeFinder_Classic_Frame:EnableMouse(true) -- Enables mouse interaction
   RangeFinder_Classic_Frame:SetMovable(true)  -- Enables moving the frame
-  print("RangeFinder_Classic frame unlocked.")
+  print("Range Finder Classic frame unlocked.")
 end
 
 function RangeFinder_Classic_OnLoad(self)
   RangeFinder_Classic_Frame:Hide()
-  _, cl = UnitClass("player")
-  if cl ~= "HUNTER" then
-    DEFAULT_CHAT_FRAME:AddMessage("RangeFinder_Classic is only for hunters")
+
+  -- Initialization of RangeFinderClassicData if it doesn't exist
+  if not RangeFinderClassicData then
+    RangeFinderClassicData = {
+      isLocked = false,
+      wingClipSlot = 8,
+      autoShotSlot = 11
+    }
+  end
+
+  -- Set the initial values based on saved data
+  WingClip = RangeFinderClassicData.wingClipSlot
+  AutoShot = RangeFinderClassicData.autoShotSlot
+
+  if RangeFinderClassicData.isLocked then
+    RangeFinder_Classic_LockFrame()
+  else
+    RangeFinder_Classic_UnlockFrame()
+  end
+
+  local _, playerClass = UnitClass("player")
+  if playerClass ~= "HUNTER" then
+    DEFAULT_CHAT_FRAME:AddMessage("Range Finder Classic is only for hunters")
     return
   end
-  FontString1:SetTextColor(1, 1, 1)
+
+  RangeText:SetTextColor(1, 1, 1)
 
   self:RegisterEvent("PLAYER_TARGET_CHANGED")
   self:RegisterEvent("UNIT_FACTION")
@@ -37,7 +60,7 @@ function RangeFinder_Classic_OnLoad(self)
     self:StopMovingOrSizing()
   end)
 
-  DEFAULT_CHAT_FRAME:AddMessage("RangeFinder_Classic Loaded")
+  DEFAULT_CHAT_FRAME:AddMessage("Range Finder Classic Loaded")
   RangeFinder_Classic_UnlockFrame()
 end
 
@@ -55,17 +78,17 @@ function RangeFinder_Classic_OnUpdate()
     local inAutoShotRange = IsActionInRange(AutoShot)
 
     if inMeleeRange then
-      FontString1:SetText("Melee")
-      SetColor(1, 1, 0, 1)              -- Yellow Background
-      FontString1:SetTextColor(1, 1, 0) -- Yellow
+      RangeText:SetText("Melee")
+      SetColor(1, 1, 0, 1)            -- Yellow Background
+      RangeText:SetTextColor(1, 1, 0) -- Yellow
     elseif inAutoShotRange then
-      FontString1:SetText("Ranged Shot")
-      SetColor(0, 1, 0, 1)              -- Green Background
-      FontString1:SetTextColor(0, 1, 0) -- Green
+      RangeText:SetText("Ranged Shot")
+      SetColor(0, 1, 0, 1)            -- Green Background
+      RangeText:SetTextColor(0, 1, 0) -- Green
     else
-      FontString1:SetText("Out of Range")
-      SetColor(1, 0, 0, 1)              -- Red Background
-      FontString1:SetTextColor(1, 0, 0) -- Red
+      RangeText:SetText("Out of Range")
+      SetColor(1, 0, 0, 1)            -- Red Background
+      RangeText:SetTextColor(1, 0, 0) -- Red
     end
     -- Debug messages
     -- DEFAULT_CHAT_FRAME:AddMessage("Checking Range...")
@@ -82,14 +105,46 @@ function RangeFinder_Classic_OnEvent(self, event, ...)
   end
 end
 
-SLASH_RangeFinder_Classic1 = '/RangeFinder_Classic'
+-- Slash Command Setup
+SLASH_RF1 = '/rf'
 
-SlashCmdList['RangeFinder_Classic'] = function(msg, editbox)
-  if msg == 'lock' then
-    RangeFinder_Classic_LockFrame()
-  elseif msg == 'unlock' then
-    RangeFinder_Classic_UnlockFrame()
+SlashCmdList['RF'] = function(msg)
+  -- Split the message into arguments
+  local args = {}
+  for word in msg:gmatch("%S+") do
+    table.insert(args, word)
+  end
+
+  -- Check the first argument to determine the action
+  local command = args[1] and args[1]:lower() or ""
+
+  if command == "frame" then
+    if args[2] == "lock" then
+      RangeFinder_Classic_LockFrame()
+    elseif args[2] == "unlock" then
+      RangeFinder_Classic_UnlockFrame()
+    else
+      print("Usage: /rf frame lock | /rf frame unlock")
+    end
+  elseif command == "wingclip" then
+    local slot = tonumber(args[2])
+    if slot then
+      WingClip = slot
+      RangeFinderClassicData.wingClipSlot = slot
+      print("Wing Clip slot set to:", slot)
+    else
+      print("Invalid slot for Wing Clip.")
+    end
+  elseif command == "autoshot" then
+    local slot = tonumber(args[2])
+    if slot then
+      AutoShot = slot
+      RangeFinderClassicData.autoShotSlot = slot
+      print("Auto Shot slot set to:", slot)
+    else
+      print("Invalid slot for Auto Shot.")
+    end
   else
-    print("Use '/RangeFinder_Classic lock' to lock the frame, '/RangeFinder_Classic unlock/' to unlock it.")
+    print("Invalid command. Usage: /rf [frame|wingclip|autoshot] [lock|unlock|n]")
   end
 end

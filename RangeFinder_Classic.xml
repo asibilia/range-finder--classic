@@ -16,7 +16,7 @@
     </Scripts>
     <Layers>
       <Layer>
-        <FontString name="FontString1" inherits="GameFontNormalSmall" text="Something is Wrong"
+        <FontString name="RangeText" inherits="GameFontNormalSmall" text="Something is Wrong"
           justifyV="TOP" justifyH="CENTER">
           <Anchors>
             <Anchor point="CENTER" />
