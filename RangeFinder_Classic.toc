@@ -1,6 +1,6 @@
 ## Interface: 11200
-## Title: RangeFinder_Classic
-## Notes: Range indicators for Hunters
+## Title: Range Finder Classic
+## Notes: Attack range indicators for Hunters
 ## Author: Truncha
 ## Version: 0.1
 ## SavedVariables: RangeFinder_ClassicFrameData
