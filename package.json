@@ -1,7 +1,13 @@
 {
   "name": "rangefinder_classic",
-  "module": "index.ts",
+  "version": "0.0.5",
   "type": "module",
+  "scripts": {
+    "commit": "bun changeset version",
+    "postcommit": "bun version",
+    "version": "bun run ./version.ts",
+    "postversion": "bun run ./release.ts"
+  },
   "devDependencies": {
     "bun-types": "latest"
   },
@@ -9,6 +15,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@changesets/cli": "^2.27.1",
     "chalk": "^5.3.0"
   }
 }
