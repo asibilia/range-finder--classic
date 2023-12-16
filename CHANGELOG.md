@@ -1,5 +1,11 @@
 # rangefinder_classic
 
+## 0.0.6
+
+### Patch Changes
+
+- update readme with gh issue page link
+
 ## 0.0.5
 
 ### Patch Changes

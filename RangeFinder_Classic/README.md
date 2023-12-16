@@ -39,7 +39,7 @@ Range Finder Classic is a World of Warcraft (WoW) Classic addon designed for hun
 
 ## Support
 
-For bug reports, feature requests, or support, please visit [GitHub issues page (coming soon)](#) or contact the developer at [sibilia.alec@gmail.com].
+For bug reports, feature requests, or support, please visit [GitHub issues page](https://github.com/asibilia/range-finder--classic/issues) or contact the developer at [sibilia.alec@gmail.com].
 
 ## License
 
