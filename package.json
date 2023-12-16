@@ -1,0 +1,15 @@
+{
+  "name": "rangefinder_classic",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/archiver": "^6.0.2",
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "archiver": "^6.0.1"
+  }
+}
