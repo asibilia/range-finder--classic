@@ -1,5 +1,11 @@
 # rangefinder_classic
 
+## 0.0.7
+
+### Patch Changes
+
+- add automatic versioning tools
+
 ## 0.0.6
 
 ### Patch Changes
