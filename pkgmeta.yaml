@@ -4,23 +4,13 @@ manual-changelog:
     filename: CHANGELOG.md
     markup-type: markdown
 
-# move-folders:
-#     RangeFinder_Classic: RangeFinder_Classic
-
 ignore:
+    # Folders
+    - dev-tools
     # Dev Files
     - .env.local
     - .gitignore
     - bun.lockb
-    # TS Files
-    - game-versions.ts
-    - publish.ts
-    - release.ts
-    - version.ts
     # JSON
     - package.json
     - tsconfig.json
-    # Zipped Files
-    - RangeFinder_Classic.zip
-    # Folders
-    - src

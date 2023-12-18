@@ -1,13 +1,13 @@
 {
   "name": "rangefinder_classic",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": true,
   "type": "module",
   "scripts": {
     "commit": "bun changeset version",
     "postcommit": "bun version",
-    "version": "bun run ./version.ts",
-    "postversion": "bun run ./release.ts"
+    "version": "bun run ./dev-tools/version.ts",
+    "postversion": "bun run ./dev-tools/release.ts"
   },
   "devDependencies": {
     "bun-types": "latest"
