@@ -4,39 +4,34 @@ local AutoShot = 11 -- Auto Shot ability slot number
 
 function RangeFinder_Classic_LockFrame()
   RangeFinderClassicData.isLocked = true
-  RangeFinder_Classic_Frame:EnableMouse(false) -- Disables mouse interaction
-  RangeFinder_Classic_Frame:SetMovable(false)  -- Disables moving the frame
+  RangeFinder_Classic_Frame:EnableMouse(false)
+  RangeFinder_Classic_Frame:SetMovable(false)
+  RangeFinder_Classic_Frame:RegisterForDrag() -- Disable dragging
   print("Range Finder Classic frame locked.")
 end
 
 function RangeFinder_Classic_UnlockFrame()
   RangeFinderClassicData.isLocked = false
-  RangeFinder_Classic_Frame:EnableMouse(true) -- Enables mouse interaction
-  RangeFinder_Classic_Frame:SetMovable(true)  -- Enables moving the frame
+  RangeFinder_Classic_Frame:EnableMouse(true)
+  RangeFinder_Classic_Frame:SetMovable(true)
+  RangeFinder_Classic_Frame:RegisterForDrag("LeftButton") -- Re-enable dragging
   print("Range Finder Classic frame unlocked.")
+end
+
+function SetColor(r, g, b, a)
+  if RangeFinder_Classic_Frame.SetBackdropColor then
+    local lightAlpha = 0.85
+    RangeFinder_Classic_Frame:SetBackdropColor(r, g, b, lightAlpha)
+  end
 end
 
 function RangeFinder_Classic_OnLoad(self)
   RangeFinder_Classic_Frame:Hide()
 
-  -- Initialization of RangeFinderClassicData if it doesn't exist
-  if not RangeFinderClassicData then
-    RangeFinderClassicData = {
-      isLocked = false,
-      wingClipSlot = 8,
-      autoShotSlot = 11
-    }
-  end
-
-  -- Set the initial values based on saved data
-  WingClip = RangeFinderClassicData.wingClipSlot
-  AutoShot = RangeFinderClassicData.autoShotSlot
-
-  if RangeFinderClassicData.isLocked then
-    RangeFinder_Classic_LockFrame()
-  else
-    RangeFinder_Classic_UnlockFrame()
-  end
+  self:RegisterEvent("VARIABLES_LOADED")
+  self:RegisterEvent("PLAYER_TARGET_CHANGED")
+  self:RegisterEvent("UNIT_FACTION")
+  self:RegisterEvent("PLAYER_ENTERING_WORLD")
 
   local _, playerClass = UnitClass("player")
   if playerClass ~= "HUNTER" then
@@ -45,9 +40,6 @@ function RangeFinder_Classic_OnLoad(self)
   end
 
   RangeText:SetTextColor(1, 1, 1)
-
-  self:RegisterEvent("PLAYER_TARGET_CHANGED")
-  self:RegisterEvent("UNIT_FACTION")
 
   self:SetScript("OnEvent", RangeFinder_Classic_OnEvent)
   self:SetScript("OnUpdate", RangeFinder_Classic_OnUpdate)
@@ -58,17 +50,52 @@ function RangeFinder_Classic_OnLoad(self)
   end)
   self:SetScript("OnDragStop", function()
     self:StopMovingOrSizing()
+    -- Save the new position
+    local point, _, relativePoint, xOfs, yOfs = self:GetPoint()
+    RangeFinderClassicData.framePosition = {
+      point = point,
+      relativePoint = relativePoint,
+      xOfs = xOfs,
+      yOfs = yOfs
+    }
   end)
 
   DEFAULT_CHAT_FRAME:AddMessage("Range Finder Classic Loaded")
-  RangeFinder_Classic_UnlockFrame()
 end
 
-function SetColor(r, g, b, a)
-  if RangeFinder_Classic_Frame.SetBackdropColor then
-    -- Increase the alpha value to lighten the color
-    local lightAlpha = 0.85 -- Adjust this value as needed, range is 0 (fully transparent) to 1 (fully opaque)
-    RangeFinder_Classic_Frame:SetBackdropColor(r, g, b, lightAlpha)
+function RangeFinder_Classic_OnEvent(self, event, ...)
+  if event == "VARIABLES_LOADED" then
+    if not RangeFinderClassicData then
+      RangeFinderClassicData = {
+        isLocked = false,
+        wingClipSlot = 8,
+        autoShotSlot = 11
+      }
+    end
+
+    WingClip = RangeFinderClassicData.wingClipSlot
+    AutoShot = RangeFinderClassicData.autoShotSlot
+
+    -- Set frame position
+    if RangeFinderClassicData.framePosition then
+      self:SetPoint(
+        RangeFinderClassicData.framePosition.point,
+        UIParent,
+        RangeFinderClassicData.framePosition.relativePoint,
+        RangeFinderClassicData.framePosition.xOfs,
+        RangeFinderClassicData.framePosition.yOfs
+      )
+    end
+
+    if RangeFinderClassicData.isLocked then
+      RangeFinder_Classic_LockFrame()
+    else
+      RangeFinder_Classic_UnlockFrame()
+    end
+  elseif (UnitExists("target") and (not UnitIsDead("target")) and UnitCanAttack("player", "target")) then
+    RangeFinder_Classic_Frame:Show()
+  else
+    RangeFinder_Classic_Frame:Hide()
   end
 end
 
@@ -94,14 +121,6 @@ function RangeFinder_Classic_OnUpdate()
     -- DEFAULT_CHAT_FRAME:AddMessage("Checking Range...")
     -- DEFAULT_CHAT_FRAME:AddMessage("Melee Range (Slot " .. WingClip .. "): " .. tostring(inMeleeRange))
     -- DEFAULT_CHAT_FRAME:AddMessage("Auto Shot Range (Slot " .. AutoShot .. "): " .. tostring(inAutoShotRange))
-  end
-end
-
-function RangeFinder_Classic_OnEvent(self, event, ...)
-  if (UnitExists("target") and (not UnitIsDead("target")) and UnitCanAttack("player", "target")) then
-    RangeFinder_Classic_Frame:Show()
-  else
-    RangeFinder_Classic_Frame:Hide()
   end
 end
 

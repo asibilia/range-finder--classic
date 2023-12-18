@@ -1,5 +1,11 @@
 # rangefinder_classic
 
+## 0.1.0
+
+### Minor Changes
+
+- fix bug with locked and unlocked frames and persist frame position between logouts
+
 ## 0.0.9
 
 ### Patch Changes
