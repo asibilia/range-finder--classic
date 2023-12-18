@@ -2,7 +2,7 @@
 ## Title: Range Finder Classic
 ## Notes: Attack range indicators for Hunters
 ## Author: Truncha
-## Version: 0.0.7
+## Version: 0.0.8
 ## SavedVariables: RangeFinderClassicData
 
 RangeFinder_Classic.xml

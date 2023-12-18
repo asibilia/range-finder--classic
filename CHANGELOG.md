@@ -1,5 +1,11 @@
 # rangefinder_classic
 
+## 0.0.8
+
+### Patch Changes
+
+- update pkg to be private
+
 ## 0.0.7
 
 ### Patch Changes
