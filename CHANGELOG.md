@@ -4,8 +4,8 @@
 
 ### Minor Changes
 
-- - fixes a bug with persisting frame location between sessions. previously the frame location would reset if logging out while the frame position was "locked". this is fixed.
-  - adds a new slash command for display mode: `/rf show [always|auto]`. When set to "always" the frame will always be displayed and show "No Target" when nothing is targeted.
+- fixes a bug with persisting frame location between sessions. previously the frame location would reset if logging out while the frame position was "locked". this is fixed.
+- adds a new slash command for display mode: `/rf show [always|auto]`. When set to "always" the frame will always be displayed and show "No Target" when nothing is targeted.
 
 ## 0.1.1
 

@@ -1,8 +1,9 @@
 import { exec } from "child_process";
 import chalk from "chalk";
 
-const name = "RangeFinder_Classic";
-const OUTPUT_DIR = `./dist/${name}`;
+import { NAME } from './consants/name';
+
+const OUTPUT_DIR = `./dist/${NAME}`;
 
 const glob = new Bun.Glob("*");
 for await (const filename of glob.scan("./")) {
@@ -22,7 +23,7 @@ for await (const filename of glob.scan("./")) {
 console.log(chalk.white("\nZipping the project... \n"));
 
 await new Promise((resolve, reject) => {
-  exec(`cd ./dist && zip -r ${name}.zip ${name}`, (err, stdout, stderr) => {
+  exec(`cd ./dist && zip -r ${NAME}.zip ${NAME}`, (err, stdout, stderr) => {
     if (err) {
       // node couldn't execute the command
       console.log(chalk.redBright(err));

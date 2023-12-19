@@ -1,15 +1,16 @@
+import { exec } from "child_process";
 import chalk from "chalk";
 import { withQuery } from "with-query";
 
-const name = "RangeFinder_Classic";
+import { NAME } from './consants/name';
 
 try {
   // Upload to CurseForge
   const form = new FormData();
-  const zipFile = Bun.file(`./dist/${name}.zip`);
-  const changelog = await Bun.file(`./dist/${name}/CHANGELOG.md`).text();
+  const zipFile = Bun.file(`./dist/${NAME}.zip`);
+  const changelog = await Bun.file(`./dist/${NAME}/CHANGELOG.md`).text();
 
-  form.append("file", zipFile, `${name}.zip`);
+  form.append("file", zipFile, `${NAME}.zip`);
   form.append(
     "metadata",
     JSON.stringify({
@@ -52,3 +53,31 @@ try {
   console.log(chalk.redBright(err));
 }
 
+const { version } = await Bun.file('./package.json').json();
+
+await new Promise((resolve, reject) => {
+  const commands = [
+    'bun changeset publish',
+    'git add .',
+    `git commit -m "chore(release): v${version}"`,
+    'git push --follow-tags',
+  ]
+  exec(commands.join('&& '), (err, stdout, stderr) => {
+    if (err) {
+      // node couldn't execute the command
+      console.log(chalk.redBright(err));
+      return;
+    }
+
+    console.log(chalk.yellow(stdout));
+
+    // the *entire* stdout and stderr (buffered)
+    if (stdout.length) {
+      console.log(chalk.greenBright("Successfully published the project!"));
+      resolve(true);
+    } else {
+      console.log(chalk.redBright(stderr));
+      reject();
+    }
+  });
+});
