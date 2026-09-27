@@ -1,0 +1,252 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway HUD mockup for wayfinder ticket 'HUD look and layout' (#18). Not production.
+  Run from the repo root:  bun tools/hud-prototype/index.html   (then open the printed URL, e.g. http://localhost:3000/?variant=A)
+  Everything in #stage is the fake game screen + HUD. The yellow pill and the "Scenario" panel are tooling, not design.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Turbo HUD prototype (throwaway)</title>
+    <link rel="stylesheet" href="./hud.css" />
+  </head>
+  <body>
+    <!-- ============ fake game screen (1600x900, scaled to fit) ============
+         Placeholder positions mirror the user's real in-game UI (screenshot, 2000x1124 view x 0.8). -->
+    <div id="stage-wrap">
+      <div id="stage">
+        <div class="scene">
+          <!-- world: dark cave, pillars, floor -->
+          <svg class="cave" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 0 L300 0 L250 260 L330 900 L0 900 Z" fill="#141a17" />
+            <path d="M300 0 L470 0 L440 300 L520 700 L380 900 L300 900 L250 260 Z" fill="#101512" />
+            <path d="M1600 0 L1340 0 L1380 280 L1290 900 L1600 900 Z" fill="#141a17" />
+            <path d="M1340 0 L1180 0 L1210 240 L1160 520 L1260 900 L1290 900 L1380 280 Z" fill="#101512" />
+            <path d="M560 0 L700 0 L690 190 L610 220 Z" fill="#0e1311" />
+            <path d="M980 0 L1100 0 L1080 210 L1010 180 Z" fill="#0e1311" />
+          </svg>
+          <div class="floor-glow"></div>
+          <div class="vignette"></div>
+
+          <!-- enemy (target) in the world ahead: position/scale follow the range band -->
+          <div id="enemy" class="enemy">
+            <div class="target-ring"></div>
+            <svg viewBox="0 0 120 170" aria-hidden="true">
+              <defs>
+                <linearGradient id="enemy-fill" x1="0" x2="1">
+                  <stop offset="0" stop-color="#3a1616" />
+                  <stop offset=".55" stop-color="#140909" />
+                  <stop offset="1" stop-color="#2b1111" />
+                </linearGradient>
+              </defs>
+              <g fill="url(#enemy-fill)" stroke="rgba(255,96,70,.4)" stroke-width="1.4" stroke-linejoin="round">
+                <path d="M32 124 L28 166 L46 168 L52 128 Z" />
+                <path d="M72 128 L78 168 L96 166 L90 124 Z" />
+                <path d="M30 70 L10 128 L22 134 L42 86 Z" />
+                <path d="M104 116 L119 160 L110 165 L96 122 Z" />
+                <path d="M92 66 L112 124 L100 130 L80 82 Z" />
+                <path d="M34 62 Q58 34 90 52 Q106 66 100 104 L94 132 L30 132 L24 100 Q22 76 34 62 Z" />
+                <path d="M43 42 L35 27 L48 37 Z M61 40 L69 25 L57 37 Z" />
+                <circle cx="52" cy="50" r="13" />
+              </g>
+              <circle cx="47" cy="50" r="1.8" fill="#ff6a45" />
+              <circle cx="57" cy="50" r="1.8" fill="#ff6a45" />
+            </svg>
+          </div>
+          <div id="enemy-plate" class="bz-nameplate">
+            <span>Blizzard nameplate</span>
+            <i></i>
+          </div>
+
+          <!-- player character: big back view, screen centre, head ~y 370 down past the action bars -->
+          <svg class="char" viewBox="0 0 340 450" aria-hidden="true">
+            <defs>
+              <linearGradient id="char-fill" x1="0" x2="1">
+                <stop offset="0" stop-color="#1b212c" />
+                <stop offset=".5" stop-color="#0b0e13" />
+                <stop offset="1" stop-color="#171d28" />
+              </linearGradient>
+            </defs>
+            <g fill="url(#char-fill)" stroke="rgba(150,180,235,.14)" stroke-width="1.6" stroke-linejoin="round">
+              <path d="M92 318 L84 450 L158 450 L166 330 Z" />
+              <path d="M178 330 L186 450 L258 450 L252 318 Z" />
+              <path d="M90 256 L78 336 L266 336 L254 256 Z" />
+              <path d="M14 128 L2 250 L40 266 L60 150 Z" />
+              <path d="M326 128 L338 250 L300 266 L282 150 Z" />
+              <ellipse cx="20" cy="266" rx="18" ry="14" />
+              <ellipse cx="320" cy="266" rx="18" ry="14" />
+              <path d="M58 98 Q172 66 286 98 L262 244 Q172 262 80 244 Z" />
+              <rect x="84" y="230" width="176" height="32" rx="6" />
+              <ellipse cx="172" cy="50" rx="30" ry="32" />
+              <path d="M8 118 Q20 60 70 62 Q116 68 118 108 Q96 150 56 156 Q16 154 8 118 Z" />
+              <path d="M332 118 Q320 60 272 62 Q226 68 224 108 Q246 150 286 156 Q326 154 332 118 Z" />
+            </g>
+            <g stroke="rgba(150,180,235,.22)" stroke-width="1.6">
+              <path d="M298 -62 L132 222" stroke="#1b2130" stroke-width="12" stroke-linecap="round" />
+              <rect x="-46" y="-30" width="92" height="60" rx="10" fill="#161b27" transform="translate(142 212) rotate(30)" />
+            </g>
+          </svg>
+          <div class="bz-name">Blizzard player name</div>
+
+          <!-- Blizzard UI placeholders (grey, labelled faintly; no Blizzard art) -->
+          <div class="bz bz-details">
+            <i style="width: 96%"></i><i style="width: 86%"></i><i style="width: 70%"></i><i style="width: 48%"></i><i style="width: 8%"></i>
+            <span class="bz-label">Details! damage meter</span>
+          </div>
+          <div class="bz bz-issue"><span class="bz-label">Issue<br />Reporter</span></div>
+
+          <div class="bz bz-zone"></div>
+          <div class="bz bz-minimap"><span class="bz-label">Blizzard minimap</span></div>
+          <div class="bz-sidebars" id="bz-sidebars"><span class="bz-label bz-label-vert">Blizzard side action bars</span></div>
+
+          <div class="bz-chat-btns"><i></i><i></i><i></i></div>
+          <div class="bz-chat-tabs"><i></i><i></i></div>
+          <div class="bz bz-chat">
+            <i style="width: 72%"></i><i style="width: 54%"></i><i style="width: 81%"></i><i style="width: 38%"></i><i style="width: 66%"></i><i style="width: 47%"></i>
+            <span class="bz-label">Blizzard chat</span>
+          </div>
+
+          <div class="bz-buffrow">
+            <i></i><i></i><i></i><i></i><i></i>
+            <span class="bz-label">Blizzard buffs</span>
+          </div>
+
+          <div class="bz bz-swing" id="bz-swing">
+            <div class="bz-swing-fill" id="bz-swing-fill"></div>
+            <span class="bz-swing-name">Main Hand</span>
+            <span class="bz-swing-time" id="bz-swing-time">0.0</span>
+            <span class="bz-label">Blizzard swing bar (player can turn it off)</span>
+          </div>
+
+          <div class="bz-barband"></div>
+          <svg class="bz-gryphon bz-gryphon-l" viewBox="0 0 118 100" aria-hidden="true">
+            <path d="M12 100 L16 70 Q22 52 40 47 L50 32 Q60 10 86 5 Q72 22 76 34 Q98 20 116 18 Q100 34 92 48 Q104 52 108 64 L96 68 L100 100 Z M40 47 Q30 30 44 22 Q58 20 54 36 Z" />
+          </svg>
+          <svg class="bz-gryphon bz-gryphon-r" viewBox="0 0 118 100" aria-hidden="true">
+            <path d="M12 100 L16 70 Q22 52 40 47 L50 32 Q60 10 86 5 Q72 22 76 34 Q98 20 116 18 Q100 34 92 48 Q104 52 108 64 L96 68 L100 100 Z M40 47 Q30 30 44 22 Q58 20 54 36 Z" />
+          </svg>
+          <div class="bz-slots" id="bz-row1a"></div>
+          <div class="bz-slots" id="bz-row1b"></div>
+          <div class="bz-slots" id="bz-row2"></div>
+          <div class="bz-slots bz-micro" id="bz-micro"></div>
+          <div class="bz-slots" id="bz-bags"></div>
+          <span class="bz-bars-label">Blizzard action bars · micro menu · bags</span>
+
+          <div class="bz bz-player">
+            <div class="bz-portrait"></div>
+            <div class="bz-level"></div>
+            <div class="bz-bar bz-hp"></div>
+            <div class="bz-bar bz-mp"></div>
+            <span class="bz-label">Blizzard player frame</span>
+          </div>
+          <div class="bz bz-target" id="bz-target">
+            <div class="bz-portrait"></div>
+            <div class="bz-level"></div>
+            <div class="bz-bar bz-hp"></div>
+            <div class="bz-tbuffs"><i></i><i></i><i></i></div>
+            <span class="bz-label">Blizzard target frame</span>
+          </div>
+        </div>
+
+        <!-- Turbo HUD: one variant mounted at a time -->
+        <div id="hud-root"></div>
+      </div>
+    </div>
+
+    <!-- ============ TOOLING: variant switcher ============ -->
+    <nav id="switcher" class="tool-pill" aria-label="Variant switcher (prototype tooling)">
+      <button id="sw-prev" type="button" aria-label="Previous variant">←</button>
+      <span id="sw-label">A (Compact block)</span>
+      <button id="sw-next" type="button" aria-label="Next variant">→</button>
+    </nav>
+
+    <!-- ============ TOOLING: scenario panel ============ -->
+    <aside id="scenario" class="tool-panel">
+      <button id="scenario-tab" class="tool-tab" type="button" aria-expanded="true">SCENARIO</button>
+      <div class="tool-body">
+        <header class="tool-head">
+          <strong>Scenario</strong>
+          <small>prototype tooling — not part of the HUD</small>
+        </header>
+
+        <section>
+          <h3>Engagement</h3>
+          <label class="chk"><input type="checkbox" id="c-engaged" /> Engaged</label>
+          <label class="chk"><input type="checkbox" id="c-auto" /> Auto-attack</label>
+          <label class="field">Range band
+            <select id="c-range">
+              <option value="melee">Melee</option>
+              <option value="shock">Shock range (20 yd)</option>
+              <option value="bolt">Bolt range (30 yd)</option>
+              <option value="out">Out of range</option>
+              <option value="none">No target</option>
+            </select>
+          </label>
+          <p class="hint">Targeting an enemy engages; turning Engaged off clears the target and stops auto-attack.</p>
+        </section>
+
+        <section>
+          <h3>Casts</h3>
+          <button type="button" data-act="hardCast">Hard cast Lightning Bolt (2.5 s)</button>
+          <button type="button" data-act="castShock">Cast Earth Shock</button>
+          <label class="chk"><input type="checkbox" id="c-ss-learned" /> Stormstrike learned</label>
+          <button type="button" data-act="castSS" id="b-ss">Cast Stormstrike</button>
+          <label class="chk"><input type="checkbox" id="c-clip" /> Shocks clip</label>
+        </section>
+
+        <section>
+          <h3>Totems</h3>
+          <div class="grid2">
+            <button type="button" data-act="dropTotem" data-arg="earth">Drop Earth (120 s)</button>
+            <button type="button" data-act="dropTotem" data-arg="fire">Drop Fire (35 s)</button>
+            <button type="button" data-act="dropTotem" data-arg="water">Drop Water (300 s)</button>
+            <button type="button" data-act="dropTotem" data-arg="air">Drop Air (120 s)</button>
+          </div>
+          <button type="button" data-act="killFire">Kill Fire totem</button>
+          <button type="button" data-act="waterTo7">Set Water totem to 7 s left</button>
+        </section>
+
+        <section>
+          <h3>Buffs</h3>
+          <div class="grid2">
+            <button type="button" data-act="castLS">Cast Lightning Shield</button>
+            <button type="button" data-act="popLS">Pop a charge</button>
+          </div>
+          <label class="field">Weapon imbue
+            <select id="c-imbue">
+              <option value="active">Active (58 m)</option>
+              <option value="expiring">Expiring (4 m)</option>
+              <option value="missing">Missing</option>
+            </select>
+          </label>
+        </section>
+
+        <section>
+          <h3>Resources</h3>
+          <label class="field">Mana <output id="o-mana"></output>
+            <input type="range" id="c-mana" min="0" max="100" step="1" />
+          </label>
+          <label class="field">Maelstrom stacks <output id="o-mw"></output>
+            <input type="range" id="c-mw" min="0" max="5" step="1" />
+          </label>
+        </section>
+
+        <section>
+          <h3>World</h3>
+          <label class="chk"><input type="checkbox" id="c-bzswing" /> Blizzard swing bar visible</label>
+          <label class="chk"><input type="checkbox" id="c-resting" /> Resting / mounted</label>
+          <label class="chk"><input type="checkbox" id="c-demo" /> Auto demo (loops a scripted fight)</label>
+          <p class="hint">Any scenario control pauses the auto demo. Setting toggles (shocks clip, Stormstrike learned, Blizzard swing bar, resting) don't.</p>
+        </section>
+
+        <section>
+          <h3>State (read-only)</h3>
+          <pre id="readout"></pre>
+        </section>
+      </div>
+    </aside>
+
+    <script type="module" src="./hud.js"></script>
+  </body>
+</html>
