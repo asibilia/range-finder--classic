@@ -64,6 +64,11 @@ function start(): FakeGame {
     g.setReading('manaMax', 1000)
     g.setReading('mana', g.secret('mana'))
     g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
+    // Totem timers: no totems down (the have-totem flag says true anyway).
+    g.setReading('totemDurationSupported', true)
+    g.setReading('totemTimeLeft', 0)
+    g.setReading('totemDuration', undefined)
+    g.setReading('totemInfo', true, '', 0, 0, undefined)
     return g
 }
 

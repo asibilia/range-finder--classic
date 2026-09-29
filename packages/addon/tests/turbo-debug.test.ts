@@ -45,6 +45,11 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
     g.setReading('inCombat', false)
     g.setReading('targetAttackable', false)
+    // Totem timers: no totems down (the have-totem flag says true anyway).
+    g.setReading('totemDurationSupported', true)
+    g.setReading('totemTimeLeft', 0)
+    g.setReading('totemDuration', undefined)
+    g.setReading('totemInfo', true, '', 0, 0, undefined)
     // The weapon imbue and reminders read these once they start.
     g.setReading('mainHandEnchant', null)
     g.setReading('resting', false)

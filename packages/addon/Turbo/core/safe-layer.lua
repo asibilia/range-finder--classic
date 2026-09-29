@@ -75,6 +75,32 @@ function readings.itemInRange(itemID, unit)
 	return C_Item.IsItemInRange(itemID, unit)
 end
 
+---Seconds left on the totem in a game slot (Fire 1, Earth 2, Water 3, Air 4):
+---a plain 0 when the slot is empty, a secret in combat.
+---@param slot number
+function readings.totemTimeLeft(slot)
+	return GetTotemTimeLeft(slot)
+end
+
+---The duration object for a game slot's totem, or nil. Hand it straight to
+---a Cooldown.
+---@param slot number
+function readings.totemDuration(slot)
+	return GetTotemDuration(slot)
+end
+
+---haveTotem, name, startTime, duration and icon for a game slot. Secret in
+---combat. haveTotem says true for an empty slot too: never use it.
+---@param slot number
+function readings.totemInfo(slot)
+	return GetTotemInfo(slot)
+end
+
+---Whether the game gives totem duration objects to show on a Cooldown.
+function readings.totemDurationSupported()
+	return GetTotemDuration ~= nil
+end
+
 -- The Maelstrom Weapon buff. Recheck at the level-gated checks: the beta is
 -- capped below the talent.
 local MAELSTROM_WEAPON = 53817
