@@ -73,3 +73,23 @@ function TurboSafeLayer.slash(key, commands, handler) end
 ---@param value any
 ---@return boolean
 function TurboSafeLayer.isSecret(value) end
+
+---One control on a settings page. A checkbox or slider shows what `get`
+---returns whenever the page is drawn, and calls `set` when the player changes
+---it; a text control is a line of text.
+---@class TurboSettingsControl
+---@field kind "checkbox"|"slider"|"text"
+---@field label string
+---@field key string? names the setting; unique on the page (not for text)
+---@field default any
+---@field min number? sliders only
+---@field max number? sliders only
+---@field step number? sliders only
+---@field get (fun(): any)?
+---@field set (fun(value: any))?
+
+---Registers a page in Options → AddOns, on Blizzard's add-on settings API
+---(`Settings.RegisterVerticalLayoutCategory`, `Settings.RegisterAddOnCategory`).
+---@param name string
+---@param controls TurboSettingsControl[] top to bottom
+function TurboSafeLayer.settingsPage(name, controls) end

@@ -12,7 +12,20 @@ ns.modules = modules
 ---@type table<string, { modules: string[] }>
 ns.classKits = {}
 
+---An option a module declares: the settings page shows it under the module's
+---checkbox, and the module reads it with `ns.settings.get(key)`.
+---@class TurboModuleOption
+---@field key string
+---@field label string
+---@field kind "slider"|"checkbox"
+---@field default any
+---@field min number? sliders only
+---@field max number? sliders only
+---@field step number? sliders only
+
 ---@class TurboModule
+---@field name string? what the player sees; the id when missing
+---@field options TurboModuleOption[]?
 ---@field onEnable fun()?
 ---@field onDisable fun()?
 
@@ -45,13 +58,22 @@ local function switch(id, on)
 end
 
 ---Registers a module. Once Turbo has started, a module its class kit lists
----starts on right away.
+---starts on right away. Registering an id again replaces the module that had
+---it (switched off first), keeping its place in the list: that's how a
+---stand-in takes a real module's place.
 ---@param id string
 ---@param definition TurboModule
 function modules.register(id, definition)
-	assert(not registry[id], "Turbo: module '" .. tostring(id) .. "' is already registered")
-	registry[id] = { definition = definition, enabled = false }
-	table.insert(order, id)
+	if registry[id] then
+		switch(id, false)
+		registry[id].definition = definition
+	else
+		registry[id] = { definition = definition, enabled = false }
+		table.insert(order, id)
+	end
+	for _, option in ipairs(definition.options or {}) do
+		settings.declare(option.key, option.default)
+	end
 	if wanted(id) then
 		switch(id, true)
 	end
@@ -82,6 +104,20 @@ function modules.disable(id)
 	end
 	settings.setModule(id, false, defaultOn(id))
 	switch(id, false)
+end
+
+---The modules the player can turn on and off: the registered ones in their
+---class kit, in the order they registered.
+---@return { id: string, name: string, options: TurboModuleOption[] }[]
+function modules.list()
+	local list = {}
+	for _, id in ipairs(order) do
+		if inKit and inKit[id] then
+			local definition = registry[id].definition
+			table.insert(list, { id = id, name = definition.name or id, options = definition.options or {} })
+		end
+	end
+	return list
 end
 
 ---Starts the modules for one class kit.

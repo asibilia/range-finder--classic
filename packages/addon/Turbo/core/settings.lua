@@ -7,15 +7,21 @@
 --   }
 --
 -- Defaults live here and nowhere else (a module's on/off default is whether
--- its class kit lists it). The saved table stores only what differs from them.
+-- its class kit lists it, and a module's own options default to what it
+-- declares). The saved table stores only what differs from them.
+--
+-- A change sends the "Turbo.SettingChanged" message with the key and value.
 local _, ns = ...
+
+local events = ns.events
 
 local settings = {}
 ns.settings = settings
 
 local SCHEMA_VERSION = 1
 
----Every setting's default, per class.
+---Every setting's default, per class. Modules' declared options join these
+---when the modules register.
 settings.defaults = {
 	alwaysShow = false,
 	-- /turbo debug: log which values modules see as readable or secret.
@@ -124,6 +130,14 @@ end
 ---@param value any
 function settings.set(key, value)
 	store(nil, key, value, settings.defaults[key])
+	events.send("Turbo.SettingChanged", key, value)
+end
+
+---Adds a module's declared option to the defaults.
+---@param key string
+---@param default any
+function settings.declare(key, default)
+	settings.defaults[key] = default
 end
 
 ---Whether a module is on for the current class.

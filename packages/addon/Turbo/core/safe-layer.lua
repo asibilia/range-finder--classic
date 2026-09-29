@@ -204,3 +204,38 @@ end
 function safe.isSecret(value)
 	return issecretvalue(value)
 end
+
+-- A slider's number beside it, without float noise (0.15, not 0.1500001).
+local function sliderLabel(value)
+	return string.format("%g", value)
+end
+
+function safe.settingsPage(name, controls)
+	local category, layout = Settings.RegisterVerticalLayoutCategory(name)
+	for _, control in ipairs(controls) do
+		if control.kind == "text" then
+			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(control.label))
+		else
+			-- Proxy settings keep no value of their own: the page reads and
+			-- writes through Turbo, so a change made elsewhere shows here too.
+			local variableType = control.kind == "slider" and Settings.VarType.Number or Settings.VarType.Boolean
+			local setting = Settings.RegisterProxySetting(
+				category,
+				"Turbo_" .. control.key,
+				variableType,
+				control.label,
+				control.default,
+				control.get,
+				control.set
+			)
+			if control.kind == "slider" then
+				local options = Settings.CreateSliderOptions(control.min, control.max, control.step)
+				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, sliderLabel)
+				Settings.CreateSlider(category, setting, options)
+			else
+				Settings.CreateCheckbox(category, setting)
+			end
+		end
+	end
+	Settings.RegisterAddOnCategory(category)
+end

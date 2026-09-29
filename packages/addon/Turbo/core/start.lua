@@ -44,7 +44,9 @@ local function onLogin(event)
 	local kit = ns.classKits[classToken]
 	if not kit then
 		local classes = CLASS_PLURALS[classToken] or className or "your class"
-		safe.print("Turbo doesn't support " .. classes .. " yet.")
+		local message = "Turbo doesn't support " .. classes .. " yet."
+		safe.print(message)
+		ns.settingsPage.unsupported(message)
 		return
 	end
 
@@ -55,6 +57,7 @@ local function onLogin(event)
 	ns.card.start()
 	ns.modules.start(kit)
 	ns.slash.start()
+	ns.settingsPage.start()
 end
 
 safe.on("ADDON_LOADED", onAddonLoaded)

@@ -165,6 +165,7 @@ function range.inMelee()
 end
 
 ns.modules.register("rangeFinder", {
+	name = "Range finder",
 	onEnable = function()
 		if not label then
 			label = ns.card.rows.range:CreateFontString(nil, "OVERLAY", "GameFontNormal")

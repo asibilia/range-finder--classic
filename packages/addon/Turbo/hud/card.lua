@@ -170,6 +170,11 @@ function card.start()
 			update()
 		end
 	end)
+	events.on("Turbo.SettingChanged", function(_, key)
+		if key == "alwaysShow" then
+			update()
+		end
+	end)
 	events.on("EditMode.Enter", function()
 		setEditMode(true)
 	end)

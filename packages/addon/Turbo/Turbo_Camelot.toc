@@ -18,4 +18,5 @@ hud\card.lua
 modules\range-finder.lua
 modules\maelstrom-weapon.lua
 core\slash.lua
+core\settings-page.lua
 core\start.lua
