@@ -20,6 +20,7 @@ modules\swing-timer.lua
 modules\totem-timers.lua
 modules\reminders.lua
 modules\weapon-imbue.lua
+modules\lightning-shield.lua
 modules\maelstrom-weapon.lua
 modules\key-cooldowns.lua
 modules\mana-bar.lua

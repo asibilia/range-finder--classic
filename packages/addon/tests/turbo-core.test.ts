@@ -76,6 +76,9 @@ function start(
     g.setReading('resting', false)
     g.setReading('mounted', false)
     g.setReading('onTaxi', false)
+    // Lightning Shield reads its aura (none) and whether the widget exists.
+    g.setReading('lightningShield', false)
+    g.setReading('auraContainerSupported', true)
     // Forever's project ID says "retail" (1). Turbo must never rely on it.
     g.setReading('projectId', 1)
     // Key cooldowns and the mana bar (turbo-key-cooldowns / turbo-mana-bar).

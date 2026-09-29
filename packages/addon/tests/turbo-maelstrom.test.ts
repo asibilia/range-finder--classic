@@ -69,6 +69,9 @@ function start(): FakeGame {
     g.setReading('totemTimeLeft', 0)
     g.setReading('totemDuration', undefined)
     g.setReading('totemInfo', true, '', 0, 0, undefined)
+    // Lightning Shield reads its aura (none) and whether the widget exists.
+    g.setReading('lightningShield', false)
+    g.setReading('auraContainerSupported', true)
     return g
 }
 

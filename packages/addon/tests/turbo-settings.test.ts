@@ -165,6 +165,8 @@ function start(
     g.setReading('manaMax', 1000)
     g.setReading('mana', g.secret('mana'))
     g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
+    g.setReading('lightningShield', false)
+    g.setReading('auraContainerSupported', true)
     for (const m of options.modules ?? MODULES) registerModule(g, m)
     return g
 }

@@ -64,6 +64,9 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     g.setReading('manaMax', 1000)
     g.setReading('mana', g.secret('mana'))
     g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
+    // Lightning Shield reads its aura (none) and whether the widget exists.
+    g.setReading('lightningShield', false)
+    g.setReading('auraContainerSupported', true)
     return g
 }
 

@@ -138,6 +138,44 @@ function readings.mainHandEnchant()
 	end
 end
 
+-- Lightning Shield, every rank. The module keeps the same list.
+local LIGHTNING_SHIELD_RANKS = { 324, 325, 905, 945, 8134, 10431, 10432 }
+
+---The player's Lightning Shield, `{ charges, timeLeft = <seconds> }`, false
+---when there's none, nil when the aura read failed (they throw in combat) or
+---came back secret.
+function readings.lightningShield()
+	local ok, aura = pcall(function()
+		for _, spellID in ipairs(LIGHTNING_SHIELD_RANKS) do
+			local found = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+			if found ~= nil then
+				return found
+			end
+		end
+		return false
+	end)
+	if not ok or issecretvalue(aura) then
+		return nil
+	end
+	if not aura then
+		return false
+	end
+	local charges, expirationTime = aura.applications, aura.expirationTime
+	if issecretvalue(charges) or issecretvalue(expirationTime) then
+		return nil
+	end
+	if type(charges) ~= "number" or type(expirationTime) ~= "number" then
+		return nil
+	end
+	return { charges = charges, timeLeft = math.max(0, expirationTime - GetTime()) }
+end
+
+---Whether the client has Blizzard's aura container widget.
+function readings.auraContainerSupported()
+	local ok, info = pcall(C_XMLUtil.GetTemplateInfo, "CustomAuraContainerTemplate")
+	return ok and info ~= nil
+end
+
 ---Whether the player is resting (in town or an inn).
 function readings.resting()
 	return IsResting()
