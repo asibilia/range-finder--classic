@@ -50,6 +50,31 @@ function readings.targetAttackable()
 	return UnitCanAttack("player", "target") and not UnitIsDead("target")
 end
 
+---Spells whose SPELL_RANGE_CHECK_UPDATE is on.
+---@type table<number, boolean>
+local rangeChecked = {}
+
+---Whether a unit is in a spell's range: true, false, or nil when there's
+---nothing to check. Asking about a spell also turns on the game's
+---SPELL_RANGE_CHECK_UPDATE for it, so its range changes are reported.
+---@param spellID number
+---@param unit string
+function readings.spellInRange(spellID, unit)
+	if not rangeChecked[spellID] then
+		rangeChecked[spellID] = true
+		C_Spell.EnableSpellRangeCheck(spellID, true)
+	end
+	return C_Spell.IsSpellInRange(spellID, unit)
+end
+
+---Whether a unit is in an item's range: true, false, or nil when there's
+---nothing to check.
+---@param itemID number
+---@param unit string
+function readings.itemInRange(itemID, unit)
+	return C_Item.IsItemInRange(itemID, unit)
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 
