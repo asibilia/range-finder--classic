@@ -11,6 +11,9 @@ local _, ns = ...
 local safe = ns.safe
 local events = ns.events
 
+local MODULE_ID = "keyCooldowns"
+local read = ns.debug.reader(MODULE_ID)
+
 -- Every shock shares one cooldown. Earth Shock's ranks, lowest first: the
 -- icon follows the highest one known, so the mana check matches its cost.
 local SHOCK_RANKS = { 8042, 8044, 8045, 8046, 10412, 10413, 10414 }
@@ -27,7 +30,7 @@ local icons = {}
 
 local function highestKnown(ranks)
 	for i = #ranks, 1, -1 do
-		if safe.read("spellKnown", ranks[i]) == true then
+		if read("spellKnown", ranks[i]) == true then
 			return ranks[i]
 		end
 	end
@@ -60,12 +63,12 @@ local function updateCooldown(icon)
 	if not icon.spellID then
 		return
 	end
-	local info = safe.read("spellCooldown", icon.spellID)
+	local info = read("spellCooldown", icon.spellID)
 	local cooling = info ~= nil and info.isActive == true and info.isOnGCD ~= true
 	icon.texture:SetDesaturated(cooling)
 	icon.texture:SetAlpha(cooling and DIM_ALPHA or 1)
 	if cooling then
-		icon.cooldown:SetCooldownFromDurationObject(safe.read("spellCooldownDuration", icon.spellID))
+		icon.cooldown:SetCooldownFromDurationObject(read("spellCooldownDuration", icon.spellID))
 	else
 		icon.cooldown:Clear()
 	end
@@ -75,7 +78,7 @@ local function updateUsable(icon)
 	if not icon.spellID then
 		return
 	end
-	local _, insufficientPower = safe.read("spellUsable", icon.spellID)
+	local _, insufficientPower = read("spellUsable", icon.spellID)
 	if insufficientPower == true then
 		icon.texture:SetVertexColor(BLUE[1], BLUE[2], BLUE[3])
 	else
@@ -97,7 +100,7 @@ local function updateSpells()
 	for i, icon in ipairs(icons) do
 		icon.spellID = spells[i]
 		if icon.spellID then
-			icon.texture:SetTexture(safe.read("spellTexture", icon.spellID))
+			icon.texture:SetTexture(read("spellTexture", icon.spellID))
 			icon.holder:Show()
 		else
 			icon.holder:Hide()
@@ -118,7 +121,8 @@ local function onUsable()
 	end
 end
 
-ns.modules.register("keyCooldowns", {
+ns.modules.register(MODULE_ID, {
+	name = "Key cooldowns",
 	onEnable = function()
 		if not container then
 			build()

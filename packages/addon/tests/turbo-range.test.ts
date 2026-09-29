@@ -27,6 +27,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { TURBO_DIR, loadTurbo, type FakeGame } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 
@@ -90,11 +91,7 @@ function start(): FakeGame {
             },
         },
     })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', false)
-    g.setReading('targetAttackable', false)
+    scriptShamanOnForever(g)
     setChecks(g, NOTHING)
     return g
 }

@@ -12,6 +12,7 @@ local events = ns.events
 local restrictions = ns.restrictions
 
 local MODULE_ID = "maelstromWeapon"
+local read = ns.debug.reader(MODULE_ID)
 local MAX_STACKS = 5
 local PIP_SIZE = 8
 local PIP_SPACING = 3
@@ -77,11 +78,9 @@ onAura = function(_, unit)
 	if readable == nil and not inCombat then
 		return
 	end
-	local stacks = safe.read("maelstromWeapon")
-	-- A failed read has no value to log; turnOff below says why instead.
-	if inCombat and stacks ~= nil then
-		ns.debug.record(MODULE_ID, "stacks", stacks)
-	end
+	-- The reader logs a secret or an in-combat number for debug mode; a failed
+	-- read has no value to log, so turnOff below says why instead.
+	local stacks = read("maelstromWeapon")
 	-- A secret passes for a number to type(), so it's checked first.
 	if safe.isSecret(stacks) then
 		if inCombat then
@@ -100,6 +99,7 @@ onAura = function(_, unit)
 end
 
 ns.modules.register(MODULE_ID, {
+	name = "Maelstrom Weapon",
 	onEnable = function()
 		if not frame then
 			build()

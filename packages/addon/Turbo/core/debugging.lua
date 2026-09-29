@@ -2,6 +2,9 @@
 -- readable or secret, and which restrictions were on at the time, so a rule
 -- change Blizzard makes during the beta shows up quickly.
 --
+-- Modules read the game through `ns.debug.reader`, which logs each reading;
+-- a value a module gets some other way (an event's) it records itself.
+--
 -- The log keeps only names and a status, never a value: a secret is told
 -- apart with the safe layer's check and never read. It holds the newest
 -- entries up to a fixed size, and logs a value again only when its status or
@@ -94,6 +97,35 @@ function debugLog.record(moduleId, valueName, value)
 			restrictionKey ~= "" and restrictionKey or "no restrictions"
 		)
 	)
+end
+
+-- Logs what one reading returned: each value under the reading's name, the
+-- second and later ones numbered ("manaColor#2"). Worth logging is a secret
+-- anywhere, or any value under a restriction; out of every restriction values
+-- read plainly, and a nil has nothing to log.
+local function logReading(moduleId, name, ...)
+	if on then
+		local restricted = #restrictions.activeKinds() > 0
+		for i = 1, select("#", ...) do
+			local value = select(i, ...)
+			-- Secrecy first: a secret is never compared, not even to nil.
+			if safe.isSecret(value) or (restricted and value ~= nil) then
+				debugLog.record(moduleId, i == 1 and name or name .. "#" .. i, value)
+			end
+		end
+	end
+	return ...
+end
+
+---A `safe.read` for one module that also logs what it reads while debug mode
+---is on. Modules read the game through it, so every reading reaches the log
+---without the module asking.
+---@param moduleId string "manaBar"
+---@return fun(name: string, ...: any): ...: any
+function debugLog.reader(moduleId)
+	return function(name, ...)
+		return logReading(moduleId, name, safe.read(name, ...))
+	end
 end
 
 ---The log, oldest first.

@@ -115,10 +115,12 @@ local function onUpdate()
 end
 
 local function onSwing(_, duration, swingType)
-	if swingType ~= MAIN_HAND or type(duration) ~= "number" or duration <= 0 then
+	-- An event's value, not a reading, so logged here, before any comparison:
+	-- a secret passes for a number to type().
+	ns.debug.record("swingTimer", "swingDuration", duration)
+	if safe.isSecret(duration) or swingType ~= MAIN_HAND or type(duration) ~= "number" or duration <= 0 then
 		return
 	end
-	ns.debug.record("swingTimer", "swingDuration", duration)
 	swingStart = safe.now()
 	swingDuration = duration
 	full = false

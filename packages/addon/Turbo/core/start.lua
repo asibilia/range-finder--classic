@@ -52,10 +52,12 @@ local function onLogin(event)
 
 	ns.settings.useClass(classToken)
 	ns.restrictions.start()
-	ns.debug.start()
 	-- The card first, so modules find its rows to fill.
 	ns.card.start()
 	ns.modules.start(kit)
+	-- After the modules' first reads, so a login in debug mode doesn't flood
+	-- chat; what they read from here on is logged.
+	ns.debug.start()
 	ns.slash.start()
 	ns.settingsPage.start()
 end

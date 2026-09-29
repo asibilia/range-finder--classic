@@ -12,7 +12,10 @@ local events = ns.events
 local settings = ns.settings
 local restrictions = ns.restrictions
 
-local REMINDER = "weaponImbue"
+local MODULE_ID = "weaponImbue"
+local read = ns.debug.reader(MODULE_ID)
+
+local REMINDER = MODULE_ID
 -- Windfury Weapon's icon, for the reminder before any imbue has been seen.
 local DEFAULT_ICON = 136018
 local SIZE = 22
@@ -72,8 +75,8 @@ local function update()
 	end
 end
 
-local function read()
-	local enchant = safe.read("mainHandEnchant")
+local function readEnchant()
+	local enchant = read("mainHandEnchant")
 	if enchant and enchant.timeLeft > 0 then
 		expiresAt = safe.now() + enchant.timeLeft
 		lastIcon = enchant.icon or lastIcon
@@ -89,7 +92,7 @@ end
 
 local function onInventoryChanged(_, unit)
 	if unit == "player" then
-		read()
+		readEnchant()
 	end
 end
 
@@ -111,19 +114,41 @@ local function build()
 	frame:Hide()
 end
 
-ns.modules.register("weaponImbue", {
+ns.modules.register(MODULE_ID, {
+	name = "Weapon imbue",
+	options = {
+		{
+			key = "imbueWarnMinutes",
+			label = "Imbue reminder out of combat (minutes)",
+			kind = "slider",
+			default = 5,
+			min = 0,
+			max = 30,
+			step = 1,
+		},
+		-- 0: in combat, only once the imbue is gone.
+		{
+			key = "imbueCombatWarnMinutes",
+			label = "Imbue reminder in combat (minutes)",
+			kind = "slider",
+			default = 0,
+			min = 0,
+			max = 10,
+			step = 1,
+		},
+	},
 	onEnable = function()
 		if not frame then
 			build()
 		end
 		events.on("UNIT_INVENTORY_CHANGED", onInventoryChanged)
-		events.on("WEAPON_ENCHANT_CHANGED", read)
+		events.on("WEAPON_ENCHANT_CHANGED", readEnchant)
 		events.on("Turbo.RestrictionChanged", onRestrictionChanged)
-		read()
+		readEnchant()
 	end,
 	onDisable = function()
 		events.off("UNIT_INVENTORY_CHANGED", onInventoryChanged)
-		events.off("WEAPON_ENCHANT_CHANGED", read)
+		events.off("WEAPON_ENCHANT_CHANGED", readEnchant)
 		events.off("Turbo.RestrictionChanged", onRestrictionChanged)
 		expiresAt = nil
 		stopTicker()

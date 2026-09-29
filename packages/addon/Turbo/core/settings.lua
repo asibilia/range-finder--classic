@@ -26,10 +26,6 @@ settings.defaults = {
 	alwaysShow = false,
 	-- /turbo debug: log which values modules see as readable or secret.
 	debug = false,
-	-- The weapon imbue's reminder: out of combat, under this many minutes
-	-- left; in combat, under this many (0: only once it's gone).
-	imbueWarnMinutes = 5,
-	imbueCombatWarnMinutes = 0,
 }
 
 ---Upgrades, by the schema version they upgrade to. Each gets the saved table

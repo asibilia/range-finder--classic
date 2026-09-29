@@ -15,6 +15,9 @@ local _, ns = ...
 local safe = ns.safe
 local events = ns.events
 
+local MODULE_ID = "rangeFinder"
+local read = ns.debug.reader(MODULE_ID)
+
 local range = {}
 ns.range = range
 
@@ -74,12 +77,18 @@ local function update()
 end
 
 local function readSpells()
-	inShock = safe.read("spellInRange", EARTH_SHOCK, "target") == true
-	inBolt = safe.read("spellInRange", LIGHTNING_BOLT, "target") == true
+	inShock = read("spellInRange", EARTH_SHOCK, "target") == true
+	inBolt = read("spellInRange", LIGHTNING_BOLT, "target") == true
 end
 
 local function readMelee()
-	return safe.read("itemInRange", MELEE_ITEM, "target") == true
+	return read("itemInRange", MELEE_ITEM, "target") == true
+end
+
+-- The card's own engaged check, read the same way the card reads it: Turbo's
+-- plain gate on whether to range at all, so debug mode leaves it out.
+local function readTargetAttackable()
+	return safe.read("targetAttackable") == true
 end
 
 local function poll()
@@ -121,7 +130,7 @@ local function track()
 end
 
 local function onTargetChanged()
-	if safe.read("targetAttackable") == true then
+	if readTargetAttackable() then
 		track()
 	else
 		stop()
@@ -130,7 +139,7 @@ end
 
 -- The same target can die, or turn hostile, without a target change.
 local function onTargetFlags()
-	local attackable = safe.read("targetAttackable") == true
+	local attackable = readTargetAttackable()
 	if attackable and not targetAttackable then
 		track()
 	elseif not attackable and targetAttackable then
@@ -164,7 +173,7 @@ function range.inMelee()
 	return targetAttackable and inMelee
 end
 
-ns.modules.register("rangeFinder", {
+ns.modules.register(MODULE_ID, {
 	name = "Range finder",
 	onEnable = function()
 		if not label then

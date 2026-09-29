@@ -36,6 +36,7 @@ import {
     readToc,
     type FakeGame,
 } from './fake-game/fake-game'
+import { scriptIdleShaman } from './fake-game/idle-shaman.test'
 
 type SettingsControl = {
     kind: string
@@ -63,76 +64,53 @@ afterEach(() => {
     extraGames = []
 })
 
-type Option = {
-    key: string
-    label: string
-    kind: 'slider' | 'checkbox'
-    default: number | boolean
+type ModuleSpec = { id: string; name: string }
+
+const MAGE = ['Mage', 'MAGE', 8]
+
+/**
+ * Logging stand-ins for some Shaman kit modules, for the checkbox and slash
+ * command mechanics. They declare no options: the declared-options tests use
+ * the real modules, so what they check is what the real page shows.
+ */
+const MODULES: ModuleSpec[] = [
+    { id: 'rangeFinder', name: 'Range finder' },
+    { id: 'swingTimer', name: 'Swing timer' },
+    { id: 'totemTimers', name: 'Totem timers' },
+    { id: 'weaponImbue', name: 'Weapon imbue' },
+]
+
+type ExpectedOption = {
+    label: RegExp
+    default: number
     min?: number
     max?: number
     step?: number
 }
 
-type ModuleSpec = { id: string; name: string; options?: Option[] }
-
-const SHAMAN = ['Shaman', 'SHAMAN', 7]
-const MAGE = ['Mage', 'MAGE', 8]
-
-const SAFE_WINDOW: Option = {
-    key: 'safeWindow',
-    label: 'Safe window',
-    kind: 'slider',
-    default: 0.15,
-    min: 0.05,
-    max: 0.5,
-    step: 0.01,
-}
-const IMBUE_OUT_OF_COMBAT: Option = {
-    key: 'imbueWarnMinutes',
-    label: 'Imbue reminder out of combat (minutes)',
-    kind: 'slider',
-    default: 5,
-    min: 0,
-    max: 30,
-    step: 1,
-}
-const IMBUE_IN_COMBAT: Option = {
-    key: 'imbueCombatWarnMinutes',
-    label: 'Imbue reminder in combat (minutes)',
-    kind: 'slider',
-    default: 0,
-    min: 0,
-    max: 10,
-    step: 1,
-}
-const TOTEM_WARNING: Option = {
-    key: 'totemWarning',
-    label: 'Totem warning (seconds)',
-    kind: 'slider',
-    default: 5,
-    min: 0,
-    max: 15,
-    step: 1,
-}
-
-/** Stand-ins for Shaman kit modules, declaring the v1 options. */
-const MODULES: ModuleSpec[] = [
-    { id: 'rangeFinder', name: 'Range finder' },
-    { id: 'swingTimer', name: 'Swing timer', options: [SAFE_WINDOW] },
-    { id: 'totemTimers', name: 'Totem timers', options: [TOTEM_WARNING] },
-    {
-        id: 'weaponImbue',
-        name: 'Weapon imbue',
-        options: [IMBUE_OUT_OF_COMBAT, IMBUE_IN_COMBAT],
+/**
+ * The options the real Shaman kit modules declare, by key: the safe-window
+ * size, the totem warning time, and the imbue reminder's thresholds out of
+ * combat (5 minutes) and in combat (0: only once it's gone).
+ */
+const REAL_OPTIONS: Record<string, ExpectedOption> = {
+    safeWindow: {
+        label: /safe window/i,
+        default: 0.15,
+        min: 0,
+        max: 0.5,
+        step: 0.01,
     },
-]
-
-const DECLARED_OPTIONS = [
-    SAFE_WINDOW,
-    IMBUE_OUT_OF_COMBAT,
-    IMBUE_IN_COMBAT,
-    TOTEM_WARNING,
-]
+    totemWarningSeconds: {
+        label: /totem/i,
+        default: 5,
+        min: 0,
+        max: 15,
+        step: 1,
+    },
+    imbueWarnMinutes: { label: /imbue/i, default: 5 },
+    imbueCombatWarnMinutes: { label: /imbue/i, default: 0 },
+}
 
 /** Loads Turbo with the game's readings scripted, and the stand-ins in. */
 function start(
@@ -145,28 +123,10 @@ function start(
     const g = loadTurbo(
         options.savedVariables ? { savedVariables: options.savedVariables } : {}
     ) as WithSettings
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', ...(options.playerClass ?? SHAMAN))
-    g.setReading('inCombat', false)
-    g.setReading('targetAttackable', false)
-    // Readings other modules make at login; nothing to report.
-    g.setReading('mainHandEnchant', null)
-    g.setReading('resting', false)
-    g.setReading('mounted', false)
-    g.setReading('onTaxi', false)
-    g.setReading('spellInRange', null)
-    g.setReading('itemInRange', null)
-    g.setReading('spellKnown', true)
-    g.setReading('spellTexture', 136026)
-    g.setReading('spellCooldown', { isActive: false, isOnGCD: false })
-    g.setReading('spellCooldownDuration', g.secret('cooldown', 'userdata'))
-    g.setReading('spellUsable', true, false)
-    g.setReading('manaMax', 1000)
-    g.setReading('mana', g.secret('mana'))
-    g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
-    g.setReading('lightningShield', false)
-    g.setReading('auraContainerSupported', true)
+    scriptIdleShaman(
+        g,
+        options.playerClass ? { playerClass: options.playerClass } : {}
+    )
     for (const m of options.modules ?? MODULES) registerModule(g, m)
     return g
 }
@@ -175,18 +135,16 @@ function start(
 function registerModule(g: FakeGame, spec: ModuleSpec) {
     g.run(
         `
-        local id, name, options = ...
+        local id, name = ...
         ns.testLog = ns.testLog or {}
         ns.modules.register(id, {
             name = name,
-            options = options,
             onEnable = function() table.insert(ns.testLog, "enable " .. id) end,
             onDisable = function() table.insert(ns.testLog, "disable " .. id) end,
         })
         `,
         spec.id,
-        spec.name,
-        spec.options ?? []
+        spec.name
     )
 }
 
@@ -202,6 +160,51 @@ function started(savedVariables?: Record<string, unknown>): WithSettings {
     const g = start(savedVariables ? { savedVariables } : {})
     login(g)
     return g
+}
+
+/** Loads and logs in a Shaman with the real class kit modules only. */
+function realKit(savedVariables?: Record<string, unknown>): WithSettings {
+    const g = start({
+        modules: [],
+        ...(savedVariables ? { savedVariables } : {}),
+    })
+    login(g)
+    return g
+}
+
+type DeclaredOption = {
+    module: string
+    key: string
+    label: string
+    kind: string
+    default?: unknown
+    min?: number
+    max?: number
+    step?: number
+}
+
+/** Every option the registered kit modules declare, in registry order. */
+function declaredOptions(g: FakeGame): DeclaredOption[] {
+    const list = g.run(`
+        local out = {}
+        for _, entry in ipairs(ns.modules.list()) do
+            for _, o in ipairs(entry.options) do
+                table.insert(out, {
+                    module = entry.id, key = o.key, label = o.label, kind = o.kind,
+                    default = o.default, min = o.min, max = o.max, step = o.step,
+                })
+            end
+        end
+        return out
+    `)[0]
+    return Array.isArray(list) ? (list as DeclaredOption[]) : []
+}
+
+/** The exact label a real module declared for an option key. */
+function optionLabel(g: FakeGame, key: string): RegExp {
+    const found = declaredOptions(g).filter((o) => o.key === key)
+    expect(found.map((o) => o.key)).toEqual([key])
+    return exactly((found[0] as DeclaredOption).label)
 }
 
 function isEnabled(g: FakeGame, id: string): unknown {
@@ -384,26 +387,62 @@ describe('module checkboxes', () => {
 })
 
 describe('declared options', () => {
-    test('the options modules declare are rendered: safe-window size, both imbue thresholds and the totem warning time, as sliders with their declared ranges and defaults', () => {
-        game = started()
+    test('with the real Shaman kit modules, the page renders the options they declare: safe-window size, both imbue thresholds and the totem warning time, as sliders with their keys, labels, ranges and defaults', () => {
+        game = realKit()
 
-        for (const option of DECLARED_OPTIONS) {
-            const slider = control(game, exactly(option.label))
-            expect(slider).toMatchObject({
+        const declared = declaredOptions(game)
+        expect(declared.map((o) => o.key).sort()).toEqual(
+            Object.keys(REAL_OPTIONS).sort()
+        )
+        for (const option of declared) {
+            const expected = REAL_OPTIONS[option.key] as ExpectedOption
+            expect(option.kind).toBe('slider')
+            expect(option.label).toMatch(expected.label)
+            expect(option.default).toBe(expected.default)
+            expect(typeof option.min).toBe('number')
+            expect(typeof option.max).toBe('number')
+            expect(typeof option.step).toBe('number')
+            expect(option.min as number).toBeLessThanOrEqual(expected.default)
+            expect(option.max as number).toBeGreaterThan(expected.default)
+            for (const bound of ['min', 'max', 'step'] as const) {
+                if (expected[bound] !== undefined) {
+                    expect(option[bound]).toBe(expected[bound])
+                }
+            }
+
+            expect(control(game, exactly(option.label))).toMatchObject({
                 kind: 'slider',
-                value: option.default,
+                value: expected.default,
                 min: option.min,
                 max: option.max,
                 step: option.step,
             })
+            expect(setting(game, option.key)).toBe(expected.default)
         }
     })
 
-    test('a declared option nobody changed reads as its declared default', () => {
-        game = started()
+    test('with the real Shaman kit modules, the page has one ticked checkbox per kit module, named as the module, plus always show', () => {
+        game = realKit()
 
-        for (const option of DECLARED_OPTIONS) {
-            expect(setting(game, option.key)).toBe(option.default)
+        const kit = shamanKit(game)
+        const registered = registeredModules(game)
+        expect(registered.map((r) => r.id).sort()).toEqual([...kit].sort())
+        const checkboxes = turboPage(game).controls.filter(
+            (c) => c.kind === 'checkbox'
+        )
+        for (const r of registered) {
+            const boxes = checkboxes.filter((c) => c.label === r.name)
+            expect(boxes).toHaveLength(1)
+            expect(boxes[0]?.value).toBe(true)
+        }
+        expect(checkboxes).toHaveLength(registered.length + 1)
+    })
+
+    test('a declared option nobody changed reads as its declared default', () => {
+        game = realKit()
+
+        for (const [key, expected] of Object.entries(REAL_OPTIONS)) {
+            expect(setting(game, key)).toBe(expected.default)
         }
         expect(storedChanges(game)).toEqual({})
     })
@@ -418,12 +457,13 @@ describe('declared options', () => {
     })
 
     test('moving a slider changes the value modules read and saves it under the class', () => {
-        game = started()
+        game = realKit()
+        const safeWindow = optionLabel(game, 'safeWindow')
 
-        change(game, exactly('Safe window'), 0.2)
+        change(game, safeWindow, 0.2)
 
         expect(setting(game, 'safeWindow')).toBe(0.2)
-        expect(control(game, exactly('Safe window')).value).toBe(0.2)
+        expect(control(game, safeWindow).value).toBe(0.2)
         const stored = storedChanges(game)
         expect(Object.values(stored)).toEqual([0.2])
         for (const path of Object.keys(stored)) {
@@ -432,23 +472,26 @@ describe('declared options', () => {
     })
 
     test('a slider moved on the page shows its new value after a reload', () => {
-        const first = started()
+        const first = realKit()
         extraGames.push(first)
-        change(first, exactly('Totem warning (seconds)'), 8)
+        change(first, optionLabel(first, 'totemWarningSeconds'), 8)
         const saved = first.global('TurboDB')
 
-        game = started({ TurboDB: saved })
+        game = realKit({ TurboDB: saved })
 
-        expect(control(game, exactly('Totem warning (seconds)')).value).toBe(8)
-        expect(setting(game, 'totemWarning')).toBe(8)
-        expect(control(game, exactly('Safe window')).value).toBe(0.15)
+        expect(
+            control(game, optionLabel(game, 'totemWarningSeconds')).value
+        ).toBe(8)
+        expect(setting(game, 'totemWarningSeconds')).toBe(8)
+        expect(control(game, optionLabel(game, 'safeWindow')).value).toBe(0.15)
     })
 
     test('moving a slider back to its default leaves nothing saved', () => {
-        game = started()
+        game = realKit()
+        const safeWindow = optionLabel(game, 'safeWindow')
 
-        change(game, exactly('Safe window'), 0.3)
-        change(game, exactly('Safe window'), 0.15)
+        change(game, safeWindow, 0.3)
+        change(game, safeWindow, 0.15)
 
         expect(setting(game, 'safeWindow')).toBe(0.15)
         expect(storedChanges(game)).toEqual({})
@@ -514,9 +557,9 @@ describe('saved settings', () => {
     })
 
     test('changes made on the page keep schema version 1 and store only what differs from the defaults', () => {
-        game = started()
+        game = realKit()
 
-        change(game, exactly('Safe window'), 0.2)
+        change(game, optionLabel(game, 'safeWindow'), 0.2)
         change(game, SWING_TIMER, false)
         change(game, exactly('Range finder'), true)
         change(game, ALWAYS_SHOW, false)

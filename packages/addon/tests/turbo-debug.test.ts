@@ -19,6 +19,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
 import { loadTurbo, type FakeGame } from './fake-game/fake-game'
+import { scriptIdleShaman } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 let extraGames: FakeGame[] = []
@@ -40,33 +41,7 @@ type Entry = {
 /** Loads Turbo as a Shaman on Forever, out of combat with no target. */
 function start(savedVariables?: Record<string, unknown>): FakeGame {
     const g = loadTurbo(savedVariables ? { savedVariables } : {})
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', false)
-    g.setReading('targetAttackable', false)
-    // Totem timers: no totems down (the have-totem flag says true anyway).
-    g.setReading('totemDurationSupported', true)
-    g.setReading('totemTimeLeft', 0)
-    g.setReading('totemDuration', undefined)
-    g.setReading('totemInfo', true, '', 0, 0, undefined)
-    // The weapon imbue and reminders read these once they start.
-    g.setReading('mainHandEnchant', null)
-    g.setReading('resting', false)
-    g.setReading('mounted', false)
-    g.setReading('onTaxi', false)
-    // Key cooldowns and the mana bar (turbo-key-cooldowns / turbo-mana-bar).
-    g.setReading('spellKnown', true)
-    g.setReading('spellTexture', 136026)
-    g.setReading('spellCooldown', { isActive: false, isOnGCD: false })
-    g.setReading('spellCooldownDuration', g.secret('cooldown', 'userdata'))
-    g.setReading('spellUsable', true, false)
-    g.setReading('manaMax', 1000)
-    g.setReading('mana', g.secret('mana'))
-    g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
-    // Lightning Shield reads its aura (none) and whether the widget exists.
-    g.setReading('lightningShield', false)
-    g.setReading('auraContainerSupported', true)
+    scriptIdleShaman(g)
     return g
 }
 

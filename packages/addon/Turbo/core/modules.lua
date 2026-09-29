@@ -24,7 +24,7 @@ ns.classKits = {}
 ---@field step number? sliders only
 
 ---@class TurboModule
----@field name string? what the player sees; the id when missing
+---@field name string what the player sees, on the settings page and in /turbo
 ---@field options TurboModuleOption[]?
 ---@field onEnable fun()?
 ---@field onDisable fun()?

@@ -9,6 +9,9 @@ local _, ns = ...
 local safe = ns.safe
 local events = ns.events
 
+local MODULE_ID = "manaBar"
+local read = ns.debug.reader(MODULE_ID)
+
 local LOW_MANA = 0.2
 -- Red below LOW_MANA, mana blue from it up.
 local COLOR_CURVE = {
@@ -37,14 +40,14 @@ local function build()
 end
 
 local function updateMax()
-	bar:SetMinMaxValues(0, safe.read("manaMax"))
+	bar:SetMinMaxValues(0, read("manaMax"))
 end
 
 local function updateMana()
-	local mana = safe.read("mana")
+	local mana = read("mana")
 	bar:SetValue(mana)
 	text:SetText(mana)
-	bar:SetStatusBarColor(safe.read("manaColor", COLOR_CURVE))
+	bar:SetStatusBarColor(read("manaColor", COLOR_CURVE))
 end
 
 local function onPower(_, unit, powerType)
@@ -60,7 +63,8 @@ local function onMaxPower(_, unit, powerType)
 	end
 end
 
-ns.modules.register("manaBar", {
+ns.modules.register(MODULE_ID, {
+	name = "Mana bar",
 	onEnable = function()
 		if not bar then
 			build()

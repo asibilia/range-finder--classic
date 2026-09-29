@@ -41,6 +41,7 @@ import {
     type FakeGame,
     type FrameState,
 } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 
@@ -122,11 +123,7 @@ function start(): FakeGame {
             },
         },
     })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', false)
-    g.setReading('targetAttackable', false)
+    scriptShamanOnForever(g)
     setChecks(g, NOTHING)
     return g
 }

@@ -36,6 +36,7 @@ import {
     loadTurbo,
     type FakeGame,
 } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 
@@ -144,11 +145,7 @@ function start(
             TurboDB: onlyModules(options.modules ?? ['keyCooldowns']),
         },
     })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', options.inCombat ?? false)
-    g.setReading('targetAttackable', false)
+    scriptShamanOnForever(g, { inCombat: [options.inCombat ?? false] })
 
     g.setReading('spellKnown', true)
     g.setReadingFor(

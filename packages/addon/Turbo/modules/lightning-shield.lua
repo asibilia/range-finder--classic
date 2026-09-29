@@ -17,7 +17,10 @@ local events = ns.events
 local restrictions = ns.restrictions
 local timers = ns.timers
 
-local REMINDER = "lightningShield"
+local MODULE_ID = "lightningShield"
+local read = ns.debug.reader(MODULE_ID)
+
+local REMINDER = MODULE_ID
 local ICON = 136051
 local SIZE = 22
 -- Just right of the weapon imbue.
@@ -141,7 +144,7 @@ local function ensureContainer()
 		return
 	end
 	if widgetSupported == nil then
-		widgetSupported = safe.read("auraContainerSupported") == true
+		widgetSupported = read("auraContainerSupported") == true
 	end
 	if widgetSupported then
 		buildContainer()
@@ -154,7 +157,7 @@ local function sync()
 	if restrictions.inCombat() then
 		return
 	end
-	local shield = safe.read("lightningShield")
+	local shield = read("lightningShield")
 	if shield == nil then
 		return
 	end
@@ -224,7 +227,7 @@ local function build()
 	frame:Hide()
 end
 
-ns.modules.register("lightningShield", {
+ns.modules.register(MODULE_ID, {
 	name = "Lightning Shield",
 	onEnable = function()
 		if not frame then

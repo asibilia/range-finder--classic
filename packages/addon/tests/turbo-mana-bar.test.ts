@@ -29,6 +29,7 @@ import {
     type FakeGame,
     type WidgetCall,
 } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 
@@ -83,11 +84,7 @@ function setColor(g: FakeGame, label: string) {
  */
 function start(): FakeGame {
     const g = loadTurbo({ savedVariables: { TurboDB: onlyModule('manaBar') } })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', true)
-    g.setReading('targetAttackable', true)
+    scriptShamanOnForever(g, { inCombat: [true], targetAttackable: [true] })
 
     g.setReading('manaMax', MAX_MANA)
     g.setReading('mana', g.secret('mana'))

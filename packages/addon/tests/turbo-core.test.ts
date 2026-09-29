@@ -26,6 +26,7 @@ import {
     loadTurbo,
     type FakeGame,
 } from './fake-game/fake-game'
+import { SHAMAN, scriptIdleShaman } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 let extraGames: FakeGame[] = []
@@ -37,7 +38,6 @@ afterEach(() => {
     extraGames = []
 })
 
-const SHAMAN = ['Shaman', 'SHAMAN', 7]
 const MAGE = ['Mage', 'MAGE', 8]
 
 /** The v1 modules, as the Shaman class kit names them. */
@@ -66,35 +66,12 @@ function start(
     savedVariables?: Record<string, unknown>
 ): FakeGame {
     const g = loadTurbo(savedVariables ? { savedVariables } : {})
-    g.setReading('interface', client.interface ?? 16001)
-    g.setReading('flavor', client.flavor ?? 'forever')
-    g.setReading('playerClass', ...(client.playerClass ?? SHAMAN))
-    g.setReading('inCombat', client.inCombat ?? false)
-    g.setReading('targetAttackable', false)
-    // The weapon imbue and reminders read these once they start.
-    g.setReading('mainHandEnchant', null)
-    g.setReading('resting', false)
-    g.setReading('mounted', false)
-    g.setReading('onTaxi', false)
-    // Lightning Shield reads its aura (none) and whether the widget exists.
-    g.setReading('lightningShield', false)
-    g.setReading('auraContainerSupported', true)
-    // Forever's project ID says "retail" (1). Turbo must never rely on it.
-    g.setReading('projectId', 1)
-    // Key cooldowns and the mana bar (turbo-key-cooldowns / turbo-mana-bar).
-    g.setReading('spellKnown', true)
-    g.setReading('spellTexture', 136026)
-    g.setReading('spellCooldown', { isActive: false, isOnGCD: false })
-    g.setReading('spellCooldownDuration', g.secret('cooldown', 'userdata'))
-    g.setReading('spellUsable', true, false)
-    g.setReading('manaMax', 1000)
-    g.setReading('mana', g.secret('mana'))
-    g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
-    // Totem timers: no totems down (the have-totem flag says true anyway).
-    g.setReading('totemDurationSupported', true)
-    g.setReading('totemTimeLeft', 0)
-    g.setReading('totemDuration', undefined)
-    g.setReading('totemInfo', true, '', 0, 0, undefined)
+    scriptIdleShaman(g, {
+        interface: [client.interface ?? 16001],
+        flavor: [client.flavor ?? 'forever'],
+        playerClass: client.playerClass ?? SHAMAN,
+        inCombat: [client.inCombat ?? false],
+    })
     return g
 }
 

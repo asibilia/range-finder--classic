@@ -51,6 +51,7 @@ import {
     type FrameState,
     type WidgetCall,
 } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let game: FakeGame | undefined
 
@@ -105,11 +106,7 @@ function start(options: Options = {}): FakeGame {
         classes: { SHAMAN: { modules: OTHER_MODULES_OFF } },
     }
     const g = loadTurbo({ savedVariables: { TurboDB } })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', options.inCombat === true)
-    g.setReading('targetAttackable', false)
+    scriptShamanOnForever(g, { inCombat: [options.inCombat === true] })
     g.setReading('resting', false)
     g.setReading('mounted', false)
     g.setReading('onTaxi', false)

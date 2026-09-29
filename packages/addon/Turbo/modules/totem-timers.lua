@@ -20,6 +20,9 @@ local events = ns.events
 local settings = ns.settings
 local timers = ns.timers
 
+local MODULE_ID = "totemTimers"
+local read = ns.debug.reader(MODULE_ID)
+
 local SIZE = 36
 local GAP = 8
 local EMPTY_ALPHA = 0.35
@@ -158,14 +161,14 @@ end
 -- Whether a game slot holds a totem, by its time left and duration object.
 -- Returns the duration object too.
 local function readSlot(slot)
-	local timeLeft = safe.read("totemTimeLeft", slot)
+	local timeLeft = read("totemTimeLeft", slot)
 	if plain(timeLeft) and (type(timeLeft) ~= "number" or timeLeft <= 0) then
 		return false
 	end
 	if not supported then
 		return true
 	end
-	local duration = safe.read("totemDuration", slot)
+	local duration = read("totemDuration", slot)
 	if plain(duration) and duration == nil then
 		return false
 	end
@@ -196,7 +199,7 @@ local function timing(startTime, length)
 end
 
 local function fill(s, slot, duration)
-	local _, _, startTime, length, icon = safe.read("totemInfo", slot)
+	local _, _, startTime, length, icon = read("totemInfo", slot)
 	local startedAt, lasts = timing(startTime, length)
 	s.endsAt = startedAt and startedAt + lasts
 
@@ -256,7 +259,7 @@ local function onCast(_, unit, _, spellID)
 	end
 end
 
-ns.modules.register("totemTimers", {
+ns.modules.register(MODULE_ID, {
 	name = "Totem timers",
 	options = {
 		{
@@ -273,7 +276,7 @@ ns.modules.register("totemTimers", {
 		if not next(slots) then
 			build()
 		end
-		supported = safe.read("totemDurationSupported") == true
+		supported = read("totemDurationSupported") == true
 		events.on("UNIT_SPELLCAST_SUCCEEDED", onCast)
 		events.on("PLAYER_TOTEM_UPDATE", onTotemUpdate)
 		for slot, s in pairs(slots) do

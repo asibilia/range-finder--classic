@@ -49,6 +49,7 @@ import {
     type FrameState,
     type WidgetCall,
 } from './fake-game/fake-game'
+import { scriptShamanOnForever } from './fake-game/idle-shaman.test'
 
 let world: World | undefined
 
@@ -193,11 +194,7 @@ function start(options: StartOptions = {}): World {
             },
         },
     })
-    g.setReading('interface', 16001)
-    g.setReading('flavor', 'forever')
-    g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
-    g.setReading('inCombat', options.combat ?? false)
-    g.setReading('targetAttackable', false)
+    scriptShamanOnForever(g, { inCombat: [options.combat ?? false] })
     const w: World = {
         g,
         clock: 0,

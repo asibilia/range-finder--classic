@@ -10,6 +10,9 @@ local _, ns = ...
 local safe = ns.safe
 local events = ns.events
 
+local MODULE_ID = "reminders"
+local read = ns.debug.reader(MODULE_ID)
+
 local reminders = {}
 ns.reminders = reminders
 
@@ -94,7 +97,7 @@ local function refresh()
 end
 
 local function readSuppressed()
-	suppressed = safe.read("resting") == true or safe.read("mounted") == true or safe.read("onTaxi") == true
+	suppressed = read("resting") == true or read("mounted") == true or read("onTaxi") == true
 end
 
 local function onSuppressionChanged()
@@ -130,7 +133,8 @@ function reminders.hide(id)
 	end
 end
 
-ns.modules.register("reminders", {
+ns.modules.register(MODULE_ID, {
+	name = "Reminders",
 	onEnable = function()
 		if not container then
 			build()
