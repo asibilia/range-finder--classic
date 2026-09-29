@@ -526,6 +526,28 @@ local function buildSafe(game)
 		table.insert(game.printed, message)
 	end
 
+	-- The first recorded anchor: SetPoint(point, x, y) or
+	-- SetPoint(point, relativeTo, relativePoint, x, y).
+	function safe.framePoint(frame)
+		local point = (game.frameInfo[frame].state.points or {})[1]
+		if not point then
+			return nil
+		end
+		local function offset(v)
+			return rawType(v) == "number" and v or 0
+		end
+		if rawType(point[2]) == "number" then
+			return point[1], offset(point[2]), offset(point[3])
+		end
+		return point[1], offset(point[4]), offset(point[5])
+	end
+
+	function safe.slash(_, commands, handler)
+		for _, command in ipairs(commands) do
+			game.slashCommands[string.lower(command)] = handler
+		end
+	end
+
 	function safe.isSecret(value)
 		return game.secrets[value] ~= nil
 	end
@@ -639,6 +661,7 @@ function FakeGame.new(options)
 		frameOrder = {},
 		childCount = {},
 		printed = {},
+		slashCommands = {},
 		secrets = setmetatable({}, { __mode = "k" }),
 		violations = {},
 		loadedFiles = {},
@@ -796,6 +819,16 @@ function Game:runScript(frameId, script, ...)
 			hook(frame, unpack(args, 1, args.n))
 		end
 	end)
+end
+
+--- Types a slash command into chat: the handler gets the text after it.
+function Game:slash(line)
+	local command, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
+	local handler = command and self.slashCommands[string.lower(command)]
+	if not handler then
+		error("fake game: no slash command '" .. rawToString(command) .. "' is registered", 0)
+	end
+	step(self, handler, rest)
 end
 
 function Game:setReading(name, values)

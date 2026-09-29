@@ -89,6 +89,8 @@ export type FakeGame = {
     frames(): string[]
     /** Chat lines the addon printed. */
     printed(): string[]
+    /** Types a slash command (`/turbo help`) into chat. */
+    slash(line: string): void
     /** Runs a frame script (`OnUpdate`, `OnShow`...) and its hooks. */
     runScript(frameId: string, script: string, ...args: unknown[]): void
     /**
@@ -304,6 +306,9 @@ export function loadAddon(options: LoadOptions): FakeGame {
         },
         printed() {
             return json('return __game:encode(__game.printed)') as string[]
+        },
+        slash(line) {
+            call(`__game:slash(${luaString(line)})`)
         },
         runScript(frameId, script, ...args) {
             call(

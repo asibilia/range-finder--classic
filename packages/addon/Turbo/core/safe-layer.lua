@@ -21,11 +21,47 @@ ns.safe = safe
 ---@type table<string, fun(...: any): ...: any>
 local readings = {}
 
+---The client's interface number (16001 on Forever).
+function readings.interface()
+	return (select(4, GetBuildInfo()))
+end
+
+---"forever" on WoW: Forever. Forever's project ID says retail, so this asks
+---for Forever's own game rules instead: only Forever has an experience preset.
+function readings.flavor()
+	local rules = C_GameRules
+	if rules and rules.GetForeverExperiencePreset and rules.GetForeverExperiencePreset() ~= nil then
+		return "forever"
+	end
+	return "other"
+end
+
+---The player's class: localized name, token ("SHAMAN") and class ID.
+function readings.playerClass()
+	return UnitClass("player")
+end
+
+function readings.inCombat()
+	return InCombatLockdown()
+end
+
+---Whether the target is an enemy the player can attack, and alive.
+function readings.targetAttackable()
+	return UnitCanAttack("player", "target") and not UnitIsDead("target")
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 
+-- Blizzard's callback events ("EditMode.Enter") come through EventRegistry,
+-- not the event frame; their names are the ones with a dot.
+local function isCallbackEvent(event)
+	return event:find(".", 1, true) ~= nil
+end
+
 local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(_, event, ...)
+
+local function dispatch(event, ...)
 	local list = handlers[event]
 	if not list then
 		return
@@ -35,6 +71,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 	for i = 1, #snapshot do
 		snapshot[i](event, ...)
 	end
+end
+
+eventFrame:SetScript("OnEvent", function(_, event, ...)
+	dispatch(event, ...)
 end)
 
 function safe.now()
@@ -46,7 +86,15 @@ function safe.on(event, handler)
 	if not list then
 		list = {}
 		handlers[event] = list
-		eventFrame:RegisterEvent(event)
+		if isCallbackEvent(event) then
+			-- EventRegistry keeps the callback once per owner; the owner is
+			-- the handler list, so it stays registered while `on` is in use.
+			EventRegistry:RegisterCallback(event, function(_, ...)
+				dispatch(event, ...)
+			end, list)
+		else
+			eventFrame:RegisterEvent(event)
+		end
 	end
 	table.insert(list, handler)
 end
@@ -63,7 +111,11 @@ function safe.off(event, handler)
 	end
 	if #list == 0 then
 		handlers[event] = nil
-		eventFrame:UnregisterEvent(event)
+		if isCallbackEvent(event) then
+			EventRegistry:UnregisterCallback(event, list)
+		else
+			eventFrame:UnregisterEvent(event)
+		end
 	end
 end
 
@@ -84,11 +136,24 @@ function safe.read(name, ...)
 end
 
 function safe.createFrame(frameType, name, parent, template)
-	return CreateFrame(frameType, name, parent, template)
+	-- A frame without a parent hangs off UIParent, like the rest of the UI.
+	return CreateFrame(frameType, name, parent or UIParent, template)
+end
+
+function safe.framePoint(frame)
+	local point, _, _, x, y = frame:GetPoint(1)
+	return point, x, y
 end
 
 function safe.print(message)
 	print(message)
+end
+
+function safe.slash(key, commands, handler)
+	for i, command in ipairs(commands) do
+		_G["SLASH_" .. key .. i] = command
+	end
+	SlashCmdList[key] = handler
 end
 
 function safe.isSecret(value)

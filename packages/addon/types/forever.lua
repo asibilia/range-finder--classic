@@ -114,6 +114,21 @@ function C_DurationUtil.CreateDurationTextBinding() end
 ---@return LuaDurationManualClock clock
 function C_DurationUtil.CreateManualClock() end
 
+-- Slash commands ------------------------------------------------------------
+-- Not Forever-only, but missing from the annotations at the pinned commit.
+
+---Slash command handlers, by key; `SLASH_<key>1`, `SLASH_<key>2`... name the
+---commands.
+---@type table<string, fun(message: string, editBox: table)>
+SlashCmdList = {}
+
+-- Game rules ------------------------------------------------------------------
+
+---Forever's experience preset (Enum.ForeverExperiencePreset: Classic 0,
+---Modern 1). Nil off Forever.
+---@return number? preset
+function C_GameRules.GetForeverExperiencePreset() end
+
 -- Curve utilities -----------------------------------------------------------
 -- C_CurveUtil and the curve objects (CreateCurve, CreateColorCurve,
 -- EvaluateColorFromBoolean, UnitPowerPercent's curve argument) are covered
