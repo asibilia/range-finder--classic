@@ -1,0 +1,14 @@
+{
+  "name": "@goturbo/web",
+  "description": "The Turbo site: a small landing page for the addon, deployed as a Cloudflare Worker.",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "type-check": "bunx tsc --noEmit"
+  }
+}

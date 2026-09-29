@@ -1,0 +1,19 @@
+{
+  "source": ["package.json", "packages/*/package.json"],
+  "versionGroups": [
+    {
+      "label": "Internal workspace packages use workspace:* protocol",
+      "dependencies": ["@goturbo/**"],
+      "dependencyTypes": ["prod", "dev"],
+      "pinVersion": "workspace:*"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Use caret ranges by default",
+      "range": "^",
+      "dependencies": ["**"],
+      "packages": ["**"]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+name: Require Changesets
+
+on:
+    pull_request:
+        branches: [main]
+
+jobs:
+    check-changesets:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: read
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Check for changesets
+              run: |
+                  # A Version PR opened by changesets/action carries the
+                  # "automated" label. It consumes changesets rather than
+                  # adding one, so requiring a changeset there would deadlock
+                  # the release: no release could ever merge.
+                  LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+                  if echo "$LABELS" | grep -q "^automated$"; then
+                    echo "✓ Automated Version PR — changesets not required"
+                    exit 0
+                  fi
+
+                  COUNT=$(find .changeset -maxdepth 1 -type f -name '*.md' \
+                    ! -name 'README.md' | grep -c . || true)
+
+                  if [ "$COUNT" -eq 0 ]; then
+                    echo "❌ No changesets found in .changeset/"
+                    echo ""
+                    echo "Every PR into main needs at least one changeset, or the"
+                    echo "release notes silently lose this change."
+                    echo ""
+                    echo "  bun run changeset"
+                    echo ""
+                    echo "Pick @goturbo/addon and/or @goturbo/web, choose a bump,"
+                    echo "and commit the generated .changeset/*.md file."
+                    exit 1
+                  fi
+
+                  echo "✓ Found $COUNT changeset file(s)"
+              env:
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

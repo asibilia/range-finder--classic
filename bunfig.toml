@@ -1,0 +1,11 @@
+[install]
+# Refuse to install package versions newer than this many seconds.
+# Mitigates supply-chain attacks by skipping freshly-published (potentially
+# compromised) versions until they've been in the wild long enough for the
+# ecosystem to flag malicious releases.
+# 7 days = 60 * 60 * 24 * 7 = 604800
+minimumReleaseAge = 604800
+
+# Refuse git/tarball/file dependencies pulled in by other packages. Only the
+# registry can supply a transitive dependency.
+blockExoticSubdeps = true

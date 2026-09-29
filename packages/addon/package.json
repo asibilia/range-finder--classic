@@ -1,0 +1,7 @@
+{
+  "name": "@goturbo/addon",
+  "description": "Turbo, the Enhancement Shaman HUD for WoW: Forever. Only the Turbo/ folder ships.",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module"
+}
