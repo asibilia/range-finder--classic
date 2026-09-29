@@ -1,7 +1,7 @@
 {
-	// Repo-root TypeScript: tooling at the root (commit config, CI scripts,
-	// the probe's installer). Each package has its own tsconfig.json.
-	"include": ["*.ts", ".github/scripts/**/*.ts", "tools/**/*.ts"],
+	// The addon's TypeScript: its dev scripts and tests. The Lua has its own
+	// checker (LuaLS, `.luarc.json`).
+	"include": ["scripts/**/*.ts", "tests/**/*.ts"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "ESNext",

@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Turbo
+## Notes: The Enhancement Shaman HUD for WoW: Forever.
+## Author: Turbo crew
+## Version: @project-version@
+
+core\safe-layer.lua
+core\boot.lua

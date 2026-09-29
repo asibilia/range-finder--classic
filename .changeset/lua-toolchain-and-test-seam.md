@@ -1,0 +1,5 @@
+---
+'@goturbo/addon': patch
+---
+
+Lua toolchain and the fake-game test seam (#26). `bun run check` now runs everything CI runs: type-check, lint and syncpack, then the Lua checks (`bun run lua:all`): StyLua's format check, LuaLS headless with the pinned WoW annotations plus an in-repo stub file for Forever-only APIs (the swing events and `C_SwingTimer`, `C_Item.GetWeaponEnchantInfo`, the new duration-object methods, and the aura container), the secret-read guard, and the tests. `bun run tools:fetch` downloads LuaLS, the annotations and Forever's API docs into the gitignored `.tools/`, and CI caches them. `bun test` runs real Lua 5.1 in WebAssembly against a fake game that replaces the safe layer: scripted events and readings, a clock the test moves, secret stand-ins that fail loudly when read, compared, used in math, concatenated, stringified or kept as a table key, and a recorder of every widget call and frame change. The guard reads Forever's API docs and fails any secret-returning game call outside `Turbo/core/safe-layer.lua`; a deliberately violating fixture proves it. The addon folder starts with the safe layer, which offers the same contract as the fake.

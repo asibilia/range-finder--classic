@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: RF Probe
+## Notes: Throwaway diagnostic. Records which APIs and values are readable vs secret, in and out of combat. /rfprobe help
+## Author: RangeFinder_Classic
+## Version: 0.4.0
+## SavedVariables: RFProbeDB
+
+util.lua
+snapshot.lua
+events.lua
+checks.lua
+visual.lua
+core.lua
