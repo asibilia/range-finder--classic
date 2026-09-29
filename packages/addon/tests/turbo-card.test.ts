@@ -48,6 +48,9 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
     g.setReading('inCombat', false)
     g.setReading('targetAttackable', false)
+    // The range finder checks a targeted enemy's range; nothing to report.
+    g.setReading('spellInRange', null)
+    g.setReading('itemInRange', null)
     return g
 }
 

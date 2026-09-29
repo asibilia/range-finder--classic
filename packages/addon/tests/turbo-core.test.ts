@@ -103,6 +103,25 @@ function registerModule(g: FakeGame, id: string) {
     )
 }
 
+/**
+ * Registers a logging stand-in for a module id, unless a real Turbo module
+ * already registered it. Returns whether the stand-in got in.
+ */
+function registerStandIn(g: FakeGame, id: string): boolean {
+    const [registered] = g.run(
+        `
+        local id = ...
+        ns.testLog = ns.testLog or {}
+        return (pcall(ns.modules.register, id, {
+            onEnable = function() table.insert(ns.testLog, "enable " .. id) end,
+            onDisable = function() table.insert(ns.testLog, "disable " .. id) end,
+        }))
+        `,
+        id
+    )
+    return registered === true
+}
+
 function isEnabled(g: FakeGame, id: string): unknown {
     return g.run('return ns.modules.isEnabled(...)', id)[0]
 }
@@ -251,13 +270,13 @@ describe('unsupported classes', () => {
 describe('modules and the Shaman class kit', () => {
     test('the Shaman class kit turns every v1 module on at login, with no spec detection', () => {
         game = start()
-        for (const id of V1_MODULES) registerModule(game, id)
+        const standIns = V1_MODULES.filter((id) => registerStandIn(game!, id))
         registerModule(game, 'notInAnyKit')
         login(game)
 
         const log = moduleLog(game)
         expect([...log].sort()).toEqual(
-            V1_MODULES.map((id) => `enable ${id}`).sort()
+            standIns.map((id) => `enable ${id}`).sort()
         )
         for (const id of V1_MODULES) expect(isEnabled(game, id)).toBe(true)
         expect(isEnabled(game, 'notInAnyKit')).toBe(false)
@@ -297,11 +316,12 @@ describe('modules and the Shaman class kit', () => {
 
         game = start({}, { TurboDB: saved })
         registerModule(game, 'swingTimer')
-        registerModule(game, 'rangeFinder')
+        registerStandIn(game, 'rangeFinder')
         login(game)
 
-        expect(moduleLog(game)).toEqual(['enable rangeFinder'])
+        expect(moduleLog(game)).not.toContain('enable swingTimer')
         expect(isEnabled(game, 'swingTimer')).toBe(false)
+        expect(isEnabled(game, 'rangeFinder')).toBe(true)
     })
 
     test("a Shaman's module change is saved under the Shaman class", () => {
