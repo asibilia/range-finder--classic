@@ -1,0 +1,6 @@
+## Interface: 16001
+## Title: Violating
+## Notes: A deliberately bad addon: the secret-read guard must fail it.
+
+core\safe-layer.lua
+modules\bad-module.lua

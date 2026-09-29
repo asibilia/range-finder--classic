@@ -1,0 +1,17 @@
+{
+	// The addon's TypeScript: its dev scripts and tests. The Lua has its own
+	// checker (LuaLS, `.luarc.json`).
+	"include": ["scripts/**/*.ts", "tests/**/*.ts"],
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022"],
+		"types": ["bun"],
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"verbatimModuleSyntax": true,
+		"resolveJsonModule": true
+	}
+}

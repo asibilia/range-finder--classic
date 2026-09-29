@@ -21,13 +21,23 @@
   "scripts": {
     "changeset": "bunx changeset",
     "changeset:status": "bunx changeset status",
+    "check": "bun run check:all && bun run lua:all",
     "check:all": "bun run type-check && bun run lint && bun run syncpack:check",
     "commit": "bunx --bun @alecsibilia/commit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lua:all": "bun run tools:fetch && bun run lua:format:check && bun run lua:check && bun run lua:guard && bun run lua:test",
+    "lua:check": "cd packages/addon && bun run lua:check",
+    "lua:format": "cd packages/addon && bun run lua:format",
+    "lua:format:check": "cd packages/addon && bun run lua:format:check",
+    "lua:guard": "cd packages/addon && bun run lua:guard",
+    "lua:test": "bun test packages/addon",
     "syncpack:check": "bunx syncpack lint",
     "syncpack:fix": "bunx syncpack fix-mismatches",
-    "type-check": "bun run type-check:web && bun run type-check:repo",
+    "test": "bun test",
+    "tools:fetch": "bun packages/addon/scripts/fetch-tools.ts",
+    "type-check": "bun run type-check:addon && bun run type-check:web && bun run type-check:repo",
+    "type-check:addon": "cd packages/addon && bunx tsc --noEmit",
     "type-check:repo": "bunx tsc --noEmit",
     "type-check:web": "cd packages/web && bunx tsc --noEmit"
   },
@@ -36,7 +46,9 @@
       "packages/*"
     ],
     "catalog": {
+      "@johnnymorganz/stylua-bin": "^2.5.2",
       "@types/bun": "^1.3.14",
+      "lua-wasm-bindings": "^0.5.3",
       "typescript": "^5.9.3"
     }
   }

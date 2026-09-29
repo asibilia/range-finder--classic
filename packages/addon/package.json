@@ -3,5 +3,19 @@
   "description": "Turbo, the Enhancement Shaman HUD for WoW: Forever. Only the Turbo/ folder ships.",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@johnnymorganz/stylua-bin": "catalog:",
+    "@types/bun": "catalog:",
+    "lua-wasm-bindings": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "lua:check": "bun scripts/luals-check.ts",
+    "lua:format": "stylua .",
+    "lua:format:check": "stylua --check .",
+    "lua:guard": "bun scripts/secret-guard.ts",
+    "test": "bun test",
+    "type-check": "bunx tsc --noEmit"
+  }
 }

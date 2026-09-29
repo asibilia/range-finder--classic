@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Sample
+## Notes: A tiny addon the fake game's own tests load. Not Turbo.
+## SavedVariables: SampleDB
+
+core\safe-layer.lua
+card.lua

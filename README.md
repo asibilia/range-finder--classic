@@ -21,7 +21,9 @@ That addon is retired; its last code is at the tag
 
 ```bash
 bun install
-bun run check:all   # type-check, lint, syncpack
+bun run tools:fetch   # LuaLS, WoW API annotations, Forever API docs (.tools/)
+bun run check         # everything CI runs: TS checks, then the Lua checks and tests
+bun test              # the tests alone
 ```
 
 See `AGENTS.md` for the ground rules and `CONTEXT.md` for the vocabulary.

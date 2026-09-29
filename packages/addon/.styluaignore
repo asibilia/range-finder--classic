@@ -1,0 +1,3 @@
+# Copies of Blizzard API documentation keep Blizzard's own layout.
+tests/fixtures/guard/api-docs/
+node_modules/

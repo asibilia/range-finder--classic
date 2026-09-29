@@ -21,5 +21,14 @@ jobs:
 
             - run: bun install --frozen-lockfile
 
-            # type-check, lint (ESLint + Prettier), syncpack
-            - run: bun run check:all
+            # LuaLS, the WoW API annotations and Forever's API docs, pinned in
+            # fetch-tools.ts. A pin change changes the key.
+            - uses: actions/cache@v4
+              with:
+                  path: .tools
+                  key: lua-tools-${{ runner.os }}-${{ hashFiles('packages/addon/scripts/fetch-tools.ts') }}
+
+            # The one entry point: type-check, lint, syncpack (check:all), then
+            # the Lua checks (lua:all): fetch the tools if the cache missed,
+            # StyLua format check, LuaLS, the secret-read guard, and the tests.
+            - run: bun run check
