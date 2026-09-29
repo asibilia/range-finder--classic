@@ -325,3 +325,185 @@ describe('the debug log', () => {
         expect(logged.some((e) => e.value === 'value1')).toBe(false)
     })
 })
+
+/** Saved data with debug mode left on by the last session. */
+const DEBUG_SAVED = {
+    TurboDB: { schemaVersion: 1, classes: { SHAMAN: { debug: true } } },
+}
+
+/** The game's totem slot for Earth. */
+const EARTH = 2
+
+/** The log's entries for one module, as `[value, status, restrictions]`. */
+function loggedFor(g: FakeGame, module: string): [string, string, string[]][] {
+    return entries(g)
+        .filter((e) => e.module === module)
+        .map((e) => [e.value, e.status, e.restrictions])
+}
+
+function isSecretArg(value: unknown, label: string): boolean {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        (value as { $secret?: string }).$secret === label
+    )
+}
+
+/** An Earth totem down, as the game reports it in combat. */
+function scriptEarthTotemInCombat(g: FakeGame) {
+    g.setReading('totemTimeLeft', 42)
+    g.setReading('totemDuration', g.secret('earth-duration', 'userdata'))
+    g.setReading(
+        'totemInfo',
+        true,
+        'Strength of Earth Totem',
+        g.secret('earth-start'),
+        g.secret('earth-length'),
+        136023
+    )
+}
+
+describe("the debug log, fed by the modules' own readings", () => {
+    test("a login with debug mode saved leaves the modules' first reads out of the log", () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        expect(isOn(game)).toBe(true)
+        // The mana bar read a secret mana while it started; it isn't logged,
+        // though a secret is logged at any other time.
+        expect(game.reads().some((r) => r.name === 'mana')).toBe(true)
+        expect(loggedFor(game, 'manaBar')).toEqual([])
+        expect(loggedFor(game, 'totemTimers')).toEqual([])
+    })
+
+    test("in combat, the mana bar's secret mana and a totem's readings are logged with the combat restriction", () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        enterCombat(game)
+        game.setReading('mana', game.secret('combat-mana'))
+        game.fire('UNIT_POWER_FREQUENT', 'player', 'MANA')
+        scriptEarthTotemInCombat(game)
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        const mana = loggedFor(game, 'manaBar')
+        expect(mana).toContainEqual(['mana', 'secret', ['combat']])
+        const totems = loggedFor(game, 'totemTimers')
+        expect(totems).toContainEqual(['totemTimeLeft', 'readable', ['combat']])
+        expect(totems).toContainEqual(['totemDuration', 'secret', ['combat']])
+    })
+
+    test("a reading's later return values are logged as name#2, name#3, each with its own status", () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        enterCombat(game)
+        scriptEarthTotemInCombat(game)
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        const totemInfo = loggedFor(game, 'totemTimers').filter(([value]) =>
+            value.startsWith('totemInfo')
+        )
+        expect(totemInfo).toEqual([
+            ['totemInfo', 'readable', ['combat']],
+            ['totemInfo#2', 'readable', ['combat']],
+            ['totemInfo#3', 'secret', ['combat']],
+            ['totemInfo#4', 'secret', ['combat']],
+            ['totemInfo#5', 'readable', ['combat']],
+        ])
+    })
+
+    test('out of every restriction, a plain reading is not logged but a secret one is', () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        game.setReading('manaMax', 4200)
+        game.setReading('mana', game.secret('idle-mana'))
+        game.fire('UNIT_MAXPOWER', 'player', 'MANA')
+        game.setReading('totemTimeLeft', 42)
+        game.setReading(
+            'totemDuration',
+            game.secret('idle-duration', 'userdata')
+        )
+        game.setReading(
+            'totemInfo',
+            true,
+            'Strength of Earth Totem',
+            100,
+            120,
+            136023
+        )
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        const mana = loggedFor(game, 'manaBar')
+        expect(mana).toContainEqual(['mana', 'secret', []])
+        expect(mana.some(([value]) => value === 'manaMax')).toBe(false)
+        const totems = loggedFor(game, 'totemTimers')
+        expect(totems).toContainEqual(['totemDuration', 'secret', []])
+        expect(totems.some(([value]) => value === 'totemTimeLeft')).toBe(false)
+        expect(totems.some(([value]) => value.startsWith('totemInfo'))).toBe(
+            false
+        )
+    })
+
+    test('a reading that returns nothing is not logged, even in combat', () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        enterCombat(game)
+        // Time left but no duration object: the slot reads as empty.
+        game.setReading('totemTimeLeft', 42)
+        game.setReading('totemDuration', undefined)
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        const totems = loggedFor(game, 'totemTimers')
+        expect(totems).toContainEqual(['totemTimeLeft', 'readable', ['combat']])
+        expect(totems.some(([value]) => value === 'totemDuration')).toBe(false)
+    })
+
+    test('logging a reading hands every return value on to the module unchanged', () => {
+        game = start(DEBUG_SAVED)
+        login(game)
+
+        enterCombat(game)
+        game.setReading('mana', game.secret('passed-mana'))
+        game.setReading(
+            'manaColor',
+            game.secret('passed-r'),
+            game.secret('passed-g'),
+            game.secret('passed-b')
+        )
+        game.fire('UNIT_POWER_FREQUENT', 'player', 'MANA')
+        scriptEarthTotemInCombat(game)
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        expect(
+            game
+                .calls({ method: 'SetValue' })
+                .some((c) => isSecretArg(c.args[0], 'passed-mana'))
+        ).toBe(true)
+        const colored = game
+            .calls({ method: 'SetStatusBarColor' })
+            .filter((c) => isSecretArg(c.args[0], 'passed-r'))
+        expect(colored).toHaveLength(1)
+        expect(isSecretArg(colored[0]?.args[1], 'passed-g')).toBe(true)
+        expect(isSecretArg(colored[0]?.args[2], 'passed-b')).toBe(true)
+        expect(
+            game
+                .calls({ method: 'SetCooldownFromDurationObject' })
+                .some((c) => isSecretArg(c.args[0], 'earth-duration'))
+        ).toBe(true)
+    })
+
+    test("with debug mode off, the modules' readings in combat leave the log empty", () => {
+        game = start()
+        login(game)
+
+        enterCombat(game)
+        game.fire('UNIT_POWER_FREQUENT', 'player', 'MANA')
+        scriptEarthTotemInCombat(game)
+        game.fire('PLAYER_TOTEM_UPDATE', EARTH)
+
+        expect(entries(game)).toEqual([])
+    })
+})
