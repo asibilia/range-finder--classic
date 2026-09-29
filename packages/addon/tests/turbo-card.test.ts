@@ -298,6 +298,49 @@ describe('engaged visibility', () => {
         expect(fullyShown(game)).toBe(true)
     })
 
+    test('a target that dies mid-fight, with no target change, lets the card fade away after combat', () => {
+        game = start()
+        login(game)
+        target(game, true)
+        enterCombat(game)
+        game.advance(1)
+        expect(fullyShown(game)).toBe(true)
+
+        game.setReading('targetAttackable', false)
+        leaveCombat(game)
+        game.advance(0.4)
+
+        expect(card(game).shown).toBe(false)
+    })
+
+    test('a targeted enemy that stops being attackable out of combat fades the card away when its flags change', () => {
+        game = start()
+        login(game)
+        target(game, true)
+        game.advance(1)
+        expect(fullyShown(game)).toBe(true)
+
+        game.setReading('targetAttackable', false)
+        game.fire('UNIT_FLAGS', 'target')
+        game.advance(0.4)
+
+        expect(card(game).shown).toBe(false)
+    })
+
+    test("another unit's flags changing leaves the card up", () => {
+        game = start()
+        login(game)
+        target(game, true)
+        game.advance(1)
+        expect(fullyShown(game)).toBe(true)
+
+        game.setReading('targetAttackable', false)
+        game.fire('UNIT_FLAGS', 'player')
+        game.advance(0.4)
+
+        expect(fullyShown(game)).toBe(true)
+    })
+
     test('a /reload in combat shows the card without waiting for the next fight', () => {
         game = start()
         game.setReading('inCombat', true)
