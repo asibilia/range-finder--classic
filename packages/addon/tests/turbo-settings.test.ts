@@ -157,6 +157,14 @@ function start(
     g.setReading('onTaxi', false)
     g.setReading('spellInRange', null)
     g.setReading('itemInRange', null)
+    g.setReading('spellKnown', true)
+    g.setReading('spellTexture', 136026)
+    g.setReading('spellCooldown', { isActive: false, isOnGCD: false })
+    g.setReading('spellCooldownDuration', g.secret('cooldown', 'userdata'))
+    g.setReading('spellUsable', true, false)
+    g.setReading('manaMax', 1000)
+    g.setReading('mana', g.secret('mana'))
+    g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
     for (const m of options.modules ?? MODULES) registerModule(g, m)
     return g
 }

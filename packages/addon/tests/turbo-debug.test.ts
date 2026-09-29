@@ -50,6 +50,15 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     g.setReading('resting', false)
     g.setReading('mounted', false)
     g.setReading('onTaxi', false)
+    // Key cooldowns and the mana bar (turbo-key-cooldowns / turbo-mana-bar).
+    g.setReading('spellKnown', true)
+    g.setReading('spellTexture', 136026)
+    g.setReading('spellCooldown', { isActive: false, isOnGCD: false })
+    g.setReading('spellCooldownDuration', g.secret('cooldown', 'userdata'))
+    g.setReading('spellUsable', true, false)
+    g.setReading('manaMax', 1000)
+    g.setReading('mana', g.secret('mana'))
+    g.setReading('manaColor', g.secret('r'), g.secret('g'), g.secret('b'))
     return g
 }
 

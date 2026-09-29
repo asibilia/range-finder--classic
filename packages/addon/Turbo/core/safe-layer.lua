@@ -126,6 +126,69 @@ function readings.onTaxi()
 	return UnitOnTaxi("player")
 end
 
+---Whether the player knows a spell, by spell ID.
+function readings.spellKnown(spellID)
+	return C_SpellBook.IsSpellKnown(spellID)
+end
+
+---A spell's icon.
+function readings.spellTexture(spellID)
+	return (C_Spell.GetSpellTexture(spellID))
+end
+
+---A spell's cooldown info. `isActive` and `isOnGCD` are never secret; the
+---start, duration and rate may be.
+function readings.spellCooldown(spellID)
+	return C_Spell.GetSpellCooldown(spellID)
+end
+
+---A spell's cooldown as a duration object, for a Cooldown frame's swirl.
+function readings.spellCooldownDuration(spellID)
+	return C_Spell.GetSpellCooldownDuration(spellID)
+end
+
+---Whether a spell is castable now, and whether it isn't for lack of power.
+function readings.spellUsable(spellID)
+	return C_Spell.IsSpellUsable(spellID)
+end
+
+---The player's current mana. Secret in combat.
+function readings.mana()
+	return UnitPower("player", Enum.PowerType.Mana)
+end
+
+---The player's max mana.
+function readings.manaMax()
+	return UnitPowerMax("player", Enum.PowerType.Mana)
+end
+
+---The game's colour curves, built once for each plain curve description.
+---@type table<table, ColorCurveObject>
+local colorCurves = setmetatable({}, { __mode = "k" })
+
+---Builds (once) the game's colour curve from a plain description:
+---`{ type = "Step", points = { { x = 0, r = 1, g = 0, b = 0 }, ... } }`.
+local function colorCurve(description)
+	local curve = colorCurves[description]
+	if not curve then
+		curve = C_CurveUtil.CreateColorCurve()
+		curve:SetType(Enum.LuaCurveType[description.type])
+		for _, p in ipairs(description.points) do
+			curve:AddPoint(p.x, CreateColor(p.r, p.g, p.b))
+		end
+		colorCurves[description] = curve
+	end
+	return curve
+end
+
+---The player's mana percent (0–1) evaluated through a colour curve: `r, g, b`,
+---secret in combat.
+function readings.manaColor(description)
+	local color = UnitPowerPercent("player", Enum.PowerType.Mana, false, colorCurve(description))
+	---@cast color colorRGBA
+	return color:GetRGB()
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 

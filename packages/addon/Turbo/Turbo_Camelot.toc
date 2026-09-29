@@ -19,6 +19,8 @@ modules\range-finder.lua
 modules\reminders.lua
 modules\weapon-imbue.lua
 modules\maelstrom-weapon.lua
+modules\key-cooldowns.lua
+modules\mana-bar.lua
 core\slash.lua
 core\settings-page.lua
 core\start.lua
