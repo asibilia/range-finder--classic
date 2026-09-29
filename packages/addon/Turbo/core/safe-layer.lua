@@ -75,6 +75,26 @@ function readings.itemInRange(itemID, unit)
 	return C_Item.IsItemInRange(itemID, unit)
 end
 
+-- The Maelstrom Weapon buff. Recheck at the level-gated checks: the beta is
+-- capped below the talent.
+local MAELSTROM_WEAPON = 53817
+
+---The player's Maelstrom Weapon stacks: 0 with no aura, a secret when the
+---game hides the aura, nil when the aura read failed (they throw in combat).
+function readings.maelstromWeapon()
+	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, MAELSTROM_WEAPON)
+	if not ok then
+		return nil
+	end
+	if issecretvalue(aura) then
+		return aura
+	end
+	if aura == nil then
+		return 0
+	end
+	return aura.applications
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 

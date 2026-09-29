@@ -16,5 +16,6 @@ core\modules.lua
 kits\shaman.lua
 hud\card.lua
 modules\range-finder.lua
+modules\maelstrom-weapon.lua
 core\slash.lua
 core\start.lua
