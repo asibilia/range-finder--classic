@@ -18,6 +18,8 @@ local SCHEMA_VERSION = 1
 ---Every setting's default, per class.
 settings.defaults = {
 	alwaysShow = false,
+	-- /turbo debug: log which values modules see as readable or secret.
+	debug = false,
 }
 
 ---Upgrades, by the schema version they upgrade to. Each gets the saved table

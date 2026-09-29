@@ -45,6 +45,18 @@ function restrictions.inCombat()
 	return active.combat == true
 end
 
+---The restriction kinds on right now, in a fixed order: { "combat", "map" }.
+---@return string[]
+function restrictions.activeKinds()
+	local kinds = {}
+	for i = 0, #KINDS do
+		if active[KINDS[i]] then
+			table.insert(kinds, KINDS[i])
+		end
+	end
+	return kinds
+end
+
 ---Starts tracking. Combat follows the regen events, which fire as combat
 ---starts and ends; the other kinds follow the game's restriction event.
 function restrictions.start()

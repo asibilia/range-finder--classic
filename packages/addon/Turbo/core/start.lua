@@ -50,6 +50,7 @@ local function onLogin(event)
 
 	ns.settings.useClass(classToken)
 	ns.restrictions.start()
+	ns.debug.start()
 	-- The card first, so modules find its rows to fill.
 	ns.card.start()
 	ns.modules.start(kit)

@@ -11,6 +11,7 @@ core\events.lua
 core\timers.lua
 core\restrictions.lua
 core\settings.lua
+core\debugging.lua
 core\modules.lua
 kits\shaman.lua
 hud\card.lua
