@@ -141,8 +141,21 @@ function registerStandIn(g: FakeGame, id: string): boolean {
     return registered === true
 }
 
+/**
+ * Registers a logging stand-in for every v1 module Turbo doesn't register
+ * itself, so each kit module has a switch to watch. Returns the stand-ins.
+ */
+function registerKitStandIns(g: FakeGame): string[] {
+    return V1_MODULES.filter((id) => registerStandIn(g, id))
+}
+
 function isEnabled(g: FakeGame, id: string): unknown {
     return g.run('return ns.modules.isEnabled(...)', id)[0]
+}
+
+/** The v1 modules that are on now. */
+function kitModulesOn(g: FakeGame): string[] {
+    return V1_MODULES.filter((id) => isEnabled(g, id) === true)
 }
 
 /** What the test modules logged, in order. */
@@ -203,25 +216,29 @@ describe('the TOC', () => {
 describe('Forever only', () => {
     test('on Forever (interface 16001, forever flavor) Turbo starts, even though the project ID says retail', () => {
         game = start()
-        registerModule(game, 'swingTimer')
+        const standIns = registerKitStandIns(game)
         login(game)
         enterCombat(game)
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(true)
-        expect(moduleLog(game)).toEqual(['enable swingTimer'])
+        expect(kitModulesOn(game)).toEqual(V1_MODULES)
+        expect([...moduleLog(game)].sort()).toEqual(
+            standIns.map((id) => `enable ${id}`).sort()
+        )
         const projectReads = game.reads().filter((r) => /project/i.test(r.name))
         expect(projectReads).toEqual([])
     })
 
     test('a Classic Era client keeps Turbo off and says why', () => {
         game = start({ interface: 11507, flavor: 'classic' })
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
         enterCombat(game)
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(false)
+        expect(kitModulesOn(game)).toEqual([])
         expect(moduleLog(game)).toEqual([])
         expect(
             game.printed().filter((l) => /Turbo/.test(l) && /Forever/.test(l))
@@ -230,12 +247,13 @@ describe('Forever only', () => {
 
     test('a retail client keeps Turbo off and says why', () => {
         game = start({ interface: 110200, flavor: 'mainline' })
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
         enterCombat(game)
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(false)
+        expect(kitModulesOn(game)).toEqual([])
         expect(moduleLog(game)).toEqual([])
         expect(
             game.printed().filter((l) => /Turbo/.test(l) && /Forever/.test(l))
@@ -244,24 +262,26 @@ describe('Forever only', () => {
 
     test('interface 16001 alone is not enough: a client of another flavor keeps Turbo off', () => {
         game = start({ interface: 16001, flavor: 'classic' })
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
         enterCombat(game)
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(false)
+        expect(kitModulesOn(game)).toEqual([])
         expect(moduleLog(game)).toEqual([])
         expect(game.printed().some((l) => /Forever/.test(l))).toBe(true)
     })
 
     test('the forever flavor alone is not enough: a client with another interface keeps Turbo off', () => {
         game = start({ interface: 11507, flavor: 'forever' })
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
         enterCombat(game)
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(false)
+        expect(kitModulesOn(game)).toEqual([])
         expect(moduleLog(game)).toEqual([])
         expect(game.printed().some((l) => /Forever/.test(l))).toBe(true)
     })
@@ -270,7 +290,7 @@ describe('Forever only', () => {
 describe('unsupported classes', () => {
     test("a Mage keeps Turbo off and is told once that Turbo doesn't support Mages yet", () => {
         game = start({ playerClass: MAGE })
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
         // A zone change fires the world event again; the message stays single.
         game.fire('PLAYER_ENTERING_WORLD', false, false)
@@ -278,6 +298,7 @@ describe('unsupported classes', () => {
         game.advance(0.5)
 
         expect(cardVisible(game)).toBe(false)
+        expect(kitModulesOn(game)).toEqual([])
         expect(moduleLog(game)).toEqual([])
         const told = game
             .printed()
@@ -307,47 +328,57 @@ describe('modules and the Shaman class kit', () => {
 
     test('a module can be turned off and back on, and only the change is saved', () => {
         game = start()
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
+        // Not in any kit, so it starts off: its switches are all the player's.
+        registerModule(game, 'testModule')
         login(game)
 
-        game.run('ns.modules.disable("swingTimer")')
-        expect(isEnabled(game, 'swingTimer')).toBe(false)
+        // A kit module: on by default.
+        game.run('ns.modules.disable("rangeFinder")')
+        expect(isEnabled(game, 'rangeFinder')).toBe(false)
         expect(Object.keys(storedChanges(game)).length).toBeGreaterThan(0)
 
-        game.run('ns.modules.enable("swingTimer")')
-        expect(isEnabled(game, 'swingTimer')).toBe(true)
-        expect(moduleLog(game)).toEqual([
-            'enable swingTimer',
-            'disable swingTimer',
-            'enable swingTimer',
-        ])
+        game.run('ns.modules.enable("rangeFinder")')
+        expect(isEnabled(game, 'rangeFinder')).toBe(true)
         // Back on its default, so there is nothing left to store.
+        expect(storedChanges(game)).toEqual({})
+
+        // Each switch runs the module's own on and off handlers.
+        game.run('ns.modules.enable("testModule")')
+        expect(isEnabled(game, 'testModule')).toBe(true)
+        expect(Object.keys(storedChanges(game)).length).toBeGreaterThan(0)
+        game.run('ns.modules.disable("testModule")')
+        expect(isEnabled(game, 'testModule')).toBe(false)
+        expect(
+            moduleLog(game).filter((line) => line.endsWith(' testModule'))
+        ).toEqual(['enable testModule', 'disable testModule'])
         expect(storedChanges(game)).toEqual({})
     })
 
     test('a module the player turned off stays off after a reload', () => {
         const first = start()
         extraGames.push(first)
-        registerModule(first, 'swingTimer')
+        registerKitStandIns(first)
         login(first)
-        first.run('ns.modules.disable("swingTimer")')
+        first.run('ns.modules.disable("rangeFinder")')
         const saved = first.global('TurboDB')
 
         game = start({}, { TurboDB: saved })
-        registerModule(game, 'swingTimer')
-        registerStandIn(game, 'rangeFinder')
+        registerKitStandIns(game)
         login(game)
 
-        expect(moduleLog(game)).not.toContain('enable swingTimer')
-        expect(isEnabled(game, 'swingTimer')).toBe(false)
-        expect(isEnabled(game, 'rangeFinder')).toBe(true)
+        expect(moduleLog(game)).not.toContain('enable rangeFinder')
+        expect(isEnabled(game, 'rangeFinder')).toBe(false)
+        expect(kitModulesOn(game)).toEqual(
+            V1_MODULES.filter((id) => id !== 'rangeFinder')
+        )
     })
 
     test("a Shaman's module change is saved under the Shaman class", () => {
         game = start()
-        registerModule(game, 'swingTimer')
+        registerKitStandIns(game)
         login(game)
-        game.run('ns.modules.disable("swingTimer")')
+        game.run('ns.modules.disable("rangeFinder")')
 
         const paths = Object.keys(storedChanges(game))
         expect(paths.length).toBeGreaterThan(0)

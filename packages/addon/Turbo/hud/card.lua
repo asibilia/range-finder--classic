@@ -39,6 +39,9 @@ card.rows = {}
 ---The card's frame, once built. Reminders anchor to it.
 card.frame = nil
 
+---How wide every row is: the card, less its padding.
+card.ROW_WIDTH = WIDTH - PADDING * 2
+
 local frame
 local editMode = false
 local targetAttackable = false
