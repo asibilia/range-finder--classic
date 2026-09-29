@@ -16,6 +16,8 @@ core\modules.lua
 kits\shaman.lua
 hud\card.lua
 modules\range-finder.lua
+modules\reminders.lua
+modules\weapon-imbue.lua
 modules\maelstrom-weapon.lua
 core\slash.lua
 core\settings-page.lua

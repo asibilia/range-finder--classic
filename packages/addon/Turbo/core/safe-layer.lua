@@ -95,6 +95,37 @@ function readings.maelstromWeapon()
 	return aura.applications
 end
 
+---The main-hand imbue, `{ timeLeft = <seconds>, icon, enchantID }`, or nil
+---when there's none. Asks the item namespace, which is plain in combat; the
+---legacy global GetWeaponEnchantInfo() misreports on Forever.
+function readings.mainHandEnchant()
+	local enchants = C_Item.GetWeaponEnchantInfo(Enum.WeaponSlot.MainHand) or {}
+	for _, enchant in ipairs(enchants) do
+		local kind = enchant.enchantType
+		if enchant.hasEnchant and (kind == Enum.ItemEnchantType.Temporary or kind == Enum.ItemEnchantType.Imbue) then
+			return {
+				timeLeft = enchant.timeLeft / 1000,
+				icon = enchant.enchantIconID,
+				enchantID = enchant.enchantID,
+			}
+		end
+	end
+end
+
+---Whether the player is resting (in town or an inn).
+function readings.resting()
+	return IsResting()
+end
+
+function readings.mounted()
+	return IsMounted()
+end
+
+---Whether the player is on a flight path.
+function readings.onTaxi()
+	return UnitOnTaxi("player")
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 

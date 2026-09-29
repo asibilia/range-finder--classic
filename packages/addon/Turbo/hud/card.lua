@@ -36,6 +36,9 @@ local FADE_STEP = 0.03
 ---@type table<string, table>
 card.rows = {}
 
+---The card's frame, once built. Reminders anchor to it.
+card.frame = nil
+
 local frame
 local editMode = false
 local targetAttackable = false
@@ -96,6 +99,7 @@ local function build()
 	end
 
 	frame = safe.createFrame("Frame", "TurboCard")
+	card.frame = frame
 	frame:SetSize(WIDTH, height)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)

@@ -71,6 +71,11 @@ function start(
     g.setReading('playerClass', ...(client.playerClass ?? SHAMAN))
     g.setReading('inCombat', client.inCombat ?? false)
     g.setReading('targetAttackable', false)
+    // The weapon imbue and reminders read these once they start.
+    g.setReading('mainHandEnchant', null)
+    g.setReading('resting', false)
+    g.setReading('mounted', false)
+    g.setReading('onTaxi', false)
     // Forever's project ID says "retail" (1). Turbo must never rely on it.
     g.setReading('projectId', 1)
     return g

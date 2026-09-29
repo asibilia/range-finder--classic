@@ -42,9 +42,17 @@ function C_SwingTimer.IsTargetWithinSwingRange(swingType) end
 -- Plain in combat and includes time left. The legacy global
 -- GetWeaponEnchantInfo() misreports on Forever: don't use it.
 
+---@enum Enum.ItemEnchantType
+Enum.ItemEnchantType = {
+	None = 0,
+	Permanent = 1,
+	Temporary = 2,
+	Imbue = 3,
+}
+
 ---@class WeaponEnchantInfo
 ---@field hasEnchant boolean
----@field enchantType number Enum.ItemEnchantType
+---@field enchantType Enum.ItemEnchantType
 ---@field timeLeft number milliseconds
 ---@field charges number
 ---@field enchantID number

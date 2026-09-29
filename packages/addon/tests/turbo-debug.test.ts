@@ -45,6 +45,11 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     g.setReading('playerClass', 'Shaman', 'SHAMAN', 7)
     g.setReading('inCombat', false)
     g.setReading('targetAttackable', false)
+    // The weapon imbue and reminders read these once they start.
+    g.setReading('mainHandEnchant', null)
+    g.setReading('resting', false)
+    g.setReading('mounted', false)
+    g.setReading('onTaxi', false)
     return g
 }
 

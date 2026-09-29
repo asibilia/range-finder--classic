@@ -51,6 +51,11 @@ function start(savedVariables?: Record<string, unknown>): FakeGame {
     // The range finder checks a targeted enemy's range; nothing to report.
     g.setReading('spellInRange', null)
     g.setReading('itemInRange', null)
+    // The weapon imbue and reminders read these once they start.
+    g.setReading('mainHandEnchant', null)
+    g.setReading('resting', false)
+    g.setReading('mounted', false)
+    g.setReading('onTaxi', false)
     return g
 }
 
