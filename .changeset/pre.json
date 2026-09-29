@@ -1,0 +1,9 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@goturbo/addon": "0.0.0",
+    "@goturbo/web": "0.0.0"
+  },
+  "changesets": []
+}

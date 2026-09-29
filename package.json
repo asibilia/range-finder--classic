@@ -21,6 +21,7 @@
   "scripts": {
     "changeset": "bunx changeset",
     "changeset:status": "bunx changeset status",
+    "changeset:version": "bunx changeset version && bun install",
     "check": "bun run check:all && bun run lua:all",
     "check:all": "bun run type-check && bun run lint && bun run syncpack:check",
     "commit": "bunx --bun @alecsibilia/commit",

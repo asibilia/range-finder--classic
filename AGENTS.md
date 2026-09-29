@@ -73,6 +73,10 @@ Every PR into `main` must carry a changeset (`bun run changeset`);
 a `patch` on the package they serve. Nothing is published to npm: both packages
 are `"private": true`.
 
+Merging the changesets Version PR is the only release step: it tags
+`v<addon version>` and the BigWigs packager publishes the addon folder. See
+`.changeset/README.md`. Never tag or upload by hand.
+
 ## Agent skills
 
 ### Issue tracker
