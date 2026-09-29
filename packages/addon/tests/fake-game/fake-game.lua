@@ -7,7 +7,9 @@
 -- * scripted events and readings, and a clock that only moves when told to;
 -- * opaque secret stand-ins that fail loudly when addon code reads, compares,
 --   does math on, concatenates, stringifies or keys a table with them;
--- * a recorder of every widget call and frame state change.
+-- * a recorder of every widget call and frame state change;
+-- * the settings pages registered in Options → AddOns, which a test reads and
+--   changes as the player would.
 --
 -- Addon files run in a sandbox that holds Lua's and WoW's plain helpers and
 -- nothing of the game: any other global read fails loudly, because only the
@@ -526,8 +528,34 @@ local function buildSafe(game)
 		table.insert(game.printed, message)
 	end
 
+	-- The first recorded anchor: SetPoint(point, x, y) or
+	-- SetPoint(point, relativeTo, relativePoint, x, y).
+	function safe.framePoint(frame)
+		local point = (game.frameInfo[frame].state.points or {})[1]
+		if not point then
+			return nil
+		end
+		local function offset(v)
+			return rawType(v) == "number" and v or 0
+		end
+		if rawType(point[2]) == "number" then
+			return point[1], offset(point[2]), offset(point[3])
+		end
+		return point[1], offset(point[4]), offset(point[5])
+	end
+
+	function safe.slash(_, commands, handler)
+		for _, command in ipairs(commands) do
+			game.slashCommands[string.lower(command)] = handler
+		end
+	end
+
 	function safe.isSecret(value)
 		return game.secrets[value] ~= nil
+	end
+
+	function safe.settingsPage(name, controls)
+		table.insert(game.settingsPages, { name = name, controls = controls })
 	end
 
 	return safe
@@ -639,6 +667,8 @@ function FakeGame.new(options)
 		frameOrder = {},
 		childCount = {},
 		printed = {},
+		slashCommands = {},
+		settingsPages = {},
 		secrets = setmetatable({}, { __mode = "k" }),
 		violations = {},
 		loadedFiles = {},
@@ -796,6 +826,54 @@ function Game:runScript(frameId, script, ...)
 			hook(frame, unpack(args, 1, args.n))
 		end
 	end)
+end
+
+--- Types a slash command into chat: the handler gets the text after it.
+function Game:slash(line)
+	local command, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
+	local handler = command and self.slashCommands[string.lower(command)]
+	if not handler then
+		error("fake game: no slash command '" .. rawToString(command) .. "' is registered", 0)
+	end
+	step(self, handler, rest)
+end
+
+--- The settings pages as the player would see them now: each control with
+--- the value it shows.
+function Game:settingsSnapshot()
+	local pages = {}
+	step(self, function()
+		for i, page in ipairs(self.settingsPages) do
+			local controls = {}
+			for j, control in ipairs(page.controls) do
+				controls[j] = {
+					kind = control.kind,
+					label = control.label,
+					value = control.get and control.get(),
+					min = control.min,
+					max = control.max,
+					step = control.step,
+				}
+			end
+			pages[i] = { name = page.name, controls = controls }
+		end
+	end)
+	return pages
+end
+
+--- The player changes a checkbox or slider on a settings page.
+function Game:changeSetting(pageName, label, value)
+	for _, page in ipairs(self.settingsPages) do
+		if page.name == pageName then
+			for _, control in ipairs(page.controls) do
+				if control.label == label and control.set then
+					step(self, control.set, value)
+					return
+				end
+			end
+		end
+	end
+	error("fake game: no setting '" .. rawToString(label) .. "' on the page '" .. rawToString(pageName) .. "'", 0)
 end
 
 function Game:setReading(name, values)

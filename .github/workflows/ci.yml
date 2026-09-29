@@ -32,3 +32,39 @@ jobs:
             # the Lua checks (lua:all): fetch the tools if the cache missed,
             # StyLua format check, LuaLS, the secret-read guard, and the tests.
             - run: bun run check
+
+    # Packages the addon the way release.yml does, uploading nothing, and
+    # fails if anything outside the addon folder got into the zip.
+    package:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            # The packager's manual changelog; before the first release there
+            # is no changelog yet, so a stand-in.
+            - name: Write the release notes
+              run: |
+                  if [ -f packages/addon/CHANGELOG.md ]; then
+                    bun packages/addon/scripts/release-notes.ts packages/addon/CHANGELOG.md > packages/addon/Turbo/CHANGELOG.md
+                  else
+                    echo "Unreleased." > packages/addon/Turbo/CHANGELOG.md
+                  fi
+
+            # The packager only takes a top dir with a .git folder in it. An
+            # empty one is enough: git skips it and still finds the repo above.
+            - name: Mark the addon folder as the packager's top dir
+              run: mkdir -p packages/addon/Turbo/.git
+
+            - name: Package without uploading
+              uses: BigWigsMods/packager@v2
+              with:
+                  args: -d -t packages/addon/Turbo -m packages/addon/.pkgmeta
+
+            - name: Check the packaged zip
+              run: bun packages/addon/scripts/check-package.ts packages/addon/Turbo/.release/*.zip

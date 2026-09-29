@@ -1,0 +1,63 @@
+name: Release
+
+# Packages the addon with the BigWigs packager and publishes it: CurseForge and
+# Wago when their project ids (TOC) and tokens (repo secrets) are set, which
+# the packager skips cleanly while they're absent, and always a GitHub Release.
+# A beta tag (v0.1.0-beta.0) publishes a pre-release.
+#
+# changesets.yml calls this right after it pushes a v<version> tag, because a
+# tag pushed with the workflow's own token starts no workflows. A tag pushed
+# by hand starts it too.
+on:
+    push:
+        tags: ['v*']
+    workflow_call:
+        inputs:
+            tag:
+                description: The v<version> tag to release
+                type: string
+                required: true
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            # Full history and tags: the packager versions from the tag.
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.tag || github.ref }}
+                  fetch-depth: 0
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            # The packager's manual changelog (.pkgmeta): the store changelog
+            # and the GitHub release body.
+            - name: Write the release notes
+              run: bun packages/addon/scripts/release-notes.ts packages/addon/CHANGELOG.md > packages/addon/Turbo/CHANGELOG.md
+
+            # The packager only takes a top dir with a .git folder in it. An
+            # empty one is enough: git skips it and still finds the repo above.
+            - name: Mark the addon folder as the packager's top dir
+              run: mkdir -p packages/addon/Turbo/.git
+
+            - name: Package
+              uses: BigWigsMods/packager@v2
+              with:
+                  args: -d -t packages/addon/Turbo -m packages/addon/.pkgmeta
+
+            - name: Check the packaged zip
+              run: bun packages/addon/scripts/check-package.ts packages/addon/Turbo/.release/*.zip
+
+            # Packages the same checkout again, then uploads.
+            - name: Package and upload
+              uses: BigWigsMods/packager@v2
+              with:
+                  args: -t packages/addon/Turbo -m packages/addon/.pkgmeta
+              env:
+                  CF_API_KEY: ${{ secrets.CF_API_KEY }}
+                  WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+                  GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

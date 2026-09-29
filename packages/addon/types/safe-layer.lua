@@ -11,7 +11,9 @@ local TurboSafeLayer = {}
 ---@return number
 function TurboSafeLayer.now() end
 
----Subscribes to a game event. The handler gets the event name, then its payload.
+---Subscribes to a game event, or to a Blizzard callback event such as
+---`EditMode.Enter` (any name with a dot, through EventRegistry). The handler
+---gets the event name, then its payload.
 ---@param event string
 ---@param handler fun(event: string, ...: any)
 function TurboSafeLayer.on(event, handler) end
@@ -40,6 +42,7 @@ function TurboSafeLayer.every(interval, callback) end
 function TurboSafeLayer.read(name, ...) end
 
 ---Creates a frame (`CreateFrame`). Its widget calls are the addon's output.
+---A frame without a parent gets UIParent.
 ---@param frameType string
 ---@param name string?
 ---@param parent any?
@@ -47,11 +50,46 @@ function TurboSafeLayer.read(name, ...) end
 ---@return any
 function TurboSafeLayer.createFrame(frameType, name, parent, template) end
 
+---Where one of Turbo's own frames is anchored now (`GetPoint(1)`): its point
+---and offsets from the same point of its parent. Nil when it has no anchor.
+---@param frame any
+---@return string? point
+---@return number? x
+---@return number? y
+function TurboSafeLayer.framePoint(frame) end
+
 ---Prints a line to the chat frame.
 ---@param message string
 function TurboSafeLayer.print(message) end
+
+---Registers slash commands (`SLASH_<key>1...`, `SlashCmdList[key]`). The
+---handler gets the text typed after the command.
+---@param key string
+---@param commands string[] e.g. { "/turbo", "/tb" }
+---@param handler fun(message: string)
+function TurboSafeLayer.slash(key, commands, handler) end
 
 ---Whether a value is secret (`issecretvalue`). Checking never reads it.
 ---@param value any
 ---@return boolean
 function TurboSafeLayer.isSecret(value) end
+
+---One control on a settings page. A checkbox or slider shows what `get`
+---returns whenever the page is drawn, and calls `set` when the player changes
+---it; a text control is a line of text.
+---@class TurboSettingsControl
+---@field kind "checkbox"|"slider"|"text"
+---@field label string
+---@field key string? names the setting; unique on the page (not for text)
+---@field default any
+---@field min number? sliders only
+---@field max number? sliders only
+---@field step number? sliders only
+---@field get (fun(): any)?
+---@field set (fun(value: any))?
+
+---Registers a page in Options → AddOns, on Blizzard's add-on settings API
+---(`Settings.RegisterVerticalLayoutCategory`, `Settings.RegisterAddOnCategory`).
+---@param name string
+---@param controls TurboSettingsControl[] top to bottom
+function TurboSafeLayer.settingsPage(name, controls) end

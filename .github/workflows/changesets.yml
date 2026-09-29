@@ -1,0 +1,63 @@
+name: Changesets
+
+# Every push to main: while changesets are pending, changesets/action keeps a
+# Version PR open (beta pre-release mode, .changeset/pre.json). Merging it
+# bumps the versions and changelogs; on that push no changesets are pending,
+# so the addon version is tagged v<version> and released.
+on:
+    push:
+        branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+    version:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        outputs:
+            tag: ${{ steps.tag.outputs.tag }}
+            created: ${{ steps.tag.outputs.created }}
+        steps:
+            # Full history and tags, so an existing tag is never re-created.
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - run: bun install --frozen-lockfile
+
+            - name: Open or update the Version PR
+              id: changesets
+              uses: changesets/action@v1
+              with:
+                  version: bun run changeset:version
+                  title: 'chore: version packages'
+                  commit: 'chore: version packages'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Tag the addon version
+              id: tag
+              if: steps.changesets.outputs.hasChangesets == 'false'
+              run: bun packages/addon/scripts/release-tag.ts
+
+            - name: Push the tag
+              if: steps.tag.outputs.created == 'true'
+              run: git push origin "refs/tags/$TAG"
+              env:
+                  TAG: ${{ steps.tag.outputs.tag }}
+
+    release:
+        needs: version
+        if: needs.version.outputs.created == 'true'
+        permissions:
+            contents: write
+        uses: ./.github/workflows/release.yml
+        with:
+            tag: ${{ needs.version.outputs.tag }}
+        secrets: inherit

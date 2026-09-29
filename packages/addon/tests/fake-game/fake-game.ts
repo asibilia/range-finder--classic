@@ -62,6 +62,19 @@ export type LoadOptions = {
     savedVariables?: Record<string, unknown>
 }
 
+/** One control on a settings page, showing its value now. */
+export type SettingsControl = {
+    kind: 'checkbox' | 'slider' | 'text'
+    label: string
+    value?: unknown
+    min?: number
+    max?: number
+    step?: number
+}
+
+/** A page registered in Options → AddOns. */
+export type SettingsPage = { name: string; controls: SettingsControl[] }
+
 export type FakeGame = {
     /** A secret stand-in; the same label always gives the same one. */
     secret(label: string, kind?: string): Secret
@@ -89,6 +102,12 @@ export type FakeGame = {
     frames(): string[]
     /** Chat lines the addon printed. */
     printed(): string[]
+    /** Types a slash command (`/turbo help`) into chat. */
+    slash(line: string): void
+    /** The pages registered in Options → AddOns, as they show now. */
+    settingsPages(): SettingsPage[]
+    /** The player ticks a checkbox or moves a slider on a settings page. */
+    changeSetting(page: string, label: string, value: unknown): void
     /** Runs a frame script (`OnUpdate`, `OnShow`...) and its hooks. */
     runScript(frameId: string, script: string, ...args: unknown[]): void
     /**
@@ -304,6 +323,19 @@ export function loadAddon(options: LoadOptions): FakeGame {
         },
         printed() {
             return json('return __game:encode(__game.printed)') as string[]
+        },
+        slash(line) {
+            call(`__game:slash(${luaString(line)})`)
+        },
+        settingsPages() {
+            return json(
+                'return __game:encode(__game:settingsSnapshot())'
+            ) as SettingsPage[]
+        },
+        changeSetting(page, label, value) {
+            call(
+                `__game:changeSetting(${luaString(page)}, ${luaString(label)}, ${toLua(value)})`
+            )
         },
         runScript(frameId, script, ...args) {
             call(

@@ -1,0 +1,11 @@
+# The BigWigs packager's config, kept outside the shipped folder. CI runs the
+# packager with the addon folder as its top dir and this file as its config
+# (-t packages/addon/Turbo -m packages/addon/.pkgmeta), so only the addon
+# folder ships.
+package-as: Turbo
+
+# Written into the addon folder by the workflow before packaging: the newest
+# entry of packages/addon/CHANGELOG.md (scripts/release-notes.ts).
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

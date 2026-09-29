@@ -21,9 +21,12 @@
   "scripts": {
     "changeset": "bunx changeset",
     "changeset:status": "bunx changeset status",
+    "changeset:version": "bunx changeset version && bun install",
     "check": "bun run check:all && bun run lua:all",
     "check:all": "bun run type-check && bun run lint && bun run syncpack:check",
     "commit": "bunx --bun @alecsibilia/commit",
+    "dev:link": "bun packages/addon/scripts/dev-link.ts",
+    "dev:watch": "bun packages/addon/scripts/dev-watch.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lua:all": "bun run tools:fetch && bun run lua:format:check && bun run lua:check && bun run lua:guard && bun run lua:test",

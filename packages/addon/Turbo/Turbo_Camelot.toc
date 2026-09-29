@@ -3,6 +3,27 @@
 ## Notes: The Enhancement Shaman HUD for WoW: Forever.
 ## Author: Turbo crew
 ## Version: @project-version@
+## SavedVariables: TurboDB
 
 core\safe-layer.lua
 core\boot.lua
+core\events.lua
+core\timers.lua
+core\restrictions.lua
+core\settings.lua
+core\debugging.lua
+core\modules.lua
+kits\shaman.lua
+hud\card.lua
+modules\range-finder.lua
+modules\swing-timer.lua
+modules\totem-timers.lua
+modules\reminders.lua
+modules\weapon-imbue.lua
+modules\lightning-shield.lua
+modules\maelstrom-weapon.lua
+modules\key-cooldowns.lua
+modules\mana-bar.lua
+core\slash.lua
+core\settings-page.lua
+core\start.lua

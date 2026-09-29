@@ -21,11 +21,250 @@ ns.safe = safe
 ---@type table<string, fun(...: any): ...: any>
 local readings = {}
 
+---The client's interface number (16001 on Forever).
+function readings.interface()
+	return (select(4, GetBuildInfo()))
+end
+
+---"forever" on WoW: Forever. Forever's project ID says retail, so this asks
+---for Forever's own game rules instead: only Forever has an experience preset.
+function readings.flavor()
+	local rules = C_GameRules
+	if rules and rules.GetForeverExperiencePreset and rules.GetForeverExperiencePreset() ~= nil then
+		return "forever"
+	end
+	return "other"
+end
+
+---The player's class: localized name, token ("SHAMAN") and class ID.
+function readings.playerClass()
+	return UnitClass("player")
+end
+
+function readings.inCombat()
+	return InCombatLockdown()
+end
+
+---Whether the target is an enemy the player can attack, and alive.
+function readings.targetAttackable()
+	return UnitCanAttack("player", "target") and not UnitIsDead("target")
+end
+
+---Spells whose SPELL_RANGE_CHECK_UPDATE is on.
+---@type table<number, boolean>
+local rangeChecked = {}
+
+---Whether a unit is in a spell's range: true, false, or nil when there's
+---nothing to check. Asking about a spell also turns on the game's
+---SPELL_RANGE_CHECK_UPDATE for it, so its range changes are reported.
+---@param spellID number
+---@param unit string
+function readings.spellInRange(spellID, unit)
+	if not rangeChecked[spellID] then
+		rangeChecked[spellID] = true
+		C_Spell.EnableSpellRangeCheck(spellID, true)
+	end
+	return C_Spell.IsSpellInRange(spellID, unit)
+end
+
+---Whether a unit is in an item's range: true, false, or nil when there's
+---nothing to check.
+---@param itemID number
+---@param unit string
+function readings.itemInRange(itemID, unit)
+	return C_Item.IsItemInRange(itemID, unit)
+end
+
+---Seconds left on the totem in a game slot (Fire 1, Earth 2, Water 3, Air 4):
+---a plain 0 when the slot is empty, a secret in combat.
+---@param slot number
+function readings.totemTimeLeft(slot)
+	return GetTotemTimeLeft(slot)
+end
+
+---The duration object for a game slot's totem, or nil. Hand it straight to
+---a Cooldown.
+---@param slot number
+function readings.totemDuration(slot)
+	return GetTotemDuration(slot)
+end
+
+---haveTotem, name, startTime, duration and icon for a game slot. Secret in
+---combat. haveTotem says true for an empty slot too: never use it.
+---@param slot number
+function readings.totemInfo(slot)
+	return GetTotemInfo(slot)
+end
+
+---Whether the game gives totem duration objects to show on a Cooldown.
+function readings.totemDurationSupported()
+	return GetTotemDuration ~= nil
+end
+
+-- The Maelstrom Weapon buff. Recheck at the level-gated checks: the beta is
+-- capped below the talent.
+local MAELSTROM_WEAPON = 53817
+
+---The player's Maelstrom Weapon stacks: 0 with no aura, a secret when the
+---game hides the aura, nil when the aura read failed (they throw in combat).
+function readings.maelstromWeapon()
+	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, MAELSTROM_WEAPON)
+	if not ok then
+		return nil
+	end
+	if issecretvalue(aura) then
+		return aura
+	end
+	if aura == nil then
+		return 0
+	end
+	return aura.applications
+end
+
+---The main-hand imbue, `{ timeLeft = <seconds>, icon, enchantID }`, or nil
+---when there's none. Asks the item namespace, which is plain in combat; the
+---legacy global GetWeaponEnchantInfo() misreports on Forever.
+function readings.mainHandEnchant()
+	local enchants = C_Item.GetWeaponEnchantInfo(Enum.WeaponSlot.MainHand) or {}
+	for _, enchant in ipairs(enchants) do
+		local kind = enchant.enchantType
+		if enchant.hasEnchant and (kind == Enum.ItemEnchantType.Temporary or kind == Enum.ItemEnchantType.Imbue) then
+			return {
+				timeLeft = enchant.timeLeft / 1000,
+				icon = enchant.enchantIconID,
+				enchantID = enchant.enchantID,
+			}
+		end
+	end
+end
+
+-- Lightning Shield, every rank. The module keeps the same list.
+local LIGHTNING_SHIELD_RANKS = { 324, 325, 905, 945, 8134, 10431, 10432 }
+
+---The player's Lightning Shield, `{ charges, timeLeft = <seconds> }`, false
+---when there's none, nil when the aura read failed (they throw in combat) or
+---came back secret.
+function readings.lightningShield()
+	local ok, aura = pcall(function()
+		for _, spellID in ipairs(LIGHTNING_SHIELD_RANKS) do
+			local found = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+			if found ~= nil then
+				return found
+			end
+		end
+		return false
+	end)
+	if not ok or issecretvalue(aura) then
+		return nil
+	end
+	if not aura then
+		return false
+	end
+	local charges, expirationTime = aura.applications, aura.expirationTime
+	if issecretvalue(charges) or issecretvalue(expirationTime) then
+		return nil
+	end
+	if type(charges) ~= "number" or type(expirationTime) ~= "number" then
+		return nil
+	end
+	return { charges = charges, timeLeft = math.max(0, expirationTime - GetTime()) }
+end
+
+---Whether the client has Blizzard's aura container widget.
+function readings.auraContainerSupported()
+	local ok, info = pcall(C_XMLUtil.GetTemplateInfo, "CustomAuraContainerTemplate")
+	return ok and info ~= nil
+end
+
+---Whether the player is resting (in town or an inn).
+function readings.resting()
+	return IsResting()
+end
+
+function readings.mounted()
+	return IsMounted()
+end
+
+---Whether the player is on a flight path.
+function readings.onTaxi()
+	return UnitOnTaxi("player")
+end
+
+---Whether the player knows a spell, by spell ID.
+function readings.spellKnown(spellID)
+	return C_SpellBook.IsSpellKnown(spellID)
+end
+
+---A spell's icon.
+function readings.spellTexture(spellID)
+	return (C_Spell.GetSpellTexture(spellID))
+end
+
+---A spell's cooldown info. `isActive` and `isOnGCD` are never secret; the
+---start, duration and rate may be.
+function readings.spellCooldown(spellID)
+	return C_Spell.GetSpellCooldown(spellID)
+end
+
+---A spell's cooldown as a duration object, for a Cooldown frame's swirl.
+function readings.spellCooldownDuration(spellID)
+	return C_Spell.GetSpellCooldownDuration(spellID)
+end
+
+---Whether a spell is castable now, and whether it isn't for lack of power.
+function readings.spellUsable(spellID)
+	return C_Spell.IsSpellUsable(spellID)
+end
+
+---The player's current mana. Secret in combat.
+function readings.mana()
+	return UnitPower("player", Enum.PowerType.Mana)
+end
+
+---The player's max mana.
+function readings.manaMax()
+	return UnitPowerMax("player", Enum.PowerType.Mana)
+end
+
+---The game's colour curves, built once for each plain curve description.
+---@type table<table, ColorCurveObject>
+local colorCurves = setmetatable({}, { __mode = "k" })
+
+---Builds (once) the game's colour curve from a plain description:
+---`{ type = "Step", points = { { x = 0, r = 1, g = 0, b = 0 }, ... } }`.
+local function colorCurve(description)
+	local curve = colorCurves[description]
+	if not curve then
+		curve = C_CurveUtil.CreateColorCurve()
+		curve:SetType(Enum.LuaCurveType[description.type])
+		for _, p in ipairs(description.points) do
+			curve:AddPoint(p.x, CreateColor(p.r, p.g, p.b))
+		end
+		colorCurves[description] = curve
+	end
+	return curve
+end
+
+---The player's mana percent (0–1) evaluated through a colour curve: `r, g, b`,
+---secret in combat.
+function readings.manaColor(description)
+	local color = UnitPowerPercent("player", Enum.PowerType.Mana, false, colorCurve(description))
+	---@cast color colorRGBA
+	return color:GetRGB()
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 
+-- Blizzard's callback events ("EditMode.Enter") come through EventRegistry,
+-- not the event frame; their names are the ones with a dot.
+local function isCallbackEvent(event)
+	return event:find(".", 1, true) ~= nil
+end
+
 local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function(_, event, ...)
+
+local function dispatch(event, ...)
 	local list = handlers[event]
 	if not list then
 		return
@@ -35,6 +274,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 	for i = 1, #snapshot do
 		snapshot[i](event, ...)
 	end
+end
+
+eventFrame:SetScript("OnEvent", function(_, event, ...)
+	dispatch(event, ...)
 end)
 
 function safe.now()
@@ -46,7 +289,15 @@ function safe.on(event, handler)
 	if not list then
 		list = {}
 		handlers[event] = list
-		eventFrame:RegisterEvent(event)
+		if isCallbackEvent(event) then
+			-- EventRegistry keeps the callback once per owner; the owner is
+			-- the handler list, so it stays registered while `on` is in use.
+			EventRegistry:RegisterCallback(event, function(_, ...)
+				dispatch(event, ...)
+			end, list)
+		else
+			eventFrame:RegisterEvent(event)
+		end
 	end
 	table.insert(list, handler)
 end
@@ -63,7 +314,11 @@ function safe.off(event, handler)
 	end
 	if #list == 0 then
 		handlers[event] = nil
-		eventFrame:UnregisterEvent(event)
+		if isCallbackEvent(event) then
+			EventRegistry:UnregisterCallback(event, list)
+		else
+			eventFrame:UnregisterEvent(event)
+		end
 	end
 end
 
@@ -84,13 +339,61 @@ function safe.read(name, ...)
 end
 
 function safe.createFrame(frameType, name, parent, template)
-	return CreateFrame(frameType, name, parent, template)
+	-- A frame without a parent hangs off UIParent, like the rest of the UI.
+	return CreateFrame(frameType, name, parent or UIParent, template)
+end
+
+function safe.framePoint(frame)
+	local point, _, _, x, y = frame:GetPoint(1)
+	return point, x, y
 end
 
 function safe.print(message)
 	print(message)
 end
 
+function safe.slash(key, commands, handler)
+	for i, command in ipairs(commands) do
+		_G["SLASH_" .. key .. i] = command
+	end
+	SlashCmdList[key] = handler
+end
+
 function safe.isSecret(value)
 	return issecretvalue(value)
+end
+
+-- A slider's number beside it, without float noise (0.15, not 0.1500001).
+local function sliderLabel(value)
+	return string.format("%g", value)
+end
+
+function safe.settingsPage(name, controls)
+	local category, layout = Settings.RegisterVerticalLayoutCategory(name)
+	for _, control in ipairs(controls) do
+		if control.kind == "text" then
+			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(control.label))
+		else
+			-- Proxy settings keep no value of their own: the page reads and
+			-- writes through Turbo, so a change made elsewhere shows here too.
+			local variableType = control.kind == "slider" and Settings.VarType.Number or Settings.VarType.Boolean
+			local setting = Settings.RegisterProxySetting(
+				category,
+				"Turbo_" .. control.key,
+				variableType,
+				control.label,
+				control.default,
+				control.get,
+				control.set
+			)
+			if control.kind == "slider" then
+				local options = Settings.CreateSliderOptions(control.min, control.max, control.step)
+				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, sliderLabel)
+				Settings.CreateSlider(category, setting, options)
+			else
+				Settings.CreateCheckbox(category, setting)
+			end
+		end
+	end
+	Settings.RegisterAddOnCategory(category)
 end

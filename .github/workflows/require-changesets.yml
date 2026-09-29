@@ -13,6 +13,9 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
+              with:
+                  # Full history, so the PR can be diffed against its base.
+                  fetch-depth: 0
 
             - name: Check for changesets
               run: |
@@ -26,11 +29,16 @@ jobs:
                     exit 0
                   fi
 
-                  COUNT=$(find .changeset -maxdepth 1 -type f -name '*.md' \
-                    ! -name 'README.md' | grep -c . || true)
+                  # Count only the changesets this PR adds. In pre-release
+                  # (beta) mode, `changeset version` keeps consumed
+                  # changesets in .changeset/ and lists them in pre.json, so
+                  # counting every file there would pass any PR.
+                  COUNT=$(git diff --name-only --diff-filter=A \
+                    "$BASE_SHA...HEAD" -- '.changeset/*.md' \
+                    | grep -v '^\.changeset/README\.md$' | grep -c . || true)
 
                   if [ "$COUNT" -eq 0 ]; then
-                    echo "❌ No changesets found in .changeset/"
+                    echo "❌ This PR adds no changeset to .changeset/"
                     echo ""
                     echo "Every PR into main needs at least one changeset, or the"
                     echo "release notes silently lose this change."
@@ -42,7 +50,8 @@ jobs:
                     exit 1
                   fi
 
-                  echo "✓ Found $COUNT changeset file(s)"
+                  echo "✓ This PR adds $COUNT changeset file(s)"
               env:
                   PR_NUMBER: ${{ github.event.pull_request.number }}
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
