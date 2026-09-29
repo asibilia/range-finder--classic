@@ -143,18 +143,32 @@ local function setEditMode(open)
 	update()
 end
 
+local function readTarget()
+	targetAttackable = safe.read("targetAttackable") == true
+end
+
 ---Builds the card and starts following engaged, always show and Edit Mode.
 function card.start()
 	build()
-	targetAttackable = safe.read("targetAttackable") == true
+	readTarget()
+	-- The target can stop being attackable without a target change (it dies,
+	-- or turns friendly), so it's also read again when combat starts or ends
+	-- and when the target's flags change.
 	events.on("Turbo.RestrictionChanged", function(_, kind)
 		if kind == "combat" then
+			readTarget()
 			update()
 		end
 	end)
 	events.on("PLAYER_TARGET_CHANGED", function()
-		targetAttackable = safe.read("targetAttackable") == true
+		readTarget()
 		update()
+	end)
+	events.on("UNIT_FLAGS", function(_, unit)
+		if unit == "target" then
+			readTarget()
+			update()
+		end
 	end)
 	events.on("EditMode.Enter", function()
 		setEditMode(true)
