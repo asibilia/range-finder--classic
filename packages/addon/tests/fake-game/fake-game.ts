@@ -75,6 +75,25 @@ export type SettingsControl = {
 /** A page registered in Options → AddOns. */
 export type SettingsPage = { name: string; controls: SettingsControl[] }
 
+/**
+ * What an action slot or the cursor holds. A test names a macro by its name
+ * (the first with that name, account list first, unless `perCharacter` says
+ * which list); read back, a macro always says which list it's in.
+ */
+export type Action =
+    | { type: 'spell' | 'item'; id: number }
+    | { type: 'macro'; name: string; perCharacter?: boolean }
+
+/** A macro in the player's account or character list. */
+export type Macro = {
+    /** The game's index: 1–120 for account macros, 121–150 per character. */
+    index: number
+    name: string
+    icon: unknown
+    body: string
+    perCharacter: boolean
+}
+
 export type FakeGame = {
     /** A secret stand-in; the same label always gives the same one. */
     secret(label: string, kind?: string): Secret
@@ -110,6 +129,26 @@ export type FakeGame = {
     changeSetting(page: string, label: string, value: unknown): void
     /** Runs a frame script (`OnUpdate`, `OnShow`...) and its hooks. */
     runScript(frameId: string, script: string, ...args: unknown[]): void
+    /**
+     * Adds a macro to the player's account or character list, as if they
+     * made it. Each list stays in name order; a full list fails.
+     */
+    addMacro(macro: {
+        name: string
+        body: string
+        icon?: number
+        perCharacter: boolean
+    }): void
+    /** Both macro lists, account first, each in name order. */
+    macros(): Macro[]
+    /** Puts an action in a slot (1–180), or empties it with null. */
+    setAction(slot: number, action: Action | null): void
+    /** What every non-empty action slot holds, by slot. */
+    actions(): Record<number, Action>
+    /** Puts something on the cursor, or clears it with null. */
+    setCursor(action: Action | null): void
+    /** What the cursor holds, or null. */
+    cursor(): Action | null
     /**
      * Runs Lua inside the addon's sandbox and returns its results. `...` holds
      * `args`; `ns` reads the addon's namespace. Errors are named `test:<line>`.
@@ -341,6 +380,31 @@ export function loadAddon(options: LoadOptions): FakeGame {
             call(
                 `__game:runScript(${luaString(frameId)}, ${luaString(script)}${args.map((a) => `, ${toLua(a)}`).join('')})`
             )
+        },
+        addMacro(macro) {
+            call(`__game:addMacro(${toLua(macro)})`)
+        },
+        macros() {
+            return json(
+                'return __game:encode(__game:macroSnapshot())'
+            ) as Macro[]
+        },
+        setAction(slot, action) {
+            call(`__game:setAction(${toLua(slot)}, ${toLua(action)})`)
+        },
+        actions() {
+            const list = json(
+                'return __game:encode(__game:actionSnapshot())'
+            ) as { slot: number; action: Action }[]
+            return Object.fromEntries(list.map((e) => [e.slot, e.action]))
+        },
+        setCursor(action) {
+            call(`__game:setCursor(${toLua(action)})`)
+        },
+        cursor() {
+            return json(
+                'return __game:encode(__game:cursorSnapshot())'
+            ) as Action | null
         },
         run(code, ...args) {
             return json(

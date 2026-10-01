@@ -661,9 +661,18 @@ describe('never by action-bar slot', () => {
         for (const file of luaFiles) {
             const source = readFileSync(join(TURBO_DIR, file), 'utf8')
             expect(source).not.toMatch(
-                /\b(IsActionInRange|ActionHasRange|GetActionInfo|HasAction|GetActionTexture)\b|C_ActionBar\b/
+                /\b(IsActionInRange|ActionHasRange)\b|C_ActionBar\b/
             )
         }
+        // Attack macros (/turbo macros) read action slots to swap buttons;
+        // the range finder never looks at one.
+        const rangeFinder = readFileSync(
+            join(TURBO_DIR, 'modules/range-finder.lua'),
+            'utf8'
+        )
+        expect(rangeFinder).not.toMatch(
+            /\b(GetActionInfo|HasAction|GetActionTexture|actionInfo)\b/
+        )
 
         game = start()
         login(game)

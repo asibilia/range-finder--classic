@@ -83,8 +83,12 @@ One self-contained feature of Turbo, such as totem timers or the range finder, t
 _Avoid_: Feature (fine in conversation, but the unit is a module), plugin, widget
 
 **Class kit**:
-The list of modules Turbo turns on for one class. Adding a class means writing its class kit and any modules it needs.
+The list of modules Turbo turns on for one class, and the attack spells it makes attack macros for. Adding a class means writing its class kit and any modules it needs.
 _Avoid_: Class bundle, profile, loadout
+
+**Attack macro**:
+A per-character macro Turbo makes for one of the class kit's attack spells when the player types `/turbo macros`. It starts auto-attack and casts the spell's top rank, and Turbo swaps it onto the action bars wherever that spell sat.
+_Avoid_: Startattack macro, cast macro
 
 **Engaged**:
 The player is in combat or has an attackable enemy targeted. The HUD shows while engaged and fades away otherwise.

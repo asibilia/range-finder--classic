@@ -55,6 +55,7 @@ local function onLogin(event)
 	-- The card first, so modules find its rows to fill.
 	ns.card.start()
 	ns.modules.start(kit)
+	ns.attackMacros.start(kit)
 	-- After the modules' first reads, so a login in debug mode doesn't flood
 	-- chat; what they read from here on is logged.
 	ns.debug.start()
