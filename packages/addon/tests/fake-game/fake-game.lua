@@ -9,7 +9,9 @@
 --   does math on, concatenates, stringifies or keys a table with them;
 -- * a recorder of every widget call and frame state change;
 -- * the settings pages registered in Options → AddOns, which a test reads and
---   changes as the player would.
+--   changes as the player would;
+-- * the player's macros, action slots and cursor, which a test sets up and
+--   reads back after the addon changes them.
 --
 -- Addon files run in a sandbox that holds Lua's and WoW's plain helpers and
 -- nothing of the game: any other global read fails loudly, because only the
@@ -319,6 +321,116 @@ createFrame = function(game, frameType, name, parent, template)
 	return frame
 end
 
+-- Macros, action slots and the cursor ------------------------------------
+--
+-- Forever's limits: 120 account macros and 30 per character
+-- (MacroConstantsDocumentation), and 180 action slots (15 pages of 12; the
+-- last bar, MultiBar7, is page 15). The game keeps each macro list in name
+-- order, so a new macro can move others to a new index; a macro's index is its
+-- place in the account list, or 120 plus its place in the character list.
+-- An action slot or the cursor holds `{ type = "spell"|"item", id }` or
+-- `{ type = "macro", macro }`; a macro on a bar follows it when the list
+-- reorders, as in the game.
+
+local MAX_ACCOUNT_MACROS = 120
+local MAX_CHARACTER_MACROS = 30
+local ACTION_SLOTS = 180
+
+local function macroList(game, perCharacter)
+	return perCharacter and game.characterMacros or game.accountMacros
+end
+
+local function macroIndex(game, macro)
+	for i, m in ipairs(macroList(game, macro.perCharacter)) do
+		if m == macro then
+			return (macro.perCharacter and MAX_ACCOUNT_MACROS or 0) + i
+		end
+	end
+end
+
+local function macroAt(game, index)
+	if rawType(index) ~= "number" then
+		return nil
+	end
+	if index > MAX_ACCOUNT_MACROS then
+		return game.characterMacros[index - MAX_ACCOUNT_MACROS]
+	end
+	return game.accountMacros[index]
+end
+
+-- Adds a macro in name order and returns its index; fails when its list is full.
+local function addMacro(game, name, icon, body, perCharacter)
+	local list = macroList(game, perCharacter)
+	local limit = perCharacter and MAX_CHARACTER_MACROS or MAX_ACCOUNT_MACROS
+	if #list >= limit then
+		error(
+			string.format(
+				"fake game: no room for another %s macro (%d of %d used).",
+				perCharacter and "character" or "account",
+				#list,
+				limit
+			),
+			0
+		)
+	end
+	local macro = { name = name, icon = icon, body = body or "", perCharacter = perCharacter }
+	local at = #list + 1
+	for i, m in ipairs(list) do
+		if name:lower() < m.name:lower() then
+			at = i
+			break
+		end
+	end
+	table.insert(list, at, macro)
+	return macroIndex(game, macro)
+end
+
+local function checkSlot(slot)
+	if rawType(slot) ~= "number" or slot < 1 or slot > ACTION_SLOTS or slot ~= math.floor(slot) then
+		error(
+			string.format("fake game: no action slot %s; the client has 1 to %d.", rawToString(slot), ACTION_SLOTS),
+			0
+		)
+	end
+end
+
+-- What the game says an action is: its type and ID (a macro's is its index).
+local function describeForGame(game, action)
+	if action.type == "macro" then
+		return "macro", macroIndex(game, action.macro)
+	end
+	return action.type, action.id
+end
+
+-- An action as a test reads it back.
+local function describeForTest(action)
+	if action.type == "macro" then
+		return { type = "macro", name = action.macro.name, perCharacter = action.macro.perCharacter }
+	end
+	return { type = action.type, id = action.id }
+end
+
+-- An action from a test: `{ type, id }`, or `{ type = "macro", name,
+-- perCharacter? }` for the first macro with that name, in index order.
+local function actionFromTest(game, spec)
+	if spec == nil then
+		return nil
+	end
+	if spec.type ~= "macro" then
+		return { type = spec.type, id = spec.id }
+	end
+	for _, perCharacter in ipairs({ false, true }) do
+		if spec.perCharacter == nil or spec.perCharacter == perCharacter then
+			for _, macro in ipairs(macroList(game, perCharacter)) do
+				if macro.name == spec.name then
+					return { type = "macro", macro = macro }
+				end
+			end
+		end
+	end
+	error("fake game: no macro named '" .. rawToString(spec.name) .. "' to put there", 0)
+end
+
 -- The sandbox the addon runs in -----------------------------------------
 
 local function buildEnv(game)
@@ -558,6 +670,64 @@ local function buildSafe(game)
 		table.insert(game.settingsPages, { name = name, controls = controls })
 	end
 
+	function safe.macros()
+		local list = {}
+		for _, perCharacter in ipairs({ false, true }) do
+			for _, macro in ipairs(macroList(game, perCharacter)) do
+				table.insert(list, {
+					index = macroIndex(game, macro),
+					name = macro.name,
+					body = macro.body,
+					perCharacter = perCharacter,
+				})
+			end
+		end
+		return list
+	end
+
+	function safe.macroLimits()
+		return MAX_ACCOUNT_MACROS, MAX_CHARACTER_MACROS
+	end
+
+	function safe.createMacro(name, icon, body, perCharacter)
+		return addMacro(game, name, icon, body, perCharacter == true)
+	end
+
+	function safe.actionInfo(slot)
+		checkSlot(slot)
+		local action = game.actionSlots[slot]
+		if not action then
+			return
+		end
+		local kind, id = describeForGame(game, action)
+		return kind, id, kind == "spell" and "spell" or ""
+	end
+
+	function safe.cursorInfo()
+		if game.cursor then
+			return describeForGame(game, game.cursor)
+		end
+	end
+
+	function safe.pickupMacro(index)
+		local macro = macroAt(game, index)
+		if not macro then
+			error("fake game: no macro at index " .. rawToString(index) .. ".", 0)
+		end
+		game.cursor = { type = "macro", macro = macro }
+	end
+
+	function safe.placeAction(slot)
+		checkSlot(slot)
+		if game.cursor then
+			game.actionSlots[slot], game.cursor = game.cursor, game.actionSlots[slot]
+		end
+	end
+
+	function safe.clearCursor()
+		game.cursor = nil
+	end
+
 	return safe
 end
 
@@ -669,6 +839,10 @@ function FakeGame.new(options)
 		printed = {},
 		slashCommands = {},
 		settingsPages = {},
+		accountMacros = {},
+		characterMacros = {},
+		actionSlots = {},
+		cursor = nil,
 		secrets = setmetatable({}, { __mode = "k" }),
 		violations = {},
 		loadedFiles = {},
@@ -874,6 +1048,55 @@ function Game:changeSetting(pageName, label, value)
 		end
 	end
 	error("fake game: no setting '" .. rawToString(label) .. "' on the page '" .. rawToString(pageName) .. "'", 0)
+end
+
+--- Adds a macro to the player's account or character list, as if they made it.
+function Game:addMacro(spec)
+	addMacro(self, spec.name, spec.icon, spec.body, spec.perCharacter == true)
+end
+
+--- Both macro lists, account first, each in name order, with their indexes.
+function Game:macroSnapshot()
+	local list = {}
+	for _, perCharacter in ipairs({ false, true }) do
+		for _, macro in ipairs(macroList(self, perCharacter)) do
+			table.insert(list, {
+				index = macroIndex(self, macro),
+				name = macro.name,
+				icon = macro.icon == nil and self.null or macro.icon,
+				body = macro.body,
+				perCharacter = perCharacter,
+			})
+		end
+	end
+	return list
+end
+
+--- Puts an action in a slot, or empties it with nil.
+function Game:setAction(slot, spec)
+	checkSlot(slot)
+	self.actionSlots[slot] = actionFromTest(self, spec)
+end
+
+--- Every non-empty action slot, in slot order: `{ slot, action }`.
+function Game:actionSnapshot()
+	local list = {}
+	for slot = 1, ACTION_SLOTS do
+		local action = self.actionSlots[slot]
+		if action then
+			table.insert(list, { slot = slot, action = describeForTest(action) })
+		end
+	end
+	return list
+end
+
+--- Puts something on the cursor, or clears it with nil.
+function Game:setCursor(spec)
+	self.cursor = actionFromTest(self, spec)
+end
+
+function Game:cursorSnapshot()
+	return self.cursor and describeForTest(self.cursor)
 end
 
 function Game:setReading(name, values)

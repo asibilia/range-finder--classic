@@ -195,6 +195,16 @@ function readings.spellKnown(spellID)
 	return C_SpellBook.IsSpellKnown(spellID)
 end
 
+---A spell's name in the player's language, the same for every rank. Nil when
+---the game has no such spell, or hides its name.
+function readings.spellName(spellID)
+	local name = C_Spell.GetSpellName(spellID)
+	if issecretvalue(name) then
+		return nil
+	end
+	return name
+end
+
 ---A spell's icon.
 function readings.spellTexture(spellID)
 	return (C_Spell.GetSpellTexture(spellID))
@@ -361,6 +371,62 @@ end
 
 function safe.isSecret(value)
 	return issecretvalue(value)
+end
+
+-- Macros and action bars: only for a command the player types, out of combat.
+
+function safe.macros()
+	local list = {}
+	-- Character macros come after every account slot.
+	local accountSlots = Constants.MacroConsts.MAX_ACCOUNT_MACROS
+	local accountCount, characterCount = GetNumMacros()
+	local function add(index, perCharacter)
+		local name, _, body = GetMacroInfo(index)
+		if name then
+			table.insert(list, { index = index, name = name, body = body or "", perCharacter = perCharacter })
+		end
+	end
+	for index = 1, accountCount do
+		add(index, false)
+	end
+	for index = accountSlots + 1, accountSlots + characterCount do
+		add(index, true)
+	end
+	return list
+end
+
+function safe.macroLimits()
+	local limits = Constants.MacroConsts
+	return limits.MAX_ACCOUNT_MACROS, limits.MAX_CHARACTER_MACROS
+end
+
+function safe.createMacro(name, icon, body, perCharacter)
+	return CreateMacro(name, icon, body, perCharacter)
+end
+
+function safe.actionInfo(slot)
+	local actionType, id, subType = GetActionInfo(slot)
+	if issecretvalue(actionType) or issecretvalue(id) then
+		return nil
+	end
+	return actionType, id, subType
+end
+
+function safe.cursorInfo()
+	local kind, id = GetCursorInfo()
+	return kind, id
+end
+
+function safe.pickupMacro(index)
+	PickupMacro(index)
+end
+
+function safe.placeAction(slot)
+	PlaceAction(slot)
+end
+
+function safe.clearCursor()
+	ClearCursor()
 end
 
 -- A slider's number beside it, without float noise (0.15, not 0.1500001).

@@ -4,6 +4,7 @@ local _, ns = ...
 local safe = ns.safe
 local settings = ns.settings
 local modules = ns.modules
+local attackMacros = ns.attackMacros
 
 local slash = {}
 ns.slash = slash
@@ -14,6 +15,7 @@ local HELP = {
 	"  /turbo debug - log which values are readable or secret",
 	"  /turbo toggle <module> - turn a module on or off",
 	"  /turbo always - turn always show on or off",
+	"  /turbo macros - make attack macros and put them on your action bars",
 	"  /tb - short for /turbo",
 }
 
@@ -73,6 +75,8 @@ function slash.start()
 			toggle(rest)
 		elseif command == "always" then
 			toggleAlwaysShow()
+		elseif command == "macros" then
+			attackMacros.run()
 		else
 			-- Help, and anything Turbo doesn't know.
 			printHelp()

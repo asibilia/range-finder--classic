@@ -8,8 +8,13 @@ local settings = ns.settings
 local modules = {}
 ns.modules = modules
 
+---What Turbo gives one class.
+---@class TurboClassKit
+---@field modules string[] the modules it turns on
+---@field attackSpells number[]? the spells /turbo macros makes attack macros for, by rank-1 spell ID
+
 ---Class kits, by class token ("SHAMAN"). A class without one isn't supported.
----@type table<string, { modules: string[] }>
+---@type table<string, TurboClassKit>
 ns.classKits = {}
 
 ---An option a module declares: the settings page shows it under the module's
@@ -121,7 +126,7 @@ function modules.list()
 end
 
 ---Starts the modules for one class kit.
----@param kit { modules: string[] }
+---@param kit TurboClassKit
 function modules.start(kit)
 	inKit = {}
 	for _, id in ipairs(kit.modules) do

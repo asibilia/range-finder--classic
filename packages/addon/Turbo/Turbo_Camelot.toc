@@ -24,6 +24,7 @@ modules\lightning-shield.lua
 modules\maelstrom-weapon.lua
 modules\key-cooldowns.lua
 modules\mana-bar.lua
+core\attack-macros.lua
 core\slash.lua
 core\settings-page.lua
 core\start.lua

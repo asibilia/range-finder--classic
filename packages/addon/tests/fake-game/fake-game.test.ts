@@ -367,3 +367,182 @@ describe('the seam', () => {
         ).toEqual([3, 'x', 'y', 0, '7', 1, true])
     })
 })
+
+describe('macros, action slots and the cursor', () => {
+    const BODY = '#showtooltip\n/startattack\n/cast Earth Shock'
+
+    test("macros list the account's first, then the character's, each in name order, with the game's indexes", () => {
+        const g = sample()
+        g.addMacro({
+            name: 'Mount',
+            body: '/cast Ghost Wolf',
+            perCharacter: true,
+        })
+        g.addMacro({
+            name: 'Buffs',
+            body: '/cast Lightning Shield',
+            perCharacter: false,
+        })
+
+        const [index] = g.run(
+            'return ns.safe.createMacro("Earth Shock", 134400, ..., true)',
+            BODY
+        )
+
+        // Character macros start after the 120 account slots.
+        expect(index).toBe(121)
+        expect(g.macros()).toEqual([
+            {
+                index: 1,
+                name: 'Buffs',
+                icon: null,
+                body: '/cast Lightning Shield',
+                perCharacter: false,
+            },
+            {
+                index: 121,
+                name: 'Earth Shock',
+                icon: 134400,
+                body: BODY,
+                perCharacter: true,
+            },
+            {
+                index: 122,
+                name: 'Mount',
+                icon: null,
+                body: '/cast Ghost Wolf',
+                perCharacter: true,
+            },
+        ])
+        expect(g.run('return ns.safe.macros()')[0]).toEqual([
+            {
+                index: 1,
+                name: 'Buffs',
+                body: '/cast Lightning Shield',
+                perCharacter: false,
+            },
+            { index: 121, name: 'Earth Shock', body: BODY, perCharacter: true },
+            {
+                index: 122,
+                name: 'Mount',
+                body: '/cast Ghost Wolf',
+                perCharacter: true,
+            },
+        ])
+        expect(g.run('return ns.safe.macroLimits()')).toEqual([120, 30])
+    })
+
+    test('a full character macro list refuses another macro, loudly', () => {
+        const g = sample()
+        for (let i = 1; i <= 30; i++) {
+            g.addMacro({ name: `Macro ${i}`, body: '', perCharacter: true })
+        }
+        expect(() =>
+            g.run('return ns.safe.createMacro("Earth Shock", 134400, "", true)')
+        ).toThrow(/no room for another character macro/)
+        expect(g.macros()).toHaveLength(30)
+    })
+
+    test('action info tells a spell, a macro, anything else and an empty slot apart', () => {
+        const g = sample()
+        g.addMacro({ name: 'Earth Shock', body: BODY, perCharacter: true })
+        g.setAction(1, { type: 'spell', id: 8042 })
+        g.setAction(2, { type: 'macro', name: 'Earth Shock' })
+        g.setAction(3, { type: 'item', id: 6948 })
+
+        expect(g.run('return ns.safe.actionInfo(1)')).toEqual([
+            'spell',
+            8042,
+            'spell',
+        ])
+        expect(g.run('return ns.safe.actionInfo(2)')).toEqual([
+            'macro',
+            121,
+            '',
+        ])
+        expect(g.run('return ns.safe.actionInfo(3)')).toEqual([
+            'item',
+            6948,
+            '',
+        ])
+        expect(g.run('return ns.safe.actionInfo(4)')).toEqual([])
+    })
+
+    test('the action slots run from 1 to 180; any other slot fails loudly', () => {
+        const g = sample()
+        expect(g.run('return ns.safe.actionInfo(180)')).toEqual([])
+        expect(() => g.run('return ns.safe.actionInfo(181)')).toThrow(
+            /no action slot 181/
+        )
+        expect(() => g.run('return ns.safe.actionInfo(0)')).toThrow(
+            /no action slot 0/
+        )
+    })
+
+    test('placing an action puts what the cursor holds in the slot and picks up what was there', () => {
+        const g = sample()
+        g.addMacro({ name: 'Earth Shock', body: BODY, perCharacter: true })
+        g.setAction(7, { type: 'spell', id: 8044 })
+        expect(g.run('return ns.safe.cursorInfo()')).toEqual([])
+
+        g.run('ns.safe.pickupMacro(121)')
+        expect(g.cursor()).toEqual({
+            type: 'macro',
+            name: 'Earth Shock',
+            perCharacter: true,
+        })
+        expect(g.run('return ns.safe.cursorInfo()')).toEqual(['macro', 121])
+
+        g.run('ns.safe.placeAction(7)')
+        expect(g.actions()).toEqual({
+            7: { type: 'macro', name: 'Earth Shock', perCharacter: true },
+        })
+        expect(g.cursor()).toEqual({ type: 'spell', id: 8044 })
+
+        g.run('ns.safe.clearCursor()')
+        expect(g.cursor()).toBeNull()
+    })
+
+    test('placing with an empty cursor changes nothing, and picking up a macro that does not exist fails loudly', () => {
+        const g = sample()
+        g.setAction(1, { type: 'spell', id: 403 })
+        g.run('ns.safe.placeAction(1)')
+        expect(g.actions()).toEqual({ 1: { type: 'spell', id: 403 } })
+        expect(() => g.run('ns.safe.pickupMacro(121)')).toThrow(
+            /no macro at index 121/
+        )
+    })
+
+    test('a macro on a bar stays put when a new macro reorders the list', () => {
+        const g = sample()
+        g.addMacro({
+            name: 'Mount',
+            body: '/cast Ghost Wolf',
+            perCharacter: true,
+        })
+        g.setAction(1, { type: 'macro', name: 'Mount' })
+        expect(g.run('return ns.safe.actionInfo(1)')).toEqual([
+            'macro',
+            121,
+            '',
+        ])
+
+        g.run('ns.safe.createMacro("Earth Shock", 134400, "", true)')
+
+        expect(g.run('return ns.safe.actionInfo(1)')).toEqual([
+            'macro',
+            122,
+            '',
+        ])
+        expect(g.actions()).toEqual({
+            1: { type: 'macro', name: 'Mount', perCharacter: true },
+        })
+    })
+
+    test('a test can put something on the cursor', () => {
+        const g = sample()
+        g.setCursor({ type: 'item', id: 6948 })
+        expect(g.run('return ns.safe.cursorInfo()')).toEqual(['item', 6948])
+        expect(g.cursor()).toEqual({ type: 'item', id: 6948 })
+    })
+})

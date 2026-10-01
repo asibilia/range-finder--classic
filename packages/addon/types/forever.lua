@@ -4,8 +4,8 @@
 -- it never ships. Signatures come from Forever's own API documentation
 -- (Blizzard_APIDocumentationGenerated, 1.60.1.70009): SwingTimerDocumentation,
 -- ItemDocumentation, LuaDurationObjectAPIDocumentation, DurationUtilDocumentation,
--- and Blizzard_AuraContainer. Recheck against the annotations after Forever
--- launches, and drop anything they gain.
+-- MacroConstantsDocumentation and Blizzard_AuraContainer. Recheck against the
+-- annotations after Forever launches, and drop anything they gain.
 
 -- The per-swing events -----------------------------------------------------
 -- Event names are plain strings to LuaLS; these are documented here only.
@@ -283,3 +283,17 @@ function CustomAuraButton:SetApplicationBar(bar, options) end
 ---@param fontString FontString
 ---@param options table?
 function CustomAuraButton:SetDurationText(fontString, options) end
+
+-- The macro limits ---------------------------------------------------------
+-- MacroConstantsDocumentation: 120 account macros and 30 per character.
+-- Character macros' indexes start after the last account slot.
+
+---@class MacroConsts
+---@field MAX_ACCOUNT_MACROS number
+---@field MAX_CHARACTER_MACROS number
+
+---@type MacroConsts
+Constants.MacroConsts = {
+	MAX_ACCOUNT_MACROS = 120,
+	MAX_CHARACTER_MACROS = 30,
+}
