@@ -5,5 +5,11 @@
     "@goturbo/addon": "0.0.0",
     "@goturbo/web": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "attack-macros",
+    "lua-toolchain-and-test-seam",
+    "reboot-as-bun-monorepo",
+    "release-pipeline",
+    "turbo-v1-hud"
+  ]
 }
