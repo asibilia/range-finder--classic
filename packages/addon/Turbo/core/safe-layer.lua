@@ -190,6 +190,13 @@ function readings.onTaxi()
 	return UnitOnTaxi("player")
 end
 
+---The player's position: x, y, z (yards, in world coordinates) and the map
+---ID. Nothing inside instances. Forever's docs don't mark it secret, but
+---check each value before reading it anyway.
+function readings.playerPosition()
+	return UnitPosition("player")
+end
+
 ---Whether the player knows a spell, by spell ID.
 function readings.spellKnown(spellID)
 	return C_SpellBook.IsSpellKnown(spellID)

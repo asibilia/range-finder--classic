@@ -25,6 +25,8 @@
  *   then `PLAYER_TOTEM_UPDATE` (slot), at the same moment. A totem that runs
  *   out, dies or is recalled fires `PLAYER_TOTEM_UPDATE` (slot) with the slot
  *   empty.
+ * - The player knows Totemic Recall and stands still. The reminders are off
+ *   here; the Recall reminder has its own tests (turbo-totem-recall.test.ts).
  *
  * What the HUD shows, per element (`Earth`, `Fire`, `Water`, `Air`):
  *
@@ -194,7 +196,12 @@ function start(options: StartOptions = {}): World {
             },
         },
     })
-    scriptShamanOnForever(g, { inCombat: [options.combat ?? false] })
+    scriptShamanOnForever(g, {
+        inCombat: [options.combat ?? false],
+        spellKnown: [true],
+        spellTexture: [310733],
+        playerPosition: [0, 0, 0, 1415],
+    })
     const w: World = {
         g,
         clock: 0,

@@ -18,6 +18,7 @@ hud\card.lua
 modules\range-finder.lua
 modules\swing-timer.lua
 modules\totem-timers.lua
+modules\totem-recall.lua
 modules\reminders.lua
 modules\weapon-imbue.lua
 modules\lightning-shield.lua

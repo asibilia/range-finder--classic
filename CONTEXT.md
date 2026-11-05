@@ -108,6 +108,10 @@ _Avoid_: Distance, range (on its own), yards
 One of the four element spots (Earth, Fire, Water, Air) that each hold at most one of the player's totems at a time. Dropping a new totem of the same element replaces the old one.
 _Avoid_: Totem bar, totem element, totem
 
+**Recall reminder**:
+The reminder to cast Totemic Recall, shown while a totem is in its last seconds or the player has walked out of reach of every totem they have down, so the totems' mana isn't wasted.
+_Avoid_: Totem reminder, recall alert
+
 ### Melee timing
 
 **Clip**:
