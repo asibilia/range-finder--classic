@@ -1,6 +1,6 @@
 /**
  * The fake game's own tests: it must behave like the safe-layer contract says,
- * so every module test built on it can trust it.
+ * so every Turbo test built on it can trust it.
  *
  * They load `tests/fixtures/sample-addon`, a tiny addon that is not Turbo, and
  * poke the fake through its public API only.
@@ -22,10 +22,9 @@ afterEach(() => {
     game = undefined
 })
 
-/** Loads the sample addon with its two mana readings scripted. */
-function sample(options: Partial<Parameters<typeof loadAddon>[0]> = {}) {
-    game = loadAddon({ ...SAMPLE, ...options })
-    game.setReading('manaMax', 1200)
+/** Loads the sample addon with its mana reading scripted as a secret. */
+function sample() {
+    game = loadAddon(SAMPLE)
     game.setReading('mana', game.secret('mana'))
     return game
 }
@@ -33,27 +32,15 @@ function sample(options: Partial<Parameters<typeof loadAddon>[0]> = {}) {
 describe('loading', () => {
     test('loads the TOC files in order, replacing the safe layer with the fake', () => {
         const g = sample()
-        expect(g.loadedFiles()).toEqual(['card.lua'])
-        expect(g.frame('SampleCard')?.shown).toBe(false)
-    })
-
-    test('saved variables start as the test sets them', () => {
-        const g = sample({ savedVariables: { SampleDB: { logins: 4 } } })
-        expect(g.global('SampleDB')).toEqual({ logins: 5 })
-    })
-
-    test('saved variables are nil on a first login', () => {
-        const g = sample()
-        expect(g.global('SampleDB')).toEqual({ logins: 1 })
+        expect(g.loadedFiles()).toEqual(['sample.lua'])
     })
 })
 
 describe('events', () => {
     test('a fired event reaches its handlers with its payload', () => {
         const g = sample()
-        g.advance(10)
         g.fire('PLAYER_SWING', 3.4, 0)
-        expect(g.run('return ns.swingEndsAt')).toEqual([13.4])
+        expect(g.run('return ns.swings, ns.lastSwing')).toEqual([1, 6.8])
     })
 
     test('handlers run in the order they subscribed, and off removes one', () => {
@@ -113,115 +100,26 @@ describe('readings', () => {
     })
 })
 
-describe('the clock', () => {
-    test('now() only moves when the test advances it', () => {
-        const g = sample({ startTime: 100 })
-        expect(g.now()).toBe(100)
-        g.advance(2.5)
-        expect(g.now()).toBe(102.5)
-        expect(g.run('return ns.safe.now()')).toEqual([102.5])
-    })
-
-    test('after() fires once its delay has passed, not before', () => {
-        const g = sample()
-        g.fire('PLAYER_REGEN_DISABLED')
-        g.fire('PLAYER_REGEN_ENABLED')
-        g.advance(0.29)
-        expect(g.frame('SampleCard')?.shown).toBe(true)
-        g.advance(0.01)
-        expect(g.frame('SampleCard')?.shown).toBe(false)
-    })
-
-    test('timers fire in due order, each at its own time', () => {
-        const g = sample()
-        g.run(`
-            ns.log = {}
-            ns.safe.after(2, function() table.insert(ns.log, "b@" .. ns.safe.now()) end)
-            ns.safe.after(1, function()
-                table.insert(ns.log, "a@" .. ns.safe.now())
-                ns.safe.after(0.5, function() table.insert(ns.log, "c@" .. ns.safe.now()) end)
-            end)
-        `)
-        g.advance(3)
-        expect(g.run('return ns.log')).toEqual([['a@1', 'c@1.5', 'b@2']])
-    })
-
-    test('every() repeats until cancelled', () => {
-        const g = sample()
-        g.run(`
-            ns.ticks = 0
-            ns.ticker = ns.safe.every(0.2, function() ns.ticks = ns.ticks + 1 end)
-        `)
-        g.advance(1)
-        g.run('ns.ticker:Cancel()')
-        g.advance(1)
-        expect(g.run('return ns.ticks')).toEqual([5])
-    })
-})
-
-describe('the widget recorder', () => {
-    test('records every widget call, with secrets kept opaque', () => {
-        const g = sample()
-        g.fire('PLAYER_REGEN_DISABLED')
-        const barCalls = g.calls({ method: 'SetValue' })
-        expect(barCalls).toEqual([
-            {
-                frame: 'SampleCard.StatusBar#1',
-                method: 'SetValue',
-                args: [{ $secret: 'mana' }],
-            },
-        ])
-        expect(g.calls({ method: 'SetText' })[0]?.args).toEqual([
-            { $secret: 'mana' },
-        ])
-        expect(g.calls({ frame: 'SampleCard' }).map((c) => c.method)).toEqual([
-            'CreateFrame',
-            'SetSize',
-            'SetPoint',
-            'Hide',
-            'CreateFontString',
-            'Show',
-            'SetAlpha',
-        ])
-    })
-
-    test('keeps each frame state and logs every change', () => {
-        const g = sample()
-        g.fire('PLAYER_REGEN_DISABLED')
-        expect(g.frame('SampleCard')).toMatchObject({
-            type: 'Frame',
-            shown: true,
-            alpha: 1,
-            width: 200,
-            height: 40,
-            points: [['CENTER', null, 'CENTER', 0, -120]],
-        })
-        expect(g.frame('SampleCard.StatusBar#1')).toMatchObject({
-            parent: 'SampleCard',
-            MinMaxValues: [0, 1200],
-            Value: { $secret: 'mana' },
-        })
-        expect(
-            g.changes({ frame: 'SampleCard', key: 'shown' }).map((c) => c.value)
-        ).toEqual([false, true])
-    })
-
-    test('runs frame scripts on demand', () => {
-        const g = sample()
-        g.run(`
-            local f = ns.safe.createFrame("Frame", "Ticker")
-            ns.elapsed = 0
-            f:SetScript("OnUpdate", function(_, elapsed) ns.elapsed = ns.elapsed + elapsed end)
-        `)
-        g.runScript('Ticker', 'OnUpdate', 0.25)
-        g.runScript('Ticker', 'OnUpdate', 0.25)
-        expect(g.run('return ns.elapsed')).toEqual([0.5])
-    })
-
+describe('chat and slash commands', () => {
     test('chat output is captured', () => {
         const g = sample()
         g.run('ns.safe.print("Turbo doesn\'t support Mages yet")')
         expect(g.printed()).toEqual(["Turbo doesn't support Mages yet"])
+    })
+
+    test('a typed slash command reaches its handler with the text after it, under any of its names and any case', () => {
+        const g = sample()
+        g.slash('/sample hello there')
+        g.slash('/SA hi')
+        expect(g.printed()).toEqual([
+            "Sample heard 'hello there'",
+            "Sample heard 'hi'",
+        ])
+    })
+
+    test('a command nobody registered fails loudly', () => {
+        const g = sample()
+        expect(() => g.slash('/nope')).toThrow(/no slash command '\/nope'/)
     })
 })
 
@@ -332,17 +230,19 @@ describe('secret stand-ins fail loudly', () => {
         ).toThrow(/test:3:/)
     })
 
-    test('passing a secret along, storing it as a value, and checking it are fine', () => {
+    test('passing a secret along and storing it as a value are fine', () => {
         const g = sample()
         const result = g.run(
             `
             local s = ...
             local held = { value = s }
-            return type(held.value), ns.safe.isSecret(held.value), ns.safe.isSecret(5), held.value
+            return type(held.value), held.value
             `,
             g.secret('mana')
         )
-        expect(result).toEqual(['number', true, false, { $secret: 'mana' }])
+        expect(result).toEqual(['number', { $secret: 'mana' }])
+        g.fire('UNIT_POWER_UPDATE', 'player')
+        expect(g.run('return ns.mana')).toEqual([{ $secret: 'mana' }])
     })
 })
 

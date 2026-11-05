@@ -30,7 +30,10 @@ import {
     type FakeGame,
     type Macro,
 } from './fake-game/fake-game'
-import { SHAMAN, scriptIdleShaman } from './fake-game/idle-shaman.test'
+import {
+    SHAMAN,
+    scriptShamanOnForever,
+} from './fake-game/shaman-on-forever.test'
 
 let game: FakeGame | undefined
 
@@ -112,7 +115,7 @@ function start(
     } = {}
 ): FakeGame {
     const g = loadTurbo()
-    scriptIdleShaman(g, { playerClass: options.playerClass ?? SHAMAN })
+    scriptShamanOnForever(g, { playerClass: options.playerClass ?? SHAMAN })
     g.setReading('spellName', null)
     for (const [id, name] of Object.entries(options.names ?? ENGLISH)) {
         g.setReadingFor('spellName', [Number(id)], name)
@@ -450,7 +453,7 @@ describe('when Turbo changes nothing', () => {
 
     test('a class whose kit has no attack spells is told so', () => {
         game = start({ playerClass: MAGE })
-        game.run('ns.classKits.MAGE = { modules = {} }')
+        game.run('ns.classKits.MAGE = {}')
         game.setAction(1, spell(EARTH_SHOCK))
         login(game)
 

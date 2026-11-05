@@ -1,19 +1,7 @@
--- The Shaman class kit: every v1 module, all on from the start (there's no
--- spec detection), and the attack spells /turbo macros makes macros for.
+-- The Shaman class kit: the attack spells /turbo macros makes macros for.
 local _, ns = ...
 
 ns.classKits.SHAMAN = {
-	modules = {
-		"rangeFinder",
-		"swingTimer",
-		"totemTimers",
-		"weaponImbue",
-		"lightningShield",
-		"keyCooldowns",
-		"manaBar",
-		"maelstromWeapon",
-		"reminders",
-	},
 	-- By rank-1 spell ID. The macros cast by name, so they cast the top rank.
 	attackSpells = {
 		8042, -- Earth Shock
