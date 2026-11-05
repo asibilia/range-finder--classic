@@ -1,11 +1,14 @@
 # Turbo — agent guide
 
-Turbo is an opinionated class helper addon for **WoW: Forever**, made by the
-Turbo crew. v1 is the Enhancement Shaman HUD. Read `CONTEXT.md` first for the
-words this repo uses (Forever, secret value, restriction, display-only,
-self-timed, resync, probe, module, class kit, safe layer...). The plan is the
-spec, issue #23; the decisions behind it are the closed tickets linked from the
-map, issue #3.
+Turbo is a small addon for **WoW: Forever**, made by the Turbo crew: it makes
+attack macros (`/turbo macros`, `/tb macros`) from the class kit's attack
+spells, Shaman first. That is all it does now. The Shaman HUD it used to ship
+(range finder, swing timer, totems, reminders...) was retired once Forever's
+own Cooldown Manager, Swing Timer, Personal Resource Display and Totem Frame
+covered most of it: see `docs/research/forever-native-ui.md`; git history
+keeps the code. Read `CONTEXT.md` first for the words this repo uses
+(Forever, secret value, restriction, probe, class kit, safe layer, attack
+macro...).
 
 ## Ground rules
 
@@ -37,11 +40,15 @@ map, issue #3.
 | The shipped addon (the only folder that gets packaged) | `packages/addon/Turbo/` |
 | Dev-only addon files (type stubs, tests, scripts, tool configs) | `packages/addon/` outside `Turbo/` |
 | The safe layer (the only code that touches the game) | `packages/addon/Turbo/core/safe-layer.lua` |
+| Startup (the Forever-only and class checks) and `/turbo` | `packages/addon/Turbo/core/start.lua`, `core/slash.lua` |
+| Attack macros | `packages/addon/Turbo/core/attack-macros.lua` |
+| Class kits (one per supported class) | `packages/addon/Turbo/kits/` |
 | The fake game and test harness | `packages/addon/tests/fake-game/` |
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |
 | The probe (dev tool, never released; raw results gitignored) | `tools/probe/` |
 | Glossary | `CONTEXT.md` |
+| Research (Forever's native UI vs the retired HUD) | `docs/research/` |
 
 ## Lua tooling and tests
 
@@ -58,13 +65,15 @@ map, issue #3.
   fails any secret-returning game call, or `_G`, outside the safe layer.
 - **Tests** (`bun test`) load the real `Turbo_Camelot.toc` files into Lua 5.1
   (WebAssembly) with `loadTurbo()` from `tests/fake-game/fake-game.ts`, drive
-  it with events, readings and the clock, and assert on recorded widget calls
-  and frame state, never on module internals. Secret stand-ins
+  it with events, readings and typed slash commands, and assert on what the
+  player sees: chat lines, macros, action slots and the cursor. Secret stand-ins
   (`game.secret('mana')`) fail loudly when read, compared, used in math,
   concatenated, stringified or kept as a table key. One thing the fake can't
   see: `secret == plainValue` is silently false in Lua 5.1 (no metamethod
   runs), so equality against a plain value is left to review and the in-game
   checklist.
+- **Turbo keeps no saved data**: the TOC has no `SavedVariables`. Add one
+  only when a feature needs it.
 
 ## Releases
 

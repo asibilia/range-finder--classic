@@ -4,12 +4,10 @@
 -- touches the game API. In tests this file replaces it. It gives the addon the
 -- same contract (see types/safe-layer.lua) and lets a test drive it:
 --
--- * scripted events and readings, and a clock that only moves when told to;
+-- * scripted events and readings;
 -- * opaque secret stand-ins that fail loudly when addon code reads, compares,
 --   does math on, concatenates, stringifies or keys a table with them;
--- * a recorder of every widget call and frame state change;
--- * the settings pages registered in Options → AddOns, which a test reads and
---   changes as the player would;
+-- * the chat lines the addon prints and the slash commands it registers;
 -- * the player's macros, action slots and cursor, which a test sets up and
 --   reads back after the addon changes them.
 --
@@ -53,7 +51,7 @@ end
 
 local function violation(game, label, what, level)
 	local message = string.format(
-		"secret value '%s' was %s. Turbo must never read, compare or compute a secret value; hand it straight to a widget.",
+		"secret value '%s' was %s. Turbo must never read, compare or compute a secret value.",
 		label,
 		what
 	)
@@ -110,6 +108,10 @@ local function makeSecret(game, label, kind)
 	return secret
 end
 
+local function pack(...)
+	return { n = select("#", ...), ... }
+end
+
 -- Library functions are C functions: a secret passed to one would fail with
 -- Lua's own message ("number expected, got userdata") or, worse, not at all.
 -- Wrap them so the misuse is named.
@@ -135,8 +137,6 @@ local function encode(game, value, seen)
 		return "null"
 	elseif game.secrets[value] then
 		return '{"$secret":' .. jsonString(game.secrets[value].label) .. "}"
-	elseif game.frameInfo[value] then
-		return '{"$frame":' .. jsonString(game.frameInfo[value].id) .. "}"
 	elseif t == "boolean" then
 		return rawToString(value)
 	elseif t == "number" then
@@ -180,145 +180,6 @@ local function encode(game, value, seen)
 		return "{" .. table.concat(parts, ",") .. "}"
 	end
 	return jsonString("<" .. t .. ">")
-end
-
--- Widgets ------------------------------------------------------------------
-
-local CHILD_TYPES = {
-	CreateTexture = "Texture",
-	CreateFontString = "FontString",
-	CreateMaskTexture = "MaskTexture",
-	CreateLine = "Line",
-	CreateAnimationGroup = "AnimationGroup",
-	CreateAnimation = "Animation",
-}
-
-local createFrame
-
-local function record(game, frame, method, args)
-	local info = game.frameInfo[frame]
-	table.insert(game.calls, { frame = info.id, method = method, args = args })
-end
-
-local function setState(game, frame, key, value)
-	local info = game.frameInfo[frame]
-	if info.state[key] == nil and value == nil then
-		return
-	end
-	if rawRawEqual(info.state[key], value) and rawType(value) ~= "table" then
-		return
-	end
-	info.state[key] = value
-	table.insert(game.changes, { frame = info.id, key = key, value = value })
-end
-
-local function pack(...)
-	return { n = select("#", ...), ... }
-end
-
--- One method on a fake widget: record it, apply its state change, and
--- return what the real method would.
-local function callMethod(game, frame, method, ...)
-	local args = pack(...)
-	local recorded = {}
-	for i = 1, args.n do
-		recorded[i] = args[i] == nil and game.null or args[i]
-	end
-	record(game, frame, method, recorded)
-	local info = game.frameInfo[frame]
-	local state = info.state
-
-	if CHILD_TYPES[method] then
-		return createFrame(game, CHILD_TYPES[method], args[1], frame)
-	elseif method == "Show" then
-		setState(game, frame, "shown", true)
-	elseif method == "Hide" then
-		setState(game, frame, "shown", false)
-	elseif method == "SetShown" then
-		setState(game, frame, "shown", args[1])
-	elseif method == "SetAlpha" then
-		setState(game, frame, "alpha", args[1])
-	elseif method == "SetSize" then
-		setState(game, frame, "width", args[1])
-		setState(game, frame, "height", args[2])
-	elseif method == "SetWidth" then
-		setState(game, frame, "width", args[1])
-	elseif method == "SetHeight" then
-		setState(game, frame, "height", args[1])
-	elseif method == "SetPoint" then
-		local point = {}
-		for i = 1, args.n do
-			point[i] = args[i] == nil and game.null or args[i]
-		end
-		local points = {}
-		for i, p in ipairs(state.points or {}) do
-			points[i] = p
-		end
-		table.insert(points, point)
-		setState(game, frame, "points", points)
-	elseif method == "ClearAllPoints" then
-		setState(game, frame, "points", {})
-	elseif method == "SetScript" then
-		info.scripts[args[1]] = args[2]
-	elseif method == "HookScript" then
-		info.hooks[args[1]] = info.hooks[args[1]] or {}
-		table.insert(info.hooks[args[1]], args[2])
-	elseif method == "GetScript" then
-		return info.scripts[args[1]]
-	elseif method == "IsShown" or method == "IsVisible" then
-		return state.shown
-	elseif method == "GetAlpha" then
-		return state.alpha
-	elseif method == "GetWidth" then
-		return state.width
-	elseif method == "GetHeight" then
-		return state.height
-	elseif method == "GetName" then
-		return info.name
-	elseif method == "GetParent" then
-		return info.parent
-	elseif method == "GetObjectType" then
-		return info.type
-	elseif method:match("^Set%u") then
-		local key = method:sub(4)
-		setState(game, frame, key, args.n > 1 and recorded or args[1])
-	elseif method:match("^Get%u") then
-		return state[method:sub(4)]
-	elseif method:match("^Is%u") then
-		return state[method:sub(3)]
-	end
-end
-
-createFrame = function(game, frameType, name, parent, template)
-	local frame = setmetatable({}, game.frameMeta)
-	local parentInfo = parent and game.frameInfo[parent]
-	game.childCount[frameType] = (game.childCount[frameType] or 0) + 1
-	local id = name or ((parentInfo and parentInfo.id .. "." or "") .. frameType .. "#" .. game.childCount[frameType])
-	game.frameInfo[frame] = {
-		id = id,
-		name = name,
-		type = frameType,
-		parent = parent,
-		template = template,
-		state = {
-			type = frameType,
-			parent = parentInfo and parentInfo.id or game.null,
-			shown = true,
-			alpha = 1,
-			points = {},
-		},
-		scripts = {},
-		hooks = {},
-	}
-	game.frames[id] = frame
-	table.insert(game.frameOrder, id)
-	local args = { frameType, name == nil and game.null or name, parent or game.null, template or game.null }
-	if CHILD_TYPES["Create" .. frameType] and parent then
-		-- Children made through a widget method were recorded on the parent.
-		return frame
-	end
-	record(game, frame, "CreateFrame", args)
-	return frame
 end
 
 -- Macros, action slots and the cursor ------------------------------------
@@ -539,9 +400,6 @@ local function buildEnv(game)
 	for k, v in pairs(lib) do
 		env[k] = v
 	end
-	for name in pairs(game.savedVariables) do
-		game.allowedGlobals[name] = true
-	end
 	setmetatable(env, {
 		__index = function(_, key)
 			if game.allowedGlobals[key] then
@@ -568,10 +426,6 @@ end
 local function buildSafe(game)
 	local safe = {}
 
-	function safe.now()
-		return game.clock
-	end
-
 	function safe.on(event, handler)
 		game.handlers[event] = game.handlers[event] or {}
 		table.insert(game.handlers[event], handler)
@@ -584,26 +438,6 @@ local function buildSafe(game)
 				table.remove(list, i)
 			end
 		end
-	end
-
-	local function schedule(delay, callback, interval)
-		game.timerSeq = game.timerSeq + 1
-		local timer = { due = game.clock + delay, seq = game.timerSeq, callback = callback, interval = interval }
-		table.insert(game.timers, timer)
-		return timer
-	end
-
-	function safe.after(delay, callback)
-		schedule(delay, callback)
-	end
-
-	function safe.every(interval, callback)
-		local timer = schedule(interval, callback, interval)
-		return {
-			Cancel = function()
-				timer.cancelled = true
-			end,
-		}
 	end
 
 	function safe.read(name, ...)
@@ -632,42 +466,14 @@ local function buildSafe(game)
 		return unpack(values, 1, values.n)
 	end
 
-	function safe.createFrame(frameType, name, parent, template)
-		return createFrame(game, frameType, name, parent, template)
-	end
-
 	function safe.print(message)
 		table.insert(game.printed, message)
-	end
-
-	-- The first recorded anchor: SetPoint(point, x, y) or
-	-- SetPoint(point, relativeTo, relativePoint, x, y).
-	function safe.framePoint(frame)
-		local point = (game.frameInfo[frame].state.points or {})[1]
-		if not point then
-			return nil
-		end
-		local function offset(v)
-			return rawType(v) == "number" and v or 0
-		end
-		if rawType(point[2]) == "number" then
-			return point[1], offset(point[2]), offset(point[3])
-		end
-		return point[1], offset(point[4]), offset(point[5])
 	end
 
 	function safe.slash(_, commands, handler)
 		for _, command in ipairs(commands) do
 			game.slashCommands[string.lower(command)] = handler
 		end
-	end
-
-	function safe.isSecret(value)
-		return game.secrets[value] ~= nil
-	end
-
-	function safe.settingsPage(name, controls)
-		table.insert(game.settingsPages, { name = name, controls = controls })
 	end
 
 	function safe.macros()
@@ -781,23 +587,13 @@ local function scanForSecretKeys(game, extraRoots)
 	for event, handlers in pairs(game.handlers) do
 		visit(handlers, "handlers." .. event)
 	end
-	for _, timer in ipairs(game.timers) do
-		visit(timer.callback, "timer")
-	end
-	for _, id in ipairs(game.frameOrder) do
-		local frame = game.frames[id]
-		local info = game.frameInfo[frame]
-		visit(frame, id)
-		visit(info.scripts, id .. ".scripts")
-		visit(info.hooks, id .. ".hooks")
-	end
 	for i, root in ipairs(extraRoots or {}) do
 		visit(root, "result" .. i)
 	end
 end
 
--- Runs one step of the test (loading a file, firing an event, advancing the
--- clock...) and fails it if any secret was misused along the way, even when
+-- Runs one step of the test (loading a file, firing an event, typing a
+-- command...) and fails it if any secret was misused along the way, even when
 -- the addon swallowed the error with pcall.
 local function step(game, fn, ...)
 	local results = pack(fn(...))
@@ -820,25 +616,15 @@ local Game = {}
 Game.__index = Game
 
 --- Creates a fake game for one addon.
----@param options { addonName: string, startTime: number?, savedVariables: table? }
+---@param options { addonName: string }
 function FakeGame.new(options)
 	local game = setmetatable({
 		addonName = options.addonName,
-		clock = options.startTime or 0,
 		handlers = {},
-		timers = {},
-		timerSeq = 0,
 		readings = {},
 		reads = {},
-		calls = {},
-		changes = {},
-		frames = {},
-		frameInfo = setmetatable({}, { __mode = "k" }),
-		frameOrder = {},
-		childCount = {},
 		printed = {},
 		slashCommands = {},
-		settingsPages = {},
 		accountMacros = {},
 		characterMacros = {},
 		actionSlots = {},
@@ -847,7 +633,6 @@ function FakeGame.new(options)
 		violations = {},
 		loadedFiles = {},
 		allowedGlobals = {},
-		savedVariables = options.savedVariables or {},
 		ns = {},
 		-- JSON null, for recorded nil arguments.
 		null = setmetatable({}, {
@@ -856,16 +641,6 @@ function FakeGame.new(options)
 			end,
 		}),
 	}, Game)
-	game.frameMeta = {
-		__index = function(frame, method)
-			return function(self, ...)
-				if self ~= frame then
-					error("fake game: call widget methods with ':' (" .. rawToString(method) .. ")", 2)
-				end
-				return callMethod(game, frame, method, ...)
-			end
-		end,
-	}
 	-- One fake game per VM: guard the VM's own library tables once.
 	if not string.__turboGuarded then
 		guardLibrary(game, string, "converted to a string", { format = true, rep = true })
@@ -877,10 +652,7 @@ function FakeGame.new(options)
 	game.env = buildEnv(game)
 	game.safe = buildSafe(game)
 	game.ns.safe = game.safe
-	for name, value in pairs(game.savedVariables) do
-		rawRawSet(game.env, name, value)
-	end
-	game.internal = { [game] = true, [game.safe] = true, [game.null] = true, [game.frameMeta] = true }
+	game.internal = { [game] = true, [game.safe] = true, [game.null] = true }
 	for _, fn in pairs(game.safe) do
 		game.internal[fn] = true
 	end
@@ -944,64 +716,6 @@ function Game:fire(event, ...)
 	end)
 end
 
-function Game:advance(seconds)
-	local target = self.clock + seconds
-	step(self, function()
-		while true do
-			local nextTimer, index
-			for i, timer in ipairs(self.timers) do
-				if
-					not timer.cancelled
-					and timer.due <= target + 1e-9
-					and (
-						not nextTimer
-						or timer.due < nextTimer.due
-						or (timer.due == nextTimer.due and timer.seq < nextTimer.seq)
-					)
-				then
-					nextTimer, index = timer, i
-				end
-			end
-			if not nextTimer then
-				break
-			end
-			self.clock = nextTimer.due
-			if nextTimer.interval then
-				self.timerSeq = self.timerSeq + 1
-				nextTimer.due = nextTimer.due + nextTimer.interval
-				nextTimer.seq = self.timerSeq
-			else
-				table.remove(self.timers, index)
-			end
-			nextTimer.callback()
-		end
-		for i = #self.timers, 1, -1 do
-			if self.timers[i].cancelled then
-				table.remove(self.timers, i)
-			end
-		end
-		self.clock = target
-	end)
-end
-
-function Game:runScript(frameId, script, ...)
-	local frame = self.frames[frameId]
-	if not frame then
-		error("fake game: no frame '" .. rawToString(frameId) .. "'", 0)
-	end
-	local info = self.frameInfo[frame]
-	local args = pack(...)
-	step(self, function()
-		local handler = info.scripts[script]
-		if handler then
-			handler(frame, unpack(args, 1, args.n))
-		end
-		for _, hook in ipairs(info.hooks[script] or {}) do
-			hook(frame, unpack(args, 1, args.n))
-		end
-	end)
-end
-
 --- Types a slash command into chat: the handler gets the text after it.
 function Game:slash(line)
 	local command, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
@@ -1010,44 +724,6 @@ function Game:slash(line)
 		error("fake game: no slash command '" .. rawToString(command) .. "' is registered", 0)
 	end
 	step(self, handler, rest)
-end
-
---- The settings pages as the player would see them now: each control with
---- the value it shows.
-function Game:settingsSnapshot()
-	local pages = {}
-	step(self, function()
-		for i, page in ipairs(self.settingsPages) do
-			local controls = {}
-			for j, control in ipairs(page.controls) do
-				controls[j] = {
-					kind = control.kind,
-					label = control.label,
-					value = control.get and control.get(),
-					min = control.min,
-					max = control.max,
-					step = control.step,
-				}
-			end
-			pages[i] = { name = page.name, controls = controls }
-		end
-	end)
-	return pages
-end
-
---- The player changes a checkbox or slider on a settings page.
-function Game:changeSetting(pageName, label, value)
-	for _, page in ipairs(self.settingsPages) do
-		if page.name == pageName then
-			for _, control in ipairs(page.controls) do
-				if control.label == label and control.set then
-					step(self, control.set, value)
-					return
-				end
-			end
-		end
-	end
-	error("fake game: no setting '" .. rawToString(label) .. "' on the page '" .. rawToString(pageName) .. "'", 0)
 end
 
 --- Adds a macro to the player's account or character list, as if they made it.
@@ -1113,15 +789,6 @@ end
 
 function Game:scriptReadings(name, sequence)
 	self.readings[name] = { byArgs = {}, queue = sequence }
-end
-
-function Game:frameState(id)
-	local frame = self.frames[id]
-	return frame and self.frameInfo[frame].state
-end
-
-function Game:global(name)
-	return rawget(self.env, name)
 end
 
 function Game:encode(value)

@@ -6,16 +6,16 @@
  * @example
  * ```typescript
  * const game = loadTurbo()
- * game.setReading('mana', game.secret('mana'))
- * game.fire('PLAYER_REGEN_DISABLED')
- * game.advance(0.3)
- * expect(game.frame('TurboCard')?.shown).toBe(true)
+ * game.setReading('inCombat', false)
+ * game.fire('PLAYER_LOGIN')
+ * game.slash('/turbo macros')
+ * expect(game.printed()).toContain('Turbo made 0 macros and swapped 0 buttons.')
  * game.close()
  * ```
  *
  * Values cross the boundary as Lua literals going in and JSON coming out. In
- * results, a secret stand-in reads as `{ $secret: label }`, a frame as
- * `{ $frame: id }` and a function as `{ $function: true }`.
+ * results, a secret stand-in reads as `{ $secret: label }` and a function as
+ * `{ $function: true }`.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -33,21 +33,7 @@ export type Secret = { $secret: string }
 /** Raw Lua for a value, for tests of the fake itself. */
 export type LuaExpression = { $lua: string }
 
-export type WidgetCall = { frame: string; method: string; args: unknown[] }
-export type StateChange = { frame: string; key: string; value: unknown }
 export type Read = { name: string; args: unknown[] }
-
-/** A frame's recorded state: known keys plus one key per `Set*` method. */
-export type FrameState = {
-    type: string
-    parent: string | null
-    shown: unknown
-    alpha: unknown
-    points: unknown[][]
-    width?: unknown
-    height?: unknown
-    [key: string]: unknown
-}
 
 export type LoadOptions = {
     /** The addon folder, holding the TOC. */
@@ -56,24 +42,7 @@ export type LoadOptions = {
     toc: string
     /** The name WoW passes as the first vararg; defaults to the folder's. */
     addonName?: string
-    /** Where the clock starts (seconds). Defaults to 0. */
-    startTime?: number
-    /** SavedVariables as WoW would restore them; missing ones are nil. */
-    savedVariables?: Record<string, unknown>
 }
-
-/** One control on a settings page, showing its value now. */
-export type SettingsControl = {
-    kind: 'checkbox' | 'slider' | 'text'
-    label: string
-    value?: unknown
-    min?: number
-    max?: number
-    step?: number
-}
-
-/** A page registered in Options → AddOns. */
-export type SettingsPage = { name: string; controls: SettingsControl[] }
 
 /**
  * What an action slot or the cursor holds. A test names a macro by its name
@@ -99,10 +68,6 @@ export type FakeGame = {
     secret(label: string, kind?: string): Secret
     /** Fires a game event at every subscribed handler. */
     fire(event: string, ...payload: unknown[]): void
-    /** Moves the clock forward, firing due timers in order. */
-    advance(seconds: number): void
-    /** The clock. */
-    now(): number
     /** Scripts a reading's return values. */
     setReading(name: string, ...values: unknown[]): void
     /** Scripts a reading's return values for exact arguments. */
@@ -111,24 +76,10 @@ export type FakeGame = {
     scriptReadings(name: string, sequence: unknown[][]): void
     /** Every read the addon made, in order. */
     reads(): Read[]
-    /** Every widget call, in order, optionally filtered. */
-    calls(filter?: { frame?: string; method?: string }): WidgetCall[]
-    /** Every frame state change, in order, optionally filtered. */
-    changes(filter?: { frame?: string; key?: string }): StateChange[]
-    /** A frame's current state, by name or generated id. */
-    frame(id: string): FrameState | undefined
-    /** Every frame id, in creation order. */
-    frames(): string[]
     /** Chat lines the addon printed. */
     printed(): string[]
     /** Types a slash command (`/turbo help`) into chat. */
     slash(line: string): void
-    /** The pages registered in Options → AddOns, as they show now. */
-    settingsPages(): SettingsPage[]
-    /** The player ticks a checkbox or moves a slider on a settings page. */
-    changeSetting(page: string, label: string, value: unknown): void
-    /** Runs a frame script (`OnUpdate`, `OnShow`...) and its hooks. */
-    runScript(frameId: string, script: string, ...args: unknown[]): void
     /**
      * Adds a macro to the player's account or character list, as if they
      * made it. Each list stays in name order; a full list fails.
@@ -154,8 +105,6 @@ export type FakeGame = {
      * `args`; `ns` reads the addon's namespace. Errors are named `test:<line>`.
      */
     run(code: string, ...args: unknown[]): unknown[]
-    /** An addon global (a SavedVariable, say). */
-    global(name: string): unknown
     /** The TOC files that loaded (the safe layer never does). */
     loadedFiles(): string[]
     /** Frees the VM. */
@@ -217,28 +166,17 @@ function packed(values: unknown[]): string {
         .join(',')}}`
 }
 
-type Toc = { files: string[]; savedVariables: string[] }
+type Toc = { files: string[] }
 
-/** Reads a TOC: its file list, in order, and its SavedVariables. */
+/** Reads a TOC: its file list, in order. */
 export function readToc(tocPath: string): Toc {
     const files: string[] = []
-    const savedVariables: string[] = []
     for (const raw of readFileSync(tocPath, 'utf8').split(/\r?\n/)) {
         const line = raw.trim()
-        const saved = line.match(/^##\s*SavedVariables(?:PerCharacter)?:(.*)$/)
-        if (saved?.[1]) {
-            savedVariables.push(
-                ...saved[1]
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-            )
-            continue
-        }
         if (!line || line.startsWith('#')) continue
         files.push(line.replace(/\\/g, '/'))
     }
-    return { files, savedVariables }
+    return { files }
 }
 
 /**
@@ -255,10 +193,6 @@ export function loadAddon(options: LoadOptions): FakeGame {
         options.addonDir.split('/').filter(Boolean).pop() ??
         'Addon'
     const toc = readToc(join(options.addonDir, options.toc))
-    const saved: Record<string, unknown> = {}
-    for (const name of toc.savedVariables) {
-        saved[name] = options.savedVariables?.[name]
-    }
 
     const vm = createLuaVm()
     vm.setString('__fake_src', FAKE_GAME_SOURCE)
@@ -267,10 +201,7 @@ export function loadAddon(options: LoadOptions): FakeGame {
         __fake_src = nil
         __secrets = {}
     `)
-    vm.run(
-        `__game = __FakeGame.new({ addonName = ${luaString(addonName)}, startTime = ${toLua(options.startTime ?? 0)}, savedVariables = ${toLua(saved)} })
-        for _, name in ipairs(${toLua(toc.savedVariables)}) do __game.allowedGlobals[name] = true end`
-    )
+    vm.run(`__game = __FakeGame.new({ addonName = ${luaString(addonName)} })`)
 
     const json = (code: string): unknown => {
         const result = vm.run(code)
@@ -308,12 +239,6 @@ export function loadAddon(options: LoadOptions): FakeGame {
                 `__game:fire(${luaString(event)}${payload.map((p) => `, ${toLua(p)}`).join('')})`
             )
         },
-        advance(seconds) {
-            call(`__game:advance(${toLua(seconds)})`)
-        },
-        now() {
-            return json('return __game:encode(__game.clock)') as number
-        },
         setReading(name, ...values) {
             call(`__game:setReading(${luaString(name)}, ${packed(values)})`)
         },
@@ -332,54 +257,11 @@ export function loadAddon(options: LoadOptions): FakeGame {
         reads() {
             return json('return __game:encode(__game.reads)') as Read[]
         },
-        calls(filter = {}) {
-            const all = json(
-                'return __game:encode(__game.calls)'
-            ) as WidgetCall[]
-            return all.filter(
-                (c) =>
-                    (!filter.frame || c.frame === filter.frame) &&
-                    (!filter.method || c.method === filter.method)
-            )
-        },
-        changes(filter = {}) {
-            const all = json(
-                'return __game:encode(__game.changes)'
-            ) as StateChange[]
-            return all.filter(
-                (c) =>
-                    (!filter.frame || c.frame === filter.frame) &&
-                    (!filter.key || c.key === filter.key)
-            )
-        },
-        frame(id) {
-            return (json(
-                `return __game:encode(__game:frameState(${luaString(id)}))`
-            ) ?? undefined) as FrameState | undefined
-        },
-        frames() {
-            return json('return __game:encode(__game.frameOrder)') as string[]
-        },
         printed() {
             return json('return __game:encode(__game.printed)') as string[]
         },
         slash(line) {
             call(`__game:slash(${luaString(line)})`)
-        },
-        settingsPages() {
-            return json(
-                'return __game:encode(__game:settingsSnapshot())'
-            ) as SettingsPage[]
-        },
-        changeSetting(page, label, value) {
-            call(
-                `__game:changeSetting(${luaString(page)}, ${luaString(label)}, ${toLua(value)})`
-            )
-        },
-        runScript(frameId, script, ...args) {
-            call(
-                `__game:runScript(${luaString(frameId)}, ${luaString(script)}${args.map((a) => `, ${toLua(a)}`).join('')})`
-            )
         },
         addMacro(macro) {
             call(`__game:addMacro(${toLua(macro)})`)
@@ -410,11 +292,6 @@ export function loadAddon(options: LoadOptions): FakeGame {
             return json(
                 `return __game:encodeResults(__game:run(${luaString(code)}${args.map((a) => `, ${toLua(a)}`).join('')}))`
             ) as unknown[]
-        },
-        global(name) {
-            return json(
-                `return __game:encode(__game:global(${luaString(name)}))`
-            )
         },
         loadedFiles() {
             const prefix = `${addonName}/`

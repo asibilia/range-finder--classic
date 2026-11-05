@@ -1,6 +1,6 @@
 {
   "name": "turbo",
-  "description": "Turbo, the Enhancement Shaman HUD for WoW: Forever. Bun monorepo: the addon (@goturbo/addon) and the Turbo site (@goturbo/web).",
+  "description": "Turbo, attack macros for WoW: Forever. Bun monorepo: the addon (@goturbo/addon) and the Turbo site (@goturbo/web).",
   "version": "0.0.0",
   "private": true,
   "type": "module",

@@ -1,11 +1,16 @@
 # Turbo
 
-**Never clip a swing again. The Enhancement HUD for WoW: Forever.**
+**Attack macros for WoW: Forever.**
 
-Turbo is an opinionated class helper addon for WoW: Forever, made by the Turbo
-crew. v1 is Shaman only, Enhancement first: one compact HUD card with your
-range band, swing timer and safe window, totems, imbue, Lightning Shield,
-cooldowns and mana.
+Turbo is a small addon for WoW: Forever, made by the Turbo crew. Type
+`/turbo macros` (or `/tb macros`) and it makes a `/startattack` macro for each
+attack spell you know (Shaman first: the shocks, Lightning Bolt and Chain
+Lightning) and swaps it onto your action bars wherever that spell sat.
+
+Turbo used to be an Enhancement Shaman HUD. Forever's own UI now covers most
+of it: use the Cooldown Manager, Swing Timer, Personal Resource Display and
+Totem Frame instead. `docs/research/forever-native-ui.md` compares them with
+the old HUD, and git history keeps its code.
 
 This repo was RangeFinder Classic, a 2023 hunter range finder for WoW Classic.
 That addon is retired; its last code is at the tag
