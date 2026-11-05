@@ -64,6 +64,8 @@ export function scriptIdleShaman(g: FakeGame, overrides: Readings = {}) {
         totemTimeLeft: [0],
         totemDuration: [undefined],
         totemInfo: [true, '', 0, 0, undefined],
+        // The Recall reminder: the player stands still (x, y, z, map).
+        playerPosition: [0, 0, 0, 1415],
         // The weapon imbue and reminders.
         mainHandEnchant: [null],
         resting: [false],

@@ -13,6 +13,11 @@
 -- totem's duration is learned out of combat, per spell ID (Forever's differ
 -- from vanilla's). The same timing starts the pulse in the last
 -- `totemWarningSeconds` and tells an early death, which flashes red.
+--
+-- The Recall reminder (modules/totem-recall.lua) reads the totems through
+-- `ns.totems`. A slot filling or emptying, or its totem starting its last
+-- `totemWarningSeconds`, sends "Turbo.TotemChanged" with the game slot and
+-- whether the player's cast just dropped a new totem there.
 local _, ns = ...
 
 local safe = ns.safe
@@ -51,12 +56,30 @@ local ELEMENTS = {
 ---@field flash table
 ---@field filled boolean
 ---@field endsAt number? when the totem runs out, if Turbo knows
+---@field endingSoon boolean? in its last `totemWarningSeconds`: the icon pulses
 ---@field pulseTimer TurboSelfTimer?
 ---@field flashTimer TurboSelfTimer?
 
 ---Slots by the game's slot number.
 ---@type table<number, TurboTotemSlot>
 local slots = {}
+
+local totems = {}
+ns.totems = totems
+
+---The game slots with a totem down now, each with whether that totem is in
+---its last `totemWarningSeconds` (its icon pulses).
+---@return table<number, boolean>
+function totems.down()
+	local down = {}
+	for slot, s in pairs(slots) do
+		if s.filled then
+			down[slot] = s.endingSoon == true
+		end
+	end
+	return down
+end
+
 ---Totem durations learned out of combat, by spell ID.
 ---@type table<number, number>
 local learned = {}
@@ -114,6 +137,7 @@ local function stopPulse(s)
 		s.pulseTimer:cancel()
 		s.pulseTimer = nil
 	end
+	s.endingSoon = false
 	s.pulse:Stop()
 end
 
@@ -125,12 +149,15 @@ local function schedulePulse(s)
 	end
 	local delay = s.endsAt - settings.get("totemWarningSeconds") - safe.now()
 	if delay <= 0 then
+		s.endingSoon = true
 		s.pulse:Play()
 		return
 	end
 	s.pulseTimer = timers.start(delay, function()
 		s.pulseTimer = nil
+		s.endingSoon = true
 		s.pulse:Play()
+		events.send("Turbo.TotemChanged", s.element.slot, false)
 	end)
 end
 
@@ -246,6 +273,8 @@ local function update(slot)
 	else
 		empty(s)
 	end
+	-- A totem filling the slot as the player's cast lands was just dropped.
+	events.send("Turbo.TotemChanged", slot, filled and lastCast.at == safe.now())
 end
 
 local function onTotemUpdate(_, slot)
@@ -287,13 +316,14 @@ ns.modules.register(MODULE_ID, {
 	onDisable = function()
 		events.off("UNIT_SPELLCAST_SUCCEEDED", onCast)
 		events.off("PLAYER_TOTEM_UPDATE", onTotemUpdate)
-		for _, s in pairs(slots) do
+		for slot, s in pairs(slots) do
 			s.filled = false
 			s.endsAt = nil
 			hideFlash(s)
 			stopPulse(s)
 			showEmpty(s)
 			s.frame:Hide()
+			events.send("Turbo.TotemChanged", slot, false)
 		end
 	end,
 })
