@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turbo: attack macros for WoW: Forever (mockup B, Three lines)</title>
+<!-- MOCKUP ONLY. Direction B: "Three lines". Not the real Turbo site (#39). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Fragment+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #e9eef1;     /* cool storm-grey page */
+    --sheet: #f7f9fa;     /* raised surfaces */
+    --ink: #17203a;       /* text and the macro */
+    --graphite: #56617a;  /* secondary text, macro punctuation */
+    --rule: #bcc6cf;
+    --storm: #2c43c8;     /* the one accent: the spell name, links, the button */
+    --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Newsreader", Georgia, serif;
+    --mono: "Fragment Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 18px/1.55 var(--sans); font-variation-settings: "wdth" 100; }
+  a { color: var(--storm); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--storm); outline-offset: 3px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding-inline: 48px; }
+
+  .mock-note { font: 400 13px/1.4 var(--mono); color: var(--graphite); text-align: center; padding: 8px 12px; border-bottom: 1px dashed var(--rule); }
+
+  .top { display: flex; justify-content: space-between; align-items: center; padding-block: 28px; }
+  .wordmark { font: 850 26px/1 var(--sans); font-variation-settings: "wdth" 125; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+  .top nav { display: flex; gap: 32px; align-items: center; font-size: 16px; }
+  .top nav a { color: var(--ink); text-decoration: none; }
+  .top nav a:hover { text-decoration: underline; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+    font: 650 18px/1 var(--sans); font-variation-settings: "wdth" 110;
+    background: var(--storm); color: #fff; padding: 18px 26px; border-radius: 999px;
+  }
+  .btn:hover { background: #2236a8; }
+  .btn-quiet { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); padding: 12px 20px; font-size: 16px; }
+  .btn-quiet:hover { background: var(--ink); color: var(--paper); }
+  code, kbd { font: 400 .92em/1 var(--mono); white-space: nowrap; }
+  kbd { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: .2em .45em; }
+
+  /* The hero is the macro. Each line carries a margin note. */
+  .macro { margin: 48px 0 0; padding: 0; list-style: none; }
+  .macro li { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 40px; align-items: end; border-top: 1px solid var(--rule); padding-block: 10px 14px; }
+  .macro li:last-child { border-bottom: 1px solid var(--rule); }
+  .line {
+    font-weight: 820; font-variation-settings: "wdth" 72; letter-spacing: -.02em;
+    font-size: clamp(46px, 7.5vw, 112px); line-height: .92; white-space: nowrap;
+  }
+  .line .p { color: var(--graphite); font-weight: 500; }
+  .spell { color: var(--storm); display: inline-block; min-width: 7.2ch; }
+  .note { font: italic 400 19px/1.4 var(--serif); color: var(--graphite); margin: 0 0 8px; max-width: 30ch; }
+  .note b { font-style: normal; font-family: var(--mono); font-weight: 400; font-size: 15px; color: var(--ink); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .spell.swap { animation: swap .5s ease; }
+    @keyframes swap { 0% { opacity: 0; transform: translateY(.18em); } 100% { opacity: 1; transform: none; } }
+  }
+
+  .intro { display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; padding-block: 56px 112px; align-items: start; }
+  h1 { font: 700 clamp(34px, 3.6vw, 52px)/1.06 var(--sans); font-variation-settings: "wdth" 88; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  .intro .lede { font: 400 21px/1.5 var(--serif); margin: 4px 0 28px; max-width: 40ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; }
+  .cta .then { color: var(--graphite); }
+  .scope-line { margin: 22px 0 0; color: var(--graphite); font-size: 16px; }
+
+  section { padding-block: 104px; border-top: 1px solid var(--rule); }
+  h2 { font: 780 clamp(32px, 4vw, 60px)/1 var(--sans); font-variation-settings: "wdth" 80; letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; }
+  h3 { font: 700 21px/1.2 var(--sans); font-variation-settings: "wdth" 95; margin: 0 0 8px; }
+  .lede-s { font: 400 21px/1.5 var(--serif); color: var(--ink); max-width: 46ch; margin: 0 0 56px; }
+  .head { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: end; margin-bottom: 56px; }
+  .head h2, .head .lede-s { margin: 0; }
+
+  /* What it does / what it leaves alone */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
+  .two h3 { padding-bottom: 14px; border-bottom: 2px solid var(--ink); margin-bottom: 0; }
+  .plain { list-style: none; margin: 0; padding: 0; }
+  .plain li { padding-block: 16px; border-bottom: 1px solid var(--rule); }
+
+  /* Screenshot placeholders */
+  .shots { display: grid; grid-template-columns: 1.5fr 1fr; gap: 32px; margin-top: 72px; }
+  figure { margin: 0; }
+  .ph {
+    aspect-ratio: 16 / 10; border: 1.5px dashed var(--graphite); border-radius: 6px;
+    background: repeating-linear-gradient(45deg, transparent 0 11px, rgba(86,97,122,.12) 11px 12px), var(--sheet);
+    display: grid; place-items: center; font: 400 14px/1.4 var(--mono); color: var(--graphite); text-align: center; padding: 16px;
+  }
+  figcaption { font: italic 400 17px/1.4 var(--serif); color: var(--graphite); margin-top: 10px; }
+
+  /* Setup: a real sequence, so it's numbered */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; counter-reset: s; }
+  .steps li { counter-increment: s; border-top: 2px solid var(--ink); padding-top: 18px; }
+  .steps li::before { content: counter(s); display: block; font: 800 72px/1 var(--sans); font-variation-settings: "wdth" 70; color: var(--storm); margin-bottom: 14px; }
+  .steps p { margin: 0; color: var(--graphite); }
+  .aside { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; margin-top: 64px; }
+  .aside p { margin: 0; font: 400 19px/1.5 var(--serif); }
+  .aside strong { font-family: var(--sans); font-weight: 700; }
+
+  /* Cooldown Manager band: the one inverted surface */
+  .cdm { background: var(--ink); color: var(--paper); border-top: 0; }
+  .cdm h2 { color: #fff; }
+  .cdm .lede-s { color: #d3dae2; }
+  .cdm a { color: #aebcff; }
+  .cdm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: start; }
+  .cdm ol { margin: 0 0 40px; padding-left: 1.3em; font-size: 18px; }
+  .cdm ol li { padding-left: 6px; margin-bottom: 10px; }
+  .cdm kbd { background: #26304d; border-color: #3a4566; color: #fff; }
+  .layout { width: 100%; border-collapse: collapse; font-size: 16px; }
+  .layout th { text-align: left; font-weight: 650; padding: 12px 24px 12px 0; vertical-align: top; color: #fff; white-space: nowrap; }
+  .layout td { padding: 12px 0; color: #c9d1db; }
+  .layout tr { border-top: 1px solid #344061; }
+  .import { background: #212b47; border: 1px solid #344061; border-radius: 10px; padding: 28px; }
+  .import label { display: block; font: 700 21px/1.2 var(--sans); color: #fff; margin-bottom: 6px; }
+  .import .hint { margin: 0 0 18px; font: italic 400 17px/1.4 var(--serif); color: #aab4c2; }
+  .import textarea { width: 100%; height: 132px; resize: none; background: #121a2e; color: #e9eef1; border: 1px solid #3a4566; border-radius: 6px; padding: 14px; font: 400 15px/1.5 var(--mono); word-break: break-all; }
+  .import .row { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+  .import .btn { background: #e9eef1; color: var(--ink); padding: 14px 24px; font-size: 16px; border: 0; cursor: pointer; }
+  .import .btn:hover { background: #fff; }
+  .import .status { font-size: 15px; color: #aebcff; }
+
+  footer { padding-block: 56px 64px; }
+  footer .wrap { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+  .made { font: 820 clamp(30px, 3.4vw, 44px)/1 var(--sans); font-variation-settings: "wdth" 80; letter-spacing: -.02em; }
+  footer p { margin: 8px 0 0; color: var(--graphite); font-size: 15px; }
+
+  @media (max-width: 1060px) {
+    .macro li { grid-template-columns: 1fr; gap: 6px; }
+    .note { max-width: none; }
+    .intro, .head, .cdm-grid, .aside { grid-template-columns: 1fr; gap: 32px; }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 720px) {
+    body { font-size: 17px; }
+    .wrap { padding-inline: 20px; }
+    .top { padding-block: 20px; }
+    .top nav a:not(.btn) { display: none; }
+    .macro { margin-top: 24px; }
+    .line { font-size: 13.2vw; white-space: normal; }
+    .line .cast-word { display: block; }
+    .spell { min-width: 0; }
+    .note { font-size: 17px; }
+    .intro { padding-block: 40px 72px; }
+    .intro .lede { font-size: 19px; }
+    section { padding-block: 72px; }
+    .lede-s { font-size: 19px; margin-bottom: 36px; }
+    .head { margin-bottom: 36px; gap: 16px; }
+    .two, .shots { grid-template-columns: 1fr; gap: 40px; }
+    .shots { margin-top: 48px; gap: 28px; }
+    .steps { grid-template-columns: 1fr; gap: 24px; }
+    .steps li { display: grid; grid-template-columns: 56px 1fr; column-gap: 12px; }
+    .steps li::before { grid-row: span 2; font-size: 56px; margin: 0; }
+    .import { padding: 20px; }
+    .layout th { padding-right: 14px; white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">Mockup B, Three lines. Not the real site; links go nowhere.</div>
+
+<header class="wrap top">
+  <a class="wordmark" href="#">Turbo</a>
+  <nav aria-label="Main">
+    <a href="#what">What it does</a>
+    <a href="#setup">Setup</a>
+    <a href="#cdm">Cooldown Manager</a>
+    <a class="btn btn-quiet" href="#">CurseForge</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap">
+    <figure aria-label="The macro Turbo writes: #showtooltip, /startattack, /cast and the spell name.">
+      <ol class="macro">
+        <li>
+          <div class="line"><span class="p">#</span>showtooltip</div>
+          <p class="note">Your button shows the spell's own icon, cooldown and tooltip.</p>
+        </li>
+        <li>
+          <div class="line"><span class="p">/</span>startattack</div>
+          <p class="note">Turns on auto-attack, so every cast also starts your swing.</p>
+        </li>
+        <li>
+          <div class="line"><span class="cast-word"><span class="p">/</span>cast </span><span class="spell" id="spell">Lightning Bolt</span></div>
+          <p class="note">No rank in the name, so the game casts your top rank. Learn a new one and the button already uses it.</p>
+        </li>
+      </ol>
+    </figure>
+
+    <div class="intro">
+      <h1>The macro you'd write yourself, made for every attack spell you know.</h1>
+      <div>
+        <p class="lede">Type <kbd>/turbo macros</kbd> once, out of combat. Turbo writes these three lines for each attack spell and puts every macro where that spell sat on your bars.</p>
+        <div class="cta">
+          <a class="btn" href="#">Download on CurseForge</a>
+        </div>
+        <!-- SCOPE LINE: one sentence, swap when #51 (every class) ships. -->
+        <p class="scope-line">Works for Shaman today, and every class is next.</p>
+      </div>
+    </div>
+  </div>
+
+  <section id="what">
+    <div class="wrap">
+      <div class="head">
+        <h2>It does one thing, carefully.</h2>
+        <p class="lede-s">There are no settings and no window. You run one command; Turbo changes only what it made.</p>
+      </div>
+      <div class="two">
+        <div>
+          <h3>What it does</h3>
+          <ul class="plain">
+            <li>Makes a character macro for each attack spell you know: Earth, Flame and Frost Shock, Lightning Bolt and Chain Lightning.</li>
+            <li>Swaps each macro onto your action bars wherever that spell sat, at any rank.</li>
+            <li>Uses the spell names from your game, so it works in any language.</li>
+            <li>Also answers to <kbd>/tb macros</kbd>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>What it leaves alone</h3>
+          <ul class="plain">
+            <li>Your own macros. Turbo never edits or deletes a macro it didn't make.</li>
+            <li>Anything during combat, or while your cursor is holding something. It tells you to try again.</li>
+            <li>Duplicates. Running it again finds its own macros and adds only what's missing.</li>
+            <li>Half-finished jobs. Without enough free character macro slots it changes nothing and tells you how many it needs.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="shots">
+        <figure>
+          <div class="ph">Screenshot placeholder<br>1600 × 1000</div>
+          <figcaption>Action bars after /turbo macros: same buttons, same slots, now macros.</figcaption>
+        </figure>
+        <figure>
+          <div class="ph">Screenshot placeholder<br>1600 × 1000</div>
+          <figcaption>The macro window's Character tab with Turbo's macros.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="setup">
+    <div class="wrap">
+      <div class="head">
+        <h2>Set up in a minute.</h2>
+        <p class="lede-s">Four steps, and the last one is playing.</p>
+      </div>
+      <ol class="steps">
+        <li><h3>Install</h3><p>Get Turbo from CurseForge.</p></li>
+        <li><h3>Log in</h3><p>Pick your character and enter the world.</p></li>
+        <li><h3>Type the command</h3><p>Out of combat, type <kbd>/turbo macros</kbd>.</p></li>
+        <li><h3>Play</h3><p>Your attack buttons are now macros, in the same slots.</p></li>
+      </ol>
+      <div class="aside">
+        <p><strong>New rank?</strong> Nothing to do. The macros carry no rank, so they already cast the newest one.</p>
+        <p><strong>New attack spell?</strong> Put it on your bars and run <kbd>/turbo macros</kbd> again. It skips what's already done.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="cdm" class="cdm">
+    <div class="wrap cdm-grid">
+      <div>
+        <h2>Bonus: our Shaman layout for the Cooldown Manager.</h2>
+        <p class="lede-s">Forever's own Cooldown Manager tracks your cooldowns, totems and buffs. This is the layout the Turbo crew plays with.</p>
+        <ol>
+          <li>Type <kbd>/cdm</kbd> to open the Cooldown Manager.</li>
+          <li>Open the layout dropdown and choose <strong>Import</strong>.</li>
+          <li>Paste the string and give the layout a name.</li>
+        </ol>
+        <table class="layout">
+          <tr><th scope="row">Essential</th><td>Stormstrike, Earth Shock, Chain Lightning</td></tr>
+          <tr><th scope="row">Utility</th><td>Strength of Earth, Searing, Mana Spring and Windfury Totem</td></tr>
+          <tr><th scope="row">Tracked buffs</th><td>Lightning Shield, Flurry</td></tr>
+          <tr><th scope="row">Alert</th><td>Text to speech when Lightning Shield drops</td></tr>
+        </table>
+      </div>
+      <div class="import">
+        <label for="import-b">Shaman layout import string</label>
+        <p class="hint">Placeholder. The real string comes from tools/cdm-layout.</p>
+        <textarea id="import-b" readonly>1|PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING-PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING==</textarea>
+        <div class="row">
+          <button class="btn" type="button" data-copy="import-b">Copy</button>
+          <span class="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="made">Made by the Turbo crew.</div>
+      <p>A fan-made addon for WoW: Forever. Not affiliated with Blizzard Entertainment.</p>
+    </div>
+    <a class="btn" href="#">Download on CurseForge</a>
+  </div>
+</footer>
+
+<script>
+  // The hero's one motion: the spell name cycles through the Shaman kit.
+  (function () {
+    var spells = ['Lightning Bolt', 'Earth Shock', 'Flame Shock', 'Frost Shock', 'Chain Lightning'];
+    var el = document.getElementById('spell');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var i = 0;
+    setInterval(function () {
+      i = (i + 1) % spells.length;
+      el.classList.remove('swap');
+      void el.offsetWidth;
+      el.textContent = spells[i];
+      el.classList.add('swap');
+    }, 2600);
+  })();
+
+  document.querySelectorAll('[data-copy]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var field = document.getElementById(button.dataset.copy);
+      var status = button.parentElement.querySelector('.status');
+      navigator.clipboard.writeText(field.value).then(function () {
+        button.textContent = 'Copied';
+        status.textContent = 'Now paste it into /cdm, Import.';
+      }, function () {
+        field.select();
+        status.textContent = 'Select the text and copy it.';
+      });
+    });
+  });
+</script>
+</body>
+</html>
