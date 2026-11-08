@@ -43,14 +43,20 @@ italic for the notes and captions, Fragment Mono for things you type or paste.
 ## For the owner to confirm
 
 - **Headline.** A: "Top rank, auto-attack, every press." B: "The macro you'd
-  write yourself, made for every attack spell you know." Either one works on
+  write yourself, made for every spell on your bars." Either one works on
   either page.
-- **The scope line.** Both pages say "Works for Shaman today, and every class
-  is next." It's one sentence in one element, marked with a
-  `<!-- SCOPE LINE -->` comment. Swap it when #51 ships. B's "What it does"
-  list also names the five Shaman spells; drop that clause at the same time.
+- **The copy describes Turbo after #51.** Both pages say what `/turbo macros`
+  does once #51 ships: a macro for every spell on your bars, every class, with
+  `/startattack` only on attack spells. The scope line now says "Works for
+  every class." Each sentence that needs #51 has a `<!-- NEEDS #51 -->` (or
+  `<!-- SCOPE LINE / NEEDS #51 -->`) comment holding the wording that is true
+  on `main` today (five Shaman shock and lightning spells, Shaman only). If
+  the site goes up before #51, swap those back.
 - **The Cooldown Manager bonus.** Should the site link a Turbo-made layout
-  for Blizzard's own UI at all? If yes, the real import string comes from
+  for Blizzard's own UI at all? It's an Enhancement Shaman layout, and its
+  import isn't checked in game yet (`tools/cdm-layout/README.md`), so the
+  section is marked `<!-- UNTESTED -->`: keep it off the real site until
+  someone imports it in the beta client. The real import string comes from
   `bun tools/cdm-layout/build.ts`. The mockups use a fake `1|PLACEHOLDER...`
   string with a Copy button, and the layout summary comes from
   `tools/cdm-layout/README.md`.
@@ -61,3 +67,10 @@ italic for the notes and captions, Fragment Mono for things you type or paste.
   anywhere.
 - **Screenshots.** Both pages ask for two: the action bars after
   `/turbo macros`, and the macro window's Character tab.
+
+## For the real build
+
+- **Self-host the fonts.** The mockups load them from Google Fonts, which
+  sends each visitor's IP to Google.
+- **Let the hero animation stop.** B's spell name cycles forever (A's bar
+  swaps once). Stop it after one lap or add a pause button (WCAG 2.2.2).

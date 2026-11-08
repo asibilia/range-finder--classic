@@ -195,14 +195,15 @@
     </figure>
 
     <div class="intro">
-      <h1>The macro you'd write yourself, made for every attack spell you know.</h1>
+      <!-- NEEDS #51: true once /turbo macros covers every spell on your bars, every class. Today (main): "made for every Shaman shock and lightning spell" and "these three lines for each of them". -->
+      <h1>The macro you'd write yourself, made for every spell on your bars.</h1>
       <div>
-        <p class="lede">Type <kbd>/turbo macros</kbd> once, out of combat. Turbo writes these three lines for each attack spell and puts every macro where that spell sat on your bars.</p>
+        <p class="lede">Type <kbd>/turbo macros</kbd> once, out of combat. Turbo writes these three lines for each attack spell, a plain cast macro for every other spell, and puts every macro where that spell sat on your bars.</p>
         <div class="cta">
           <a class="btn" href="#">Download on CurseForge</a>
         </div>
-        <!-- SCOPE LINE: one sentence, swap when #51 (every class) ships. -->
-        <p class="scope-line">Works for Shaman today, and every class is next.</p>
+        <!-- SCOPE LINE / NEEDS #51: true once #51 (every class) ships. Today (main): "Works for Shaman today, and every class is next." -->
+        <p class="scope-line">Works for every class.</p>
       </div>
     </div>
   </div>
@@ -211,15 +212,16 @@
     <div class="wrap">
       <div class="head">
         <h2>It does one thing, carefully.</h2>
-        <p class="lede-s">There are no settings and no window. You run one command; Turbo changes only what it made.</p>
+        <p class="lede-s">There are no settings and no window. You run one command; Turbo changes only its own macros and the buttons where those spells sat.</p>
       </div>
       <div class="two">
         <div>
           <h3>What it does</h3>
           <ul class="plain">
-            <li>Makes a character macro for each attack spell you know: Earth, Flame and Frost Shock, Lightning Bolt and Chain Lightning.</li>
+            <!-- NEEDS #51: true once /turbo macros covers every spell on your bars, every class. Today (main): "Makes a character macro for each Shaman attack spell: Earth, Flame and Frost Shock, Lightning Bolt and Chain Lightning.". -->
+            <li>Makes a character macro for every spell on your bars. Attack spells also start auto-attack.</li>
             <li>Swaps each macro onto your action bars wherever that spell sat, at any rank.</li>
-            <li>Uses the spell names from your game, so it works in any language.</li>
+            <li>Uses the spell names from your game, so the macros work in any game language.</li>
             <li>Also answers to <kbd>/tb macros</kbd>.</li>
           </ul>
         </div>
@@ -269,8 +271,9 @@
   <section id="cdm" class="cdm">
     <div class="wrap cdm-grid">
       <div>
-        <h2>Bonus: our Shaman layout for the Cooldown Manager.</h2>
-        <p class="lede-s">Forever's own Cooldown Manager tracks your cooldowns, totems and buffs. This is the layout the Turbo crew plays with.</p>
+        <!-- UNTESTED: the tools/cdm-layout import isn't checked in game yet. Keep this section off the real site until it is. -->
+        <h2>Bonus: an Enhancement Shaman layout for the Cooldown Manager.</h2>
+        <p class="lede-s">Forever's own Cooldown Manager tracks your cooldowns, totems and buffs. Here's an Enhancement layout to start from.</p>
         <ol>
           <li>Type <kbd>/cdm</kbd> to open the Cooldown Manager.</li>
           <li>Open the layout dropdown and choose <strong>Import</strong>.</li>
@@ -284,7 +287,7 @@
         </table>
       </div>
       <div class="import">
-        <label for="import-b">Shaman layout import string</label>
+        <label for="import-b">Enhancement Shaman layout import string</label>
         <p class="hint">Placeholder. The real string comes from tools/cdm-layout.</p>
         <textarea id="import-b" readonly>1|PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING-PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING==</textarea>
         <div class="row">
@@ -307,7 +310,7 @@
 </footer>
 
 <script>
-  // The hero's one motion: the spell name cycles through the Shaman kit.
+  // The hero's one motion: the spell name cycles through five Shaman attack spells.
   (function () {
     var spells = ['Lightning Bolt', 'Earth Shock', 'Flame Shock', 'Frost Shock', 'Chain Lightning'];
     var el = document.getElementById('spell');

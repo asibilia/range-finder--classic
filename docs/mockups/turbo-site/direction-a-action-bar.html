@@ -236,8 +236,8 @@
     .hero .lede { font-size: 19px; }
     .frame { padding: 24px 12px 14px; }
     .bar { gap: 5px; padding: 5px; }
-    .slot .mname, .slot .rank { font-size: 10px; }
-    .slot .key { font-size: 11px; }
+    .slot .mname, .slot .rank { white-space: normal; line-height: 1.2; bottom: 2px; }
+    .slot .key { font-size: 12px; }
     .editor pre { font-size: 17px; }
     section { padding: 64px 0; }
     .features, .cdm, .shots { grid-template-columns: 1fr; }
@@ -270,13 +270,14 @@
   <div class="wrap hero">
     <div>
       <h1>Top rank, auto-attack, every press.</h1>
-      <p class="lede">Turbo turns each attack spell you know into a macro that starts your swing and casts the highest rank, then puts it right where the spell sat on your bars.</p>
+      <!-- NEEDS #51: true once /turbo macros covers every spell on your bars, every class. Today (main): "each Shaman shock and lightning spell", and every macro starts your swing. -->
+      <p class="lede">Turbo turns every spell on your bars into a macro that casts the highest rank, right where the spell sat. Attack spells also start your swing.</p>
       <div class="hero-cta">
         <a class="btn" href="#">Download on CurseForge</a>
         <span class="then">then type <kbd>/turbo macros</kbd></span>
       </div>
-      <!-- SCOPE LINE: one sentence, swap when #51 (every class) ships. -->
-      <p class="scope-line">Works for Shaman today, and every class is next.</p>
+      <!-- SCOPE LINE / NEEDS #51: true once #51 (every class) ships. Today (main): "Works for Shaman today, and every class is next." -->
+      <p class="scope-line">Works for every class.</p>
     </div>
 
     <div class="frame" role="img" aria-label="An action bar with five Shaman attack spells. Each button swaps from a ranked spell to a Turbo macro, and the chat says: Turbo made 5 macros and swapped 5 buttons.">
@@ -310,16 +311,17 @@
   <section id="what">
     <div class="wrap">
       <h2>One command, and it plays by the rules</h2>
-      <p class="section-lede">You type it once, out of combat. Turbo writes the macros you would have written by hand and swaps them onto your bars. It never touches anything of yours.</p>
+      <p class="section-lede">You type it once, out of combat. Turbo writes the macros you would have written by hand and swaps them onto your bars. It only changes the macros it makes and the buttons where those spells sat.</p>
       <div class="features">
         <div class="tooltip">
           <p class="t-name">/turbo macros</p>
           <p class="t-sub">Also <span style="color:#fff">/tb macros</span></p>
-          <p class="t-use">Use: Makes a character macro for each attack spell you know.</p>
-          <p class="t-use">Use: Every macro starts auto-attack, then casts the spell.</p>
+          <!-- NEEDS #51: true once /turbo macros covers every spell on your bars, every class. Today (main): "Makes a character macro for each Shaman shock and lightning spell." and "Every macro starts auto-attack, then casts the spell.". -->
+          <p class="t-use">Use: Makes a character macro for every spell on your bars.</p>
+          <p class="t-use">Use: Attack spells start auto-attack, then cast the spell.</p>
           <p class="t-use">Use: No rank in the macro, so the game always casts your top rank.</p>
           <p class="t-use">Use: Swaps each macro onto your bars wherever that spell sat, at any rank.</p>
-          <p class="t-flavor">"Spell names come from the game, so it works in any language."</p>
+          <p class="t-flavor">"Spell names come from the game, so the macros work in any game language."</p>
         </div>
         <ul class="rules">
           <li><strong>Only out of combat, with an empty cursor.</strong> In combat or holding something, it tells you and changes nothing.</li>
@@ -364,8 +366,9 @@
   <section id="cdm">
     <div class="wrap cdm">
       <div>
-        <h2>Bonus: a Shaman layout for the Cooldown Manager</h2>
-        <p class="section-lede" style="margin-bottom:28px">Forever's own Cooldown Manager shows your cooldowns, totems and buffs. Here's the layout the Turbo crew plays with. Import it in four steps.</p>
+        <!-- UNTESTED: the tools/cdm-layout import isn't checked in game yet. Keep this section off the real site until it is. -->
+        <h2>Bonus: an Enhancement Shaman layout for the Cooldown Manager</h2>
+        <p class="section-lede" style="margin-bottom:28px">Forever's own Cooldown Manager shows your cooldowns, totems and buffs. Here's an Enhancement layout to start from. Import it in four steps.</p>
         <ol>
           <li>Type <kbd>/cdm</kbd> to open the Cooldown Manager.</li>
           <li>Open the layout dropdown and choose <strong>Import</strong>.</li>
@@ -380,7 +383,7 @@
         </dl>
       </div>
       <div class="import">
-        <label for="import-a">Shaman layout import string</label>
+        <label for="import-a">Enhancement Shaman layout import string</label>
         <p class="hint">Placeholder. The real string comes from tools/cdm-layout.</p>
         <textarea id="import-a" readonly>1|PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING-PLACEHOLDER-NOT-A-REAL-LAYOUT-STRING==</textarea>
         <div class="row">
