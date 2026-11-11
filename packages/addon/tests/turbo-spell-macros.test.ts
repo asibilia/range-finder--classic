@@ -468,6 +468,98 @@ describe("Turbo's macros from before", () => {
     })
 })
 
+describe("Turbo's macros as the game gives them back after a reload", () => {
+    // After a reload, the game can give a macro's body back with a line
+    // break at the end, or Windows line breaks. It is still Turbo's.
+    const AFTER_RELOAD: [string, (body: string) => string][] = [
+        ['a line break at the end', (body) => `${body}\n`],
+        ['Windows line breaks', (body) => body.replaceAll('\n', '\r\n')],
+        ['spaces at the end', (body) => `${body}  `],
+    ]
+
+    for (const [what, reloaded] of AFTER_RELOAD) {
+        test(`with ${what}: an earlier Turbo's macro is reused, not skipped, and not updated`, () => {
+            game = start({
+                spells: {
+                    [STRENGTH_OF_EARTH_TOTEM]: {
+                        name: 'Strength of Earth Totem',
+                        harmful: false,
+                    },
+                },
+            })
+            addTurboMacro(
+                game,
+                'Strength of Eart',
+                reloaded(castBody('Strength of Earth Totem')),
+                true
+            )
+            game.setAction(1, spell(STRENGTH_OF_EARTH_TOTEM))
+            login(game)
+
+            const printed = typed(game, '/turbo macros')
+
+            expect(printed).toEqual([
+                'Turbo made 0 macros and swapped 1 button.',
+            ])
+            expect(game.macros()).toHaveLength(1)
+            expect(game.actions()).toEqual({ 1: onBar('Strength of Eart') })
+        })
+    }
+
+    test("an earlier Turbo's Ghost Wolf macro with a line break at the end still gives the buttons the spell back", () => {
+        game = start()
+        addTurboMacro(game, 'Ghost Wolf', `${castBody('Ghost Wolf')}\n`, true)
+        game.setAction(1, onBar('Ghost Wolf'))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 0 macros, removed 1 and swapped 0 buttons.',
+            'Put Ghost Wolf back on your bars: it has one rank, so no macro.',
+        ])
+        expect(game.macros()).toEqual([])
+        expect(game.actions()).toEqual({ 1: spell(GHOST_WOLF) })
+    })
+
+    test("a full character list of an earlier Turbo's macros, all with a line break at the end, is recycled before any general slot", () => {
+        game = start()
+        // 30 old Turbo macros for spells now on no bar.
+        for (let i = 1; i <= 30; i++) {
+            const name = `Old Spell ${String(i).padStart(2, '0')}`
+            addTurboMacro(game, name, `${castBody(name)}\n`, true)
+        }
+        game.setAction(1, spell(EARTH_SHOCK))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 1 macro, removed 30 and swapped 1 button.',
+        ])
+        expect(macroList(game)).toEqual([turboMacro('Earth Shock')])
+    })
+
+    test("a macro with something more after the cast is still the player's", () => {
+        game = start()
+        game.addMacro({
+            name: 'Healing Wave',
+            body: `${castBody('Healing Wave')}\n/say Healing!`,
+            perCharacter: true,
+        })
+        game.setAction(1, spell(HEALING_WAVE))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 0 macros and swapped 0 buttons.',
+            'Skipped Healing Wave: you already have a macro with that name.',
+        ])
+        expect(game.actions()).toEqual({ 1: spell(HEALING_WAVE) })
+    })
+})
+
 describe('running it again', () => {
     test('leaves the same macros, with no duplicates, and changes nothing', () => {
         game = start()

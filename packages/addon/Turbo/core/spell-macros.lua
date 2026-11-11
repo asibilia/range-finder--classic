@@ -115,14 +115,23 @@ local function counted(count, one, many)
 	return count .. " " .. (count == 1 and one or many)
 end
 
+---A macro body as Turbo wrote it: the game can give a body back (after a
+---reload) with Windows line breaks or a line break or spaces at the end.
+---@param body string
+---@return string
+local function asWritten(body)
+	return (body:gsub("\r\n?", "\n"):gsub("%s+$", ""))
+end
+
 ---The spell a macro is Turbo's macro for, or nil when it's the player's: its
 ---body is one of Turbo's two for a spell name, and its name is that spell's
----macro name.
+---macro name. Every Turbo build so far wrote these bodies.
 ---@param macro TurboMacro
 ---@return string?
 local function turbosSpell(macro)
-	local name = macro.body:match("^#showtooltip\n/startattack\n/cast ([^\n]+)$")
-		or macro.body:match("^#showtooltip\n/cast ([^\n]+)$")
+	local body = asWritten(macro.body)
+	local name = body:match("^#showtooltip\n/startattack\n/cast ([^\n]+)$")
+		or body:match("^#showtooltip\n/cast ([^\n]+)$")
 	if name and macro.name == macroName(name) then
 		return name
 	end
@@ -287,7 +296,7 @@ local function plan(macros, spells, onBars)
 			claimedBy[entry.macroName] = entry.name
 			used[macro] = true
 			table.insert(result.use, entry)
-			if macro.body ~= bodyFor(entry.name, entry.attack) then
+			if asWritten(macro.body) ~= bodyFor(entry.name, entry.attack) then
 				table.insert(result.edits, { macro = macro, entry = entry })
 			end
 		elseif nameTaken(macros, entry.macroName) then
