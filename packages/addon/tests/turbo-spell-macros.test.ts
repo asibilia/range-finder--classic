@@ -1,17 +1,22 @@
 /**
  * Spell macros under the fake game: `/turbo macros` (and `/tb macros`) finds
- * every spell on the player's action bars, makes one per-character macro for
- * each (by name, so every rank shares it),
- * swaps every action slot holding that spell for its macro, and prints a
- * summary. Offensive spells get the attack variant, which starts auto-attack
- * too. It works for every class, and only acts out of combat, with nothing on
- * the cursor, and when there's room for every new macro.
+ * every spell on the player's action bars with more than one rank, makes one
+ * macro for each (by name, so every rank shares it), swaps every action slot
+ * holding that spell for its macro, and prints a summary. Attacking spells get
+ * the attack variant, which starts auto-attack too, except crowd control that
+ * damage breaks. It works for every class, and only acts out of combat, with
+ * nothing on the cursor, and when there's room for every new macro: Turbo's
+ * own unneeded character macros first, then free character slots, then free
+ * general ones.
  *
  * The game, as these tests script it (see turbo-core.test.ts for the rest):
  *
  * - `spellName(id)`: a spell's name in the player's language, the same for
  *   every rank; nil for a spell the game doesn't have.
  * - `spellHarmful(id)`: whether the spell can be cast on an enemy.
+ * - `spellSubtext(id)`: its rank line ("Rank 2") once the player knows more
+ *   than one rank; empty for a spell with one.
+ * - `knownSpellID(name)`: the spell ID for a name the player knows, or nil.
  * - `inCombat`: combat lockdown, which blocks macro and action bar changes.
  * - The fake game's macro lists, action slots and cursor: a test sets them up
  *   with `addMacro`, `setAction` and `setCursor`, and reads them back with
@@ -45,8 +50,11 @@ afterEach(() => {
 
 const MAGE = ['Mage', 'MAGE', 8]
 
-/** A spell as the game describes it. */
-type Spell = { name: string; harmful: boolean }
+/**
+ * A spell as the game describes it. `ranked: false` is a spell the player
+ * knows one rank of (no rank line); every other spell has a rank line.
+ */
+type Spell = { name: string; harmful: boolean; ranked?: boolean }
 
 // Shaman spells, by spell ID.
 const EARTH_SHOCK = 8042
@@ -79,8 +87,8 @@ const SPELLS: Record<number, Spell> = {
         name: 'Healing Wave',
         harmful: false,
     },
-    [STORMSTRIKE]: { name: 'Stormstrike', harmful: true },
-    [GHOST_WOLF]: { name: 'Ghost Wolf', harmful: false },
+    [STORMSTRIKE]: { name: 'Stormstrike', harmful: true, ranked: false },
+    [GHOST_WOLF]: { name: 'Ghost Wolf', harmful: false, ranked: false },
     [FIREBALL]: { name: 'Fireball', harmful: true },
     [ARCANE_INTELLECT]: {
         name: 'Arcane Intellect',
@@ -109,6 +117,16 @@ function turboMacro(
     return { name, icon: QUESTION_MARK, body, perCharacter: true }
 }
 
+/** Adds Turbo's macro for a spell name, as an earlier run made it. */
+function addTurboMacro(
+    g: FakeGame,
+    name: string,
+    body: string,
+    perCharacter: boolean
+) {
+    g.addMacro({ name, icon: QUESTION_MARK, body, perCharacter })
+}
+
 /** Turbo's macro for a spell name, as an action slot holds it. */
 function onBar(name: string): Action {
     return { type: 'macro', name, perCharacter: true }
@@ -132,11 +150,20 @@ function start(
     scriptShamanOnForever(g, { playerClass: options.playerClass ?? SHAMAN })
     g.setReading('spellName', null)
     g.setReading('spellHarmful', false)
+    g.setReading('spellSubtext', null)
+    g.setReading('knownSpellID', null)
     for (const [id, s] of Object.entries(options.spells ?? SPELLS)) {
-        g.setReadingFor('spellName', [Number(id)], s.name)
-        g.setReadingFor('spellHarmful', [Number(id)], s.harmful)
+        describeSpell(g, Number(id), s)
     }
     return g
+}
+
+/** Scripts what the game says about one spell. */
+function describeSpell(g: FakeGame, id: number, s: Spell) {
+    g.setReadingFor('spellName', [id], s.name)
+    g.setReadingFor('spellHarmful', [id], s.harmful)
+    g.setReadingFor('spellSubtext', [id], s.ranked === false ? '' : 'Rank 2')
+    g.setReadingFor('knownSpellID', [s.name], id)
 }
 
 /** The login events, in the order WoW fires them. */
@@ -162,9 +189,20 @@ function macroList(g: FakeGame): Omit<Macro, 'index'>[] {
 function fillCharacterMacros(g: FakeGame, count: number) {
     for (let i = 1; i <= count; i++) {
         g.addMacro({
-            name: `Mine ${i}`,
+            name: `Mine ${String(i).padStart(2, '0')}`,
             body: `/say ${i}`,
             perCharacter: true,
+        })
+    }
+}
+
+/** Adds `count` general (account) macros of the player's own. */
+function fillGeneralMacros(g: FakeGame, count: number) {
+    for (let i = 1; i <= count; i++) {
+        g.addMacro({
+            name: `Shared ${String(i).padStart(3, '0')}`,
+            body: `/say ${i}`,
+            perCharacter: false,
         })
     }
 }
@@ -196,29 +234,60 @@ describe('which spells get a macro', () => {
         expect(game.actions()).toEqual({ 1: onBar('Earth Shock') })
     })
 
-    test('an offensive spell without ranks (Stormstrike) gets the attack macro', () => {
-        game = start()
-        game.setAction(1, spell(STORMSTRIKE))
-        login(game)
-
-        typed(game, '/turbo macros')
-
-        expect(macroList(game)).toEqual([turboMacro('Stormstrike')])
-        expect(game.actions()).toEqual({ 1: onBar('Stormstrike') })
-    })
-
-    test('a spell that is neither ranked nor offensive (Ghost Wolf) gets a plain macro', () => {
+    test('a spell with one rank (Ghost Wolf) gets no macro, and its button is left alone', () => {
         game = start()
         game.setAction(1, spell(GHOST_WOLF))
         login(game)
 
         const printed = typed(game, '/turbo macros')
 
-        expect(macroList(game)).toEqual([
-            turboMacro('Ghost Wolf', castBody('Ghost Wolf')),
+        expect(game.macros()).toEqual([])
+        expect(game.actions()).toEqual({ 1: spell(GHOST_WOLF) })
+        expect(printed).toEqual(['Turbo made 0 macros and swapped 0 buttons.'])
+    })
+
+    test('an offensive spell with one rank (Stormstrike) gets no macro either', () => {
+        game = start()
+        game.setAction(1, spell(STORMSTRIKE))
+        login(game)
+
+        typed(game, '/turbo macros')
+
+        expect(game.macros()).toEqual([])
+        expect(game.actions()).toEqual({ 1: spell(STORMSTRIKE) })
+    })
+
+    test('a spell that gains its second rank on level-up starts getting a macro', () => {
+        game = start()
+        game.setAction(1, spell(LIGHTNING_BOLT))
+        // Only rank 1 known: Forever shows no rank line.
+        game.setReadingFor('spellSubtext', [LIGHTNING_BOLT], '')
+        login(game)
+        expect(typed(game, '/turbo macros')).toEqual([
+            'Turbo made 0 macros and swapped 0 buttons.',
         ])
-        expect(game.actions()).toEqual({ 1: onBar('Ghost Wolf') })
+        expect(game.macros()).toEqual([])
+
+        // Level-up: rank 2 learned, so the rank line shows.
+        game.setReadingFor('spellSubtext', [LIGHTNING_BOLT], 'Rank 1')
+        const printed = typed(game, '/turbo macros')
+
+        expect(macroList(game)).toEqual([turboMacro('Lightning Bolt')])
+        expect(game.actions()).toEqual({ 1: onBar('Lightning Bolt') })
         expect(printed).toEqual(['Turbo made 1 macro and swapped 1 button.'])
+    })
+
+    test('a rank line in another language counts, by its number', () => {
+        game = start()
+        game.setAction(1, spell(HEALING_WAVE))
+        game.setReadingFor('spellSubtext', [HEALING_WAVE], 'Ранг 3')
+        login(game)
+
+        typed(game, '/turbo macros')
+
+        expect(macroList(game)).toEqual([
+            turboMacro('Healing Wave', castBody('Healing Wave')),
+        ])
     })
 
     test('everything that is not a spell is left alone', () => {
@@ -256,7 +325,7 @@ describe('which spells get a macro', () => {
         game = start()
         game.setAction(1, spell(EARTH_SHOCK))
         game.setAction(61, spell(HEALING_WAVE))
-        game.setAction(180, spell(STORMSTRIKE))
+        game.setAction(180, spell(LIGHTNING_BOLT))
         login(game)
 
         const printed = typed(game, '/turbo macros')
@@ -264,12 +333,12 @@ describe('which spells get a macro', () => {
         expect(macroList(game)).toEqual([
             turboMacro('Earth Shock'),
             turboMacro('Healing Wave', castBody('Healing Wave')),
-            turboMacro('Stormstrike'),
+            turboMacro('Lightning Bolt'),
         ])
         expect(game.actions()).toEqual({
             1: onBar('Earth Shock'),
             61: onBar('Healing Wave'),
-            180: onBar('Stormstrike'),
+            180: onBar('Lightning Bolt'),
         })
         expect(printed).toEqual(['Turbo made 3 macros and swapped 3 buttons.'])
     })
@@ -369,15 +438,15 @@ describe("Turbo's macros from before", () => {
             body: attackBody('Healing Wave'),
             perCharacter: true,
         })
-        // And Stormstrike's as not.
+        // And Lightning Bolt's as not.
         game.addMacro({
-            name: 'Stormstrike',
+            name: 'Lightning Bolt',
             icon: QUESTION_MARK,
-            body: castBody('Stormstrike'),
+            body: castBody('Lightning Bolt'),
             perCharacter: true,
         })
         game.setAction(1, spell(HEALING_WAVE))
-        game.setAction(2, spell(STORMSTRIKE))
+        game.setAction(2, spell(LIGHTNING_BOLT))
         game.setAction(3, spell(EARTH_SHOCK))
         login(game)
 
@@ -386,11 +455,11 @@ describe("Turbo's macros from before", () => {
         expect(macroList(game)).toEqual([
             turboMacro('Earth Shock'),
             turboMacro('Healing Wave', castBody('Healing Wave')),
-            turboMacro('Stormstrike'),
+            turboMacro('Lightning Bolt'),
         ])
         expect(game.actions()).toEqual({
             1: onBar('Healing Wave'),
-            2: onBar('Stormstrike'),
+            2: onBar('Lightning Bolt'),
             3: onBar('Earth Shock'),
         })
         expect(printed).toEqual([
@@ -551,10 +620,10 @@ describe('names', () => {
 describe("the player's own macros", () => {
     test("a macro the player already has with a spell's name is left alone, so are that spell's buttons, and the player is told", () => {
         game = start()
-        // An account macro is never Turbo's, even with Turbo's body.
+        // A general macro of the player's, with another body.
         game.addMacro({
             name: 'Earth Shock',
-            body: attackBody('Earth Shock'),
+            body: '/cast Earth Shock',
             perCharacter: false,
         })
         game.addMacro({
@@ -564,7 +633,7 @@ describe("the player's own macros", () => {
         })
         game.setAction(1, spell(EARTH_SHOCK))
         game.setAction(2, spell(HEALING_WAVE))
-        game.setAction(3, spell(STORMSTRIKE))
+        game.setAction(3, spell(LIGHTNING_BOLT))
         login(game)
 
         const printed = typed(game, '/turbo macros')
@@ -573,7 +642,7 @@ describe("the player's own macros", () => {
             {
                 name: 'Earth Shock',
                 icon: null,
-                body: attackBody('Earth Shock'),
+                body: '/cast Earth Shock',
                 perCharacter: false,
             },
             {
@@ -582,12 +651,12 @@ describe("the player's own macros", () => {
                 body: '/cast [@mouseover] Healing Wave',
                 perCharacter: true,
             },
-            turboMacro('Stormstrike'),
+            turboMacro('Lightning Bolt'),
         ])
         expect(game.actions()).toEqual({
             1: spell(EARTH_SHOCK),
             2: spell(HEALING_WAVE),
-            3: onBar('Stormstrike'),
+            3: onBar('Lightning Bolt'),
         })
         expect(printed).toEqual([
             'Turbo made 1 macro and swapped 1 button.',
@@ -626,7 +695,7 @@ describe('when Turbo changes nothing', () => {
         expect(game.cursor()).toEqual({ type: 'item', id: HEARTHSTONE })
     })
 
-    test('with too few free character macro slots it says how many it needs, and edits nothing either', () => {
+    test('with no room left in either list it says how many slots are missing and which macros are not on the bars, and edits nothing either', () => {
         game = start()
         game.addMacro({
             name: 'Healing Wave',
@@ -634,12 +703,18 @@ describe('when Turbo changes nothing', () => {
             body: attackBody('Healing Wave'),
             perCharacter: true,
         })
-        // 28 of 30 used: 2 free, 3 needed.
+        // 28 of 30 character slots used and 119 of 120 general: 3 free, 4
+        // needed.
         fillCharacterMacros(game, 27)
+        fillGeneralMacros(game, 119)
+        // These two are on the bars, so they aren't offered for deleting.
+        game.setAction(10, { type: 'macro', name: 'Mine 01' })
+        game.setAction(11, { type: 'macro', name: 'Shared 001' })
         game.setAction(1, spell(EARTH_SHOCK))
-        game.setAction(2, spell(STORMSTRIKE))
+        game.setAction(2, spell(FIREBALL))
         game.setAction(3, spell(LIGHTNING_BOLT))
         game.setAction(4, spell(HEALING_WAVE))
+        game.setAction(5, spell(ARCANE_INTELLECT))
         login(game)
         const before = game.macros()
         const actions = game.actions()
@@ -647,10 +722,37 @@ describe('when Turbo changes nothing', () => {
         const printed = typed(game, '/turbo macros')
 
         expect(printed).toEqual([
-            'Turbo needs 3 free character macro slots and you have 2. Nothing was changed.',
+            'Turbo needs 4 free macro slots and you have 3. Free up 1 more. Nothing was changed.',
+            'Not on your bars, so you could delete: Mine 02, Mine 03, Mine 04, Mine 05, Mine 06, Mine 07, Mine 08, Mine 09, Mine 10, Mine 11 and 134 more.',
+            'General macros are shared: check your other characters first.',
         ])
         expect(game.macros()).toEqual(before)
         expect(game.actions()).toEqual(actions)
+    })
+
+    test('with every slot full and every macro on the bars, it says to delete some in the macro window', () => {
+        game = start()
+        fillCharacterMacros(game, 30)
+        fillGeneralMacros(game, 120)
+        // All 150 macros on the bars, in slots 2 to 151.
+        game.macros().forEach((macro, i) => {
+            game!.setAction(i + 2, {
+                type: 'macro',
+                name: macro.name,
+                perCharacter: macro.perCharacter,
+            })
+        })
+        game.setAction(1, spell(EARTH_SHOCK))
+        login(game)
+        const before = game.macros()
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo needs 1 free macro slot and you have 0. Free up 1 more. Nothing was changed.',
+            "Every macro you have is on your bars or Turbo's. Delete some in the macro window (/macro).",
+        ])
+        expect(game.macros()).toEqual(before)
     })
 })
 
@@ -667,6 +769,276 @@ describe('room for the macros', () => {
             'Turbo made 2 macros and swapped 2 buttons.',
         ])
         expect(game.macros()).toHaveLength(30)
+        expect(game.macros().every((m) => m.perCharacter)).toBe(true)
+    })
+
+    test("Turbo's character macro that is on no bar any more is recycled for a new spell before a free slot is used", () => {
+        game = start()
+        // Full: 29 of the player's and Turbo's old Frost Shock, on no bar.
+        fillCharacterMacros(game, 29)
+        game.addMacro({
+            name: 'Frost Shock',
+            icon: QUESTION_MARK,
+            body: attackBody('Frost Shock'),
+            perCharacter: true,
+        })
+        game.setAction(1, spell(EARTH_SHOCK))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 1 macro, removed 1 and swapped 1 button.',
+        ])
+        const turbos = macroList(game).filter((m) => !m.name.startsWith('Mine'))
+        expect(turbos).toEqual([turboMacro('Earth Shock')])
+        expect(game.macros()).toHaveLength(30)
+        expect(game.actions()).toEqual({ 1: onBar('Earth Shock') })
+    })
+
+    test("Turbo's character macros that nothing needs are deleted, even with room to spare", () => {
+        game = start()
+        game.addMacro({
+            name: 'Frost Shock',
+            icon: QUESTION_MARK,
+            body: attackBody('Frost Shock'),
+            perCharacter: true,
+        })
+        game.addMacro({
+            name: 'Healing Wave',
+            icon: QUESTION_MARK,
+            body: castBody('Healing Wave'),
+            perCharacter: true,
+        })
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 0 macros, removed 2 and swapped 0 buttons.',
+        ])
+        expect(game.macros()).toEqual([])
+    })
+
+    test("Turbo's macro on the bars for a spell with one rank gives the buttons the spell back and is removed", () => {
+        game = start()
+        // From an earlier Turbo, which made one for Ghost Wolf.
+        game.addMacro({
+            name: 'Ghost Wolf',
+            icon: QUESTION_MARK,
+            body: castBody('Ghost Wolf'),
+            perCharacter: true,
+        })
+        game.setAction(1, onBar('Ghost Wolf'))
+        game.setAction(7, onBar('Ghost Wolf'))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 0 macros, removed 1 and swapped 0 buttons.',
+            'Put Ghost Wolf back on your bars: it has one rank, so no macro.',
+        ])
+        expect(game.macros()).toEqual([])
+        expect(game.actions()).toEqual({
+            1: spell(GHOST_WOLF),
+            7: spell(GHOST_WOLF),
+        })
+        expect(game.cursor()).toBeNull()
+    })
+
+    test("Turbo's macro on the bars for a spell with ranks, or one the player doesn't know, is kept", () => {
+        game = start()
+        addTurboMacro(game, 'Earth Shock', attackBody('Earth Shock'), true)
+        // Not known on this character (say, after a respec).
+        addTurboMacro(game, 'Frost Shock', attackBody('Frost Shock'), true)
+        game.setAction(1, onBar('Earth Shock'))
+        game.setAction(2, onBar('Frost Shock'))
+        login(game)
+        const before = game.macros()
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual(['Turbo made 0 macros and swapped 0 buttons.'])
+        expect(game.macros()).toEqual(before)
+        expect(game.actions()).toEqual({
+            1: onBar('Earth Shock'),
+            2: onBar('Frost Shock'),
+        })
+    })
+
+    test('with the character list full, new macros go in free general slots, and the player is told', () => {
+        game = start()
+        fillCharacterMacros(game, 30)
+        game.setAction(1, spell(EARTH_SHOCK))
+        game.setAction(2, spell(HEALING_WAVE))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 2 macros and swapped 2 buttons.',
+            'Your character macros are full, so Turbo put 2 in general macro slots, shared by your characters.',
+        ])
+        expect(macroList(game).filter((m) => !m.perCharacter)).toEqual([
+            { ...turboMacro('Earth Shock'), perCharacter: false },
+            {
+                ...turboMacro('Healing Wave', castBody('Healing Wave')),
+                perCharacter: false,
+            },
+        ])
+        expect(game.actions()).toEqual({
+            1: { type: 'macro', name: 'Earth Shock', perCharacter: false },
+            2: { type: 'macro', name: 'Healing Wave', perCharacter: false },
+        })
+    })
+
+    test('character slots are used first, then general ones', () => {
+        game = start()
+        fillCharacterMacros(game, 29)
+        game.setAction(1, spell(EARTH_SHOCK))
+        game.setAction(2, spell(HEALING_WAVE))
+        login(game)
+
+        typed(game, '/turbo macros')
+
+        expect(game.actions()).toEqual({
+            1: { type: 'macro', name: 'Earth Shock', perCharacter: true },
+            2: { type: 'macro', name: 'Healing Wave', perCharacter: false },
+        })
+    })
+
+    test('a general Turbo macro another character made is shared, not made again, and never removed from this one', () => {
+        game = start()
+        addTurboMacro(game, 'Earth Shock', attackBody('Earth Shock'), false)
+        // Another character's: on no bar here, for a spell this one lacks.
+        addTurboMacro(game, 'Fireball', attackBody('Fireball'), false)
+        game.setAction(1, spell(EARTH_SHOCK))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual(['Turbo made 0 macros and swapped 1 button.'])
+        expect(macroList(game)).toEqual([
+            { ...turboMacro('Earth Shock'), perCharacter: false },
+            { ...turboMacro('Fireball'), perCharacter: false },
+        ])
+        expect(game.actions()).toEqual({
+            1: { type: 'macro', name: 'Earth Shock', perCharacter: false },
+        })
+    })
+
+    test("a general Turbo macro on the bars for a spell with one rank gives this character's buttons the spell back, and stays for the others", () => {
+        game = start()
+        addTurboMacro(game, 'Ghost Wolf', castBody('Ghost Wolf'), false)
+        game.setAction(1, {
+            type: 'macro',
+            name: 'Ghost Wolf',
+            perCharacter: false,
+        })
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(printed).toEqual([
+            'Turbo made 0 macros and swapped 0 buttons.',
+            'Put Ghost Wolf back on your bars: it has one rank, so no macro.',
+        ])
+        expect(game.macros()).toHaveLength(1)
+        expect(game.actions()).toEqual({ 1: spell(GHOST_WOLF) })
+    })
+})
+
+describe('auto-attack', () => {
+    test('an attacking spell starts auto-attack; a heal does not', () => {
+        game = start()
+        game.setAction(1, spell(EARTH_SHOCK))
+        game.setAction(2, spell(HEALING_WAVE))
+        login(game)
+
+        typed(game, '/turbo macros')
+
+        expect(macroList(game)).toEqual([
+            turboMacro('Earth Shock', attackBody('Earth Shock')),
+            turboMacro('Healing Wave', castBody('Healing Wave')),
+        ])
+    })
+
+    // Every spell on Turbo's breaks-on-damage list, by its spell ID there.
+    const BREAKS_ON_DAMAGE: Record<number, string> = {
+        1776: 'Gouge',
+        6770: 'Sap',
+        2094: 'Blind',
+        118: 'Polymorph',
+        28272: 'Polymorph: Pig',
+        28271: 'Polymorph: Turtle',
+        122: 'Frost Nova',
+        2637: 'Hibernate',
+        339: 'Entangling Roots',
+        1499: 'Freezing Trap',
+        19503: 'Scatter Shot',
+        19386: 'Wyvern Sting',
+        1513: 'Scare Beast',
+        20066: 'Repentance',
+        2878: 'Turn Undead',
+        9484: 'Shackle Undead',
+        8122: 'Psychic Scream',
+        5782: 'Fear',
+        5484: 'Howl of Terror',
+        6358: 'Seduction',
+        5246: 'Intimidating Shout',
+        51514: 'Hex',
+    }
+
+    test('crowd control that damage breaks (Gouge, Hex and the rest) gets the plain macro, at any rank', () => {
+        game = start()
+        let slot = 1
+        for (const [id, name] of Object.entries(BREAKS_ON_DAMAGE)) {
+            describeSpell(game, Number(id), { name, harmful: true })
+            // Another rank of it on the bars: matched by name.
+            const otherRank = 900000 + Number(id)
+            describeSpell(game, otherRank, { name, harmful: true })
+            game.setAction(slot++, spell(otherRank))
+        }
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        const macros = macroList(game)
+        expect(macros).toHaveLength(Object.keys(BREAKS_ON_DAMAGE).length)
+        for (const macro of macros) {
+            expect(macro.body).not.toContain('/startattack')
+        }
+        expect(macros.map((m) => m.body)).toContain(castBody('Gouge'))
+        expect(macros.map((m) => m.body)).toContain(castBody('Hex'))
+        expect(printed[0]).toMatch(/^Turbo made 22 macros/)
+    })
+
+    test("a spell the game doesn't have (Hex, before Forever adds it) is skipped from the list without fuss", () => {
+        game = start()
+        game.setAction(1, spell(EARTH_SHOCK))
+        login(game)
+
+        typed(game, '/turbo macros')
+
+        expect(macroList(game)).toEqual([turboMacro('Earth Shock')])
+    })
+
+    test("Turbo's attack macro for a crowd-control spell, from before, loses /startattack", () => {
+        game = start()
+        describeSpell(game, 1776, { name: 'Gouge', harmful: true })
+        addTurboMacro(game, 'Gouge', attackBody('Gouge'), true)
+        game.setAction(1, spell(1776))
+        login(game)
+
+        const printed = typed(game, '/turbo macros')
+
+        expect(macroList(game)).toEqual([
+            turboMacro('Gouge', castBody('Gouge')),
+        ])
+        expect(printed).toEqual([
+            'Turbo made 0 macros, updated 1 and swapped 1 button.',
+        ])
     })
 })
 
@@ -715,7 +1087,7 @@ describe('the real safe layer', () => {
                 local ns = {}
                 chunk("Turbo", ns)
                 local missing = {}
-                for _, name in ipairs({ "spellName", "spellHarmful", "inCombat" }) do
+                for _, name in ipairs({ "spellName", "spellHarmful", "spellSubtext", "knownSpellID", "inCombat" }) do
                     local ok, err = pcall(ns.safe.read, name, ${EARTH_SHOCK})
                     if not ok and tostring(err):find("no reading named", 1, true) then
                         table.insert(missing, '"' .. name .. '"')

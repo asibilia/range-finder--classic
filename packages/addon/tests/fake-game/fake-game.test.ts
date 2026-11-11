@@ -381,6 +381,77 @@ describe('macros, action slots and the cursor', () => {
         )
     })
 
+    test('editing a macro with a name renames it, and its list re-sorts by name', () => {
+        const g = sample()
+        g.addMacro({ name: 'Alpha', body: '/say a', perCharacter: true })
+        g.addMacro({ name: 'Beta', body: '/say b', perCharacter: true })
+        g.setAction(1, { type: 'macro', name: 'Alpha' })
+
+        const [index] = g.run('return ns.safe.editMacro(121, "/say z", "Zulu")')
+
+        expect(index).toBe(122)
+        expect(g.macros().map((m) => [m.index, m.name, m.body])).toEqual([
+            [121, 'Beta', '/say b'],
+            [122, 'Zulu', '/say z'],
+        ])
+        // The bar follows the macro, as in the game.
+        expect(g.actions()).toEqual({
+            1: { type: 'macro', name: 'Zulu', perCharacter: true },
+        })
+    })
+
+    test('deleting a macro takes it off its list and the bars; later ones move up, and a missing one fails loudly', () => {
+        const g = sample()
+        g.addMacro({ name: 'Alpha', body: '/say a', perCharacter: true })
+        g.addMacro({ name: 'Beta', body: '/say b', perCharacter: true })
+        g.setAction(1, { type: 'macro', name: 'Alpha' })
+        g.setAction(2, { type: 'macro', name: 'Beta' })
+
+        g.run('ns.safe.deleteMacro(121)')
+
+        expect(g.macros().map((m) => [m.index, m.name])).toEqual([
+            [121, 'Beta'],
+        ])
+        expect(g.actions()).toEqual({
+            2: { type: 'macro', name: 'Beta', perCharacter: true },
+        })
+        expect(() => g.run('ns.safe.deleteMacro(125)')).toThrow(
+            /no macro at index 125/
+        )
+    })
+
+    test("action text is a macro action's name, and nothing for anything else", () => {
+        const g = sample()
+        g.addMacro({ name: 'Earth Shock', body: BODY, perCharacter: true })
+        g.setAction(1, { type: 'macro', name: 'Earth Shock' })
+        g.setAction(2, { type: 'spell', id: 8042 })
+
+        expect(g.run('return ns.safe.actionText(1)')).toEqual(['Earth Shock'])
+        expect(g.run('return ns.safe.actionText(2)')).toEqual([])
+        expect(g.run('return ns.safe.actionText(3)')).toEqual([])
+        expect(() => g.run('return ns.safe.actionText(181)')).toThrow(
+            /no action slot 181/
+        )
+    })
+
+    test('picking up a spell puts it on the cursor, ready to place', () => {
+        const g = sample()
+        g.addMacro({ name: 'Ghost Wolf', body: BODY, perCharacter: true })
+        g.setAction(1, { type: 'macro', name: 'Ghost Wolf' })
+
+        g.run('ns.safe.pickupSpell(2645); ns.safe.placeAction(1)')
+
+        expect(g.actions()).toEqual({ 1: { type: 'spell', id: 2645 } })
+        expect(g.cursor()).toEqual({
+            type: 'macro',
+            name: 'Ghost Wolf',
+            perCharacter: true,
+        })
+        expect(() => g.run('ns.safe.pickupSpell("Ghost Wolf")')).toThrow(
+            /needs a spell ID/
+        )
+    })
+
     test('action info tells a spell, a macro, anything else and an empty slot apart', () => {
         const g = sample()
         g.addMacro({ name: 'Earth Shock', body: BODY, perCharacter: true })

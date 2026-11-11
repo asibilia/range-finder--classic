@@ -59,11 +59,11 @@ The one Turbo file (`core/safe-layer.lua`) that touches the game API. Everything
 _Avoid_: API wrapper, game layer
 
 **Spell macro**:
-A per-character macro Turbo makes, when the player types `/turbo macros`, for every spell on their bars. It is named for the spell (cut to the game's 16-letter macro name limit; the body still casts the full name) and casts its top rank (`#showtooltip`, `/cast <name>`), and Turbo swaps it onto the action bars wherever that spell sat, at any rank.
+A macro Turbo makes, when the player types `/turbo macros`, for every spell on their bars that has more than one rank (one with a rank line, "Rank 2"; Ghost Wolf gets none). It is named for the spell (cut to the game's 16-letter macro name limit; the body still casts the full name) and casts its top rank (`#showtooltip`, `/cast <name>`), and Turbo swaps it onto the action bars wherever that spell sat, at any rank. It is a character macro, or a general (account) one once the character's 30 slots are full; a general one is shared by every character.
 _Avoid_: Cast macro, rank macro
 
 **Attack macro**:
-The spell macro for an offensive spell: it also starts auto-attack (`/startattack`) before the cast.
+The spell macro for an attacking spell: it also starts auto-attack (`/startattack`) before the cast. Crowd control that damage breaks (Gouge, Sap, Polymorph...) never gets one: its spell macro is the plain kind.
 _Avoid_: Startattack macro
 
 ### Retired

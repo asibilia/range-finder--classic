@@ -2,7 +2,7 @@
 
 Turbo is a small addon for **WoW: Forever**, made by the Turbo crew: it makes
 spell macros (`/turbo macros`, `/tb macros`) for every spell on the
-player's bars, for every class. That is all it does now. The Shaman HUD it used to ship
+player's bars that has more than one rank, for every class. That is all it does now. The Shaman HUD it used to ship
 (range finder, swing timer, totems, reminders...) was retired once Forever's
 own Cooldown Manager, Swing Timer, Personal Resource Display and Totem Frame
 covered most of it: see `docs/research/forever-native-ui.md`; git history

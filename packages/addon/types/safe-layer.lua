@@ -64,12 +64,20 @@ function TurboSafeLayer.macroLimits() end
 ---@return number index
 function TurboSafeLayer.createMacro(name, icon, body, perCharacter) end
 
----Changes a macro's body (`EditMacro`), keeping its name and icon, so its
----index stays the same.
+---Changes a macro's body (`EditMacro`), keeping its icon. Without a name it
+---keeps its name too, so its index stays the same. With a name it is renamed,
+---and the game re-sorts its list: read `macros()` again afterwards.
 ---@param index number
 ---@param body string
+---@param name? string a new name
 ---@return number index
-function TurboSafeLayer.editMacro(index, body) end
+function TurboSafeLayer.editMacro(index, body, name) end
+
+---Deletes a macro (`DeleteMacro`). The game also takes it off the action
+---bars, and later macros in its list move up one index: read `macros()` again
+---afterwards.
+---@param index number
+function TurboSafeLayer.deleteMacro(index) end
 
 ---What an action slot holds (`GetActionInfo`): its type ("spell", "macro",
 ---"item"...), its ID (a spell ID for a spell, a macro's index for a macro) and
@@ -80,6 +88,12 @@ function TurboSafeLayer.editMacro(index, body) end
 ---@return string? subType
 function TurboSafeLayer.actionInfo(slot) end
 
+---A macro action's name (`C_ActionBar.GetActionText`). Nothing for an empty
+---slot, or one the game hides; nothing or a label for anything else.
+---@param slot number 1 to 180
+---@return string? text
+function TurboSafeLayer.actionText(slot) end
+
 ---What the cursor holds (`GetCursorInfo`): its type and ID, or nothing.
 ---@return string? kind
 ---@return any id
@@ -88,6 +102,10 @@ function TurboSafeLayer.cursorInfo() end
 ---Picks a macro up onto the cursor (`PickupMacro`).
 ---@param index number
 function TurboSafeLayer.pickupMacro(index) end
+
+---Picks a spell up onto the cursor (`C_Spell.PickupSpell`).
+---@param spellID number
+function TurboSafeLayer.pickupSpell(spellID) end
 
 ---Puts what the cursor holds in an action slot (`PlaceAction`), and picks up
 ---what was there.

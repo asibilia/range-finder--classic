@@ -60,6 +60,32 @@ function readings.spellName(spellID)
 	return name
 end
 
+---A spell's subtext (`C_Spell.GetSpellSubtext`), such as its rank line
+---("Rank 2"). Forever shows no rank line for a spell whose only known rank is
+---1. Nil when the game has no such spell, or hides it.
+function readings.spellSubtext(spellID)
+	local subtext = C_Spell.GetSpellSubtext(spellID)
+	if issecretvalue(subtext) then
+		return nil
+	end
+	return subtext
+end
+
+---The spell ID for a spell name, only when the player knows that spell
+---(`C_Spell.GetSpellIDForSpellIdentifier`, `C_SpellBook.IsSpellKnown`). Nil
+---for a spell they don't know, no such spell, or one the game hides.
+function readings.knownSpellID(name)
+	local spellID = C_Spell.GetSpellIDForSpellIdentifier(name)
+	if issecretvalue(spellID) or spellID == nil then
+		return nil
+	end
+	local known = C_SpellBook.IsSpellKnown(spellID)
+	if issecretvalue(known) or known ~= true then
+		return nil
+	end
+	return spellID
+end
+
 ---@type table<string, fun(event: string, ...: any)[]>
 local handlers = {}
 
@@ -153,10 +179,14 @@ function safe.createMacro(name, icon, body, perCharacter)
 	return CreateMacro(name, icon, body, perCharacter)
 end
 
-function safe.editMacro(index, body)
-	-- Name and icon passed back as they are, so only the body changes.
+function safe.editMacro(index, body, newName)
+	-- The icon passed back as it is; the name too, unless there's a new one.
 	local name, icon = GetMacroInfo(index)
-	return EditMacro(index, name, icon, body)
+	return EditMacro(index, newName or name, icon, body)
+end
+
+function safe.deleteMacro(index)
+	DeleteMacro(index)
 end
 
 function safe.actionInfo(slot)
@@ -167,6 +197,14 @@ function safe.actionInfo(slot)
 	return actionType, id, subType
 end
 
+function safe.actionText(slot)
+	local text = C_ActionBar.GetActionText(slot)
+	if issecretvalue(text) then
+		return nil
+	end
+	return text
+end
+
 function safe.cursorInfo()
 	local kind, id = GetCursorInfo()
 	return kind, id
@@ -174,6 +212,10 @@ end
 
 function safe.pickupMacro(index)
 	PickupMacro(index)
+end
+
+function safe.pickupSpell(spellID)
+	C_Spell.PickupSpell(spellID)
 end
 
 function safe.placeAction(slot)
