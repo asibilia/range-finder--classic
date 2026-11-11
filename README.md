@@ -1,11 +1,11 @@
 # Turbo
 
-**Attack macros for WoW: Forever.**
+**Spell macros for WoW: Forever.**
 
 Turbo is a small addon for WoW: Forever, made by the Turbo crew. Type
-`/turbo macros` (or `/tb macros`) and it makes a `/startattack` macro for each
-attack spell you know (Shaman first: the shocks, Lightning Bolt and Chain
-Lightning) and swaps it onto your action bars wherever that spell sat.
+`/turbo macros` (or `/tb macros`) and it makes a macro for every spell on your
+bars, for any class, and swaps it onto your bars wherever that spell sat. Each casts the top rank; an offensive
+spell's macro also starts auto-attack (`/startattack`).
 
 Turbo used to be an Enhancement Shaman HUD. Forever's own UI now covers most
 of it: use the Cooldown Manager, Swing Timer, Personal Resource Display and

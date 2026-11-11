@@ -343,6 +343,44 @@ describe('macros, action slots and the cursor', () => {
         expect(g.macros()).toHaveLength(30)
     })
 
+    test('editing a macro changes only its body, keeps its name, icon and index, and a macro that does not exist fails loudly', () => {
+        const g = sample()
+        g.addMacro({
+            name: 'Earth Shock',
+            icon: 134400,
+            body: '#showtooltip\n/cast Earth Shock',
+            perCharacter: true,
+        })
+        g.addMacro({
+            name: 'Mount',
+            body: '/cast Ghost Wolf',
+            perCharacter: true,
+        })
+
+        const [index] = g.run('return ns.safe.editMacro(121, ...)', BODY)
+
+        expect(index).toBe(121)
+        expect(g.macros()).toEqual([
+            {
+                index: 121,
+                name: 'Earth Shock',
+                icon: 134400,
+                body: BODY,
+                perCharacter: true,
+            },
+            {
+                index: 122,
+                name: 'Mount',
+                icon: null,
+                body: '/cast Ghost Wolf',
+                perCharacter: true,
+            },
+        ])
+        expect(() => g.run('ns.safe.editMacro(123, "")')).toThrow(
+            /no macro at index 123/
+        )
+    })
+
     test('action info tells a spell, a macro, anything else and an empty slot apart', () => {
         const g = sample()
         g.addMacro({ name: 'Earth Shock', body: BODY, perCharacter: true })

@@ -1,14 +1,13 @@
 # Turbo — agent guide
 
 Turbo is a small addon for **WoW: Forever**, made by the Turbo crew: it makes
-attack macros (`/turbo macros`, `/tb macros`) from the class kit's attack
-spells, Shaman first. That is all it does now. The Shaman HUD it used to ship
+spell macros (`/turbo macros`, `/tb macros`) for every spell on the
+player's bars, for every class. That is all it does now. The Shaman HUD it used to ship
 (range finder, swing timer, totems, reminders...) was retired once Forever's
 own Cooldown Manager, Swing Timer, Personal Resource Display and Totem Frame
 covered most of it: see `docs/research/forever-native-ui.md`; git history
 keeps the code. Read `CONTEXT.md` first for the words this repo uses
-(Forever, secret value, restriction, probe, class kit, safe layer, attack
-macro...).
+(Forever, secret value, restriction, probe, safe layer, spell macro...).
 
 ## Ground rules
 
@@ -40,9 +39,8 @@ macro...).
 | The shipped addon (the only folder that gets packaged) | `packages/addon/Turbo/` |
 | Dev-only addon files (type stubs, tests, scripts, tool configs) | `packages/addon/` outside `Turbo/` |
 | The safe layer (the only code that touches the game) | `packages/addon/Turbo/core/safe-layer.lua` |
-| Startup (the Forever-only and class checks) and `/turbo` | `packages/addon/Turbo/core/start.lua`, `core/slash.lua` |
-| Attack macros | `packages/addon/Turbo/core/attack-macros.lua` |
-| Class kits (one per supported class) | `packages/addon/Turbo/kits/` |
+| Startup (the Forever-only check) and `/turbo` | `packages/addon/Turbo/core/start.lua`, `core/slash.lua` |
+| Spell macros | `packages/addon/Turbo/core/spell-macros.lua` |
 | The fake game and test harness | `packages/addon/tests/fake-game/` |
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |

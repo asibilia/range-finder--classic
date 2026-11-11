@@ -1,13 +1,12 @@
 /**
- * Turbo's core under the fake game: the Forever-only TOC, client and class
- * checks, the slash commands and their help, and never touching the player's
- * settings.
+ * Turbo's core under the fake game: the Forever-only TOC and client check
+ * (every class gets Turbo), the slash commands and their help, and never
+ * touching the player's settings.
  *
  * The game, as these tests script it:
  *
  * - Readings: `interface` (the client's interface number), `flavor`
- *   (`'forever'` on Forever), `playerClass` (`UnitClass("player")`: name,
- *   token, id) and `inCombat` (a boolean).
+ *   (`'forever'` on Forever) and `inCombat` (a boolean).
  * - Login: `ADDON_LOADED` ("Turbo"), then `PLAYER_LOGIN`, then
  *   `PLAYER_ENTERING_WORLD`. Turbo reads nothing while its files load.
  * - Slash commands are typed with the fake game's `slash(line)`.
@@ -127,27 +126,14 @@ describe('Forever only', () => {
     })
 })
 
-describe('unsupported classes', () => {
-    test("a Mage keeps Turbo off and is told once that Turbo doesn't support Mages yet", () => {
+describe('every class', () => {
+    test('a Mage gets /turbo too, and is not told Turbo does not support it', () => {
         game = start({ playerClass: MAGE })
         login(game)
-        // A zone change fires the world event again; the message stays single.
-        game.fire('PLAYER_ENTERING_WORLD', false, false)
 
-        expect(hasSlash(game)).toBe(false)
-        const told = game
-            .printed()
-            .filter((l) => /Turbo doesn['’]t support Mages? yet/.test(l))
-        expect(told).toHaveLength(1)
-    })
-})
-
-describe('the Shaman class kit', () => {
-    test('lists the attack spells /turbo macros makes macros for, and nothing else', () => {
-        game = start()
-        expect(game.run('return ns.classKits.SHAMAN')).toEqual([
-            { attackSpells: [8042, 8050, 8056, 403, 421] },
-        ])
+        expect(hasSlash(game)).toBe(true)
+        expect(game.printed().filter((l) => /support/.test(l))).toEqual([])
+        expect(game.reads().filter((r) => r.name === 'playerClass')).toEqual([])
     })
 })
 

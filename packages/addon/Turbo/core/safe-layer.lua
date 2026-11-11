@@ -37,18 +37,17 @@ function readings.flavor()
 	return "other"
 end
 
----The player's class: localized name, token ("SHAMAN") and class ID.
-function readings.playerClass()
-	return UnitClass("player")
-end
-
 function readings.inCombat()
 	return InCombatLockdown()
 end
 
----Whether the player knows a spell, by spell ID.
-function readings.spellKnown(spellID)
-	return C_SpellBook.IsSpellKnown(spellID)
+---Whether a spell can be cast on an enemy. Nil when the game hides it.
+function readings.spellHarmful(spellID)
+	local harmful = C_Spell.IsSpellHarmful(spellID)
+	if issecretvalue(harmful) then
+		return nil
+	end
+	return harmful
 end
 
 ---A spell's name in the player's language, the same for every rank. Nil when
@@ -152,6 +151,12 @@ end
 
 function safe.createMacro(name, icon, body, perCharacter)
 	return CreateMacro(name, icon, body, perCharacter)
+end
+
+function safe.editMacro(index, body)
+	-- Name and icon passed back as they are, so only the body changes.
+	local name, icon = GetMacroInfo(index)
+	return EditMacro(index, name, icon, body)
 end
 
 function safe.actionInfo(slot)

@@ -64,6 +64,13 @@ function TurboSafeLayer.macroLimits() end
 ---@return number index
 function TurboSafeLayer.createMacro(name, icon, body, perCharacter) end
 
+---Changes a macro's body (`EditMacro`), keeping its name and icon, so its
+---index stays the same.
+---@param index number
+---@param body string
+---@return number index
+function TurboSafeLayer.editMacro(index, body) end
+
 ---What an action slot holds (`GetActionInfo`): its type ("spell", "macro",
 ---"item"...), its ID (a spell ID for a spell, a macro's index for a macro) and
 ---its subtype. Nothing for an empty slot, or one the game hides.

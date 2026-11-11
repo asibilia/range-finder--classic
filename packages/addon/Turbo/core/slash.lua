@@ -2,7 +2,7 @@
 local _, ns = ...
 
 local safe = ns.safe
-local attackMacros = ns.attackMacros
+local spellMacros = ns.spellMacros
 
 local slash = {}
 ns.slash = slash
@@ -10,7 +10,7 @@ ns.slash = slash
 local HELP = {
 	"Turbo commands:",
 	"  /turbo help - show this help",
-	"  /turbo macros - make attack macros and put them on your action bars",
+	"  /turbo macros - make a macro for every spell on your bars, and put them there",
 	"  /tb - short for /turbo",
 }
 
@@ -25,7 +25,7 @@ function slash.start()
 	safe.slash("TURBO", { "/turbo", "/tb" }, function(message)
 		local command = (message or ""):match("^%s*(%S*)")
 		if command:lower() == "macros" then
-			attackMacros.run()
+			spellMacros.run()
 		else
 			-- Help, and anything Turbo doesn't know.
 			printHelp()

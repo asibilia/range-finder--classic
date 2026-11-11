@@ -499,6 +499,15 @@ local function buildSafe(game)
 		return addMacro(game, name, icon, body, perCharacter == true)
 	end
 
+	function safe.editMacro(index, body)
+		local macro = macroAt(game, index)
+		if not macro then
+			error("fake game: no macro at index " .. rawToString(index) .. ".", 0)
+		end
+		macro.body = body or ""
+		return macroIndex(game, macro)
+	end
+
 	function safe.actionInfo(slot)
 		checkSlot(slot)
 		local action = game.actionSlots[slot]
