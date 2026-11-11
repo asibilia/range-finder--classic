@@ -37,18 +37,17 @@ function readings.flavor()
 	return "other"
 end
 
----The player's class: localized name, token ("SHAMAN") and class ID.
-function readings.playerClass()
-	return UnitClass("player")
-end
-
 function readings.inCombat()
 	return InCombatLockdown()
 end
 
----Whether the player knows a spell, by spell ID.
-function readings.spellKnown(spellID)
-	return C_SpellBook.IsSpellKnown(spellID)
+---Whether a spell can be cast on an enemy. Nil when the game hides it.
+function readings.spellHarmful(spellID)
+	local harmful = C_Spell.IsSpellHarmful(spellID)
+	if issecretvalue(harmful) then
+		return nil
+	end
+	return harmful
 end
 
 ---A spell's name in the player's language, the same for every rank. Nil when
@@ -59,6 +58,32 @@ function readings.spellName(spellID)
 		return nil
 	end
 	return name
+end
+
+---A spell's subtext (`C_Spell.GetSpellSubtext`), such as its rank line
+---("Rank 2"). Forever shows no rank line for a spell whose only known rank is
+---1. Nil when the game has no such spell, or hides it.
+function readings.spellSubtext(spellID)
+	local subtext = C_Spell.GetSpellSubtext(spellID)
+	if issecretvalue(subtext) then
+		return nil
+	end
+	return subtext
+end
+
+---The spell ID for a spell name, only when the player knows that spell
+---(`C_Spell.GetSpellIDForSpellIdentifier`, `C_SpellBook.IsSpellKnown`). Nil
+---for a spell they don't know, no such spell, or one the game hides.
+function readings.knownSpellID(name)
+	local spellID = C_Spell.GetSpellIDForSpellIdentifier(name)
+	if issecretvalue(spellID) or spellID == nil then
+		return nil
+	end
+	local known = C_SpellBook.IsSpellKnown(spellID)
+	if issecretvalue(known) or known ~= true then
+		return nil
+	end
+	return spellID
 end
 
 ---@type table<string, fun(event: string, ...: any)[]>
@@ -154,12 +179,30 @@ function safe.createMacro(name, icon, body, perCharacter)
 	return CreateMacro(name, icon, body, perCharacter)
 end
 
+function safe.editMacro(index, body, newName)
+	-- The icon passed back as it is; the name too, unless there's a new one.
+	local name, icon = GetMacroInfo(index)
+	return EditMacro(index, newName or name, icon, body)
+end
+
+function safe.deleteMacro(index)
+	DeleteMacro(index)
+end
+
 function safe.actionInfo(slot)
 	local actionType, id, subType = GetActionInfo(slot)
 	if issecretvalue(actionType) or issecretvalue(id) then
 		return nil
 	end
 	return actionType, id, subType
+end
+
+function safe.actionText(slot)
+	local text = C_ActionBar.GetActionText(slot)
+	if issecretvalue(text) then
+		return nil
+	end
+	return text
 end
 
 function safe.cursorInfo()
@@ -169,6 +212,10 @@ end
 
 function safe.pickupMacro(index)
 	PickupMacro(index)
+end
+
+function safe.pickupSpell(spellID)
+	C_Spell.PickupSpell(spellID)
 end
 
 function safe.placeAction(slot)

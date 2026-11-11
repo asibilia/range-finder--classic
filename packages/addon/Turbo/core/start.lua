@@ -1,28 +1,15 @@
--- Starting up. Turbo reads nothing while its files load: the client and class
--- checks run on PLAYER_LOGIN.
+-- Starting up. Turbo reads nothing while its files load: the client check
+-- runs on PLAYER_LOGIN.
 --
 -- Turbo runs only on WoW: Forever, told apart by its interface number and
--- flavor (never the project ID, which says retail), and only for a class with
--- a class kit. Anywhere else it stays off and says why, once.
+-- flavor (never the project ID, which says retail), for every class. Anywhere
+-- else it stays off and says why, once.
 local _, ns = ...
 
 local safe = ns.safe
 
 local FOREVER_INTERFACE = 16001
 local FOREVER_FLAVOR = "forever"
-
--- English only: class names for the "not supported yet" message.
-local CLASS_PLURALS = {
-	WARRIOR = "Warriors",
-	PALADIN = "Paladins",
-	HUNTER = "Hunters",
-	ROGUE = "Rogues",
-	PRIEST = "Priests",
-	SHAMAN = "Shamans",
-	MAGE = "Mages",
-	WARLOCK = "Warlocks",
-	DRUID = "Druids",
-}
 
 local function onLogin(event)
 	safe.off(event, onLogin)
@@ -32,15 +19,6 @@ local function onLogin(event)
 		return
 	end
 
-	local className, classToken = safe.read("playerClass")
-	local kit = ns.classKits[classToken]
-	if not kit then
-		local classes = CLASS_PLURALS[classToken] or className or "your class"
-		safe.print("Turbo doesn't support " .. classes .. " yet.")
-		return
-	end
-
-	ns.attackMacros.start(kit)
 	ns.slash.start()
 end
 

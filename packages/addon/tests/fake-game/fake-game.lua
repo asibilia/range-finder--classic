@@ -246,6 +246,44 @@ local function addMacro(game, name, icon, body, perCharacter)
 	return macroIndex(game, macro)
 end
 
+-- Puts a macro back in its list in name order, after a rename.
+local function resort(game, macro)
+	local list = macroList(game, macro.perCharacter)
+	for i, m in ipairs(list) do
+		if m == macro then
+			table.remove(list, i)
+			break
+		end
+	end
+	local at = #list + 1
+	for i, m in ipairs(list) do
+		if macro.name:lower() < m.name:lower() then
+			at = i
+			break
+		end
+	end
+	table.insert(list, at, macro)
+end
+
+-- Deletes a macro: it leaves its list, the action slots and the cursor.
+local function removeMacro(game, macro)
+	local list = macroList(game, macro.perCharacter)
+	for i, m in ipairs(list) do
+		if m == macro then
+			table.remove(list, i)
+			break
+		end
+	end
+	for slot, action in pairs(game.actionSlots) do
+		if action.type == "macro" and action.macro == macro then
+			game.actionSlots[slot] = nil
+		end
+	end
+	if game.cursor and game.cursor.type == "macro" and game.cursor.macro == macro then
+		game.cursor = nil
+	end
+end
+
 local function checkSlot(slot)
 	if rawType(slot) ~= "number" or slot < 1 or slot > ACTION_SLOTS or slot ~= math.floor(slot) then
 		error(
@@ -499,6 +537,35 @@ local function buildSafe(game)
 		return addMacro(game, name, icon, body, perCharacter == true)
 	end
 
+	function safe.editMacro(index, body, name)
+		local macro = macroAt(game, index)
+		if not macro then
+			error("fake game: no macro at index " .. rawToString(index) .. ".", 0)
+		end
+		macro.body = body or ""
+		if name ~= nil then
+			macro.name = name
+			resort(game, macro)
+		end
+		return macroIndex(game, macro)
+	end
+
+	function safe.deleteMacro(index)
+		local macro = macroAt(game, index)
+		if not macro then
+			error("fake game: no macro at index " .. rawToString(index) .. ".", 0)
+		end
+		removeMacro(game, macro)
+	end
+
+	function safe.actionText(slot)
+		checkSlot(slot)
+		local action = game.actionSlots[slot]
+		if action and action.type == "macro" then
+			return action.macro.name
+		end
+	end
+
 	function safe.actionInfo(slot)
 		checkSlot(slot)
 		local action = game.actionSlots[slot]
@@ -521,6 +588,13 @@ local function buildSafe(game)
 			error("fake game: no macro at index " .. rawToString(index) .. ".", 0)
 		end
 		game.cursor = { type = "macro", macro = macro }
+	end
+
+	function safe.pickupSpell(spellID)
+		if rawType(spellID) ~= "number" then
+			error("fake game: pickupSpell needs a spell ID, got " .. rawToString(spellID) .. ".", 0)
+		end
+		game.cursor = { type = "spell", id = spellID }
 	end
 
 	function safe.placeAction(slot)

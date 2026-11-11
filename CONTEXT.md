@@ -1,6 +1,6 @@
 # Turbo
 
-A small addon for WoW: Forever that makes attack macros (`/turbo macros`), Shaman first. It started as a Classic hunter range finder called RangeFinder Classic, then became a Shaman HUD; once Forever launched with its own Cooldown Manager, Swing Timer, Personal Resource Display and Totem Frame, Turbo was trimmed to just the attack macros (see "Retired" below).
+A small addon for WoW: Forever that makes spell macros (`/turbo macros`) for every class. It started as a Classic hunter range finder called RangeFinder Classic, then became a Shaman HUD; once Forever launched with its own Cooldown Manager, Swing Timer, Personal Resource Display and Totem Frame, Turbo was trimmed to just the macros (see "Retired" below).
 
 ## Language
 
@@ -58,14 +58,14 @@ _Avoid_: Crew site, web app, dashboard
 The one Turbo file (`core/safe-layer.lua`) that touches the game API. Everything else asks it for named readings and calls; in tests the fake game stands in for it.
 _Avoid_: API wrapper, game layer
 
-**Class kit**:
-What Turbo gives one class: the attack spells it makes attack macros for. A class without one isn't supported yet. Adding a class means writing its class kit.
-_Avoid_: Class bundle, profile, loadout
+**Spell macro**:
+A macro Turbo makes, when the player types `/turbo macros`, for every spell on their bars that has more than one rank (one with a rank line, "Rank 2"; Ghost Wolf gets none). It is named for the spell (cut to the game's 16-letter macro name limit; the body still casts the full name) and casts its top rank (`#showtooltip`, `/cast <name>`), and Turbo swaps it onto the action bars wherever that spell sat, at any rank. It is a character macro, or a general (account) one once the character's 30 slots are full; a general one is shared by every character.
+_Avoid_: Cast macro, rank macro
 
 **Attack macro**:
-A per-character macro Turbo makes for one of the class kit's attack spells when the player types `/turbo macros`. It starts auto-attack and casts the spell's top rank, and Turbo swaps it onto the action bars wherever that spell sat.
-_Avoid_: Startattack macro, cast macro
+The spell macro for an attacking spell: it also starts auto-attack (`/startattack`) before the cast. Crowd control that damage breaks (Gouge, Sap, Polymorph...) never gets one: its spell macro is the plain kind.
+_Avoid_: Startattack macro
 
 ### Retired
 
-Words for the Shaman HUD that Turbo no longer ships: HUD, Class helper, Module, Engaged, Debug mode, Display-only, Self-timed, Resync, Reminder, Recall reminder, Range band, Totem slot, Clip, Safe window, Hard cast. Forever's own UI covers most of that HUD; `docs/research/forever-native-ui.md` compares the two, and git history (before the trim to attack macros) keeps the code and the old definitions.
+Words for the Shaman HUD that Turbo no longer ships: HUD, Class kit, Class helper, Module, Engaged, Debug mode, Display-only, Self-timed, Resync, Reminder, Recall reminder, Range band, Totem slot, Clip, Safe window, Hard cast. Forever's own UI covers most of that HUD; `docs/research/forever-native-ui.md` compares the two, and git history (before the trim to attack macros) keeps the code and the old definitions.
