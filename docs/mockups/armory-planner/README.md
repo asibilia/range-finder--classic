@@ -10,6 +10,66 @@ thing.
 The character is the owner's own Truncha (level 30 Orc Enhancement Shaman),
 with the numbers from the 13 November gear report.
 
+## Round two: C2, the armory planner (current pick)
+
+The owner picked C's look and asked for a normal square armory pane, without
+the compass theme. That's `direction-c2-armory-planner.html`. The three
+round-one files below stay as they were, for reference.
+
+**What changed from C:**
+- The ring of slots is now a normal pane: slots down the left and right, the
+  two-hand and the totem along the bottom, and the figure and character sheet
+  in the middle.
+- The compass decoration and words are gone: ring, ticks, stars and the
+  "compass" name.
+- It opens on **what he wears now**, so he recognises his own character first.
+  One orange button, "Show the sim's plan", swaps to the plan, and "Show what I
+  wear" swaps back. Moving a role control also switches to the plan, and a
+  line says so.
+- The role control comes in two versions on one page. Use the "Role control:
+  Shape / Sliders" switch, or the URL:
+  - **Shape (C2a), `?roles=shape`:** four points on four lines (damage,
+    survival, healing, utility). Drag each one, or use the arrow keys. Unlike
+    round one's square pad, this can show any mix, including damage plus
+    healing. The soft shape behind it is how far your items can reach.
+  - **Sliders (C2b), `?roles=sliders`:** the owner's first description. Four
+    sliders, damage at max to start. The part of a track you can't reach is
+    hatched.
+- **New-visitor state:** use the "Preview: new visitor" link or `?state=new`.
+  Every slot is an empty outline, and a "Bring your character in" panel shows
+  three steps: install Turbo, type `/tbexport`, drop or paste the export. The
+  drop zone is fake. "Or look at a sample character" loads Truncha. The
+  controls on the right stay greyed until a character is loaded.
+- "Bags only" and the hover read-out in the middle of the ring are gone.
+
+**Taken from A:**
+- the gain label on each slot ("+23.6 EP", "+6.0 DPS"). It's filled at
+  15 EP or 3 DPS and up, and outlined below that.
+- the left/right/bottom slot layout
+- the "Berylline Pads are in your bags" card with a "Wear them" button
+- the "needs level 31/33" chips
+
+**Taken from B:**
+- "what you wear vs the sim's plan" on the fight chart: two DPS lines, two mana
+  lines, and two out-of-mana markers (worn 0:48, plan 0:57)
+- average DPS for both
+- the readings show the difference from what you wear
+
+| Page | Shape, worn | Sliders, worn | Plan shown | Talents open | New visitor |
+| --- | --- | --- | --- | --- | --- |
+| `direction-c2-armory-planner.html` | `direction-c2a-shape-main.png` | `direction-c2b-sliders-main.png` | `direction-c2-plan.png` | `direction-c2-talents.png` | `direction-c2-new-visitor.png` |
+
+**New questions from round two:**
+- With every role low (say damage 18 and the rest 0), the page still picks
+  "max damage", because the set comes from the damage-to-survival balance.
+  Should "all low" mean "no preference"?
+- Should the shape's points show their real limit to screen readers, or
+  should only the drawn reach area carry it? Right now each point counts
+  0–100, and its limit is only in the spoken text.
+- In the new-visitor state the fight chart is hidden. Is that right, or should
+  it show greyed and empty like the right column?
+- Is the bottom of the left column the right home for the bags card?
+
 ## Open them
 
 Double-click any `.html` file, or:
