@@ -35,7 +35,7 @@ body {
 }
 
 .planner {
-    max-width: 72rem;
+    max-width: 90rem;
     margin: 0 auto;
     padding: var(--space-3);
 }
@@ -467,4 +467,18 @@ body {
     font-size: 9px;
     fill: var(--color-text);
     stroke: none;
+}
+
+/* The approved layout (C2): gear on the left, the card on the right. */
+.planner-body {
+    display: grid;
+    gap: var(--space-4);
+}
+
+@media (min-width: 64rem) {
+    .planner-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 26rem;
+        align-items: start;
+    }
 }
