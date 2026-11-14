@@ -1,0 +1,382 @@
+/**
+ * The results file contract: the schema the page reads files with
+ * (`readResultsFile`), the JSON Schema generated from it, and the two
+ * hand-made Truncha samples beside it. Tests read only the reader's outcome
+ * and the committed files' contents.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, expect, test } from 'bun:test'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+// Loaded by a computed path, so the package type-checks before the module exists.
+const MODULE_PATH: string = '../src/results-file'
+const { readResultsFile } = (await import(MODULE_PATH)) as {
+    readResultsFile: (input: unknown) => { ok: boolean } & Record<string, unknown>
+}
+
+const SRC = join(import.meta.dir, '../src')
+const REPO_ROOT = join(import.meta.dir, '../../..')
+const SCHEMA_PATH = join(SRC, 'results-file.schema.json')
+
+/** A fresh, mutable copy of a committed sample. */
+function sample(name = 'sample-truncha.json'): any {
+    return JSON.parse(readFileSync(join(SRC, name), 'utf8'))
+}
+
+function problemsOf(input: unknown): string[] {
+    const outcome = readResultsFile(input) as any
+    expect(outcome.ok).toBe(false)
+    expect(outcome.reason).toBe('invalid')
+    return outcome.problems as string[]
+}
+
+/** Every key used anywhere in a JSON value. */
+function allKeys(value: unknown, into: Set<string> = new Set()): Set<string> {
+    if (Array.isArray(value)) {
+        for (const v of value) allKeys(v, into)
+    } else if (value !== null && typeof value === 'object') {
+        for (const [k, v] of Object.entries(value)) {
+            into.add(k)
+            allKeys(v, into)
+        }
+    }
+    return into
+}
+
+type Breakage = { rule: string; message: string; breakIt: (f: any) => void }
+
+function resultIndex(f: any, gear: string, fight: string): number {
+    const at = f.results.findIndex(
+        (r: any) => r.gear === gear && r.fight_id === fight
+    )
+    expect(at).toBeGreaterThanOrEqual(0)
+    return at
+}
+
+/** Runs each breakage on a fresh sample; returns the ones not refused right. */
+function unmet(breakages: Breakage[]): string[] {
+    const missing: string[] = []
+    for (const { rule, message, breakIt } of breakages) {
+        const f = sample()
+        breakIt(f)
+        const outcome = readResultsFile(f) as any
+        const problems: string[] =
+            outcome.ok === false && outcome.reason === 'invalid'
+                ? outcome.problems
+                : []
+        if (!problems.some((p) => p.endsWith(message))) {
+            missing.push(`${rule}: got ${JSON.stringify(outcome)}`)
+        }
+    }
+    return missing
+}
+
+describe('the Truncha sample', () => {
+    test('parses with the schema', () => {
+        const outcome = readResultsFile(sample()) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.character.name).toBe('Truncha')
+        expect(outcome.file.sample).toBe(true)
+        expect(outcome.file.provisional).toBe(true)
+    })
+
+    test('has 17 slots, 4 fights, 3 plans, 14 results, 18 talents, and a best build with Flurry 5 and Anticipation 0', () => {
+        const outcome = readResultsFile(sample()) as any
+        expect(outcome.ok).toBe(true)
+        const file = outcome.file
+        expect(file.slots).toHaveLength(17)
+        expect(file.fights).toHaveLength(4)
+        expect(file.plans).toHaveLength(3)
+        expect(file.results).toHaveLength(14)
+        expect(file.talents.yours).toHaveLength(18)
+        expect(file.default_fight_id).toBe('chain-4')
+
+        const ranks = file.talents.best.ranks as {
+            talent_id: number
+            rank: number
+        }[]
+        expect(ranks).toHaveLength(18)
+        expect(ranks.find((r) => r.talent_id === 16256)?.rank).toBe(5)
+        expect(ranks.find((r) => r.talent_id === 16254)?.rank).toBe(0)
+    })
+})
+
+describe('the small first-run sample', () => {
+    test('parses, has one plan, and has no best build, timeline, pulls or time to die', () => {
+        const outcome = readResultsFile(
+            sample('sample-truncha-first-run.json')
+        ) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+        const file = outcome.file
+        expect(file.sample).toBe(true)
+        expect(file.default_fight_id).toBe('chain-4')
+        expect(file.plans.map((p: any) => p.plan_id)).toEqual(['max-damage'])
+        expect(file.talents.best).toBeNull()
+        expect(file.results.length).toBeGreaterThan(0)
+        for (const r of file.results) {
+            expect(['worn', 'max-damage']).toContain(r.gear)
+            expect(r.timeline).toBeNull()
+            expect(r.pulls).toBeNull()
+            expect(r.time_to_die_s).toBeNull()
+        }
+    })
+})
+
+describe('keys the samples never hold', () => {
+    test('no realm, account, guid, path or caps key appears anywhere in either sample', () => {
+        for (const name of [
+            'sample-truncha.json',
+            'sample-truncha-first-run.json',
+        ]) {
+            const keys = allKeys(sample(name))
+            expect(keys.size).toBeGreaterThan(10)
+            for (const banned of ['realm', 'account', 'guid', 'path', 'caps'])
+                expect(`${name} has ${banned}: ${keys.has(banned)}`).toBe(
+                    `${name} has ${banned}: false`
+                )
+        }
+    })
+})
+
+describe('strict keys', () => {
+    test('a file with schemaVersion in place of schema_version is refused as invalid', () => {
+        const f = sample()
+        f.schemaVersion = f.schema_version
+        delete f.schema_version
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(false)
+        expect(outcome.reason).toBe('invalid')
+    })
+
+    test('an extra realm key on character is refused, and so is an extra top-level account key', () => {
+        const withRealm = sample()
+        withRealm.character.realm = 'Some Realm'
+        expect(problemsOf(withRealm).length).toBeGreaterThan(0)
+
+        const withAccount = sample()
+        withAccount.account = 'SOMEACCOUNT'
+        expect(problemsOf(withAccount).length).toBeGreaterThan(0)
+    })
+
+    test('a character_key of k7f3a9 parses, and a character realm is refused', () => {
+        const withKey = sample()
+        withKey.character.character_key = 'k7f3a9'
+        const outcome = readResultsFile(withKey) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.character.character_key).toBe('k7f3a9')
+
+        const withRealm = sample()
+        withRealm.character.character_key = 'k7f3a9'
+        withRealm.character.realm = 'Some Realm'
+        expect(readResultsFile(withRealm).ok).toBe(false)
+    })
+})
+
+describe('schema_version', () => {
+    test('a copy with schema_version 2 gives reason version with version 2', () => {
+        const f = sample()
+        f.schema_version = 2
+        expect(readResultsFile(f)).toEqual({
+            ok: false,
+            reason: 'version',
+            version: 2,
+        })
+    })
+
+    test('a copy with schema_version removed gives reason invalid', () => {
+        const f = sample()
+        delete f.schema_version
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(false)
+        expect(outcome.reason).toBe('invalid')
+        expect(outcome.problems.length).toBeGreaterThan(0)
+    })
+})
+
+describe('problem lines', () => {
+    test('an extra top-level account key gives a line starting (file): ', () => {
+        const f = sample()
+        f.account = 'SOMEACCOUNT'
+        const problems = problemsOf(f)
+        expect(problems.some((p) => p.startsWith('(file): '))).toBe(true)
+    })
+
+    test('a fights.0.duration_s given as the text "30" gives a line starting fights.0.duration_s: ', () => {
+        const f = sample()
+        f.fights[0].duration_s = '30'
+        const problems = problemsOf(f)
+        expect(
+            problems.some((p) => p.startsWith('fights.0.duration_s: '))
+        ).toBe(true)
+    })
+})
+
+describe('the cross-field rules', () => {
+    test('refuse a file whose fight or plan names point at nothing, each with its own message', () => {
+        const breakages: Breakage[] = [
+            {
+                rule: 'default_fight_id',
+                message: 'default_fight_id names no fight in this file.',
+                breakIt: (f) => {
+                    f.default_fight_id = 'nowhere'
+                },
+            },
+            {
+                rule: 'results fight_id',
+                message: 'This names no fight in this file.',
+                breakIt: (f) => {
+                    f.results[resultIndex(f, 'max-damage', 'dungeon-long')].fight_id =
+                        'nowhere'
+                },
+            },
+            {
+                rule: 'stat_weights fight_id',
+                message: 'This names no fight in this file.',
+                breakIt: (f) => {
+                    f.stat_weights[0].fight_id = 'nowhere'
+                },
+            },
+            {
+                rule: 'talents.best fight_id',
+                message: 'This names no fight in this file.',
+                breakIt: (f) => {
+                    f.talents.best.fight_id = 'nowhere'
+                },
+            },
+            {
+                rule: 'results gear',
+                message: 'This names no plan in this file.',
+                breakIt: (f) => {
+                    f.results[resultIndex(f, 'max-damage', 'dungeon-long')].gear =
+                        'no-such-plan'
+                },
+            },
+            {
+                rule: 'plan gear item',
+                message:
+                    'This item is neither worn in this slot nor one of its alternatives.',
+                breakIt: (f) => {
+                    f.plans[0].gear.head = 999999
+                },
+            },
+        ]
+        expect(unmet(breakages)).toEqual([])
+    })
+
+    test('refuse a file whose slots, plans, results or best build repeat or miss entries, each with its own message', () => {
+        const breakages: Breakage[] = [
+            {
+                rule: 'slots exactly once',
+                message: 'Each slot must appear exactly once.',
+                breakIt: (f) => {
+                    f.slots.push(structuredClone(f.slots[0]))
+                },
+            },
+            {
+                rule: 'a worn result on every fight',
+                message: 'Every fight needs a result for worn gear.',
+                breakIt: (f) => {
+                    f.results.splice(resultIndex(f, 'worn', 'dungeon-short'), 1)
+                },
+            },
+            {
+                rule: 'unique plan_id',
+                message: 'Each plan_id must be unique.',
+                breakIt: (f) => {
+                    f.plans.push(structuredClone(f.plans[0]))
+                },
+            },
+            {
+                rule: 'one result per gear and fight',
+                message: 'Each gear and fight pair needs at most one result.',
+                breakIt: (f) => {
+                    f.results.push(
+                        structuredClone(
+                            f.results[resultIndex(f, 'worn', 'solo-hit-short')]
+                        )
+                    )
+                },
+            },
+            {
+                rule: 'best.ranks lists every talent once',
+                message: 'best.ranks must list every talent in yours exactly once.',
+                breakIt: (f) => {
+                    f.talents.best.ranks.pop()
+                },
+            },
+        ]
+        expect(unmet(breakages)).toEqual([])
+    })
+
+    test('refuse a chain fight without a setup, a timeline on a chain result and pulls on a single result, each with its own message', () => {
+        const breakages: Breakage[] = [
+            {
+                rule: 'chain fight setup',
+                message: 'A chain fight needs a setup.',
+                breakIt: (f) => {
+                    const chain = f.fights.find(
+                        (x: any) => x.fight_id === 'chain-4'
+                    )
+                    delete chain.setup
+                },
+            },
+            {
+                rule: 'timeline only on a single fight',
+                message: 'Only a single fight has a timeline.',
+                breakIt: (f) => {
+                    f.results[resultIndex(f, 'worn', 'chain-4')].timeline = [
+                        { t_s: 0, dps: 100, mana: 1660 },
+                    ]
+                },
+            },
+            {
+                rule: 'pulls only on a chain fight',
+                message: 'Only a chain fight has pulls.',
+                breakIt: (f) => {
+                    f.results[resultIndex(f, 'worn', 'dungeon-long')].pulls = [
+                        { pull: 1, dps: 100, mana_start: 1660, mana_end: 0 },
+                    ]
+                },
+            },
+        ]
+        expect(unmet(breakages)).toEqual([])
+    })
+})
+
+describe('the JSON Schema', () => {
+    test(
+        'bun run armory:schema rewrites results-file.schema.json, and the committed text matches a fresh one',
+        () => {
+            const committed = readFileSync(SCHEMA_PATH, 'utf8')
+            // The file is two-space JSON with a final newline.
+            expect(committed).toBe(
+                JSON.stringify(JSON.parse(committed), null, 2) + '\n'
+            )
+            expect(committed).toContain('"schema_version"')
+
+            // Spoil the file, regenerate it, and compare with what was committed.
+            writeFileSync(SCHEMA_PATH, '{}\n')
+            let fresh = ''
+            try {
+                const result = Bun.spawnSync(
+                    [process.execPath, 'run', 'armory:schema'],
+                    { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' }
+                )
+                expect({
+                    exitCode: result.exitCode,
+                    output:
+                        result.stdout.toString() + result.stderr.toString(),
+                }).toMatchObject({ exitCode: 0 })
+                fresh = readFileSync(SCHEMA_PATH, 'utf8')
+            } finally {
+                writeFileSync(SCHEMA_PATH, committed)
+            }
+            expect(fresh).toBe(committed)
+        },
+        { timeout: 60_000 }
+    )
+})
