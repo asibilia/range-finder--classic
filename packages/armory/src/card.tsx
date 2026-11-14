@@ -1,9 +1,9 @@
 /**
  * The card on the right: the fight picker and its settings, what you wear
  * against the sim's plan, the fight or pull chart with the same facts in
- * words, where the damage comes from, the stat weights and how sure the sim is.
+ * words, the role sliders, where the damage comes from, the stat weights and how sure the sim is.
  */
-import { useId, useState } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 
 import type { Plan } from './plans'
 import type { ResultsFile, Stat } from './results-file'
@@ -417,7 +417,19 @@ function Checks({ checks }: { checks: ResultsFile['checks'] }) {
     )
 }
 
-export function Card({ file, plan }: { file: ResultsFile; plan: Plan | null }) {
+/**
+ * The card. `sliders` (the role sliders, when the file has plans) sits under
+ * the fight chart, so moving them and reading the numbers stay side by side.
+ */
+export function Card({
+    file,
+    plan,
+    sliders,
+}: {
+    file: ResultsFile
+    plan: Plan | null
+    sliders?: ReactNode
+}) {
     const [fightId, setFightId] = useState(file.default_fight_id)
     const fightSelectId = useId()
     const fight =
@@ -456,6 +468,7 @@ export function Card({ file, plan }: { file: ResultsFile; plan: Plan | null }) {
                 ) : (
                     <TimeChart fight={fight} worn={worn} plan={planResult} />
                 ))}
+            {sliders}
             {worn && <DamageSplit worn={worn} />}
             <StatWeights file={file} fightId={fight.fight_id} />
             <Checks checks={file.checks} />

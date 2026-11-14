@@ -4,6 +4,8 @@
  */
 import type { DragEvent } from 'react'
 
+import { SCHEMA_VERSION } from './results-file'
+
 export type ReadError =
     | { kind: 'not-json' }
     | { kind: 'version'; version: number }
@@ -20,7 +22,7 @@ function ErrorMessage({ error }: { error: ReadError }) {
         return (
             <div role="alert" className="read-error">
                 <p>
-                    {`This results file is version ${error.version}. The planner reads version 1.`}
+                    {`This results file is version ${error.version}. The planner reads version ${SCHEMA_VERSION}.`}
                 </p>
             </div>
         )
@@ -57,6 +59,11 @@ export function BringIn({
         <section className="bring-in" aria-labelledby="bring-in-heading">
             <h2 id="bring-in-heading">Bring your character in</h2>
             <p>Open a results file from the gear sim to see your character.</p>
+            <ol className="bring-in-steps">
+                <li>Install the Turbo addon and type /tbexport in the game.</li>
+                <li>Run the gear sim on that export to get a results file.</li>
+                <li>Open the results file here, or drop it on this page.</li>
+            </ol>
             {error && <ErrorMessage error={error} />}
             <label className="file-picker">
                 Open a results file

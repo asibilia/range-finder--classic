@@ -105,6 +105,26 @@ describe('the new-visitor state', () => {
         ).toBeDefined()
     })
 
+    test('lists the three steps to bring a character in, in order', () => {
+        renderApp()
+
+        const section = screen
+            .getByRole('heading', { level: 2, name: 'Bring your character in' })
+            .closest('section')
+        expect(section).not.toBeNull()
+        const list = within(section as HTMLElement).getByRole('list')
+        expect(list.tagName).toBe('OL')
+        expect(
+            within(list)
+                .getAllByRole('listitem')
+                .map((item) => item.textContent)
+        ).toEqual([
+            'Install the Turbo addon and type /tbexport in the game.',
+            'Run the gear sim on that export to get a results file.',
+            'Open the results file here, or drop it on this page.',
+        ])
+    })
+
     test('shows 17 empty slot buttons and no Wishlist, Talents or Export Pawn string button', () => {
         renderApp()
 

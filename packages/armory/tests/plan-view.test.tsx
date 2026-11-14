@@ -107,6 +107,30 @@ describe('the plan view', () => {
 })
 
 describe('the role sliders', () => {
+    test('What to gear for sits in the card, after the fight chart and before the damage split', async () => {
+        await openSample()
+
+        const card = screen.getByRole('complementary', {
+            name: "The sim's numbers",
+        })
+        const sliders = screen
+            .getByRole('heading', { name: 'What to gear for' })
+            .closest('section')
+        expect(sliders).not.toBeNull()
+        expect(card.contains(sliders)).toBe(true)
+
+        const chart = within(card).getByLabelText('DPS and mana per pull')
+        const split = within(card).getByRole('heading', {
+            name: 'Where the damage comes from',
+        })
+        const follows = (a: Node, b: Node) =>
+            Boolean(
+                a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+            )
+        expect(follows(chart, sliders as Node)).toBe(true)
+        expect(follows(sliders as Node, split)).toBe(true)
+    })
+
     test('Damage, Survival, Healing and Utility start at 100, 0, 0 and 0', async () => {
         await openSample()
 

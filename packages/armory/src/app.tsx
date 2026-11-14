@@ -228,16 +228,24 @@ export function App() {
                             setDialog({ kind: 'picker', slot })
                         }
                     />
-                    {file && file.plans.length > 0 && mix && (
-                        <RoleSliders
-                            plans={file.plans}
-                            mix={mix}
-                            plan={plan}
-                            onChange={moveSlider}
-                        />
-                    )}
                 </div>
-                {file && <Card file={file} plan={plan} />}
+                {file && (
+                    <Card
+                        file={file}
+                        plan={plan}
+                        sliders={
+                            file.plans.length > 0 &&
+                            mix && (
+                                <RoleSliders
+                                    plans={file.plans}
+                                    mix={mix}
+                                    plan={plan}
+                                    onChange={moveSlider}
+                                />
+                            )
+                        }
+                    />
+                )}
             </div>
             {file && dialog?.kind === 'picker' && (
                 <ItemPicker
