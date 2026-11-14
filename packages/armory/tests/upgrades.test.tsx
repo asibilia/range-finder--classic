@@ -125,6 +125,27 @@ describe('gains on the slots', () => {
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
 
+    test('a Back first alternative gaining 0.04 EP, shown as +0.0, shows no gain and the worn source text', async () => {
+        await openFile(
+            variant((file) => {
+                const slots = file.slots as {
+                    slot: string
+                    alternatives: { gain_ep: number | null }[]
+                }[]
+                const first = slots.find((entry) => entry.slot === 'back')
+                    ?.alternatives[0]
+                if (!first)
+                    throw new Error('the sample back has no alternative')
+                first.gain_ep = 0.04
+            })
+        )
+        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+
+        expect(within(slot).queryByText(/EP$/)).toBeNull()
+        expect(within(slot).queryByText(/^Best: /)).toBeNull()
+        expect(within(slot).getByText('Source unknown')).toBeDefined()
+    })
+
     test('the bag upgrade shows under the left column', async () => {
         await openSample()
         const note = screen.getByText(

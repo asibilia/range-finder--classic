@@ -11,6 +11,7 @@ import {
     type Gain,
     gainOf,
     gainSize,
+    isUpgrade,
     type Item,
     type SlotEntry,
 } from './gains'
@@ -78,7 +79,7 @@ function planView(
     const gain = alternative ? gainOf(alternative) : null
     return {
         item: alternative?.item ?? null,
-        gain: gain && gain.value > 0 ? gain : null,
+        gain: isUpgrade(gain) ? gain : null,
         note: `Replaces ${worn ? worn.name : 'nothing'}`,
         sameAsWorn: false,
     }
