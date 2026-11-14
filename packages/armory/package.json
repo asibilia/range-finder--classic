@@ -19,6 +19,7 @@
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@types/bun": "catalog:",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
@@ -31,6 +32,6 @@
     "dev": "bunx react-router dev",
     "preview": "bunx react-router build && bunx vite preview",
     "test": "bun test --isolate",
-    "type-check": "bunx wrangler types && bunx react-router typegen && bunx tsc -b"
+    "type-check": "WRANGLER_SEND_METRICS=false WRANGLER_HIDE_BANNER=true bunx wrangler types && bunx react-router typegen && bunx tsc -b"
   }
 }

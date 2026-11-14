@@ -151,6 +151,7 @@ describe('the @goturbo/armory package', () => {
         '@testing-library/user-event',
         '@types/react',
         '@types/react-dom',
+        '@types/node',
     ]
 
     test('is named @goturbo/armory, private, and takes every dependency from the catalog', () => {

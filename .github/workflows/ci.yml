@@ -12,6 +12,12 @@ concurrency:
 jobs:
     check:
         runs-on: ubuntu-latest
+        # Wrangler (`wrangler types` in the armory's type-check) sends usage
+        # metrics unless told not to, and checks npm for a newer version to
+        # print in its banner; hiding the banner skips that check.
+        env:
+            WRANGLER_SEND_METRICS: 'false'
+            WRANGLER_HIDE_BANNER: 'true'
         steps:
             - uses: actions/checkout@v4
 
