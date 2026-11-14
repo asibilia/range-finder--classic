@@ -271,18 +271,58 @@ body {
     stroke-dasharray: 2 2;
 }
 
-.chart .bar.dps-worn,
-.chart .bar.mana-worn {
+/* DPS bars are filled; mana bars are outlined with a dotted edge, like the mana lines. */
+.chart .bar.dps-worn {
     fill: var(--color-chart-worn);
 }
 
-.chart .bar.dps-plan,
-.chart .bar.mana-plan {
+.chart .bar.dps-plan {
     fill: var(--color-chart-plan);
+}
+
+.chart .bar.mana-worn,
+.chart .bar.mana-plan {
+    fill: var(--color-surface);
+    stroke-width: 1.5;
 }
 
 .chart .bar.end {
     opacity: 0.5;
+}
+
+/* Each legend entry gets a swatch drawn like its line or bar. */
+.chart-legend {
+    list-style: none;
+}
+
+.chart-legend [data-line]::before {
+    content: '';
+    display: inline-block;
+    width: 1.5em;
+    height: 0.6em;
+    margin-right: var(--space-1);
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.chart-legend [data-line='dps-worn']::before {
+    background: var(--color-chart-worn);
+}
+
+.chart-legend [data-line='dps-plan']::before {
+    background: var(--color-chart-plan);
+}
+
+.chart-legend [data-line='mana-worn']::before {
+    border: 2px dotted var(--color-chart-worn);
+}
+
+.chart-legend [data-line='mana-plan']::before {
+    border: 2px dotted var(--color-chart-plan);
+}
+
+.chart-note {
+    font-size: var(--font-size-small);
 }
 
 .chart text {

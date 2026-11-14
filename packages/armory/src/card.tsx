@@ -346,6 +346,10 @@ function PullChart({ worn, plan }: { worn: Result; plan: Result | null }) {
                 })}
             </svg>
             <Legend withPlan={planPulls !== null} />
+            <p className="chart-note">
+                Each pull shows a DPS bar, then mana at the start and mana at
+                the end (the paler bar).
+            </p>
             <p>{dryWords('In what you wear you', worn.pulls)}</p>
             {planPulls && <p>{dryWords("The sim's plan", planPulls, true)}</p>}
         </>
