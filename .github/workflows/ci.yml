@@ -19,6 +19,14 @@ jobs:
               with:
                   bun-version: latest
 
+            # `bunx react-router` and `bunx wrangler` (the armory planner's
+            # build and type-check) run under Node (their bins start with
+            # `#!/usr/bin/env node`), and React Router 8 requires Node >= 22.22,
+            # newer than some runner images ship.
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+
             - run: bun install --frozen-lockfile
 
             # LuaLS, the WoW API annotations and Forever's API docs, pinned in
