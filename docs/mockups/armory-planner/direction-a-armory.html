@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truncha: armory planner (mockup, direction A)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Direction A, "Armory": stone, storm and a little ember.
+   Palette: storm slate #1b2530, stone #26313b / #33404b, bone #ece5d6,
+   lightning #8cc8e8 (mana, focus, swaps), ember #ff8a3d (upgrades only). */
+:root {
+  --storm-900: #1b2530;
+  --storm-850: #202b36;
+  --stone-800: #26313b;
+  --stone-750: #2c3843;
+  --stone-700: #33404b;
+  --stone-600: #44525e;
+  --stone-500: #5d6b76;
+  --bone: #ece5d6;
+  --bone-dim: #b9b3a6;
+  --bone-faint: #8d949a;
+  --lightning: #8cc8e8;
+  --lightning-deep: #3b6f8f;
+  --ember: #ff8a3d;
+  --ember-hot: #ffb070;
+  --ember-deep: #8a3a12;
+  --q-uncommon: #4fc06a;
+  --q-rare: #4a8ee8;
+  --q-epic: #a874ea;
+  --display: "Grenze", "Palatino Linotype", Palatino, Georgia, serif;
+  --ui: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
+  --card-w: 404px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--bone);
+  background:
+    radial-gradient(1200px 520px at 38% -10%, #2f4152 0%, transparent 60%),
+    radial-gradient(700px 400px at 10% 110%, #3a2a22 0%, transparent 65%),
+    var(--storm-900);
+  min-height: 100vh;
+  font-variant-numeric: tabular-nums;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lightning); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; align-items: flex-end; gap: 24px;
+  padding: 18px 28px 12px;
+  border-bottom: 1px solid rgba(140,200,232,.12);
+}
+.who h1 {
+  font-family: var(--display); font-weight: 700; font-size: 40px; line-height: .9;
+  margin: 0; letter-spacing: .01em;
+}
+.who p { margin: 4px 0 0; color: var(--bone-dim); }
+.who p b { color: var(--bone); font-weight: 600; }
+.mock-note {
+  margin-left: auto; max-width: 420px; text-align: right;
+  font-size: 13px; color: var(--bone-faint);
+}
+.mock-note .tag { color: var(--bone-dim); border-bottom: 1px dotted var(--bone-faint); }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--card-w);
+  gap: 22px;
+  padding: 16px 22px 28px 28px;
+  align-items: start;
+}
+
+/* ---------- stage ---------- */
+.stage {
+  position: relative;
+  border-radius: 6px 6px 18px 18px;
+  padding: 14px 16px 16px;
+  background:
+    radial-gradient(420px 360px at 50% 46%, rgba(140,200,232,.10), transparent 70%),
+    radial-gradient(300px 120px at 50% 88%, rgba(255,138,61,.10), transparent 70%),
+    linear-gradient(180deg, #23303c 0%, #1f2a34 60%, #222a30 100%);
+  border: 1px solid #36434e;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), inset 0 -40px 80px rgba(0,0,0,.25);
+}
+.stage-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.stage-head h2 { font-family: var(--display); font-weight: 600; font-size: 22px; margin: 0; }
+.set-name { color: var(--lightning); font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--stone-600); border-radius: 999px; padding: 2px; background: var(--storm-850); }
+.seg button, .seg label {
+  border: 0; background: transparent; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  color: var(--bone-dim); font-weight: 500; position: relative;
+}
+.seg button[aria-pressed="true"], .seg input:checked + span {
+  background: var(--stone-600); color: var(--bone);
+}
+.seg label { padding: 0; }
+.seg label span { display: block; padding: 4px 12px; border-radius: 999px; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg input:focus-visible + span { outline: 2px solid var(--lightning); outline-offset: 1px; }
+.stage-head .seg { margin-left: auto; }
+
+.doll {
+  display: grid;
+  grid-template-columns: 244px minmax(220px, 1fr) 244px;
+  gap: 10px 30px;
+}
+.col { display: flex; flex-direction: column; gap: 7px; }
+.bottom-row {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+  padding-top: 8px; margin-top: 2px;
+  border-top: 1px solid rgba(140,200,232,.10);
+}
+
+/* ---------- slots (the memorable thing) ---------- */
+.slot {
+  --q: var(--q-rare);
+  position: relative;
+  display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 9px; align-items: center;
+  width: 100%; min-height: 58px; text-align: left;
+  padding: 7px 10px 7px 8px;
+  background: linear-gradient(180deg, var(--stone-750), var(--stone-800));
+  border: 1px solid #3a4752; border-radius: 4px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.slot:hover { border-color: var(--stone-500); background: linear-gradient(180deg, #313e49, var(--stone-800)); }
+.slot-icon {
+  width: 42px; height: 42px; border-radius: 3px;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--q) 38%, #1c242c), #1a2028 80%);
+  border: 1.5px solid var(--q);
+  box-shadow: inset 0 0 8px rgba(0,0,0,.6);
+}
+.slot-icon svg { width: 24px; height: 24px; stroke: var(--bone); fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; opacity: .92; }
+.q2 { --q: var(--q-uncommon); }
+.q3 { --q: var(--q-rare); }
+.q4 { --q: var(--q-epic); }
+.q0 { --q: var(--stone-500); }
+.q0 .slot-icon, .slot-icon.q0 { background: repeating-linear-gradient(45deg, #222b33 0 5px, #1d252c 5px 10px); border-style: dashed; }
+.slot-body { min-width: 0; display: flex; flex-direction: column; }
+.slot-label { font-size: 12px; color: var(--bone-faint); line-height: 1.1; }
+.slot-name { font-weight: 600; font-size: 14.5px; line-height: 1.15; color: color-mix(in srgb, var(--q) 30%, var(--bone)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q0 .slot-name { color: var(--bone-dim); font-weight: 500; font-style: italic; }
+.slot-meta { font-size: 12.5px; color: var(--bone-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-meta .warn { color: var(--ember-hot); }
+.slot .pin { color: var(--lightning); }
+
+/* The notch: cut into the edge that faces the figure, glowing ember when the sim suggests an upgrade. */
+.notch {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  display: none; align-items: center; gap: 2px;
+  height: 26px; padding: 0 8px 0 10px;
+  font-weight: 700; font-size: 13px; letter-spacing: .01em;
+  color: #2a1406;
+  background: linear-gradient(180deg, var(--ember-hot), var(--ember));
+  box-shadow: 0 0 14px rgba(255,138,61,.55), 0 0 2px rgba(255,176,112,.9);
+  white-space: nowrap; z-index: 2;
+}
+.notch small { font-size: 10.5px; font-weight: 600; opacity: .8; }
+.slot.has-up .notch, .slot.has-down .notch { display: inline-flex; }
+.slot.has-up { border-color: rgba(255,138,61,.55); }
+.slot.has-up::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 4px; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255,138,61,.25), 0 0 18px -4px rgba(255,138,61,.45);
+}
+.slot.has-down .notch {
+  color: var(--bone); background: var(--stone-600); box-shadow: none;
+}
+/* notch shape per side */
+.col-left .notch { right: -26px; clip-path: polygon(0 0, 82% 0, 100% 50%, 82% 100%, 0 100%); padding-right: 14px; }
+.col-right .notch { left: -26px; clip-path: polygon(18% 0, 100% 0, 100% 100%, 18% 100%, 0 50%); padding-left: 14px; }
+.col-right .slot { padding-left: 10px; }
+.bottom-row .notch { top: -13px; transform: none; right: 10px; height: 22px; clip-path: polygon(0 0, 100% 0, 100% 72%, 54% 100%, 46% 100%, 0 72%); padding: 0 10px 4px; }
+.col-left .slot.has-up, .col-left .slot.has-down { padding-right: 36px; }
+.col-right .slot.has-up, .col-right .slot.has-down { padding-left: 36px; }
+
+.legend { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; font-size: 13px; color: var(--bone-dim); }
+.legend-notch { font-weight: 700; font-size: 12px; color: #2a1406; padding: 2px 12px 2px 7px; background: linear-gradient(180deg, var(--ember-hot), var(--ember)); clip-path: polygon(0 0, 82% 0, 100% 50%, 82% 100%, 0 100%); box-shadow: 0 0 10px rgba(255,138,61,.5); }
+
+/* swap: a storm flicker when the planned item changes */
+.slot.swapped .slot-icon, .slot.swapped .slot-body { animation: swap-in .5s cubic-bezier(.2,.8,.2,1); }
+.slot.swapped { animation: swap-flash .7s ease-out; }
+@keyframes swap-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes swap-flash {
+  0% { box-shadow: 0 0 0 1px var(--lightning), 0 0 22px rgba(140,200,232,.7); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ---------- figure ---------- */
+.figure {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  min-height: 0;
+}
+.figure svg.hero { width: 100%; max-width: 310px; height: auto; display: block; }
+.figure-note { font-size: 12px; color: var(--bone-faint); margin: 2px 0 0; text-align: center; }
+.sheet {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px 8px;
+  width: 100%; max-width: 460px;
+  margin: 10px 0 0; padding: 8px 12px; border-radius: 4px;
+  background: rgba(20,28,36,.55); border: 1px solid rgba(140,200,232,.10);
+  font-size: 13px;
+}
+.sheet div { display: flex; flex-direction: column; }
+.sheet dt { color: var(--bone-faint); font-size: 12px; line-height: 1.1; white-space: nowrap; }
+.sheet dd { margin: 0; font-weight: 600; }
+.sheet-cap { grid-column: 1 / -1; font-size: 12px; color: var(--bone-faint); text-align: center; }
+
+.bags-hint {
+  margin-top: 6px; padding: 9px 10px; border-radius: 4px;
+  border: 1px dashed rgba(255,138,61,.45); background: rgba(255,138,61,.06);
+  font-size: 13.5px; color: var(--bone-dim);
+}
+.bags-hint b { color: var(--bone); }
+.bags-hint button { margin-top: 6px; }
+
+/* ---------- floating card ---------- */
+.card {
+  position: sticky; top: 14px;
+  max-height: calc(100vh - 28px); overflow: auto;
+  margin-top: -6px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2b3742 0%, #27323c 100%);
+  border: 1px solid #45535f;
+  box-shadow: 0 24px 48px -12px rgba(5,10,16,.65), 0 2px 0 rgba(255,255,255,.05) inset;
+  scrollbar-width: thin; scrollbar-color: var(--stone-600) transparent;
+}
+.card section { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,.06); }
+.card section:first-child { border-top: 0; }
+.card h2 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 0 0 8px; line-height: 1.05; }
+.card h3 { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--bone); }
+.hint { font-size: 12.5px; color: var(--bone-faint); margin: 4px 0 0; }
+
+.prov {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--bone-dim);
+  padding: 1px 7px; border-radius: 999px; border: 1px solid var(--stone-500);
+  vertical-align: middle; cursor: help;
+}
+.prov::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--bone-faint); }
+
+.headline { display: flex; align-items: flex-end; gap: 12px; }
+.big { font-family: var(--display); font-weight: 700; font-size: 54px; line-height: .85; }
+.big-label { font-size: 13px; color: var(--bone-dim); }
+.delta-up { color: var(--ember-hot); font-weight: 600; }
+.delta-down { color: var(--lightning); font-weight: 600; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; margin-top: 12px; }
+.stat-grid div { display: flex; flex-direction: column; }
+.stat-grid span:first-child { font-size: 12px; color: var(--bone-faint); }
+.stat-grid b { font-size: 17px; font-weight: 600; }
+.stat-grid b.oom { color: var(--lightning); }
+
+.chart-wrap { margin-top: 12px; }
+.chart-legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--bone-dim); margin-bottom: 2px; }
+.chart-legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 5px; }
+svg.chart { width: 100%; height: auto; display: block; }
+.split { margin-top: 12px; }
+.split-bar { display: flex; height: 10px; border-radius: 2px; overflow: hidden; gap: 1px; }
+.split-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12.5px; color: var(--bone-dim); margin-top: 5px; }
+.split-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 1px; margin-right: 4px; }
+
+/* sliders */
+.cat { margin-top: 10px; }
+.cat-top { display: flex; justify-content: space-between; align-items: baseline; }
+.cat-top label { font-weight: 600; }
+.cat-top output { font-weight: 600; }
+.cat-top output small { color: var(--bone-faint); font-weight: 500; }
+.track { position: relative; height: 26px; }
+.cap-zone {
+  position: absolute; top: 9px; height: 8px; right: 0; border-radius: 0 4px 4px 0;
+  background: repeating-linear-gradient(-45deg, rgba(236,229,214,.42) 0 2px, rgba(20,26,32,.85) 2px 6px);
+  border-left: 2px solid var(--bone);
+  pointer-events: none; transition: left .2s; z-index: 1;
+}
+.track input[type=range] { position: absolute; inset: 0; width: 100%; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.track input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--fill, var(--lightning)) 0 var(--pct, 50%), #1a222a var(--pct, 50%)); }
+.track input[type=range]::-moz-range-track { height: 8px; border-radius: 4px; background: #1a222a; }
+.track input[type=range]::-moz-range-progress { height: 8px; border-radius: 4px; background: var(--fill, var(--lightning)); }
+.track input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -5px; border-radius: 3px; transform: rotate(45deg); background: var(--bone); border: 2px solid var(--storm-900); }
+.track input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 3px; transform: rotate(45deg); background: var(--bone); border: 2px solid var(--storm-900); }
+.track input[type=range]:focus-visible { outline: none; }
+.track input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--lightning); }
+.track input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--lightning); }
+#cat-damage { --fill: var(--ember); }
+.cat.dim label, .cat.dim output { color: var(--bone-dim); }
+
+/* fight settings */
+.settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.settings .full { grid-column: 1 / -1; }
+.field > span, .field legend { display: block; font-size: 13px; color: var(--bone-dim); margin-bottom: 4px; padding: 0; }
+fieldset.field { border: 0; margin: 0; padding: 0; min-width: 0; }
+.field select {
+  width: 100%; padding: 5px 8px; border-radius: 4px; background: var(--storm-850); border: 1px solid var(--stone-600);
+}
+.mini-range { display: flex; align-items: center; gap: 8px; }
+.mini-range input { flex: 1; accent-color: var(--lightning); }
+.mini-range output { min-width: 46px; text-align: right; font-weight: 600; }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 13px; border-radius: 4px; cursor: pointer;
+  background: var(--stone-700); border: 1px solid var(--stone-500); font-weight: 600;
+}
+.btn:hover { background: var(--stone-600); }
+.btn-ember { background: linear-gradient(180deg, #ff9b55, var(--ember)); color: #2a1406; border-color: #ffb070; }
+.btn-ember:hover { background: linear-gradient(180deg, #ffab6d, #ff9446); }
+.btn-small { padding: 4px 9px; font-size: 13.5px; }
+.btn-quiet { background: transparent; border-color: var(--stone-600); }
+.count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--storm-900); color: var(--bone); font-size: 12.5px; text-align: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.talent-row { display: flex; align-items: center; gap: 10px; }
+.talent-row .btn { flex: 1; justify-content: space-between; }
+.wish-list { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13.5px; }
+.wish-list li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.05); }
+.wish-list li span { color: var(--bone-faint); }
+
+/* ---------- dialogs ---------- */
+dialog {
+  padding: 0; border: 1px solid #4a5965; border-radius: 10px; color: var(--bone);
+  background: linear-gradient(180deg, #2a3641, #232d37);
+  box-shadow: 0 30px 70px -10px rgba(0,0,0,.7);
+  max-height: calc(100vh - 40px);
+}
+dialog::backdrop { background: rgba(14,20,27,.62); backdrop-filter: blur(2px); }
+.dlg-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px 10px; }
+.dlg-head h2 { font-family: var(--display); font-weight: 600; font-size: 26px; margin: 0; line-height: 1; }
+.dlg-head p { margin: 4px 0 0; color: var(--bone-dim); font-size: 13.5px; }
+.dlg-close { margin-left: auto; }
+.dlg-body { padding: 4px 20px 20px; overflow: auto; }
+
+/* talents */
+#talent-dialog { width: min(640px, 94vw); }
+.tree {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 14px; padding: 16px; border-radius: 8px;
+  background:
+    radial-gradient(260px 200px at 50% 100%, rgba(140,200,232,.10), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 34px),
+    #1e2830;
+  border: 1px solid #3a4752;
+}
+.tal { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; font-size: 12px; color: var(--bone-faint); min-height: 78px; }
+.tal-stone {
+  position: relative; width: 46px; height: 46px; border-radius: 6px;
+  display: grid; place-items: center;
+  font-family: var(--display); font-weight: 700; font-size: 19px; color: var(--bone-faint);
+  background: #252f38; border: 1.5px solid #3e4b56;
+}
+.tal.on { color: var(--bone); }
+.tal.on .tal-stone { color: var(--bone); background: radial-gradient(circle at 40% 30%, #3f6178, #24343f); border-color: var(--lightning); }
+.tal.max .tal-stone { border-color: #d8eef8; box-shadow: 0 0 10px rgba(140,200,232,.45); }
+.tal-rank { position: absolute; right: -8px; bottom: -7px; font-family: var(--ui); font-size: 11.5px; font-weight: 700; padding: 0 5px; border-radius: 3px; background: var(--storm-900); border: 1px solid #3e4b56; color: var(--bone-dim); }
+.tal.on .tal-rank { color: var(--bone); border-color: var(--lightning-deep); }
+.tal.diff .tal-stone { box-shadow: 0 0 0 2px var(--ember), 0 0 14px rgba(255,138,61,.5); }
+.tal.diff .tal-rank { background: var(--ember); color: #2a1406; border-color: var(--ember); }
+.tree-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; font-size: 13.5px; color: var(--bone-dim); }
+.tree-foot code { font-family: var(--ui); color: var(--bone); font-weight: 600; letter-spacing: .03em; }
+.diff-note { color: var(--ember-hot); }
+
+/* picker */
+#picker-dialog { width: min(720px, 94vw); }
+.current-row { padding: 10px 12px; border-radius: 6px; background: rgba(20,28,36,.55); border: 1px solid rgba(140,200,232,.12); margin-bottom: 12px; }
+.alt-list { list-style: none; margin: 0; padding: 0; }
+.alt {
+  display: grid; grid-template-columns: 36px minmax(0,1fr) 92px auto; gap: 10px; align-items: center;
+  padding: 9px 4px; border-top: 1px solid rgba(255,255,255,.06);
+}
+.alt .slot-icon { width: 36px; height: 36px; }
+.alt .slot-icon svg { width: 20px; height: 20px; }
+.alt-name { font-weight: 600; color: color-mix(in srgb, var(--q) 30%, var(--bone)); }
+.alt-src { font-size: 13px; color: var(--bone-dim); }
+.alt-src .warn { color: var(--ember-hot); }
+.alt-src .bag { color: var(--ember-hot); font-weight: 600; }
+.alt-data { font-size: 12px; color: var(--bone-faint); }
+.alt-score { text-align: right; }
+.alt-score b { display: block; font-size: 16px; }
+.alt-score span { font-size: 12.5px; }
+.alt-actions { display: flex; gap: 6px; }
+.alt.is-current { opacity: .7; }
+.empty { padding: 14px; color: var(--bone-dim); border: 1px dashed var(--stone-500); border-radius: 6px; }
+
+/* pawn */
+#pawn-dialog { width: min(760px, 94vw); }
+.pawn { margin-top: 12px; }
+.pawn pre {
+  white-space: pre-wrap; word-break: break-word; margin: 6px 0 8px; padding: 10px 12px; border-radius: 6px;
+  background: #182028; border: 1px solid #3a4752; font-size: 13px; line-height: 1.45;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #d8e6ee;
+}
+.copied { color: var(--lightning); font-weight: 600; margin-left: 8px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0;
+  padding: 9px 16px; border-radius: 6px; background: #121a21; border: 1px solid var(--lightning-deep);
+  transition: opacity .2s, transform .2s; pointer-events: none; z-index: 50;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 1fr; }
+  .card { position: static; max-height: none; margin-top: 0; }
+}
+@media (max-width: 1100px) {
+  .sheet { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .doll { grid-template-columns: 1fr 1fr; }
+  .figure { grid-column: 1 / -1; order: -1; min-height: 0; }
+  .bottom-row { grid-template-columns: 1fr 1fr; }
+  .sheet { grid-template-columns: repeat(3, 1fr); }
+  .topbar { flex-wrap: wrap; }
+  .mock-note { text-align: left; margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="who">
+    <h1>Truncha</h1>
+    <p><b>Orc Enhancement Shaman</b>, level 30. Guardian's Dualblade with Windfury Weapon.</p>
+  </div>
+  <p class="mock-note">
+    <span class="tag" title="Sim numbers come from the 2026-11-13 report but are not yet matched to real fights.">Sim numbers are provisional.</span>
+    Mockup data: the fight timeline, gear sets, slider caps and talent comparison are made up to show the idea.
+  </p>
+</header>
+
+<main class="layout">
+  <!-- ================= STAGE ================= -->
+  <section class="stage" aria-labelledby="stage-title">
+    <div class="stage-head">
+      <h2 id="stage-title">Gear</h2>
+      <span id="set-label">Showing the <span class="set-name">Max damage</span> plan</span>
+      <div class="seg" role="group" aria-label="Which gear to show">
+        <button type="button" id="view-plan" aria-pressed="true">Sim's plan</button>
+        <button type="button" id="view-worn" aria-pressed="false">What you wear</button>
+      </div>
+    </div>
+
+    <div class="doll">
+      <div class="col col-left" id="col-left"></div>
+
+      <div class="figure">
+        <svg class="hero" viewBox="0 0 400 520" role="img" aria-label="Placeholder figure of an orc shaman holding a two-handed axe">
+          <defs>
+            <linearGradient id="g-body" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#3b4a56"/><stop offset="1" stop-color="#232d36"/>
+            </linearGradient>
+            <linearGradient id="g-rim" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#8cc8e8" stop-opacity=".9"/><stop offset=".5" stop-color="#8cc8e8" stop-opacity="0"/><stop offset="1" stop-color="#ff8a3d" stop-opacity=".5"/>
+            </linearGradient>
+            <radialGradient id="g-plinth" cx=".5" cy=".4" r=".6">
+              <stop offset="0" stop-color="#4a3428"/><stop offset=".55" stop-color="#2c2a2a"/><stop offset="1" stop-color="#1c232a"/>
+            </radialGradient>
+            <radialGradient id="g-ember" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#ff8a3d" stop-opacity=".55"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <!-- storm behind -->
+          <path d="M268 18 L248 78 L270 80 L236 160 L262 112 L242 110 L276 40" fill="none" stroke="#8cc8e8" stroke-opacity=".35" stroke-width="2.2" stroke-linejoin="round"/>
+          <path d="M96 40 L110 92 L94 96 L118 150" fill="none" stroke="#8cc8e8" stroke-opacity=".18" stroke-width="1.6"/>
+          <!-- plinth -->
+          <ellipse cx="200" cy="486" rx="168" ry="30" fill="url(#g-ember)"/>
+          <ellipse cx="200" cy="480" rx="150" ry="22" fill="url(#g-plinth)" stroke="#55443a" stroke-width="1.5"/>
+          <path d="M60 480 Q200 512 340 480 L336 494 Q200 526 64 494 Z" fill="#1f262c"/>
+          <!-- axe behind the body -->
+          <line x1="92" y1="458" x2="318" y2="96" stroke="#5a4636" stroke-width="9" stroke-linecap="round"/>
+          <line x1="92" y1="458" x2="318" y2="96" stroke="#8a6a4e" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+          <path d="M300 112 Q338 60 372 98 Q352 118 350 152 Q322 128 300 112 Z" fill="#4c5b66" stroke="#b9d8e8" stroke-width="1.6" stroke-opacity=".7"/>
+          <path d="M318 96 Q290 62 252 74 Q270 92 272 122 Q296 104 318 96 Z" fill="#3f4c56" stroke="#b9d8e8" stroke-width="1.2" stroke-opacity=".5"/>
+          <!-- legs -->
+          <path d="M150 474 L164 360 L198 360 L192 474 Z" fill="url(#g-body)" stroke="#55646f"/>
+          <path d="M208 474 L204 360 L240 360 L256 474 Z" fill="url(#g-body)" stroke="#55646f"/>
+          <path d="M138 474 L194 474 L194 486 L132 486 Z M206 474 L262 474 L270 486 L206 486 Z" fill="#2a333b" stroke="#55646f"/>
+          <!-- arms -->
+          <path d="M128 200 Q102 250 112 316 L134 320 Q132 262 156 220 Z" fill="url(#g-body)" stroke="#55646f"/>
+          <path d="M274 200 Q302 246 292 300 L270 302 Q270 256 248 222 Z" fill="url(#g-body)" stroke="#55646f"/>
+          <circle cx="122" cy="324" r="14" fill="#3e5a3a" stroke="#6f8c63"/>
+          <circle cx="282" cy="306" r="14" fill="#3e5a3a" stroke="#6f8c63"/>
+          <!-- torso -->
+          <path d="M140 232 Q132 186 168 172 L236 172 Q272 186 264 232 L250 320 Q244 370 202 372 Q160 370 154 320 Z" fill="url(#g-body)" stroke="#5d6c77" stroke-width="1.5"/>
+          <path d="M140 232 Q132 186 168 172 L236 172 Q272 186 264 232 L250 320 Q244 370 202 372 Q160 370 154 320 Z" fill="none" stroke="url(#g-rim)" stroke-width="3"/>
+          <!-- belt and totem -->
+          <rect x="152" y="318" width="100" height="18" rx="3" fill="#4a3a2e" stroke="#7a6048"/>
+          <rect x="194" y="316" width="16" height="22" rx="2" fill="#8a6a4e"/>
+          <path d="M232 336 L232 384 M226 346 L238 346 M226 362 L238 362" stroke="#8a6a4e" stroke-width="5" stroke-linecap="round"/>
+          <!-- pauldrons -->
+          <path d="M112 212 Q118 168 168 170 Q174 196 150 222 Q130 228 112 212 Z" fill="#3a4852" stroke="#8cc8e8" stroke-opacity=".5" stroke-width="1.4"/>
+          <path d="M292 212 Q286 168 236 170 Q230 196 254 222 Q274 228 292 212 Z" fill="#3a4852" stroke="#8cc8e8" stroke-opacity=".5" stroke-width="1.4"/>
+          <path d="M120 196 L106 184 M130 184 L120 168 M284 196 L298 184 M274 184 L284 168" stroke="#c9c2b2" stroke-width="3" stroke-linecap="round"/>
+          <!-- head, set forward and low -->
+          <path d="M178 176 Q170 128 204 120 Q236 126 232 168 Q226 190 206 192 Q184 192 178 176 Z" fill="#3e5a3a" stroke="#6f8c63" stroke-width="1.4"/>
+          <path d="M184 140 Q204 128 228 142" fill="none" stroke="#2a3a28" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="196" cy="152" r="2.6" fill="#8cc8e8"/><circle cx="216" cy="152" r="2.6" fill="#8cc8e8"/>
+          <path d="M195 182 Q191 176 192 170 M215 182 Q219 176 218 170" fill="none" stroke="#ece5d6" stroke-width="3" stroke-linecap="round"/>
+          <path d="M190 122 Q204 96 222 120" fill="none" stroke="#2a3a28" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <p class="figure-note">Placeholder figure. The 3D model goes here.</p>
+        <dl class="sheet" aria-label="Character sheet">
+          <div><dt>Str</dt><dd>73</dd></div>
+          <div><dt>Agi</dt><dd>96</dd></div>
+          <div><dt>Sta</dt><dd>122</dd></div>
+          <div><dt>Int</dt><dd>85</dd></div>
+          <div><dt>Spi</dt><dd>103</dd></div>
+          <div><dt>AP</dt><dd>289</dd></div>
+          <div><dt>Hit</dt><dd>0%</dd></div>
+          <div><dt>Crit</dt><dd>11.95%</dd></div>
+          <div><dt>Spell crit</dt><dd>7.32%</dd></div>
+          <div><dt>Dodge</dt><dd>11.75%</dd></div>
+          <div><dt>Armor</dt><dd>952</dd></div>
+          <div><dt>Health</dt><dd>1375</dd></div>
+          <div><dt>Mana</dt><dd>1660</dd></div>
+          <div><dt>Axe skill</dt><dd>148/150</dd></div>
+          <p class="sheet-cap">Character sheet from your export of 13 Nov, as worn now.</p>
+        </dl>
+      </div>
+
+      <div class="col col-right" id="col-right">
+        <!-- slots injected before the bags hint -->
+        <div class="bags-hint" id="bags-hint">
+          <b>Berylline Pads</b> are in your bags and beat your shoulders by <b>+7.0 EP</b>.
+          <div><button type="button" class="btn btn-small" id="bags-equip">Put them in the plan</button></div>
+        </div>
+      </div>
+
+      <div class="bottom-row" id="bottom-row"></div>
+    </div>
+    <p class="legend" id="notch-legend"><span class="legend-notch" aria-hidden="true">+16.7</span> A glowing notch is the sim's gain over what you wear, in EP (weapons in DPS). Click any slot to see the choices.</p>
+  </section>
+
+  <!-- ================= FLOATING CARD ================= -->
+  <aside class="card" id="analysis-card" aria-label="Sim results and controls">
+    <section aria-labelledby="dps-title">
+      <h2 id="dps-title">This fight <span class="prov" title="Sim not yet matched to real fights">provisional</span></h2>
+      <div class="headline">
+        <div class="big" id="fight-dps">84.1</div>
+        <div>
+          <div class="big-label" id="fight-label">DPS, dungeon 2 min vs level 33</div>
+          <div id="fight-delta" class="delta-up">+8.7 vs what you wear</div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div><span>Solo 30 s, level 31</span><b id="st-solo">118.4</b></div>
+        <div><span>Health</span><b id="st-health">1310</b></div>
+        <div><span>Armor</span><b id="st-armor">1010</b></div>
+        <div><span>Out of mana at</span><b id="st-oom" class="oom">0:57</b></div>
+        <div><span>Time to die, elite 33</span><b id="st-ttd">31 s</b></div>
+        <div><span>Melee miss</span><b id="st-miss">8.0%</b></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-legend" aria-hidden="true">
+          <span><i style="background:var(--bone)"></i>DPS</span>
+          <span><i style="background:var(--lightning); height:8px; opacity:.55"></i>Mana</span>
+        </div>
+        <svg class="chart" id="chart" viewBox="0 0 368 156" role="img" aria-labelledby="chart-desc"><desc id="chart-desc">DPS and mana across the fight</desc></svg>
+        <p class="hint">Timeline is mockup data in 5-second steps.</p>
+      </div>
+
+      <div class="split">
+        <h3>Where the damage comes from</h3>
+        <div class="split-bar" id="split-bar" role="img" aria-label="Melee 33%, Windfury 17%, Flame Shock 15%, Stormstrike 15%, Earth Shock 11%, Lightning Shield 9%"></div>
+        <div class="split-legend" id="split-legend" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="cat-title">
+      <h2 id="cat-title">What to gear for</h2>
+      <p class="hint" style="margin-top:-2px">Move a slider to change the plan. Hatched ends are out of reach with the other sliders where they are.</p>
+      <div id="cats"></div>
+      <p class="hint">Healing and utility aren't simmed yet, so they don't change gear.</p>
+    </section>
+
+    <section aria-labelledby="fight-title">
+      <h2 id="fight-title">Fight settings</h2>
+      <div class="settings">
+        <fieldset class="field">
+          <legend>Enemy level</legend>
+          <div class="seg">
+            <label><input type="radio" name="lvl" value="31"><span>31</span></label>
+            <label><input type="radio" name="lvl" value="32"><span>32</span></label>
+            <label><input type="radio" name="lvl" value="33" checked><span>33</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Content</legend>
+          <div class="seg">
+            <label><input type="radio" name="mode" value="pve" checked><span>PvE</span></label>
+            <label><input type="radio" name="mode" value="pvp"><span>PvP</span></label>
+          </div>
+        </fieldset>
+        <label class="field">
+          <span>Fight length</span>
+          <select id="fight-length">
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="120" selected>2 minutes</option>
+            <option value="180">3 minutes</option>
+          </select>
+        </label>
+        <div class="field"><span id="pvp-note" class="hint" style="margin-top:22px">PvE numbers.</span></div>
+        <div class="field full">
+          <label for="start-mana" style="display:block;font-size:13px;color:var(--bone-dim);margin-bottom:2px">Starting mana</label>
+          <div class="mini-range"><input type="range" id="start-mana" min="600" max="1660" step="20" value="1660"><output for="start-mana" id="start-mana-out">1660</output></div>
+        </div>
+        <div class="field full">
+          <label for="pull-gap" style="display:block;font-size:13px;color:var(--bone-dim);margin-bottom:2px">Time between pulls</label>
+          <div class="mini-range"><input type="range" id="pull-gap" min="0" max="60" step="5" value="30"><output for="pull-gap" id="pull-gap-out">30 s</output></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="tal-title">
+      <h2 id="tal-title" class="sr-only">Talents, wishlist and export</h2>
+      <div class="talent-row">
+        <button type="button" class="btn" id="talent-toggle" aria-haspopup="dialog">
+          <span>Talents</span><span id="talent-summary" style="color:var(--bone-dim);font-weight:500">Best simmed, 21 points</span>
+        </button>
+      </div>
+      <div style="margin-top:10px">
+        <button type="button" class="btn btn-quiet" id="wish-toggle" aria-expanded="false" aria-controls="wish-panel">
+          Wishlist <span class="count" id="wish-count">0</span>
+        </button>
+        <div id="wish-panel" hidden>
+          <ul class="wish-list" id="wish-list"></ul>
+          <p class="hint" id="wish-empty">Nothing yet. Open a slot and add items you want to chase.</p>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:12px">
+        <button type="button" class="btn btn-ember" id="pawn-open" aria-haspopup="dialog">Export Pawn string</button>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<!-- ================= TALENT DIALOG ================= -->
+<dialog id="talent-dialog" aria-modal="true" aria-labelledby="tal-dlg-title">
+  <div class="dlg-head">
+    <div>
+      <h2 id="tal-dlg-title">Enhancement talents</h2>
+      <p>Placeholder layout. The real tree comes from Forever's data later.</p>
+    </div>
+    <button type="button" class="btn btn-small btn-quiet dlg-close" data-close>Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="seg" role="group" aria-label="Which build to show" style="margin-bottom:12px">
+      <button type="button" id="tal-best" aria-pressed="true">Best simmed</button>
+      <button type="button" id="tal-yours" aria-pressed="false">Your build</button>
+    </div>
+    <div class="tree" id="tree"></div>
+    <div class="tree-foot">
+      <span id="tal-note" class="diff-note">Moves 1 point from Anticipation into Flurry 5/5: +1.6 DPS solo <span class="prov">provisional</span></span>
+      <span id="tal-string">21 points</span>
+    </div>
+  </div>
+</dialog>
+
+<!-- ================= ITEM PICKER ================= -->
+<dialog id="picker-dialog" aria-modal="true" aria-labelledby="pick-title">
+  <div class="dlg-head">
+    <div>
+      <h2 id="pick-title">Legs</h2>
+      <p id="pick-sub">Ranked by EP: Strength 2.00, attack power 1.00. Average of solo and dungeon weights.</p>
+    </div>
+    <button type="button" class="btn btn-small btn-quiet dlg-close" data-close>Close</button>
+  </div>
+  <div class="dlg-body" id="pick-body"></div>
+</dialog>
+
+<!-- ================= PAWN ================= -->
+<dialog id="pawn-dialog" aria-modal="true" aria-labelledby="pawn-title">
+  <div class="dlg-head">
+    <div>
+      <h2 id="pawn-title">Pawn strings</h2>
+      <p>In game: Pawn, then Scale, then Import. Paste one string per scale.</p>
+    </div>
+    <button type="button" class="btn btn-small btn-quiet dlg-close" data-close>Close</button>
+  </div>
+  <div class="dlg-body" id="pawn-body"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------------- data ---------------- */
+const SLOTS = [
+  { id: "head", label: "Head", side: "left", kind: "head" },
+  { id: "shoulder", label: "Shoulder", side: "left", kind: "shoulder" },
+  { id: "chest", label: "Chest", side: "left", kind: "chest" },
+  { id: "wrist", label: "Wrist", side: "left", kind: "wrist" },
+  { id: "hands", label: "Hands", side: "left", kind: "hands" },
+  { id: "waist", label: "Waist", side: "left", kind: "waist" },
+  { id: "legs", label: "Legs", side: "left", kind: "legs" },
+  { id: "feet", label: "Feet", side: "left", kind: "feet" },
+  { id: "neck", label: "Neck", side: "right", kind: "neck" },
+  { id: "back", label: "Back", side: "right", kind: "back" },
+  { id: "finger1", label: "Finger 1", side: "right", kind: "finger", list: "finger" },
+  { id: "finger2", label: "Finger 2", side: "right", kind: "finger", list: "finger" },
+  { id: "twohand", label: "Two-hand", side: "bottom", kind: "twohand", weapon: true },
+  { id: "totem", label: "Totem", side: "bottom", kind: "totem" },
+  { id: "trinket1", label: "Trinket 1", side: "bottom", kind: "trinket", list: "trinket" },
+  { id: "trinket2", label: "Trinket 2", side: "bottom", kind: "trinket", list: "trinket" },
+];
+
+const GLYPHS = {
+  head: "M5 15a7 7 0 0 1 14 0v4H5z M9 15h6",
+  neck: "M6 4q6 10 12 0 M12 13l3 3-3 3-3-3z",
+  shoulder: "M3 16q0-9 9-9t9 9l-4 2q-5-6-10 0z",
+  back: "M7 4h10l2 16-7-3-7 3z",
+  chest: "M6 4l3 2h6l3-2 3 4-3 3v9H6v-9L3 8z",
+  wrist: "M6 7h12v10H6z M6 12h12",
+  hands: "M8 20v-8L6 8l2-1 2 3V4h2v6V3h2v7V5h2v8l2-3 2 1-3 6v3z",
+  waist: "M3 10h18v5H3z M10 8.5h4v8h-4z",
+  legs: "M7 3h10l1 18h-4l-2-11-2 11H6z",
+  feet: "M7 4h4v10l8 2v4H6z",
+  finger: "M12 9a5 5 0 1 1 0 10a5 5 0 1 1 0-10z M10 6l2-3 2 3-2 2z",
+  trinket: "M12 3l6 6-6 12-6-12z M6 9h12",
+  twohand: "M5 21L17 5 M14 3q7 1 6 9-5-1-7-5z",
+  totem: "M9 3h6v18H9z M7 8h10 M7 14h10",
+};
+const glyph = kind => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${GLYPHS[kind]}"/></svg>`;
+
+// What he wears (from the export / report). Weapon scored in solo DPS.
+const WORN = {
+  head: { name: "Brawler's Leather Hood", ep: 7.3, q: 3 },
+  neck: { name: "Archmagister's Faceted Pendant", ep: 19.0, q: 3 },
+  shoulder: { name: "Serpent's Shoulders", ep: 4.5, q: 3 },
+  back: { name: "Unnamed cloak (279848)", ep: 10.0, q: 3 },
+  chest: { name: "Trapper's Leather Tunic", ep: 14.2, q: 3 },
+  wrist: { name: "Unnamed bracers (279875)", ep: 2.8, q: 3 },
+  hands: { name: "Toughened Leather Gloves", ep: 17.4, q: 3 },
+  waist: { name: "Trapper's Leather Belt", ep: 7.1, q: 3 },
+  legs: { name: "Trapper's Leather Legguards", ep: 16.3, q: 3 },
+  feet: { name: "Unnamed boots (251963)", ep: 4.6, q: 3 },
+  finger1: { name: "Seal of Sylvanas", ep: 4.6, q: 3 },
+  finger2: { name: "Unnamed ring (6748)", ep: 4.6, q: 3 },
+  twohand: { name: "Guardian's Dualblade", dps: 103.7, q: 3, lvl: 28, src: "Source unknown", data: "Forever data" },
+  totem: { name: "Unnamed totem (263412)", ep: null, q: 3 },
+  trinket1: { name: "Nothing equipped", ep: null, q: 0, empty: true },
+  trinket2: { name: "Nothing equipped", ep: null, q: 0, empty: true },
+};
+
+const F = "Forever data", C = "Classic data, stats and source may predate Forever";
+const it = (name, lvl, ep, src, data, q = 3) => ({ name, lvl, ep, src, data, q });
+const ALTS = {
+  head: [it("Defender's Leather Helm", 25, 24.0, "Crafted: Leatherworking, or world drop", F), it("Dokebi Hat", 30, 20.7, "Source unknown", C), it("Hyena Hide Helm", 31, 20.0, "Source unknown", F, 2), it("Enduring Cap", 28, 18.5, "Source unknown", C, 2), it("Enchanter's Cowl", 28, 18.4, "Crafted: Tailoring", C, 2)],
+  neck: [it("Choker of the Fire Lord", 1, 20.7, "Source unknown", F), it("Mark of the Marsh", 28, 17.3, "Source unknown", F), it("Kaleidoscope Chain", 30, 16.2, "Source unknown", C, 2), it("Mark of the Pack Leader", 20, 15.8, "Source unknown", F, 2)],
+  shoulder: [it("Batwing Mantle", 29, 22.3, "Drop: Blind Hunter, Razorfen Kraul", C), it("Green Silken Shoulders", 31, 21.9, "Crafted: Tailoring", C, 2), it("Bloodmage Mantle", 30, 20.7, "Drop: Bloodmage Thalnos, Scarlet Monastery", C), it("Forest Tracker Epaulets", 26, 20.0, "Source unknown", C, 2), it("Death Speaker Mantle", 27, 19.6, "Drop: Death Speaker Jargba, Razorfen Kraul", C), { ...it("Berylline Pads", 28, 11.5, "In your bags", F, 2), bag: true }],
+  back: [it("Sergeant Major's Cape", 25, 16.2, "PvP reward", C), it("Tattered Kirin Tor Cloak", 28, 16.0, "Source unknown", F), it("Dragonmaw Battle Shroud", 27, 14.0, "Source unknown", F), it("Crocolisk Skin Gaiter", 25, 13.6, "Source unknown", F, 2), it("Long Silken Cloak", 32, 12.7, "Crafted: Tailoring", C, 2)],
+  chest: [it("Robe of Power", 33, 29.9, "Crafted: Tailoring", C), it("Totemic Leather Tunic", 22, 29.8, "Crafted: Leatherworking", F, 2), it("Spirewind Fetter", 30, 27.9, "Drop: trash, Uldaman", C), it("Violet Sorcerer's Robes", 27, 27.6, "Source unknown", F), it("Garb of Florid Feathers", 26, 25.5, "Source unknown", F, 2)],
+  wrist: [it("Green Whelp Bracers", 33, 19.6, "Crafted: Leatherworking", C), it("Graveweave Bindings", 26, 17.7, "Source unknown", F), it("Glowing Magical Bracelets", 26, 15.2, "Source unknown", C, 2), it("Hawkeye's Bracers", 30, 13.4, "Source unknown", C, 2), it("Bands of Serra'kis", 22, 12.0, "Drop: Old Serra'kis, Blackfathom Deeps", C)],
+  hands: [it("Gloves of the Greatfather", 33, 39.0, "Crafted: Leatherworking", C), it("Dog Training Gloves", 31, 24.0, "Drop: Houndmaster Loksey, Scarlet Monastery", C), it("Violet Sorcerer's Wraps", 28, 23.9, "Source unknown", F), it("Glyphed Mitts", 33, 22.3, "Source unknown", C, 2), it("Insignia Gloves", 29, 19.4, "Source unknown", C, 2)],
+  waist: [it("Skirmisher's Leather Belt", 30, 30.7, "Crafted: Leatherworking", F), it("Prowler's Leather Belt", 30, 28.1, "Crafted: Leatherworking", F), it("Demolition Girdle", 24, 26.3, "Drop: Kam Deepfury, The Stockade", F), it("Defiler's Leather Girdle", 28, 24.0, "Reputation: Rutherford Twing", C)],
+  legs: [it("Ferine Leggings", 29, 39.9, "Drop: Agathelos the Raging, Razorfen Kraul", C), it("Totemic Leather Leggings", 25, 34.1, "Crafted: Leatherworking", F, 2), it("Kodohide Legguards", 24, 32.2, "Drop: Brontus, The Barrens", F, 2), it("Totemic Leather Pants", 20, 30.7, "Crafted: Leatherworking", F, 2), it("Violet Sorcerer's Leggings", 29, 28.8, "Source unknown", F)],
+  feet: [it("Shapeshifting Sentinel's Strides", 24, 23.3, "Source unknown", F), it("Fiery Slippers", 30, 23.0, "Crafted: Tailoring", F), it("Renewing Footpads", 1, 17.3, "Source unknown", F, 2), it("Totemic Leather Boots", 17, 16.9, "Crafted: Leatherworking", F, 2), it("Gilded Slippers", 30, 16.1, "Crafted: Tailoring", F, 2)],
+  finger: [it("Quick Strike Ring", 1, 23.8, "Source unknown", F), it("Mark of Kern", 31, 20.0, "Drop: trash, Scarlet Monastery", C), it("Wyvern Heart Band", 29, 19.5, "Drop: Heartrazor, Thousand Needles", F), it("Thunderbrow Ring", 24, 18.7, "Source unknown", C, 2), it("Ring of Spell Power", 1, 18.4, "Source unknown", F, 2)],
+  twohand: [
+    { name: "Corpsemaker", lvl: 29, dps: 109.7, src: "Drop: Overlord Ramtusk, Razorfen Kraul", data: C, q: 3 },
+    { name: "Ancient Cleaver", lvl: 28, dps: 108.5, src: "Source unknown", data: F, q: 3 },
+    { name: "Thermaplugg's Left Arm", lvl: 31, dps: 107.7, src: "Drop: Mekgineer Thermaplugg, Gnomeregan", data: C, q: 3 },
+    { name: "Massive Iron Axe", lvl: 32, dps: 102.7, src: "Crafted: Blacksmithing", data: C, q: 2 },
+    { name: "Burning War Axe", lvl: 28, dps: 102.3, src: "Source unknown", data: C, q: 3 },
+  ],
+  totem: [],
+  trinket: [],
+};
+
+const SETS = {
+  damage: {
+    label: "Max damage",
+    items: { head: "Defender's Leather Helm", neck: "Choker of the Fire Lord", shoulder: "Batwing Mantle", back: "Sergeant Major's Cape", chest: "Totemic Leather Tunic", wrist: "Graveweave Bindings", hands: "Gloves of the Greatfather", waist: "Skirmisher's Leather Belt", legs: "Ferine Leggings", feet: "Shapeshifting Sentinel's Strides", finger1: "Quick Strike Ring", finger2: "Mark of Kern", twohand: "Corpsemaker" },
+    solo: 118.4, dungeon: 84.1, health: 1310, armor: 1010, oom: 57, ttd: 31,
+  },
+  hybrid: {
+    label: "Damage and survival",
+    items: { head: "Hyena Hide Helm", neck: "Choker of the Fire Lord", shoulder: "Batwing Mantle", back: "Dragonmaw Battle Shroud", chest: "Totemic Leather Tunic", wrist: "Graveweave Bindings", hands: "Gloves of the Greatfather", waist: "Defiler's Leather Girdle", legs: "Kodohide Legguards", feet: "Shapeshifting Sentinel's Strides", finger1: "Quick Strike Ring", finger2: "Wyvern Heart Band", twohand: "Ancient Cleaver" },
+    solo: 111.0, dungeon: 80.2, health: 1545, armor: 1290, oom: 52, ttd: 42,
+  },
+  survival: {
+    label: "Max survival",
+    items: { head: "Enduring Cap", neck: "Mark of the Marsh", shoulder: "Death Speaker Mantle", back: "Dragonmaw Battle Shroud", chest: "Totemic Leather Tunic", wrist: "Bands of Serra'kis", hands: "Dog Training Gloves", waist: "Defiler's Leather Girdle", legs: "Kodohide Legguards", feet: "Totemic Leather Boots", finger1: "Wyvern Heart Band", finger2: "Thunderbrow Ring", twohand: "Massive Iron Axe" },
+    solo: 99.2, dungeon: 72.5, health: 1790, armor: 1620, oom: 45, ttd: 58,
+  },
+};
+const WORN_STATS = { solo: 103.7, dungeon: 75.4, health: 1375, armor: 952, oom: 48, ttd: 36 };
+const MISS = { 31: 5.5, 32: 6.0, 33: 8.0 };
+const LEVEL_FACTOR = { 31: 1.07, 32: 1.035, 33: 1 };
+const DPS_PER_EP = 0.096; // +20 Strength (40 EP) = +3.84 DPS in the report
+
+/* ---------------- state ---------------- */
+const state = {
+  cats: { damage: 100, survival: 15, healing: 0, utility: 10 },
+  view: "plan",
+  pins: {},
+  wish: [],
+  level: 33, length: 120, mode: "pve", startMana: 1660, gap: 30,
+  build: "best",
+};
+let lastShown = {};
+
+const $ = s => document.querySelector(s);
+const listFor = slot => ALTS[slot.list || slot.id] || [];
+const findItem = (slot, name) => listFor(slot).find(i => i.name === name);
+const score = i => (i.dps != null ? i.dps : i.ep);
+const unit = slot => (slot.weapon ? "DPS" : "EP");
+const fmt1 = n => (Math.round(n * 10) / 10).toFixed(1);
+const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt1(Math.abs(n));
+const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+const shortSrc = src => {
+  if (!src) return "";
+  if (src.startsWith("Drop:")) return src.split(",").pop().trim();
+  if (src.startsWith("Crafted:")) return src.replace("Crafted: ", "").split(",")[0];
+  if (src.startsWith("Reputation")) return "Reputation reward";
+  return src;
+};
+
+function setKey() {
+  const d = state.cats.damage - state.cats.survival;
+  if (d >= 50) return "damage";
+  if (d > -25) return "hybrid";
+  return "survival";
+}
+function setItem(slot) {
+  const name = SETS[setKey()].items[slot.id];
+  return (name && findItem(slot, name)) || WORN[slot.id];
+}
+function shownItem(slot) {
+  if (state.view === "worn") return WORN[slot.id];
+  return state.pins[slot.id] || setItem(slot);
+}
+
+function stats() {
+  if (state.view === "worn") return { ...WORN_STATS };
+  const s = { ...SETS[setKey()] };
+  for (const slot of SLOTS) {
+    const pin = state.pins[slot.id];
+    if (!pin) continue;
+    const base = setItem(slot);
+    if (slot.weapon) { const d = pin.dps - base.dps; s.solo += d; s.dungeon += d * 0.9; }
+    else if (pin.ep != null && base.ep != null) { const d = (pin.ep - base.ep) * DPS_PER_EP; s.solo += d; s.dungeon += d * 0.75; }
+  }
+  return s;
+}
+
+/* ---------------- slider caps (fake: the point is that they move) ---------------- */
+const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+function caps() {
+  const { damage, survival } = state.cats;
+  const damageCap = survival <= 35 ? 100 : survival <= 60 ? lerp(100, 75, (survival - 35) / 25) : lerp(75, 45, (survival - 60) / 40);
+  const survivalCap = damage >= 75 ? lerp(75, 35, (damage - 75) / 25) : damage >= 45 ? lerp(100, 75, (damage - 45) / 30) : 100;
+  return {
+    damage: Math.round(damageCap),
+    survival: Math.round(survivalCap),
+    healing: Math.round(20 + (100 - damage) * 0.5),
+    utility: Math.round(40 + (100 - damage) * 0.35),
+  };
+}
+
+const CATS = [
+  { id: "damage", label: "Damage" },
+  { id: "survival", label: "Survival" },
+  { id: "healing", label: "Healing", dim: true },
+  { id: "utility", label: "Utility", dim: true },
+];
+function buildCats() {
+  $("#cats").innerHTML = CATS.map(c => `
+    <div class="cat${c.dim ? " dim" : ""}">
+      <div class="cat-top"><label for="cat-${c.id}">${c.label}</label><output id="out-${c.id}" for="cat-${c.id}"></output></div>
+      <div class="track"><div class="cap-zone" id="cap-${c.id}"></div>
+        <input type="range" id="cat-${c.id}" min="0" max="100" step="1" value="${state.cats[c.id]}"></div>
+    </div>`).join("");
+  for (const c of CATS) {
+    $(`#cat-${c.id}`).addEventListener("input", e => onCat(c.id, +e.target.value));
+  }
+}
+function onCat(id, v) {
+  const before = setKey();
+  state.cats[id] = Math.min(v, caps()[id]);
+  const c = caps();
+  for (const k of Object.keys(state.cats)) if (k !== id && state.cats[k] > c[k]) state.cats[k] = c[k];
+  renderCats();
+  if (setKey() !== before) {
+    if (state.view !== "plan") setView("plan", true);
+    toast(`Plan switched to ${SETS[setKey()].label.toLowerCase()}`);
+  }
+  render();
+}
+function renderCats() {
+  const c = caps();
+  for (const cat of CATS) {
+    const input = $(`#cat-${cat.id}`);
+    const v = state.cats[cat.id];
+    input.value = v;
+    input.style.setProperty("--pct", v + "%");
+    const capped = c[cat.id] < 100;
+    $(`#cap-${cat.id}`).style.left = c[cat.id] + "%";
+    $(`#cap-${cat.id}`).style.display = capped ? "block" : "none";
+    $(`#out-${cat.id}`).innerHTML = `${v}${capped ? ` <small>of ${c[cat.id]} max</small>` : ""}`;
+    input.setAttribute("aria-valuetext", capped ? `${v}, can go up to ${c[cat.id]} with the other sliders where they are` : `${v}`);
+  }
+}
+
+/* ---------------- slots ---------------- */
+function slotHTML(slot) {
+  return `<button type="button" class="slot" id="slot-${slot.id}" data-slot="${slot.id}" aria-haspopup="dialog">
+    <span class="slot-icon">${glyph(slot.kind)}</span>
+    <span class="slot-body"><span class="slot-label">${slot.label}</span><span class="slot-name"></span><span class="slot-meta"></span></span>
+    <span class="notch" aria-hidden="true"></span>
+  </button>`;
+}
+function buildSlots() {
+  const left = SLOTS.filter(s => s.side === "left").map(slotHTML).join("");
+  const right = SLOTS.filter(s => s.side === "right").map(slotHTML).join("");
+  const bottom = SLOTS.filter(s => s.side === "bottom").map(slotHTML).join("");
+  $("#col-left").innerHTML = left;
+  $("#col-right").insertAdjacentHTML("afterbegin", right);
+  $("#bottom-row").innerHTML = bottom;
+  document.querySelectorAll(".slot").forEach(b => b.addEventListener("click", () => openPicker(b.dataset.slot, b)));
+}
+function bestAlt(slot) {
+  const list = listFor(slot);
+  return list.length ? list.reduce((a, b) => (score(b) > score(a) ? b : a)) : null;
+}
+function renderSlots() {
+  for (const slot of SLOTS) {
+    const el = $(`#slot-${slot.id}`);
+    const item = shownItem(slot);
+    const worn = WORN[slot.id];
+    let notch = "", meta = "", cls = "", aria = "";
+    if (state.view === "plan") {
+      const pinned = !!state.pins[slot.id];
+      if (item.name !== worn.name && score(item) != null && score(worn) != null) {
+        const d = score(item) - score(worn);
+        notch = `${signed(d)}${slot.weapon ? "<small>DPS</small>" : ""}`;
+        cls = d > 0 ? "has-up" : "has-down";
+        meta = (pinned ? `<span class="pin">Pinned.</span> ` : "") + (item.bag ? "From your bags" : shortSrc(item.src));
+        if (item.lvl > 30) meta += ` <span class="warn">needs level ${item.lvl}</span>`;
+        aria = `${d > 0 ? "Upgrade" : "Change"} of ${signed(d)} ${unit(slot)} over what you wear.`;
+      } else {
+        meta = item.empty ? "No trinkets in the sim data yet" : "Already worn";
+      }
+    } else {
+      const best = bestAlt(slot);
+      if (best && score(worn) != null && score(best) > score(worn)) {
+        const d = score(best) - score(worn);
+        notch = `${signed(d)}${slot.weapon ? "<small>DPS</small>" : ""}`;
+        cls = "has-up";
+        meta = `Best: ${best.name}`;
+        aria = `Sim suggests ${best.name}, ${signed(d)} ${unit(slot)}.`;
+      } else {
+        meta = item.empty ? "No trinkets in the sim data yet" : "Worn";
+      }
+    }
+    el.classList.remove("has-up", "has-down", "q0", "q2", "q3", "q4");
+    if (cls) el.classList.add(cls);
+    el.classList.add("q" + item.q);
+    el.querySelector(".slot-name").textContent = item.name;
+    el.querySelector(".slot-meta").innerHTML = meta;
+    el.querySelector(".notch").innerHTML = notch;
+    el.setAttribute("aria-label", `${slot.label}: ${item.name}. ${aria} Open item choices.`);
+    if (lastShown[slot.id] && lastShown[slot.id] !== item.name) {
+      el.classList.remove("swapped"); void el.offsetWidth; el.classList.add("swapped");
+    }
+    lastShown[slot.id] = item.name;
+  }
+  const shoulderOnBags = shownItem(SLOTS[1]).bag;
+  $("#bags-hint").hidden = !!shoulderOnBags;
+}
+
+/* ---------------- fight model (mockup) ---------------- */
+function fightModel() {
+  const s = stats();
+  const effMana = Math.min(state.startMana, 1660 - Math.max(0, 30 - state.gap) * 25);
+  const oom = Math.max(6, s.oom + (effMana - 1660) / 40);
+  // calibrate peak DPS so 2 min vs 33 at default settings matches the set's headline
+  const peak = (s.dungeon * 120) / (Math.min(s.oom, 120) + 0.58 * Math.max(0, 120 - s.oom));
+  const lf = LEVEL_FACTOR[state.level];
+  const L = state.length;
+  const pts = [];
+  const wobble = i => Math.sin(i * 1.7) * 4 + Math.sin(i * 0.63 + 1) * 3;
+  let sum = 0;
+  for (let t = 0; t <= L; t += 5) {
+    const i = t / 5;
+    const dry = t > oom;
+    const dps = (dry ? peak * 0.58 + Math.sin(i * 2.1) * 3 : peak + wobble(i)) * lf;
+    const mana = dry ? 20 + ((i * 37) % 45) : effMana * (1 - t / oom);
+    pts.push({ t, dps, mana: Math.max(0, mana) });
+  }
+  // average over the fight using the same piecewise model
+  const avg = ((Math.min(oom, L) * peak + Math.max(0, L - oom) * peak * 0.58) / L) * lf;
+  return { pts, oom, avg, effMana, s };
+}
+
+function renderChart(m) {
+  const W = 368, H = 156, pl = 30, pr = 34, pt = 16, pb = 22;
+  const iw = W - pl - pr, ih = H - pt - pb;
+  const L = state.length;
+  const x = t => pl + (t / L) * iw;
+  const yD = v => pt + ih - (v / 140) * ih;
+  const yM = v => pt + ih - (v / 1660) * ih;
+  const dPath = m.pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${yD(p.dps).toFixed(1)}`).join("");
+  const mArea = `M${x(0)},${yM(0)}` + m.pts.map(p => `L${x(p.t).toFixed(1)},${yM(p.mana).toFixed(1)}`).join("") + `L${x(L)},${yM(0)}Z`;
+  const ticks = [];
+  const step = L <= 30 ? 10 : L <= 60 ? 15 : 30;
+  for (let t = 0; t <= L; t += step) ticks.push(`<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${fmtTime(t)}</text>`);
+  let oomMark = "";
+  if (m.oom < L) {
+    const ox = x(m.oom);
+    const anchor = ox > W - 110 ? "end" : "start";
+    const tx = anchor === "end" ? ox - 6 : ox + 6;
+    oomMark = `<line x1="${ox}" x2="${ox}" y1="${pt - 6}" y2="${pt + ih}" stroke="#8cc8e8" stroke-dasharray="3 3"/>
+      <circle cx="${ox}" cy="${yM(0)}" r="3.5" fill="#8cc8e8"/>
+      <text x="${tx}" y="${pt + 2}" text-anchor="${anchor}" fill="#cfe8f4" font-weight="600" font-size="12">Out of mana at ${fmtTime(m.oom)}</text>`;
+  } else {
+    oomMark = `<text x="${W - pr}" y="${pt + 2}" text-anchor="end" fill="#cfe8f4" font-size="12">Mana lasts the whole fight</text>`;
+  }
+  $("#chart").innerHTML = `<desc id="chart-desc">DPS and mana across a ${fmtTime(L)} fight. ${m.oom < L ? "Runs out of mana at " + fmtTime(m.oom) : "Mana lasts"}. Mockup data.</desc>
+    <g font-family="Barlow Semi Condensed, Arial Narrow, sans-serif" font-size="11" fill="#8d949a">
+      ${[0, 50, 100].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${yD(v)}" y2="${yD(v)}" stroke="rgba(255,255,255,.07)"/><text x="${pl - 5}" y="${yD(v) + 4}" text-anchor="end">${v}</text>`).join("")}
+      <text x="${W - pr + 5}" y="${yM(1660) + 4}">1660</text><text x="${W - pr + 5}" y="${yM(0) + 4}">0</text>
+      ${ticks.join("")}
+    </g>
+    <path d="${mArea}" fill="#8cc8e8" fill-opacity=".22" stroke="#8cc8e8" stroke-opacity=".7" stroke-width="1.2"/>
+    <path d="${dPath}" fill="none" stroke="#ece5d6" stroke-width="2" stroke-linejoin="round"/>
+    ${oomMark}`;
+}
+
+const SPLIT = [["Melee", 33, "#ece5d6"], ["Windfury", 17, "#8cc8e8"], ["Flame Shock", 15, "#ff8a3d"], ["Stormstrike", 15, "#5f9fc4"], ["Earth Shock", 11, "#a58a6c"], ["Lightning Shield", 9, "#6f7f8b"]];
+function buildSplit() {
+  $("#split-bar").innerHTML = SPLIT.map(([n, p, c]) => `<span style="flex:${p};background:${c}" title="${n} ${p}%"></span>`).join("");
+  $("#split-legend").innerHTML = SPLIT.map(([n, p, c]) => `<span><i style="background:${c}"></i>${n} ${p}%</span>`).join("");
+}
+
+function renderStats() {
+  const m = fightModel();
+  const s = m.s;
+  const lenWord = { 30: "30 s", 60: "1 min", 120: "2 min", 180: "3 min" }[state.length];
+  $("#fight-dps").textContent = fmt1(m.avg);
+  $("#fight-label").textContent = `DPS, dungeon ${lenWord} vs level ${state.level}`;
+  // compare with what you wear under the same settings
+  const keepView = state.view;
+  state.view = "worn"; const w = fightModel(); state.view = keepView;
+  const d = m.avg - w.avg;
+  const fd = $("#fight-delta");
+  if (state.view === "worn") { fd.textContent = "What you wear now"; fd.className = ""; fd.style.color = "var(--bone-dim)"; }
+  else { fd.style.color = ""; fd.textContent = `${signed(d)} vs what you wear`; fd.className = d >= 0 ? "delta-up" : "delta-down"; }
+  $("#st-solo").textContent = fmt1(s.solo);
+  $("#st-health").textContent = Math.round(s.health);
+  $("#st-armor").textContent = Math.round(s.armor);
+  $("#st-oom").textContent = m.oom < state.length ? fmtTime(m.oom) : "never";
+  $("#st-ttd").textContent = `${s.ttd} s`;
+  $("#st-miss").textContent = `${MISS[state.level].toFixed(1)}%`;
+  renderChart(m);
+}
+
+function render() {
+  const key = setKey();
+  $("#set-label").innerHTML = state.view === "plan"
+    ? `Showing the <span class="set-name">${SETS[key].label.toLowerCase()}</span> plan`
+    : `Showing what you wear, with the sim's best pick per slot`;
+  renderSlots();
+  renderStats();
+}
+
+function setView(v, silent) {
+  state.view = v;
+  $("#view-plan").setAttribute("aria-pressed", v === "plan");
+  $("#view-worn").setAttribute("aria-pressed", v === "worn");
+  if (!silent) render();
+}
+
+/* ---------------- dialogs ---------------- */
+let opener = null;
+function openDialog(dlg, from) {
+  opener = from || document.activeElement;
+  dlg.showModal();
+  const first = dlg.querySelector("[data-autofocus]") || dlg.querySelector("button, [href], input, select");
+  if (first) first.focus();
+}
+document.querySelectorAll("dialog").forEach(dlg => {
+  dlg.addEventListener("close", () => { if (opener && document.contains(opener)) opener.focus(); opener = null; });
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+  dlg.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => dlg.close()));
+  // keep Tab inside the dialog
+  dlg.addEventListener("keydown", e => {
+    if (e.key !== "Tab") return;
+    const f = [...dlg.querySelectorAll("button:not([disabled]), [href], input, select")].filter(n => n.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+});
+
+/* talents */
+const TREE = [
+  [["Ancestral Knowledge", 5, 2], ["Shield Specialization", 5, 3]],
+  [["Guardian Totems", 2, 1], ["Thundering Strikes", 5, 2], ["Improved Ghost Wolf", 2, 3], ["Improved Lightning Shield", 3, 4]],
+  [["Enhancing Totems", 2, 1], ["Two-Handed Axes and Maces", 1, 2], ["Anticipation", 3, 3]],
+  [["Flurry", 5, 2], ["Toughness", 5, 3], ["Mental Dexterity", 3, 4]],
+  [["Improved Weapon Totems", 2, 1], ["Elemental Weapons", 3, 2], ["Shamanistic Focus", 1, 3]],
+  [["Weapon Mastery", 5, 2], ["Improved Stormstrike", 2, 3]],
+  [["Stormstrike", 1, 2]],
+];
+const YOURS = { "Ancestral Knowledge": 5, "Mental Dexterity": 3, "Elemental Weapons": 3, "Shamanistic Focus": 1, "Stormstrike": 1, "Flurry": 4, "Thundering Strikes": 2, "Anticipation": 1, "Improved Stormstrike": 1 };
+const BEST = { ...YOURS, Anticipation: 0, Flurry: 5 };
+const initials = n => n.split(/[\s-]+/).filter(w => !/^(and|of)$/i.test(w)).map(w => w[0]).join("").slice(0, 3);
+function renderTree() {
+  const build = state.build === "best" ? BEST : YOURS;
+  $("#tree").innerHTML = TREE.map((row, r) => row.map(([name, max, col]) => {
+    const pts = build[name] || 0;
+    const diff = state.build === "best" && (BEST[name] || 0) !== (YOURS[name] || 0);
+    const cls = ["tal", pts ? "on" : "", pts === max ? "max" : "", diff ? "diff" : ""].join(" ");
+    return `<div class="${cls}" style="grid-row:${r + 1};grid-column:${col}">
+      <div class="tal-stone" aria-hidden="true">${initials(name)}<span class="tal-rank">${pts}/${max}</span></div>
+      <span>${name}<span class="sr-only">: ${pts} of ${max}${diff ? ", changed from your build" : ""}</span></span></div>`;
+  }).join("")).join("");
+  $("#tal-best").setAttribute("aria-pressed", state.build === "best");
+  $("#tal-yours").setAttribute("aria-pressed", state.build === "yours");
+  $("#tal-note").innerHTML = state.build === "best"
+    ? `Moves 1 point from Anticipation into Flurry 5/5: +1.6 DPS solo <span class="prov">provisional</span>`
+    : `Your build as exported. The sim's pick is 1.6 DPS higher solo.`;
+  $("#tal-note").className = state.build === "best" ? "diff-note" : "";
+  $("#tal-string").innerHTML = state.build === "yours" ? `Talent string <code>-0250303110410001</code>` : `21 points, string made on export`;
+  $("#talent-summary").textContent = (state.build === "best" ? "Best simmed" : "Your build") + ", 21 points";
+}
+$("#tal-best").addEventListener("click", () => { state.build = "best"; renderTree(); });
+$("#tal-yours").addEventListener("click", () => { state.build = "yours"; renderTree(); });
+$("#talent-toggle").addEventListener("click", e => {
+  renderTree();
+  const dlg = $("#talent-dialog");
+  openDialog(dlg, e.currentTarget);
+  // sit over the character, not the middle of the window
+  const stage = $(".stage").getBoundingClientRect();
+  if (window.innerWidth > 1180) {
+    dlg.style.margin = "0";
+    dlg.style.left = Math.max(12, stage.left + (stage.width - dlg.offsetWidth) / 2) + "px";
+    dlg.style.top = Math.max(12, Math.min(stage.top + 52, window.innerHeight - dlg.offsetHeight - 12)) + "px";
+  } else { dlg.style.margin = ""; dlg.style.left = ""; dlg.style.top = ""; }
+});
+
+/* picker */
+let pickSlot = null;
+function openPicker(slotId, from) {
+  pickSlot = SLOTS.find(s => s.id === slotId);
+  renderPicker();
+  openDialog($("#picker-dialog"), from);
+}
+function renderPicker() {
+  const slot = pickSlot;
+  const cur = shownItem(slot);
+  const worn = WORN[slot.id];
+  const u = unit(slot);
+  $("#pick-title").textContent = slot.label;
+  $("#pick-sub").textContent = slot.weapon
+    ? "Ranked by simmed DPS, solo 30 s vs level 31. Simmed at your axe skill 148/150."
+    : "Ranked by EP (attack power = 1), average of solo and dungeon weights.";
+  const list = listFor(slot).filter(i => i.name !== worn.name);
+  const all = [...list].sort((a, b) => score(b) - score(a));
+  const row = (i, isWorn) => {
+    const d = score(i) != null && score(worn) != null ? score(i) - score(worn) : null;
+    const onWish = state.wish.some(w => w.name === i.name);
+    const isCur = i.name === cur.name;
+    const src = i.bag ? `<span class="bag">In your bags</span>` : (isWorn ? "Worn now" : i.src);
+    return `<li class="alt q${i.q}${isCur ? " is-current" : ""}">
+      <span class="slot-icon">${glyph(slot.kind)}</span>
+      <div><div class="alt-name">${i.name}</div>
+        <div class="alt-src">${src}${i.lvl ? `, level ${i.lvl}` : ""}${i.lvl > 30 ? ` <span class="warn">(you're 30)</span>` : ""}</div>
+        ${i.data ? `<div class="alt-data">${i.data}</div>` : ""}</div>
+      <div class="alt-score"><b>${fmt1(score(i))} ${u}</b>${d != null && !isWorn ? `<span class="${d > 0 ? "delta-up" : "delta-down"}">${signed(d)} vs worn</span>` : ""}</div>
+      <div class="alt-actions">
+        ${isCur ? `<span class="hint">In the slot</span>` : `<button type="button" class="btn btn-small" data-equip="${i.name}">Equip</button>`}
+        ${isWorn ? "" : `<button type="button" class="btn btn-small btn-quiet" data-wish="${i.name}" aria-pressed="${onWish}">${onWish ? "On wishlist" : "Add to wishlist"}</button>`}
+      </div></li>`;
+  };
+  let html = "";
+  if (worn.empty) {
+    html += `<div class="empty">Nothing equipped here. There are no trinkets in the sim data yet, so there's nothing to rank.</div>`;
+  } else {
+    html += `<h3>What you wear</h3><div class="current-row"><ul class="alt-list" style="margin:0">${row(worn, true)}</ul></div>`;
+    html += all.length ? `<h3>Choices the sim ranked</h3><ul class="alt-list">${all.map(i => row(i, false)).join("")}</ul>`
+      : `<div class="empty">No other ${slot.label.toLowerCase()}s in the sim data yet.</div>`;
+  }
+  html += `<p class="hint" style="margin-top:12px">Scores are provisional. Sources marked as Classic data may predate Forever.</p>`;
+  $("#pick-body").innerHTML = html;
+  $("#pick-body").querySelectorAll("[data-equip]").forEach(b => b.addEventListener("click", () => equip(slot, b.dataset.equip)));
+  $("#pick-body").querySelectorAll("[data-wish]").forEach(b => b.addEventListener("click", () => toggleWish(slot, b.dataset.wish)));
+}
+function equip(slot, name) {
+  const before = stats().solo;
+  const item = name === WORN[slot.id].name ? WORN[slot.id] : findItem(slot, name);
+  if (setItem(slot).name === item.name) delete state.pins[slot.id];
+  else state.pins[slot.id] = item;
+  setView("plan", true);
+  $("#picker-dialog").close();
+  render();
+  const d = stats().solo - before;
+  toast(`Equipped ${item.name}. Solo DPS ${signed(d)}.`);
+}
+function toggleWish(slot, name) {
+  const i = state.wish.findIndex(w => w.name === name);
+  if (i >= 0) state.wish.splice(i, 1);
+  else { const item = findItem(slot, name); state.wish.push({ name, slot: slot.label, src: item.bag ? "In your bags" : shortSrc(item.src) }); }
+  renderWish();
+  const focusName = name;
+  renderPicker();
+  const b = [...$("#pick-body").querySelectorAll("[data-wish]")].find(x => x.dataset.wish === focusName);
+  if (b) b.focus();
+}
+function renderWish() {
+  $("#wish-count").textContent = state.wish.length;
+  $("#wish-empty").hidden = state.wish.length > 0;
+  $("#wish-list").innerHTML = state.wish.map((w, i) => `<li><div>${w.name}<br><span>${w.slot}, ${w.src}</span></div>
+    <button type="button" class="btn btn-small btn-quiet" data-unwish="${i}" aria-label="Remove ${w.name} from wishlist">Remove</button></li>`).join("");
+  $("#wish-list").querySelectorAll("[data-unwish]").forEach(b => b.addEventListener("click", () => { state.wish.splice(+b.dataset.unwish, 1); renderWish(); $("#wish-toggle").focus(); }));
+}
+$("#wish-toggle").addEventListener("click", e => {
+  const open = e.currentTarget.getAttribute("aria-expanded") === "true";
+  e.currentTarget.setAttribute("aria-expanded", !open);
+  $("#wish-panel").hidden = open;
+});
+
+/* pawn */
+const PAWN = [
+  ["Solo", '( Pawn: v1: "Enh solo L30 (provisional)": Strength=2.00, Agility=0.94, Intellect=1.15, Ap=1.00, HitRating=1.39, CritRating=0.80, SpellDamage=1.41, MeleeDps=14.19 )'],
+  ["Dungeon", '( Pawn: v1: "Enh dungeon L30 (provisional)": Strength=2.00, Agility=0.88, Intellect=1.16, Ap=1.00, HitRating=1.31, CritRating=0.85, SpellDamage=0.89, MeleeDps=14.18 )'],
+];
+$("#pawn-body").innerHTML = PAWN.map(([n, s], i) => `<div class="pawn"><h3>${n} scale <span class="prov">provisional</span></h3>
+  <pre id="pawn-${i}">${s.replace(/</g, "&lt;")}</pre>
+  <button type="button" class="btn btn-small" data-copy="${i}">Copy ${n.toLowerCase()} string</button><span class="copied" id="copied-${i}" role="status"></span></div>`).join("")
+  + `<p class="hint" style="margin-top:14px">In 2-minute dungeon fights Intellect is worth 4.04 and mana per 5 seconds 3.89, because you run dry. A long-fight scale comes later.</p>`;
+$("#pawn-body").querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+  const i = b.dataset.copy;
+  const out = $(`#copied-${i}`);
+  try { await navigator.clipboard.writeText(PAWN[i][1]); out.textContent = "Copied"; }
+  catch { out.textContent = "Copy blocked: select the text and copy it"; }
+  setTimeout(() => { out.textContent = ""; }, 2400);
+}));
+$("#pawn-open").addEventListener("click", e => openDialog($("#pawn-dialog"), e.currentTarget));
+
+/* ---------------- misc controls ---------------- */
+$("#view-plan").addEventListener("click", () => setView("plan"));
+$("#view-worn").addEventListener("click", () => setView("worn"));
+$("#bags-equip").addEventListener("click", () => equip(SLOTS[1], "Berylline Pads"));
+document.querySelectorAll('input[name="lvl"]').forEach(r => r.addEventListener("change", () => { state.level = +r.value; renderStats(); }));
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => {
+  state.mode = r.value;
+  $("#pvp-note").textContent = r.value === "pvp" ? "PvP isn't simmed yet. Showing PvE numbers." : "PvE numbers.";
+}));
+$("#fight-length").addEventListener("change", e => { state.length = +e.target.value; renderStats(); });
+$("#start-mana").addEventListener("input", e => { state.startMana = +e.target.value; $("#start-mana-out").textContent = state.startMana; renderStats(); });
+$("#pull-gap").addEventListener("input", e => { state.gap = +e.target.value; $("#pull-gap-out").textContent = state.gap + " s"; renderStats(); });
+
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------------- boot ---------------- */
+buildSlots();
+buildCats();
+buildSplit();
+renderCats();
+renderWish();
+render();
+})();
+</script>
+</body>
+</html>
