@@ -168,13 +168,26 @@ const result = z.strictObject({
     ),
 })
 
+/*
+ * Talent limits. Forever's real trees (WoWSims' talent data, nine class
+ * files) have at most 7 tiers, 4 columns and a max rank of 5. These bounds
+ * leave room above that (tier 1 to 9, column 1 to 6, max rank 1 to 10) and
+ * keep the talents grid, which is tiers by columns, small. A rank runs from 0
+ * to its max_rank, which the cross-field rules check.
+ */
+const MAX_TIER = 9
+const MAX_COLUMN = 6
+const MAX_RANK = 10
+
 const talent = z.strictObject({
     talent_id: z.int(),
     name: z.string(),
-    tier: z.int(),
-    column: z.int(),
-    rank: z.int(),
-    max_rank: z.int(),
+    tier: z.int().min(1).max(MAX_TIER),
+    column: z.int().min(1).max(MAX_COLUMN),
+    rank: z.int().min(0).max(MAX_RANK).meta({
+        description: '0 to max_rank.',
+    }),
+    max_rank: z.int().min(1).max(MAX_RANK),
 })
 
 const baseSchema = z.strictObject({
@@ -284,7 +297,10 @@ const baseSchema = z.strictObject({
         best: z
             .strictObject({
                 ranks: z.array(
-                    z.strictObject({ talent_id: z.int(), rank: z.int() })
+                    z.strictObject({
+                        talent_id: z.int(),
+                        rank: z.int().min(0).max(MAX_RANK),
+                    })
                 ),
                 dps_gain: z.number(),
                 fight_id: z.string(),
@@ -379,6 +395,24 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
             problem(['stat_weights', i, 'fight_id'], NO_FIGHT)
     })
 
+    const cells = new Set<string>()
+    let sharedCell = false
+    file.talents.yours.forEach((t, i) => {
+        if (t.rank > t.max_rank)
+            problem(
+                ['talents', 'yours', i, 'rank'],
+                "A talent's rank can't be above its max_rank."
+            )
+        const cell = `${t.tier}:${t.column}`
+        if (cells.has(cell)) sharedCell = true
+        cells.add(cell)
+    })
+    if (sharedCell)
+        problem(
+            ['talents', 'yours'],
+            "Two talents can't share a tier and column."
+        )
+
     const best = file.talents.best
     if (best !== null) {
         if (!fights.has(best.fight_id))
@@ -410,6 +444,8 @@ const FILE_DESCRIPTION = [
     '- Each plan_id is unique.',
     '- No two results share a gear and fight.',
     '- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.',
+    "- A talent's rank is at most its max_rank.",
+    '- No two talents in talents.yours share a tier and column.',
     '- A chain fight has a setup.',
     "- timeline is null on a chain fight's results.",
     "- pulls is null on a single fight's results.",

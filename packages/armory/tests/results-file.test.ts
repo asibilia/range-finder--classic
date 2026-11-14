@@ -381,3 +381,72 @@ describe('the JSON Schema', () => {
         { timeout: 60_000 }
     )
 })
+
+describe('talent bounds', () => {
+    /** The problems for a sample whose first talent is changed by `change`. */
+    function talentProblems(change: (talent: any) => void): string[] {
+        const f = sample()
+        change(f.talents.yours[0])
+        return problemsOf(f)
+    }
+
+    test('a tier of 5000000000 is refused on that talent', () => {
+        const problems = talentProblems((t) => {
+            t.tier = 5000000000
+        })
+        expect(
+            problems.some((p) => p.startsWith('talents.yours.0.tier: '))
+        ).toBe(true)
+    })
+
+    test('a tier of 0 is refused', () => {
+        const problems = talentProblems((t) => {
+            t.tier = 0
+        })
+        expect(
+            problems.some((p) => p.startsWith('talents.yours.0.tier: '))
+        ).toBe(true)
+    })
+
+    test('a column of 7 is refused', () => {
+        const problems = talentProblems((t) => {
+            t.column = 7
+        })
+        expect(
+            problems.some((p) => p.startsWith('talents.yours.0.column: '))
+        ).toBe(true)
+    })
+
+    test('tier 9, column 6 and max rank 10 at rank 10 parse', () => {
+        const f = sample()
+        Object.assign(f.talents.yours[0], {
+            tier: 9,
+            column: 6,
+            max_rank: 10,
+            rank: 10,
+        })
+        expect((readResultsFile(f) as any).problems).toBeUndefined()
+    })
+
+    test('a max rank of 11, or a rank above max rank, is refused', () => {
+        expect(
+            talentProblems((t) => {
+                t.max_rank = 11
+            }).some((p) => p.startsWith('talents.yours.0.max_rank: '))
+        ).toBe(true)
+        expect(
+            talentProblems((t) => {
+                t.rank = t.max_rank + 1
+            }).some((p) => p.startsWith('talents.yours.0.rank: '))
+        ).toBe(true)
+    })
+
+    test('two talents on the same tier and column are refused on talents.yours', () => {
+        const f = sample()
+        f.talents.yours[1].tier = f.talents.yours[0].tier
+        f.talents.yours[1].column = f.talents.yours[0].column
+        expect(problemsOf(f)).toContain(
+            "talents.yours: Two talents can't share a tier and column."
+        )
+    })
+})
