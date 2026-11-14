@@ -146,6 +146,38 @@ describe('gains on the slots', () => {
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
 
+    test('a Back first alternative with no gain_ep and no gain_dps shows no gain, here or in the picker', async () => {
+        const user = await openFile(
+            variant((file) => {
+                const slots = file.slots as {
+                    slot: string
+                    alternatives: {
+                        gain_ep: number | null
+                        gain_dps: number | null
+                    }[]
+                }[]
+                const first = slots.find((entry) => entry.slot === 'back')
+                    ?.alternatives[0]
+                if (!first)
+                    throw new Error('the sample back has no alternative')
+                first.gain_ep = null
+                first.gain_dps = null
+            })
+        )
+        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        expect(within(slot).queryByText(/(EP|DPS)$/)).toBeNull()
+        expect(within(slot).queryByText(/^Best: /)).toBeNull()
+
+        const dialog = await openPicker(user, 'Back: Item 279848', 'Back')
+        const row = rowFor(dialog, "Sergeant Major's Cape")
+        expect(within(row).queryByText(/(EP|DPS)$/)).toBeNull()
+        expect(
+            within(rowFor(dialog, 'Tattered Kirin Tor Cloak')).getByText(
+                '+6.0 EP'
+            )
+        ).toBeDefined()
+    })
+
     test('the bag upgrade shows under the left column', async () => {
         await openSample()
         const note = screen.getByText(

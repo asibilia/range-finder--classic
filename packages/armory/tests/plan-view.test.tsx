@@ -104,6 +104,48 @@ describe('the plan view', () => {
         expect(screen.queryByText('What to gear for')).toBeNull()
         expect(screen.queryAllByRole('slider')).toHaveLength(0)
     })
+    test('the item picker opened from the plan view shows what it shows from the worn view', async () => {
+        const user = await openSample()
+        await user.click(slot('Legs'))
+        const fromWorn = screen.getByRole('dialog', { name: 'Legs' })
+        const wornText = fromWorn.textContent
+        await user.click(
+            within(fromWorn).getByRole('button', { name: 'Close' })
+        )
+
+        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await user.click(slot('Legs'))
+        const fromPlan = screen.getByRole('dialog', { name: 'Legs' })
+
+        expect(wornText).toContain('Ferine Leggings')
+        expect(fromPlan.textContent).toBe(wornText)
+    })
+
+    test('a plan item in a slot with nothing worn reads Replaces nothing', async () => {
+        const withTrinket = variant((file) => {
+            const slots = file.slots as {
+                slot: string
+                alternatives: unknown[]
+            }[]
+            const trinket = slots.find((entry) => entry.slot === 'trinket_1')
+            const ring = slots.find((entry) => entry.slot === 'finger_1')
+                ?.alternatives[0] as { item: Record<string, unknown> }
+            if (!trinket || !ring) throw new Error('the sample changed')
+            trinket.alternatives.push({
+                item: { ...ring.item, item_id: 999001, name: 'Test Trinket' },
+                gain_ep: 5,
+                gain_dps: null,
+            })
+            const plans = file.plans as { gear: Record<string, unknown> }[]
+            for (const plan of plans) plan.gear.trinket_1 = 999001
+        })
+        const user = await openFile(withTrinket)
+        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+
+        const trinket = slot('Trinket 1')
+        expect(within(trinket).getByText('Test Trinket')).toBeDefined()
+        expect(within(trinket).getByText('Replaces nothing')).toBeDefined()
+    })
 })
 
 describe('the role sliders', () => {
@@ -181,6 +223,22 @@ describe('the role sliders', () => {
             expect(input.getAttribute('min')).toBe('0')
             expect(input.getAttribute('max')).toBe('100')
             expect(input.getAttribute('step')).toBe('1')
+        }
+    })
+
+    test('arrow keys are left to the browser: each slider is a native range in steps of 1 that takes a change', async () => {
+        // happy-dom doesn't step a range input on an arrow key, so this
+        // checks what the browser needs to: a native range, step 1, and a
+        // handled change event, which is what an arrow key fires.
+        await openSample()
+
+        for (const role of ['Damage', 'Survival']) {
+            const input = slider(role)
+            expect(input.type).toBe('range')
+            expect(input.step).toBe('1')
+            const next = Number(input.value) === 100 ? 99 : 1
+            setSlider(role, next)
+            expect(slider(role).value).toBe(String(next))
         }
     })
 
