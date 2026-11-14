@@ -2,7 +2,9 @@
  * The armory planner joins the repo: its words in AGENTS.md and CONTEXT.md,
  * its package and catalog dependencies, the root scripts that build,
  * type-check, lint and test it, and its commit scope. These read the repo's
- * own files as the contract, and run the scripts where a file can't say it.
+ * own files as the contract. The type-check, lint and test runs themselves
+ * are left to `bun run check:all`; only the build, which nothing else runs,
+ * is run here.
  */
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
@@ -204,18 +206,6 @@ describe('the root scripts', () => {
     })
 
     test(
-        'type-check:armory passes',
-        () => {
-            const result = run(['run', 'type-check:armory'])
-            expect({
-                exitCode: result.exitCode,
-                output: result.stdout.toString() + result.stderr.toString(),
-            }).toMatchObject({ exitCode: 0 })
-        },
-        { timeout: 120_000 }
-    )
-
-    test(
         'build:armory writes packages/armory/dist/index.html, which git ignores',
         () => {
             const result = run(['run', 'build:armory'])
@@ -240,39 +230,15 @@ describe('the root scripts', () => {
 })
 
 describe('ESLint', () => {
-    test(
-        'lints the package .tsx files',
-        async () => {
-            const eslint = new ESLint({ cwd: REPO_ROOT })
-            const file = join(REPO_ROOT, 'packages/armory/src/app.tsx')
-            expect(await eslint.isPathIgnored(file)).toBe(false)
-            const [result] = await eslint.lintFiles([file])
-            expect(result?.filePath).toBe(file)
-            expect(result?.errorCount).toBe(0)
-            expect(result?.fatalErrorCount).toBe(0)
-        },
-        { timeout: 60_000 }
-    )
-})
-
-describe('the root test run', () => {
-    test(
-        "runs the armory tests and then the addon's tests in one bun test --isolate, all passing",
-        () => {
-            const result = run([
-                'test',
-                '--isolate',
-                './packages/armory/tests/app.test.tsx',
-                './packages/armory/tests/dom-teardown.test.tsx',
-                './packages/addon/tests/turbo-core.test.ts',
-            ])
-            const output = result.stderr.toString()
-            expect({ exitCode: result.exitCode, output }).toMatchObject({
-                exitCode: 0,
-            })
-            expect(output).toMatch(/across 3 files/)
-            expect(output).toMatch(/\b0 fail\b/)
-        },
-        { timeout: 180_000 }
-    )
+    // `bun run lint` lints the files; this checks the .tsx files are among
+    // them, which a passing lint run alone wouldn't show.
+    test('takes the package .tsx files, with the Prettier rule on', async () => {
+        const eslint = new ESLint({ cwd: REPO_ROOT })
+        const file = join(REPO_ROOT, 'packages/armory/src/app.tsx')
+        expect(await eslint.isPathIgnored(file)).toBe(false)
+        const config = (await eslint.calculateConfigForFile(file)) as {
+            rules?: Record<string, unknown>
+        }
+        expect(config.rules?.['prettier/prettier']).toBeDefined()
+    })
 })

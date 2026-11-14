@@ -6,7 +6,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, test } from 'bun:test'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // Loaded by a computed path, so the package type-checks before the module exists.
@@ -351,7 +352,7 @@ describe('the cross-field rules', () => {
 
 describe('the JSON Schema', () => {
     test(
-        'bun run armory:schema rewrites results-file.schema.json, and the committed text matches a fresh one',
+        'bun run armory:schema writes the JSON Schema, and the committed text matches a fresh one',
         () => {
             const committed = readFileSync(SCHEMA_PATH, 'utf8')
             // The file is two-space JSON with a final newline.
@@ -360,23 +361,24 @@ describe('the JSON Schema', () => {
             )
             expect(committed).toContain('"schema_version"')
 
-            // Spoil the file, regenerate it, and compare with what was committed.
-            writeFileSync(SCHEMA_PATH, '{}\n')
-            let fresh = ''
+            // Generate a fresh copy in a temp folder; the committed file is
+            // only read, never written.
+            const dir = mkdtempSync(join(tmpdir(), 'armory-schema-'))
+            const out = join(dir, 'results-file.schema.json')
             try {
                 const result = Bun.spawnSync(
-                    [process.execPath, 'run', 'armory:schema'],
+                    [process.execPath, 'run', 'armory:schema', out],
                     { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' }
                 )
                 expect({
                     exitCode: result.exitCode,
                     output: result.stdout.toString() + result.stderr.toString(),
                 }).toMatchObject({ exitCode: 0 })
-                fresh = readFileSync(SCHEMA_PATH, 'utf8')
+                expect(readFileSync(out, 'utf8')).toBe(committed)
             } finally {
-                writeFileSync(SCHEMA_PATH, committed)
+                rmSync(dir, { recursive: true, force: true })
             }
-            expect(fresh).toBe(committed)
+            expect(readFileSync(SCHEMA_PATH, 'utf8')).toBe(committed)
         },
         { timeout: 60_000 }
     )
