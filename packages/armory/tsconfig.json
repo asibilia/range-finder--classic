@@ -1,6 +1,7 @@
 {
-	// The armory planner: the page (src/) and its tests (tests/).
-	"include": ["src/**/*", "tests/**/*"],
+	// The armory planner: the page (src/), its tests (tests/) and its dev
+	// scripts (scripts/).
+	"include": ["src/**/*", "tests/**/*", "scripts/**/*"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "ESNext",

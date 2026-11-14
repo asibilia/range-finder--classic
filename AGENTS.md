@@ -51,7 +51,7 @@ the Turbo site, and nothing in it ships with the addon.
 | The fake game and test harness | `packages/addon/tests/fake-game/` |
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |
-| The armory planner (a web page; not the Turbo site) | `packages/armory/` |
+| The armory planner (a web page; not the Turbo site). How to run it and the samples: its README | `packages/armory/`, `packages/armory/README.md` |
 | The probe (dev tool, never released; raw results gitignored) | `tools/probe/` |
 | Glossary | `CONTEXT.md` |
 | Research (Forever's native UI vs the retired HUD) | `docs/research/` |

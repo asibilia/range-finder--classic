@@ -84,7 +84,7 @@ describe('AGENTS.md', () => {
             .split('\n')
             .map((l) => oneLine(l))
         expect(rows).toContain(
-            '| The armory planner (a web page; not the Turbo site) | `packages/armory/` |'
+            '| The armory planner (a web page; not the Turbo site). How to run it and the samples: its README | `packages/armory/`, `packages/armory/README.md` |'
         )
     })
 
