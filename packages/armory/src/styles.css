@@ -1,0 +1,185 @@
+/* Plain on purpose: a few tokens so the page can be restyled later. */
+:root {
+    --color-text: #1d1d1f;
+    --color-muted: #5a5a60;
+    --color-background: #ffffff;
+    --color-surface: #f4f4f6;
+    --color-border: #c8c8cf;
+    --color-error: #a4161a;
+    --color-quality-poor: #8a8a8a;
+    --color-quality-common: #4a4a4a;
+    --color-quality-uncommon: #1e7b2e;
+    --color-quality-rare: #1f5fbf;
+    --color-quality-epic: #7a35b5;
+    --color-quality-legendary: #b85c00;
+    --font-body: system-ui, sans-serif;
+    --font-size-small: 0.85rem;
+    --font-size-body: 1rem;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 1rem;
+    --space-4: 2rem;
+    --radius: 4px;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--font-size-body);
+    color: var(--color-text);
+    background: var(--color-background);
+}
+
+.planner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--space-3);
+}
+
+.sample-note,
+.read-error {
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.read-error {
+    color: var(--color-error);
+}
+
+.drop-target {
+    margin: var(--space-2) 0;
+    padding: var(--space-3);
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius);
+}
+
+.gear-pane {
+    display: grid;
+    grid-template-columns: 14rem 1fr 14rem;
+    grid-template-areas:
+        'left middle right'
+        'bottom bottom bottom';
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
+.gear-left {
+    grid-area: left;
+}
+
+.gear-middle {
+    grid-area: middle;
+}
+
+.gear-right {
+    grid-area: right;
+}
+
+.gear-bottom {
+    grid-area: bottom;
+    display: flex;
+    justify-content: center;
+    gap: var(--space-3);
+}
+
+.gear-left,
+.gear-right {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.slot {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    gap: 0 var(--space-2);
+    min-width: 12rem;
+    padding: var(--space-2);
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--slot-color, var(--color-border));
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.slot-empty {
+    background: transparent;
+    border-style: dashed;
+}
+
+.slot-glyph {
+    grid-row: span 3;
+    color: var(--slot-color);
+}
+
+.slot-label,
+.slot-note {
+    grid-column: 2;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+}
+
+.slot-item {
+    grid-column: 2;
+    color: var(--slot-color, inherit);
+}
+
+.slot[data-quality='poor'] {
+    --slot-color: var(--color-quality-poor);
+}
+
+.slot[data-quality='common'] {
+    --slot-color: var(--color-quality-common);
+}
+
+.slot[data-quality='uncommon'] {
+    --slot-color: var(--color-quality-uncommon);
+}
+
+.slot[data-quality='rare'] {
+    --slot-color: var(--color-quality-rare);
+}
+
+.slot[data-quality='epic'] {
+    --slot-color: var(--color-quality-epic);
+}
+
+.slot[data-quality='legendary'] {
+    --slot-color: var(--color-quality-legendary);
+}
+
+.model {
+    margin: 0 0 var(--space-3);
+    text-align: center;
+}
+
+.model-figure {
+    height: 12rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius);
+}
+
+.sheet {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1) var(--space-3);
+    margin: 0;
+}
+
+.sheet-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.sheet-row dd {
+    margin: 0;
+}
+
+.sheet-note {
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+}
