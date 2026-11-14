@@ -9,6 +9,8 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { nodeVersionProblem, readNodeVersion } from './node-version'
+
 const REPO_ROOT = join(import.meta.dir, '../../..')
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const CLIENT_DIR = join(PACKAGE_DIR, 'build/client')
@@ -42,6 +44,11 @@ function filesUnder(dir: string, extension: string): string[] {
 }
 
 beforeAll(() => {
+    // React Router's command line runs under the PATH's Node; under an
+    // older one it dies on syntax, with none the prerender hangs. Say so.
+    const nodeProblem = nodeVersionProblem(readNodeVersion())
+    if (nodeProblem) throw new Error(nodeProblem)
+
     const result = Bun.spawnSync([process.execPath, 'run', 'build:armory'], {
         cwd: REPO_ROOT,
         // `bun test` sets NODE_ENV=test, which would make Vite bundle
