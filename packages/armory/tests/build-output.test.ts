@@ -99,6 +99,22 @@ describe('the build', () => {
         }
     })
 
+    test('the CSS has no Tailwind utilities the page does not use', () => {
+        // The page uses no Tailwind classes yet. Scanning the source, Tailwind
+        // took words like "static" and "grid" for classes and emitted them;
+        // src/styles.css now scans nothing (`source(none)`).
+        const css = filesUnder(CLIENT_DIR, '.css')
+            .map((file) => readFileSync(file, 'utf8'))
+            .join('\n')
+        expect(css.length).toBeGreaterThan(0)
+        const found = ['static', 'grid', 'hidden', 'table', 'rounded', 'ring']
+            .map((name) => `.${name}`)
+            .filter((selector) =>
+                new RegExp(`\\${selector}(?![\\w-])`).test(css)
+            )
+        expect(found).toEqual([])
+    })
+
     test('no URL in the built JavaScript points at a server', () => {
         const hosts = new Set<string>()
         for (const file of filesUnder(CLIENT_DIR, '.js')) {

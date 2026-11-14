@@ -42,7 +42,9 @@ would, in a local Worker) and `bun run armory:schema` (below).
   `tests/worker.test.ts` checks that.
 - **Tailwind 4**, its theme and utilities only, with no preflight (base
   reset), so the page looks as it did. The plain rules in `src/styles.css`
-  are unlayered and win over Tailwind's layers.
+  are unlayered and win over Tailwind's layers. Tailwind scans no files
+  (`source(none)`), so it makes no utilities until a component's folder is
+  added with `@source`.
 - **Errors**: a render error shows "Something went wrong showing this file."
   and Start over, from the home route's `ErrorBoundary`
   (`src/error-boundary.tsx`).
