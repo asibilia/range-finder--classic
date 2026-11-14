@@ -84,8 +84,10 @@ function Readings({
             'Out of mana at',
             (result) =>
                 result.out_of_mana_s === null
-                    ? 'Never'
-                    : minutesSeconds(result.out_of_mana_s),
+                    ? NOT_SIMMED
+                    : result.out_of_mana_s === 'never'
+                      ? 'Never'
+                      : minutesSeconds(result.out_of_mana_s),
         ],
     ]
     if (columns.some((column) => column.result?.time_to_die_s != null))
@@ -206,8 +208,9 @@ function TimeChart({
             .map((p) => `${scaleX(p.t_s, maxT)},${scaleY(read(p), max)}`)
             .join(' ')
     const markers: [string, number][] = []
-    if (worn.out_of_mana_s !== null) markers.push(['worn', worn.out_of_mana_s])
-    if (planTimeline && plan?.out_of_mana_s != null)
+    if (typeof worn.out_of_mana_s === 'number')
+        markers.push(['worn', worn.out_of_mana_s])
+    if (planTimeline && typeof plan?.out_of_mana_s === 'number')
         markers.push(['plan', plan.out_of_mana_s])
     return (
         <>
@@ -250,20 +253,47 @@ function TimeChart({
                 })}
             </svg>
             <Legend withPlan={planTimeline !== null} />
-            <p>
-                {worn.out_of_mana_s === null
-                    ? 'In what you wear you keep mana to the end.'
-                    : `In what you wear you run out of mana at ${minutesSeconds(worn.out_of_mana_s)}.`}
-            </p>
+            <p>{wornManaWords(worn.out_of_mana_s, 'keep mana to the end')}</p>
             {planTimeline && plan && (
                 <p>
-                    {plan.out_of_mana_s === null
-                        ? "The sim's plan keeps mana to the end."
-                        : `The sim's plan runs out at ${minutesSeconds(plan.out_of_mana_s)}.`}
+                    {planManaWords(plan.out_of_mana_s, 'keeps mana to the end')}
                 </p>
             )}
         </>
     )
+}
+
+type OutOfMana = Result['out_of_mana_s']
+
+/**
+ * What you wear and mana: a time runs out at it, `never` keeps mana (`kept`
+ * says how), and null was not simmed. `dryPull`, on a chain fight, names the
+ * pull it ran dry in, in place of the time.
+ */
+function wornManaWords(
+    outOfMana: OutOfMana,
+    kept: string,
+    dryPull: number | null = null
+): string {
+    if (outOfMana === null)
+        return "In what you wear the sim didn't check when mana runs out."
+    if (outOfMana === 'never') return `In what you wear you ${kept}.`
+    if (dryPull !== null)
+        return `In what you wear you run dry in pull ${dryPull}.`
+    return `In what you wear you run out of mana at ${minutesSeconds(outOfMana)}.`
+}
+
+/** The sim's plan and mana, worded as `wornManaWords` is. */
+function planManaWords(
+    outOfMana: OutOfMana,
+    kept: string,
+    dryPull: number | null = null
+): string {
+    if (outOfMana === null)
+        return "The sim's plan wasn't checked for running out of mana."
+    if (outOfMana === 'never') return `The sim's plan ${kept}.`
+    if (dryPull !== null) return `The sim's plan runs dry in pull ${dryPull}.`
+    return `The sim's plan runs out at ${minutesSeconds(outOfMana)}.`
 }
 
 /** The pull whose mana ends at 0 first, or null. */
@@ -342,17 +372,24 @@ function PullChart({ worn, plan }: { worn: Result; plan: Result | null }) {
                 Each pull shows a DPS bar, then mana at the start and mana at
                 the end (the paler bar).
             </p>
-            <p>{dryWords('In what you wear you', worn.pulls)}</p>
-            {planPulls && <p>{dryWords("The sim's plan", planPulls, true)}</p>}
+            <p>
+                {wornManaWords(
+                    worn.out_of_mana_s,
+                    'keep mana through every pull',
+                    dryPull(worn.pulls)
+                )}
+            </p>
+            {planPulls && plan && (
+                <p>
+                    {planManaWords(
+                        plan.out_of_mana_s,
+                        'keeps mana through every pull',
+                        dryPull(planPulls)
+                    )}
+                </p>
+            )}
         </>
     )
-}
-
-function dryWords(subject: string, pulls: Pull[], third = false): string {
-    const dry = dryPull(pulls)
-    if (dry === null)
-        return `${subject} ${third ? 'keeps' : 'keep'} mana through every pull.`
-    return `${subject} ${third ? 'runs' : 'run'} dry in pull ${dry}.`
 }
 
 function DamageSplit({ worn }: { worn: Result }) {

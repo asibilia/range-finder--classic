@@ -107,6 +107,53 @@ describe('the chain fight', () => {
         ).toBeDefined()
     })
 
+    test('a chain fight that never runs dry keeps mana through every pull', async () => {
+        await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[]) {
+                    if (result.fight_id !== 'chain-4') continue
+                    result.out_of_mana_s = 'never'
+                    for (const pull of result.pulls as Json[])
+                        pull.mana_end = 100
+                }
+            })
+        )
+
+        expect(
+            screen.getByText(
+                'In what you wear you keep mana through every pull.'
+            )
+        ).toBeDefined()
+        expect(
+            screen.getByText("The sim's plan keeps mana through every pull.")
+        ).toBeDefined()
+    })
+
+    test('a chain fight with out of mana not simmed says the sim did not check it', async () => {
+        await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[])
+                    if (result.fight_id === 'chain-4')
+                        result.out_of_mana_s = null
+            })
+        )
+
+        expect(readingRow('Out of mana at')).toEqual([
+            'Not simmed',
+            'Not simmed',
+        ])
+        expect(
+            screen.getByText(
+                "In what you wear the sim didn't check when mana runs out."
+            )
+        ).toBeDefined()
+        expect(
+            screen.getByText(
+                "The sim's plan wasn't checked for running out of mana."
+            )
+        ).toBeDefined()
+    })
+
     test('a chain fight with pulls null says there is no pull data', async () => {
         await openFile(
             variant((file) => {
@@ -176,6 +223,37 @@ describe('the readings table', () => {
         expect(
             screen.getByText('No fight timeline in this file.')
         ).toBeDefined()
+    })
+
+    test('out of mana reads m:ss for a time, Never for never and Not simmed for null', async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const result of resultsOf(file, 'worn', 'dungeon-long'))
+                    result.out_of_mana_s = 'never'
+                for (const result of resultsOf(
+                    file,
+                    'max-damage',
+                    'dungeon-long'
+                ))
+                    result.out_of_mana_s = null
+                for (const result of resultsOf(file, 'worn', 'solo-hit-short'))
+                    result.out_of_mana_s = 61
+            })
+        )
+        await chooseFight(user, DUNGEON_LONG)
+        expect(readingRow('Out of mana at')).toEqual(['Never', 'Not simmed'])
+
+        await chooseFight(user, SOLO)
+        expect(readingRow('Out of mana at')).toEqual(['1:01', 'Never'])
+    })
+
+    test('the first-run sample reads Not simmed for out of mana', async () => {
+        await openFile(firstRun)
+
+        expect(readingRow('Out of mana at')).toEqual([
+            'Not simmed',
+            'Not simmed',
+        ])
     })
 
     test('an out of mana time of 47.6 s reads 0:47', async () => {
@@ -259,7 +337,7 @@ describe('the fight chart', () => {
         const user = await openFile(
             variant((file) => {
                 for (const result of resultsOf(file, 'worn', 'dungeon-long'))
-                    result.out_of_mana_s = null
+                    result.out_of_mana_s = 'never'
             })
         )
         await chooseFight(user, DUNGEON_LONG)
@@ -267,6 +345,49 @@ describe('the fight chart', () => {
         expect(
             screen.getByText('In what you wear you keep mana to the end.')
         ).toBeDefined()
+        expect(screen.queryByText('Out of mana 0:48')).toBeNull()
+    })
+
+    test('a plan that never runs dry keeps mana to the end', async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const result of resultsOf(
+                    file,
+                    'max-damage',
+                    'dungeon-long'
+                ))
+                    result.out_of_mana_s = 'never'
+            })
+        )
+        await chooseFight(user, DUNGEON_LONG)
+
+        expect(
+            screen.getByText("The sim's plan keeps mana to the end.")
+        ).toBeDefined()
+    })
+
+    test('out of mana not simmed says the sim did not check it, with no marker', async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const gear of ['worn', 'max-damage'])
+                    for (const result of resultsOf(file, gear, 'dungeon-long'))
+                        result.out_of_mana_s = null
+            })
+        )
+        await chooseFight(user, DUNGEON_LONG)
+
+        expect(
+            screen.getByText(
+                "In what you wear the sim didn't check when mana runs out."
+            )
+        ).toBeDefined()
+        expect(
+            screen.getByText(
+                "The sim's plan wasn't checked for running out of mana."
+            )
+        ).toBeDefined()
+        expect(screen.queryByText(/^Out of mana \d/)).toBeNull()
+        expect(screen.queryByText(/keep mana|keeps mana/)).toBeNull()
     })
 })
 

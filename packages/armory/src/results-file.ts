@@ -129,9 +129,15 @@ const result = z.strictObject({
     dps: z.number(),
     health: z.int(),
     armor: z.int(),
-    out_of_mana_s: z.number().nullable().meta({
+    /*
+     * Three values, as null means everywhere in this file:
+     * - a number: seconds to the first out of mana (the sim's tto);
+     * - "never": simmed, and it never ran dry in this fight;
+     * - null: not simmed.
+     */
+    out_of_mana_s: z.union([z.number(), z.literal('never'), z.null()]).meta({
         description:
-            "Seconds to the first out of mana (the sim's tto). On a chain fight, wall time from the start of the first pull, gaps included. Null means it never runs dry in this fight, not that it wasn't simmed: the page shows Never.",
+            'Seconds to the first out of mana (the sim\'s tto); on a chain fight, wall time from the start of the first pull, gaps included. "never": simmed, and it never runs dry in this fight. Null: not simmed.',
     }),
     time_to_die_s: z.number().nullable().meta({
         description: 'Seconds to die. Null: not simmed.',

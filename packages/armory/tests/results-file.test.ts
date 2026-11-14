@@ -450,3 +450,28 @@ describe('talent bounds', () => {
         )
     })
 })
+
+describe('out_of_mana_s', () => {
+    test('takes a number, never or null, and nothing else', () => {
+        for (const value of [48, 'never', null]) {
+            const f = sample()
+            f.results[0].out_of_mana_s = value
+            expect((readResultsFile(f) as any).problems).toBeUndefined()
+        }
+        const f = sample()
+        f.results[0].out_of_mana_s = 'always'
+        expect(
+            problemsOf(f).some((p) => p.startsWith('results.0.out_of_mana_s: '))
+        ).toBe(true)
+    })
+
+    test('the full sample says never where it never runs dry, and the first-run sample has every one null', () => {
+        const full = sample().results.map((r: any) => r.out_of_mana_s)
+        expect(full).not.toContain(null)
+        expect(full).toContain('never')
+
+        const first = sample('sample-truncha-first-run.json').results
+        expect(first.length).toBeGreaterThan(0)
+        for (const r of first) expect(r.out_of_mana_s).toBeNull()
+    })
+})

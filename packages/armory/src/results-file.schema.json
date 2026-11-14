@@ -758,11 +758,19 @@
             "maximum": 9007199254740991
           },
           "out_of_mana_s": {
-            "description": "Seconds to the first out of mana (the sim's tto). On a chain fight, wall time from the start of the first pull, gaps included. Null means it never runs dry in this fight, not that it wasn't simmed: the page shows Never.",
-            "type": [
-              "number",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "const": "never"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds to the first out of mana (the sim's tto); on a chain fight, wall time from the start of the first pull, gaps included. \"never\": simmed, and it never runs dry in this fight. Null: not simmed."
           },
           "time_to_die_s": {
             "description": "Seconds to die. Null: not simmed.",
