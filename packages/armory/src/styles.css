@@ -1,3 +1,11 @@
+/*
+ * Tailwind 4's theme and utilities, without its preflight (base reset), so
+ * the page looks as it did before Tailwind. Both sit in cascade layers, so
+ * the plain rules below (unlayered) still win over them.
+ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 /* Plain on purpose: a few tokens so the page can be restyled later. */
 :root {
     --color-text: #1d1d1f;

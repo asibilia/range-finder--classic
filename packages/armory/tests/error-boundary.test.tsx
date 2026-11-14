@@ -1,18 +1,21 @@
 /**
  * The page's error boundary: a render error shows what went wrong and a Start
  * over button that brings back the new-visitor state. A test-only component
- * throws on demand, since a file the schema accepts shouldn't. The DOM helper
- * must be the first import.
+ * throws on demand, since a file the schema accepts shouldn't. The boundary
+ * is the home route's React Router `ErrorBoundary`, so these render it in a
+ * route stub. The DOM helper must be the first import.
  */
 import './dom'
 
 import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
+import { createRoutesStub } from 'react-router'
 
 import { App } from '../src/app'
-import { ErrorBoundary } from '../src/error-boundary'
+import { WentWrong } from '../src/error-boundary'
+import * as home from '../src/routes/home'
 
 const WENT_WRONG = 'Something went wrong showing this file.'
 
@@ -26,15 +29,23 @@ function Tripwire() {
     return null
 }
 
+/** Renders `Page` at `/`, with the boundary as its ErrorBoundary. */
+function renderPage(Page: () => ReactNode) {
+    const Stub = createRoutesStub([
+        { path: '/', Component: Page, ErrorBoundary: WentWrong },
+    ])
+    return render(<Stub initialEntries={['/']} />)
+}
+
 afterEach(() => {
     cleanup()
 })
 
 describe('the error boundary', () => {
-    test('is a function component (no class), from react-error-boundary', () => {
-        expect(typeof ErrorBoundary).toBe('function')
+    test('is a function component (no class)', () => {
+        expect(typeof WentWrong).toBe('function')
         expect(
-            (ErrorBoundary as { prototype?: { isReactComponent?: unknown } })
+            (WentWrong as { prototype?: { isReactComponent?: unknown } })
                 .prototype?.isReactComponent
         ).toBeUndefined()
     })
@@ -43,11 +54,7 @@ describe('the error boundary', () => {
         // React reports caught render errors on the console; keep it quiet.
         const quiet = spyOn(console, 'error').mockImplementation(() => {})
         try {
-            render(
-                <ErrorBoundary>
-                    <Tripwire />
-                </ErrorBoundary>
-            )
+            renderPage(() => <Tripwire />)
             act(() => trip())
 
             expect(screen.getByRole('alert').textContent).toContain(WENT_WRONG)
@@ -64,12 +71,12 @@ describe('the error boundary', () => {
         const quiet = spyOn(console, 'error').mockImplementation(() => {})
         try {
             const user = userEvent.setup()
-            render(
-                <ErrorBoundary>
+            renderPage(() => (
+                <>
                     <App />
                     <Tripwire />
-                </ErrorBoundary>
-            )
+                </>
+            ))
             await user.click(
                 screen.getByRole('button', {
                     name: 'Look at a sample character',
@@ -97,9 +104,9 @@ describe('the error boundary', () => {
         }
     })
 
-    test('the page is wrapped in the boundary', async () => {
-        const { App: page } = await import('../src/app')
-        const tree = page() as { type: unknown }
-        expect(tree.type).toBe(ErrorBoundary)
+    test("is the home route's ErrorBoundary, around a page that renders App", () => {
+        expect(home.ErrorBoundary).toBe(WentWrong)
+        const tree = home.default() as { type: unknown }
+        expect(tree.type).toBe(App)
     })
 })

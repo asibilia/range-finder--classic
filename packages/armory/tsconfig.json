@@ -1,18 +1,22 @@
 {
-	// The armory planner: the page (src/), its tests (tests/) and its dev
-	// scripts (scripts/).
-	"include": ["src/**/*", "tests/**/*", "scripts/**/*"],
+	// The armory planner, in three projects `bunx tsc -b` checks: the page
+	// and its tests (tsconfig.app.json), the Worker (tsconfig.cloudflare.json)
+	// and the build-time config (tsconfig.node.json).
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.app.json" },
+		{ "path": "./tsconfig.cloudflare.json" },
+		{ "path": "./tsconfig.node.json" }
+	],
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"lib": ["DOM", "DOM.Iterable", "ES2022"],
-		"types": ["bun"],
+		// Duplicated from tsconfig.app.json: Bun's test runner only
+		// reads the nearest tsconfig.json, so the tests' JSX and JSON imports
+		// need these here too.
 		"jsx": "react-jsx",
-		"strict": true,
-		"noEmit": true,
-		"skipLibCheck": true,
+		"resolveJsonModule": true,
 		"verbatimModuleSyntax": true,
-		"resolveJsonModule": true
+		"skipLibCheck": true,
+		"strict": true,
+		"noEmit": true
 	}
 }

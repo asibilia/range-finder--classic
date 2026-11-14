@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 
 import { BringIn, type ReadError } from './bring-in'
 import { Card } from './card'
-import { ErrorBoundary } from './error-boundary'
 import type { Item } from './gains'
 import { GearPane } from './gear-pane'
 import { ItemPicker, type Wishlist, WishlistDialog } from './item-picker'
@@ -141,16 +140,11 @@ type OpenDialog =
     | { kind: 'pawn' }
     | null
 
-/** The page, inside the boundary that catches a render error. */
+/**
+ * The armory planner's page. A render error in it is caught by the home
+ * route's error boundary (`routes/home.tsx`).
+ */
 export function App() {
-    return (
-        <ErrorBoundary>
-            <Planner />
-        </ErrorBoundary>
-    )
-}
-
-function Planner() {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
     const [dialog, setDialog] = useState<OpenDialog>(null)

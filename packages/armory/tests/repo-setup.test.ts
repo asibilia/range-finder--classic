@@ -3,18 +3,17 @@
  * its package and catalog dependencies, the root scripts that build,
  * type-check, lint and test it, and its commit scope. These read the repo's
  * own files as the contract. The type-check, lint and test runs themselves
- * are left to `bun run check:all`; only the build, which nothing else runs,
- * is run here.
+ * are left to `bun run check:all`; the build, which nothing else runs, is
+ * run by `build-output.test.ts`.
  */
 import { describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ESLint } from 'eslint'
 
 import commitConfig from '../../../commit.config'
 
 const REPO_ROOT = join(import.meta.dir, '../../..')
-const BUN = process.execPath
 
 type PackageJson = {
     name?: string
@@ -43,14 +42,6 @@ function paragraphs(text: string): string[] {
         .split(/\n\s*\n/)
         .map(oneLine)
         .filter((p) => p.length > 0)
-}
-
-function run(args: string[]) {
-    return Bun.spawnSync([BUN, ...args], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
 }
 
 /** The lines of a `### Heading` section, up to the next heading. */
@@ -146,7 +137,14 @@ describe('the @goturbo/armory package', () => {
     const wanted = [
         'react',
         'react-dom',
+        'react-router',
         'zod',
+        '@react-router/dev',
+        '@cloudflare/vite-plugin',
+        '@tailwindcss/vite',
+        'tailwindcss',
+        'vite',
+        'wrangler',
         '@happy-dom/global-registrator',
         '@testing-library/react',
         '@testing-library/dom',
@@ -200,33 +198,22 @@ describe('the root scripts', () => {
         expect(scripts()['check:all']).toContain('bun run test:armory')
     })
 
+    test('dev, build and preview run the armory package scripts', () => {
+        expect(scripts()['dev:armory']).toBe(
+            'cd packages/armory && bun run dev'
+        )
+        expect(scripts()['build:armory']).toBe(
+            'cd packages/armory && bun run build'
+        )
+        expect(scripts()['preview:armory']).toBe(
+            'cd packages/armory && bun run preview'
+        )
+    })
+
     test('type-check runs type-check:armory', () => {
         expect(scripts()['type-check:armory']).toBeDefined()
         expect(scripts()['type-check']).toContain('bun run type-check:armory')
     })
-
-    test(
-        'build:armory writes packages/armory/dist/index.html, which git ignores',
-        () => {
-            const result = run(['run', 'build:armory'])
-            expect(result.exitCode).toBe(0)
-            expect(
-                existsSync(join(REPO_ROOT, 'packages/armory/dist/index.html'))
-            ).toBe(true)
-
-            const ignored = Bun.spawnSync(
-                [
-                    'git',
-                    'check-ignore',
-                    '-q',
-                    'packages/armory/dist/index.html',
-                ],
-                { cwd: REPO_ROOT }
-            )
-            expect(ignored.exitCode).toBe(0)
-        },
-        { timeout: 120_000 }
-    )
 })
 
 describe('ESLint', () => {

@@ -7,23 +7,30 @@
   "dependencies": {
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-error-boundary": "catalog:",
+    "react-router": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "catalog:",
     "@happy-dom/global-registrator": "catalog:",
+    "@react-router/dev": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "typescript": "catalog:"
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "catalog:"
   },
   "scripts": {
-    "build": "bun build src/index.html --outdir dist --minify",
-    "dev": "bun src/index.html",
+    "build": "bunx react-router build",
+    "dev": "bunx react-router dev",
+    "preview": "bunx react-router build && bunx vite preview",
     "test": "bun test --isolate",
-    "type-check": "bunx tsc --noEmit"
+    "type-check": "bunx wrangler types && bunx react-router typegen && bunx tsc -b"
   }
 }

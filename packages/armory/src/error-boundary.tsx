@@ -3,38 +3,44 @@
  * blank page. Start over clears the error and mounts the page afresh, which
  * brings back the new-visitor state.
  *
- * React only catches render errors in a class component, so this uses
- * `react-error-boundary`, which keeps that class inside the library behind a
- * function component.
+ * This is the home route's `ErrorBoundary` (see `routes/home.tsx`): React
+ * Router keeps the class React needs to catch render errors inside the
+ * library. Start over navigates to the page again; the new location clears
+ * the route's error and mounts the page fresh. The page has no loaders, so
+ * that navigation asks the server for nothing.
  */
-import {
-    ErrorBoundary as Boundary,
-    type FallbackProps,
-} from 'react-error-boundary'
-import type { ReactNode } from 'react'
+import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router'
 
-/** What the page shows after a render error. */
-function WentWrong({ error, resetErrorBoundary }: FallbackProps) {
-    const message = error instanceof Error ? error.message : String(error)
+/** The words for whatever was thrown. */
+function describe(error: unknown): string {
+    if (isRouteErrorResponse(error))
+        return `${error.status} ${error.statusText}`.trim()
+    return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * What the page shows after a render error: the message, the error and a
+ * Start over button.
+ *
+ * @example
+ * // src/routes/home.tsx
+ * export { WentWrong as ErrorBoundary } from '../error-boundary'
+ */
+export function WentWrong() {
+    const error = useRouteError()
+    const navigate = useNavigate()
     return (
         <main className="planner">
             <div role="alert" className="read-error">
                 <p>Something went wrong showing this file.</p>
-                <p>{message}</p>
+                <p>{describe(error)}</p>
             </div>
-            <button type="button" onClick={resetErrorBoundary}>
+            <button
+                type="button"
+                onClick={() => void navigate('/', { replace: true })}
+            >
                 Start over
             </button>
         </main>
     )
-}
-
-/**
- * Wraps the page so a render error shows `WentWrong` instead of a blank page.
- *
- * @example
- * <ErrorBoundary><Planner /></ErrorBoundary>
- */
-export function ErrorBoundary({ children }: { children: ReactNode }) {
-    return <Boundary FallbackComponent={WentWrong}>{children}</Boundary>
 }
