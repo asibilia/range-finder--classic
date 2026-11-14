@@ -9,6 +9,7 @@ import { Card, defaultPlan } from './card'
 import type { Item } from './gains'
 import { GearPane } from './gear-pane'
 import { ItemPicker, type Wishlist, WishlistDialog } from './item-picker'
+import { PawnDialog } from './pawn'
 import { readResultsFile, type ResultsFile, type Slot } from './results-file'
 import {
     closestPlan,
@@ -18,6 +19,7 @@ import {
     RoleSliders,
 } from './role-sliders'
 import sample from './sample-truncha.json'
+import { TalentsDialog } from './talents'
 
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
 
@@ -51,10 +53,14 @@ function Header({
     file,
     wishlistCount,
     onOpenWishlist,
+    onOpenTalents,
+    onOpenPawn,
 }: {
     file: ResultsFile
     wishlistCount: number
     onOpenWishlist: () => void
+    onOpenTalents: () => void
+    onOpenPawn: () => void
 }) {
     const { character } = file
     const exportDate = new Date(file.export_saved_at).toISOString().slice(0, 10)
@@ -73,6 +79,12 @@ function Header({
             <div className="header-actions">
                 <button type="button" onClick={onOpenWishlist}>
                     {`Wishlist (${wishlistCount})`}
+                </button>
+                <button type="button" onClick={onOpenTalents}>
+                    Talents
+                </button>
+                <button type="button" onClick={onOpenPawn}>
+                    Export Pawn string
                 </button>
             </div>
         </header>
@@ -114,7 +126,12 @@ function GearTop({
     )
 }
 
-type OpenDialog = { kind: 'picker'; slot: Slot } | { kind: 'wishlist' } | null
+type OpenDialog =
+    | { kind: 'picker'; slot: Slot }
+    | { kind: 'wishlist' }
+    | { kind: 'talents' }
+    | { kind: 'pawn' }
+    | null
 
 export function App() {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
@@ -172,6 +189,8 @@ export function App() {
                     file={file}
                     wishlistCount={wishlist.size}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
+                    onOpenTalents={() => setDialog({ kind: 'talents' })}
+                    onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
             ) : (
                 <header className="page-header">
@@ -237,6 +256,16 @@ export function App() {
                     onRemove={removeFromWishlist}
                     onClose={closeDialog}
                 />
+            )}
+            {file && dialog?.kind === 'talents' && (
+                <TalentsDialog
+                    talents={file.talents}
+                    fights={file.fights}
+                    onClose={closeDialog}
+                />
+            )}
+            {file && dialog?.kind === 'pawn' && (
+                <PawnDialog pawn={file.pawn} onClose={closeDialog} />
             )}
         </main>
     )
