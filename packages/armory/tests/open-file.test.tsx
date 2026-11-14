@@ -4,21 +4,19 @@
  * loads. The DOM helper must be the first import.
  */
 import './dom'
+import {
+    jsonFile,
+    openFile,
+    pick,
+    renderApp,
+    variant,
+    type Json,
+} from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import {
-    cleanup,
-    fireEvent,
-    render,
-    screen,
-    within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 
-import { App } from '../src/app'
 import sample from '../src/sample-truncha.json'
-
-type Json = Record<string, unknown>
 
 const SLOT_LABELS = [
     'Head',
@@ -43,26 +41,9 @@ const SLOT_LABELS = [
 const SAMPLE_NOTE =
     'Sample file: some numbers here are made up to try the page.'
 
-/** A copy of the sample, changed by `change`. */
-function variant(change: (file: Json) => void): Json {
-    const copy = structuredClone(sample) as unknown as Json
-    change(copy)
-    return copy
-}
-
-function jsonFile(data: unknown, name = 'truncha.json'): File {
-    return new File([JSON.stringify(data)], name, { type: 'application/json' })
-}
-
-async function pick(file: File) {
-    const user = userEvent.setup()
-    await user.upload(screen.getByLabelText('Open a results file'), file)
-}
-
-/** Renders the page and picks `data` as a results file. */
-async function openFile(data: unknown) {
-    render(<App />)
-    await pick(jsonFile(data))
+/** Renders the page and picks `data`, a file the page should refuse. */
+async function openWrongFile(data: unknown) {
+    await pick(renderApp(), jsonFile(data))
 }
 
 /** The slot buttons' labels (the part before the colon), in page order. */
@@ -89,7 +70,7 @@ afterEach(() => {
 
 describe('the new-visitor state', () => {
     test('shows the bring-your-character-in state with a picker, a drop target and the sample button', () => {
-        render(<App />)
+        renderApp()
 
         expect(
             screen.getByRole('heading', { level: 1, name: 'Armory planner' })
@@ -125,7 +106,7 @@ describe('the new-visitor state', () => {
     })
 
     test('shows 17 empty slot buttons and no Wishlist, Talents or Export Pawn string button', () => {
-        render(<App />)
+        renderApp()
 
         for (const label of SLOT_LABELS) {
             expect(
@@ -146,8 +127,8 @@ describe('the new-visitor state', () => {
 
 describe('opening the wrong file', () => {
     test('a .json file that is not JSON says it is not JSON', async () => {
-        render(<App />)
         await pick(
+            renderApp(),
             new File(['this is { not json'], 'notes.json', {
                 type: 'application/json',
             })
@@ -161,7 +142,7 @@ describe('opening the wrong file', () => {
     })
 
     test('a file of schema version 2 names its version', async () => {
-        await openFile(
+        await openWrongFile(
             variant((file) => {
                 file.schema_version = 2
             })
@@ -175,7 +156,7 @@ describe('opening the wrong file', () => {
     })
 
     test('a file without character.level lists the problem by its path', async () => {
-        await openFile(
+        await openWrongFile(
             variant((file) => {
                 delete (file.character as Json).level
             })
@@ -190,16 +171,20 @@ describe('opening the wrong file', () => {
     })
 
     test('picking the sample after an error shows the character and drops the error', async () => {
-        await openFile(
-            variant((file) => {
-                file.schema_version = 2
-            })
+        const user = renderApp()
+        await pick(
+            user,
+            jsonFile(
+                variant((file) => {
+                    file.schema_version = 2
+                })
+            )
         )
         await screen.findByText(
             'This results file is version 2. The planner reads version 1.'
         )
 
-        await pick(jsonFile(sample))
+        await pick(user, jsonFile(sample))
 
         expect(
             await screen.findByRole('heading', { level: 1, name: 'Truncha' })
@@ -214,7 +199,7 @@ describe('opening the wrong file', () => {
 
 describe('loading a results file', () => {
     test('dropping the sample on the drop target loads it', async () => {
-        render(<App />)
+        renderApp()
         const drop = screen.getByRole('region', { name: 'Drop a results file' })
         const file = jsonFile(sample)
 
@@ -230,8 +215,7 @@ describe('loading a results file', () => {
     })
 
     test('Look at a sample character loads Truncha with the level line and export date', async () => {
-        render(<App />)
-        const user = userEvent.setup()
+        const user = renderApp()
         await user.click(
             screen.getByRole('button', { name: 'Look at a sample character' })
         )
@@ -250,7 +234,6 @@ describe('loading a results file', () => {
 
     test('the sample says it holds made-up numbers', async () => {
         await openFile(sample)
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(screen.getByText(SAMPLE_NOTE)).toBeDefined()
     })
@@ -261,7 +244,6 @@ describe('loading a results file', () => {
                 file.sample = false
             })
         )
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(screen.queryByText(SAMPLE_NOTE)).toBeNull()
     })
@@ -270,14 +252,12 @@ describe('loading a results file', () => {
 describe('the gear pane with a file', () => {
     test('the slots run left column, right column, then the bottom row', async () => {
         await openFile(sample)
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(slotLabelsInOrder()).toEqual(SLOT_LABELS)
     })
 
     test('shows the worn legs and an empty trinket slot', async () => {
         await openFile(sample)
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(
             screen.getByRole('button', {
@@ -291,7 +271,6 @@ describe('the gear pane with a file', () => {
 
     test('the middle shows the model placeholder, the sheet and the buffed note', async () => {
         await openFile(sample)
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(screen.getByText('Character model goes here')).toBeDefined()
         const page = document.body.textContent ?? ''
@@ -311,7 +290,6 @@ describe('the gear pane with a file', () => {
                 file.sheet_buffed = false
             })
         )
-        await screen.findByRole('heading', { level: 1, name: 'Truncha' })
 
         expect(screen.getByText('Unbuffed sheet.')).toBeDefined()
     })

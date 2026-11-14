@@ -3,45 +3,17 @@
  * must be the first import.
  */
 import './dom'
+import { openFile, openSample, type User } from './open-app'
 
 import { afterEach, describe, expect, mock, test } from 'bun:test'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, screen, within } from '@testing-library/react'
 
-import { App } from '../src/app'
 import sample from '../src/sample-truncha.json'
 import firstRun from '../src/sample-truncha-first-run.json'
-
-type User = ReturnType<typeof userEvent.setup>
 
 const SOLO_PAWN = sample.pawn[0]
 const DUNGEON_PAWN = sample.pawn[1]
 if (!SOLO_PAWN || !DUNGEON_PAWN) throw new Error('the sample has no pawn')
-
-/** Renders the page and loads the bundled sample. */
-async function openSample(): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.click(
-        screen.getByRole('button', { name: 'Look at a sample character' })
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
-
-/** Renders the page and picks `data` as a results file. */
-async function openFile(data: unknown): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.upload(
-        screen.getByLabelText('Open a results file'),
-        new File([JSON.stringify(data)], 'truncha.json', {
-            type: 'application/json',
-        })
-    )
-    await screen.findByRole('heading', { level: 1 })
-    return user
-}
 
 async function openTalents(user: User): Promise<HTMLElement> {
     await user.click(screen.getByRole('button', { name: 'Talents' }))

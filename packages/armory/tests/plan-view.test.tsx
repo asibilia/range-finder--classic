@@ -3,23 +3,12 @@
  * must be the first import.
  */
 import './dom'
+import { openFile, openSample, readingRow, variant } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import {
-    cleanup,
-    fireEvent,
-    render,
-    screen,
-    within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 
-import { App } from '../src/app'
 import firstRun from '../src/sample-truncha-first-run.json'
-import sample from '../src/sample-truncha.json'
-
-type Json = Record<string, unknown>
-type User = ReturnType<typeof userEvent.setup>
 
 const SHOW_PLAN = "Show the sim's plan"
 const SHOW_WORN = 'Show what I wear'
@@ -27,31 +16,6 @@ const ROLES = ['Damage', 'Survival', 'Healing', 'Utility'] as const
 const NOTHING_RESIMMED =
     'These pick from plans the sim already made. Nothing is re-simmed here.'
 const SWITCHED = "Switched to the sim's plan for this mix."
-
-/** Renders the page and loads the bundled sample. */
-async function openSample(): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.click(
-        screen.getByRole('button', { name: 'Look at a sample character' })
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
-
-/** Renders the page and picks `data` as a results file. */
-async function openFile(data: unknown): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.upload(
-        screen.getByLabelText('Open a results file'),
-        new File([JSON.stringify(data)], 'truncha.json', {
-            type: 'application/json',
-        })
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
 
 function slider(name: string): HTMLInputElement {
     return screen.getByRole('slider', { name }) as HTMLInputElement
@@ -74,20 +38,6 @@ function sliderBox(input: HTMLElement): HTMLElement {
 
 function slot(prefix: string): HTMLElement {
     return screen.getByRole('button', { name: new RegExp(`^${prefix}: `) })
-}
-
-/** The readings table's row named `label`: its cells after the label, or null. */
-function readingRow(label: string): string[] | null {
-    const header = screen.getByRole('columnheader', { name: 'What you wear' })
-    const table = header.closest('table')
-    if (!table) throw new Error('the readings table is missing')
-    for (const row of table.querySelectorAll('tr')) {
-        const cells = [...row.querySelectorAll('th, td')].map((cell) =>
-            (cell.textContent ?? '').trim()
-        )
-        if (cells[0] === label) return cells.slice(1)
-    }
-    return null
 }
 
 afterEach(() => {
@@ -135,11 +85,12 @@ describe('the plan view', () => {
     })
 
     test('a file with no plans has no plan button and no What to gear for', async () => {
-        const noPlans = structuredClone(sample) as unknown as Json
-        noPlans.plans = []
-        noPlans.results = (noPlans.results as { gear: string }[]).filter(
-            (result) => result.gear === 'worn'
-        )
+        const noPlans = variant((file) => {
+            file.plans = []
+            file.results = (file.results as { gear: string }[]).filter(
+                (result) => result.gear === 'worn'
+            )
+        })
 
         // The sample has both, so their absence below comes from the plans.
         await openSample()

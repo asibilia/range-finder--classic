@@ -5,16 +5,14 @@
  * marker. The DOM helper must be the first import.
  */
 import './dom'
+import { openFile, readingRow, variant, type Json, type User } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, screen, within } from '@testing-library/react'
 
-import { App } from '../src/app'
 import firstRun from '../src/sample-truncha-first-run.json'
 import sample from '../src/sample-truncha.json'
 
-type Json = Record<string, unknown>
 type Result = Json & { gear: string; fight_id: string }
 
 const SOLO = 'Solo, 30 s, level 31'
@@ -25,13 +23,6 @@ const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
 const PROVISIONAL_TEXT = "The sim isn't checked against real fights yet."
 
-/** A copy of the sample, changed by `change`. */
-function variant(change: (file: Json) => void, base: unknown = sample): Json {
-    const copy = structuredClone(base) as Json
-    change(copy)
-    return copy
-}
-
 /** The results entries of a file copy that match `gear` and `fight_id`. */
 function resultsOf(file: Json, gear: string, fightId: string): Result[] {
     return (file.results as Result[]).filter(
@@ -39,55 +30,15 @@ function resultsOf(file: Json, gear: string, fightId: string): Result[] {
     )
 }
 
-function jsonFile(data: unknown): File {
-    return new File([JSON.stringify(data)], 'truncha.json', {
-        type: 'application/json',
-    })
-}
-
-/** Renders the page, picks `data` as a results file and waits for it. */
-async function openFile(data: unknown) {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.upload(
-        screen.getByLabelText('Open a results file'),
-        jsonFile(data)
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
-
 function fightSelect(): HTMLSelectElement {
     return screen.getByRole('combobox', { name: 'Fight' }) as HTMLSelectElement
 }
 
-async function chooseFight(
-    user: ReturnType<typeof userEvent.setup>,
-    label: string
-) {
+async function chooseFight(user: User, label: string) {
     await user.selectOptions(
         fightSelect(),
         screen.getByRole('option', { name: label })
     )
-}
-
-/** The readings table under `What the sim says`. */
-function readingsTable(): HTMLTableElement {
-    const header = screen.getByRole('columnheader', { name: 'What you wear' })
-    const table = header.closest('table')
-    if (!table) throw new Error('the readings table is missing')
-    return table
-}
-
-/** The readings table's row named `label`: its cells after the label, or null. */
-function readingRow(label: string): string[] | null {
-    for (const row of readingsTable().querySelectorAll('tr')) {
-        const cells = [...row.querySelectorAll('th, td')].map((cell) =>
-            (cell.textContent ?? '').trim()
-        )
-        if (cells[0] === label) return cells.slice(1)
-    }
-    return null
 }
 
 function chart(name: string): Element | null {

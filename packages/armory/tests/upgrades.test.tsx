@@ -3,47 +3,16 @@
  * sections 6, 7 and 8). The DOM helper must be the first import.
  */
 import './dom'
+import { openFile, openSample, variant, type User } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-
-import { App } from '../src/app'
-import sample from '../src/sample-truncha.json'
-
-type Json = Record<string, unknown>
-type User = ReturnType<typeof userEvent.setup>
+import { cleanup, screen, within } from '@testing-library/react'
 
 const HANDS = 'Hands: Toughened Leather Gloves, +21.6 EP'
 const NECK = "Neck: Archmagister's Faceted Pendant, +1.7 EP"
 const LEGS = "Legs: Trapper's Leather Legguards, +23.6 EP"
 const FINGER_1 = 'Finger 1: Seal of Sylvanas, +19.2 EP'
 const FINGER_2 = 'Finger 2: Item 6748, +19.2 EP'
-
-/** Renders the page and loads the bundled sample. */
-async function openSample(): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.click(
-        screen.getByRole('button', { name: 'Look at a sample character' })
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
-
-/** Renders the page and picks `data` as a results file. */
-async function openFile(data: unknown): Promise<User> {
-    render(<App />)
-    const user = userEvent.setup()
-    await user.upload(
-        screen.getByLabelText('Open a results file'),
-        new File([JSON.stringify(data)], 'truncha.json', {
-            type: 'application/json',
-        })
-    )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
-    return user
-}
 
 /** Clicks the slot button named `name` and returns the picker it opens. */
 async function openPicker(
@@ -127,16 +96,17 @@ describe('gains on the slots', () => {
     })
 
     test('a Back first alternative with gain_ep 0 shows no gain and the worn source text', async () => {
-        const changed = structuredClone(sample) as unknown as Json
-        const slots = changed.slots as {
-            slot: string
-            alternatives: { gain_ep: number | null }[]
-        }[]
-        const back = slots.find((entry) => entry.slot === 'back')
-        if (!back) throw new Error('the sample has no back slot')
-        const first = back.alternatives[0]
-        if (!first) throw new Error('the sample back has no alternative')
-        first.gain_ep = 0
+        const changed = variant((file) => {
+            const slots = file.slots as {
+                slot: string
+                alternatives: { gain_ep: number | null }[]
+            }[]
+            const back = slots.find((entry) => entry.slot === 'back')
+            if (!back) throw new Error('the sample has no back slot')
+            const first = back.alternatives[0]
+            if (!first) throw new Error('the sample back has no alternative')
+            first.gain_ep = 0
+        })
 
         // The unchanged sample shows the Back gain, so the copy's lack of
         // one comes from the zero gain.

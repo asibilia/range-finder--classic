@@ -70,15 +70,24 @@ const item = z.strictObject({
         ]),
         text: z.string(),
     }),
-    data: z.enum(['forever', 'classic']),
+    data: z.enum(['forever', 'classic']).meta({
+        description:
+            "classic: the item's stats and source may predate Forever.",
+    }),
 })
 
 const fight = z.strictObject({
-    fight_id: z.string(),
+    fight_id: z.string().meta({
+        description:
+            'A sim fight type. A real logged fight is an engagement_id, which only the engagement-score file has.',
+    }),
     label: z.string(),
     kind: z.enum(['single', 'chain']),
     target_level: z.int(),
-    duration_s: z.int(),
+    duration_s: z.int().meta({
+        description:
+            'The fight length in seconds. On a chain fight, the length of one pull.',
+    }),
     setup: z
         .strictObject({
             starting_mana_pct: z.number(),
@@ -88,7 +97,11 @@ const fight = z.strictObject({
             drinks: z.boolean(),
             target_armor: z.int(),
         })
-        .optional(),
+        .optional()
+        .meta({
+            description:
+                'Required on a chain fight; may be absent on a single fight.',
+        }),
 })
 
 const roleValue = z.int().min(0).max(100)
@@ -102,17 +115,27 @@ const plan = z.strictObject({
         healing: roleValue,
         utility: roleValue,
     }),
-    gear: z.record(slot, z.int().nullable()),
+    gear: z.record(slot, z.int().nullable()).meta({
+        description:
+            "An item_id for each of the 17 slots: the slot's worn item or one of its alternatives. Null: the plan puts nothing in that slot.",
+    }),
 })
 
 const result = z.strictObject({
-    gear: z.string(),
+    gear: z.string().meta({
+        description: 'worn, or a plan_id in plans.',
+    }),
     fight_id: z.string(),
     dps: z.number(),
     health: z.int(),
     armor: z.int(),
-    out_of_mana_s: z.number().nullable(),
-    time_to_die_s: z.number().nullable(),
+    out_of_mana_s: z.number().nullable().meta({
+        description:
+            "Seconds to the first out of mana (the sim's tto). On a chain fight, wall time from the start of the first pull, gaps included. Null means it never runs dry in this fight, not that it wasn't simmed: the page shows Never.",
+    }),
+    time_to_die_s: z.number().nullable().meta({
+        description: 'Seconds to die. Null: not simmed.',
+    }),
     timeline: z
         .array(
             z.strictObject({
@@ -121,7 +144,11 @@ const result = z.strictObject({
                 mana: z.int(),
             })
         )
-        .nullable(),
+        .nullable()
+        .meta({
+            description:
+                'DPS and mana over the fight. Single fights only: null on a chain fight. Null on a single fight: no timeline in this file.',
+        }),
     pulls: z
         .array(
             z.strictObject({
@@ -131,7 +158,11 @@ const result = z.strictObject({
                 mana_end: z.int(),
             })
         )
-        .nullable(),
+        .nullable()
+        .meta({
+            description:
+                'DPS and mana per pull. Chain fights only: null on a single fight. A pull runs dry when its mana_end is 0. Null on a chain fight: no pull data in this file.',
+        }),
     damage_split: z.array(
         z.strictObject({ name: z.string(), share_pct: z.number() })
     ),
@@ -148,11 +179,19 @@ const talent = z.strictObject({
 
 const baseSchema = z.strictObject({
     schema_version: z.literal(SCHEMA_VERSION),
-    made_at: datetime,
-    export_saved_at: datetime,
+    made_at: datetime.meta({
+        description: 'When the runner wrote this file.',
+    }),
+    export_saved_at: datetime.meta({
+        description: 'When the export this file came from was saved.',
+    }),
     game_build: z.string(),
-    sample: z.boolean(),
-    provisional: z.boolean(),
+    sample: z.boolean().meta({
+        description: 'true: a hand-made file; some numbers in it are made up.',
+    }),
+    provisional: z.boolean().meta({
+        description: "true: the sim isn't matched to real fights yet.",
+    }),
     checks: z.array(
         z.strictObject({
             name: z.string(),
@@ -161,14 +200,23 @@ const baseSchema = z.strictObject({
         })
     ),
     character: z.strictObject({
-        name: z.string(),
-        character_key: z.string().optional(),
+        name: z.string().meta({
+            description:
+                'For display only: never a key, and never in a file name or path.',
+        }),
+        character_key: z.string().optional().meta({
+            description:
+                'A random id the export addon mints once per character (export format 7). It joins this file with the engagement-score file.',
+        }),
         level: z.int(),
         race: z.string(),
         class: z.string(),
         spec: z.string(),
     }),
-    sheet_buffed: z.boolean(),
+    sheet_buffed: z.boolean().meta({
+        description:
+            "true: the game's sheet as it showed at export, with the buffs that were up.",
+    }),
     sheet: z.strictObject({
         strength: z.int(),
         agility: z.int(),
@@ -185,20 +233,38 @@ const baseSchema = z.strictObject({
         melee_hit_pct: z.number(),
     }),
     fights: z.array(fight).min(1),
-    default_fight_id: z.string(),
-    slots: z.array(
-        z.strictObject({
-            slot,
-            worn: item.nullable(),
-            alternatives: z.array(
-                z.strictObject({
-                    item,
-                    gain_ep: z.number().nullable(),
-                    gain_dps: z.number().nullable(),
-                })
-            ),
-        })
-    ),
+    default_fight_id: z.string().meta({
+        description: 'The fight the page opens on: one of fights.',
+    }),
+    slots: z
+        .array(
+            z.strictObject({
+                slot,
+                worn: item.nullable().meta({
+                    description: 'Null: nothing equipped in this slot.',
+                }),
+                alternatives: z
+                    .array(
+                        z.strictObject({
+                            item,
+                            gain_ep: z.number().nullable().meta({
+                                description: 'EP gained over what is worn.',
+                            }),
+                            gain_dps: z.number().nullable().meta({
+                                description:
+                                    'DPS gained over what is worn, for weapons. When not null, the page shows it in place of gain_ep.',
+                            }),
+                        })
+                    )
+                    .meta({
+                        description:
+                            "Best first, which this schema doesn't check: the page shows the first as the slot's best upgrade.",
+                    }),
+            })
+        )
+        .meta({
+            description: 'One entry per slot, each slot exactly once.',
+        }),
     bag_upgrades: z.array(z.strictObject({ slot, item, gain_ep: z.number() })),
     plans: z.array(plan),
     results: z.array(result),
@@ -211,7 +277,10 @@ const baseSchema = z.strictObject({
     talents: z.strictObject({
         tree: z.string(),
         points: z.int(),
-        yours: z.array(talent),
+        yours: z.array(talent).meta({
+            description:
+                "Every talent in the tree, at rank 0 or more, which this schema doesn't check.",
+        }),
         best: z
             .strictObject({
                 ranks: z.array(
@@ -220,7 +289,11 @@ const baseSchema = z.strictObject({
                 dps_gain: z.number(),
                 fight_id: z.string(),
             })
-            .nullable(),
+            .nullable()
+            .meta({
+                description:
+                    'The best build the sim found: a rank for every talent in yours, and its DPS gain in the fight fight_id. Null: no best build in this file.',
+            }),
     }),
     pawn: z.array(z.strictObject({ label: z.string(), text: z.string() })),
 })
@@ -324,7 +397,30 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
     }
 }
 
-export const resultsFileSchema = baseSchema.superRefine(checkCrossFields)
+/** The note for the runner: the rules the JSON Schema can't carry. */
+const FILE_DESCRIPTION = [
+    'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
+    "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
+    '- default_fight_id names a fight in fights.',
+    '- Every fight_id in results, stat_weights and talents.best names a fight in fights.',
+    '- Every gear in results is worn or a plan_id in plans.',
+    "- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.",
+    '- slots has each slot exactly once.',
+    '- Every fight has a result for worn gear.',
+    '- Each plan_id is unique.',
+    '- No two results share a gear and fight.',
+    '- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.',
+    '- A chain fight has a setup.',
+    "- timeline is null on a chain fight's results.",
+    "- pulls is null on a single fight's results.",
+    'The runner must also keep these, which nothing checks:',
+    "- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.",
+    '- talents.yours lists every talent in the tree, at rank 0 or more.',
+].join('\n')
+
+export const resultsFileSchema = baseSchema
+    .superRefine(checkCrossFields)
+    .meta({ title: 'Results file', description: FILE_DESCRIPTION })
 
 export type ResultsFile = z.infer<typeof resultsFileSchema>
 export type Slot = (typeof SLOTS)[number]
@@ -356,5 +452,10 @@ export function readResultsFile(input: unknown): ReadOutcome {
 
 /** The JSON Schema text the runner validates against. */
 export function resultsFileJsonSchema(): string {
-    return JSON.stringify(z.toJSONSchema(resultsFileSchema), null, 2) + '\n'
+    // Zod puts the title and description last; a reader meets them first.
+    const { $schema, title, description, ...rest } =
+        z.toJSONSchema(resultsFileSchema)
+    return (
+        JSON.stringify({ $schema, title, description, ...rest }, null, 2) + '\n'
+    )
 }
