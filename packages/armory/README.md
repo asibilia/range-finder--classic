@@ -16,6 +16,8 @@ From the repo root:
 
 Files are read in the browser only; nothing is sent anywhere.
 
+It is not deployed anywhere, and `tests/deploy-guard.test.ts` fails if a script or workflow deploys it.
+
 Other scripts, all from the repo root: `bun run test:armory`,
 `bun run type-check:armory`, `bun run build:armory` (writes the gitignored
 `packages/armory/build/`; the page is `build/client/index.html`),
