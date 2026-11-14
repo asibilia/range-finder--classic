@@ -76,6 +76,20 @@ function slot(prefix: string): HTMLElement {
     return screen.getByRole('button', { name: new RegExp(`^${prefix}: `) })
 }
 
+/** The readings table's row named `label`: its cells after the label, or null. */
+function readingRow(label: string): string[] | null {
+    const header = screen.getByRole('columnheader', { name: 'What you wear' })
+    const table = header.closest('table')
+    if (!table) throw new Error('the readings table is missing')
+    for (const row of table.querySelectorAll('tr')) {
+        const cells = [...row.querySelectorAll('th, td')].map((cell) =>
+            (cell.textContent ?? '').trim()
+        )
+        if (cells[0] === label) return cells.slice(1)
+    }
+    return null
+}
+
 afterEach(() => {
     cleanup()
 })
@@ -258,6 +272,48 @@ describe('the role sliders', () => {
 
         setSlider('Survival', 80)
         expect(screen.getByText(NOTHING_RESIMMED)).toBeDefined()
+    })
+
+    test('a picked plan with no chain result reads Not simmed and leaves the pull chart to what you wear, until a fight it has', async () => {
+        const user = await openSample()
+        setSlider('Survival', 80)
+
+        // The sample opens on the chain fight, where Damage and survival has no result.
+        expect(
+            screen.getByRole('columnheader', { name: 'Damage and survival' })
+        ).toBeDefined()
+        expect(readingRow('DPS')).toEqual(['82.0', 'Not simmed'])
+        expect(readingRow('Health')).toEqual(['1375', 'Not simmed'])
+        expect(readingRow('Armor')).toEqual(['952', 'Not simmed'])
+        expect(readingRow('Out of mana at')).toEqual(['1:58', 'Not simmed'])
+        expect(
+            screen.getByRole('img', { name: 'DPS and mana per pull' })
+        ).toBeDefined()
+        expect(screen.getByText('DPS, what you wear')).toBeDefined()
+        expect(screen.getByText('Mana, what you wear')).toBeDefined()
+        expect(screen.queryByText("DPS, sim's plan")).toBeNull()
+        expect(screen.queryByText("Mana, sim's plan")).toBeNull()
+        expect(
+            screen.getByText('In what you wear you run dry in pull 3.')
+        ).toBeDefined()
+        expect(screen.queryByText(/^The sim's plan/)).toBeNull()
+
+        await user.selectOptions(
+            screen.getByRole('combobox', { name: 'Fight' }),
+            screen.getByRole('option', { name: 'Dungeon, 2 min, level 33' })
+        )
+
+        expect(readingRow('DPS')).toEqual(['75.4', '80.2'])
+        expect(
+            screen.getByRole('img', { name: 'DPS and mana over the fight' })
+        ).toBeDefined()
+        expect(screen.getByText("DPS, sim's plan")).toBeDefined()
+        expect(screen.getByText("Mana, sim's plan")).toBeDefined()
+        expect(screen.getByText('Out of mana 0:48')).toBeDefined()
+        expect(screen.getByText('Out of mana 0:52')).toBeDefined()
+        expect(
+            screen.getByText("The sim's plan runs out at 0:52.")
+        ).toBeDefined()
     })
 
     test('the one-plan sample says so, enables only Damage, and keeps Max damage when it moves', async () => {

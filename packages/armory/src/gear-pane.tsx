@@ -14,6 +14,7 @@ import {
     type Item,
     type SlotEntry,
 } from './gains'
+import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
 import {
     BOTTOM_SLOTS,
@@ -38,8 +39,6 @@ function GainBadge({ gain }: { gain: Gain }) {
         </span>
     )
 }
-
-type Plan = ResultsFile['plans'][number]
 
 type Shown = {
     item: Item | null

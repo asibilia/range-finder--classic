@@ -4,47 +4,16 @@
  */
 import { useId } from 'react'
 
-import type { ResultsFile } from './results-file'
+import { isLive, type Mix, type Plan, type Role, ROLES } from './plans'
 
-export type Plan = ResultsFile['plans'][number]
-export type Mix = Plan['mix']
-export type Role = keyof Mix
-
-const ROLES: [Role, string][] = [
-    ['damage', 'Damage'],
-    ['survival', 'Survival'],
-    ['healing', 'Healing'],
-    ['utility', 'Utility'],
-]
+const ROLE_LABELS: Record<Role, string> = {
+    damage: 'Damage',
+    survival: 'Survival',
+    healing: 'Healing',
+    utility: 'Utility',
+}
 
 const NOT_SIMMED_YET = 'Not simmed yet'
-
-/** A role is live when at least one plan has a mix above 0 for it. */
-export function isLive(plans: Plan[], role: Role): boolean {
-    return plans.some((plan) => plan.mix[role] > 0)
-}
-
-/**
- * The plan nearest the sliders in straight-line distance over the live
- * roles, the first in file order on a tie.
- */
-export function closestPlan(plans: Plan[], mix: Mix): Plan | null {
-    const live = ROLES.map(([role]) => role).filter((role) =>
-        isLive(plans, role)
-    )
-    let best: Plan | null = null
-    let bestDistance = Infinity
-    for (const plan of plans) {
-        const distance = Math.hypot(
-            ...live.map((role) => mix[role] - plan.mix[role])
-        )
-        if (distance < bestDistance) {
-            best = plan
-            bestDistance = distance
-        }
-    }
-    return best
-}
 
 function RoleSlider({
     label,
@@ -91,10 +60,10 @@ export function RoleSliders({
     return (
         <section className="role-sliders">
             <h2>What to gear for</h2>
-            {ROLES.map(([role, label]) => (
+            {ROLES.map((role) => (
                 <RoleSlider
                     key={role}
-                    label={label}
+                    label={ROLE_LABELS[role]}
                     value={mix[role]}
                     live={isLive(plans, role)}
                     onChange={(value) => onChange(role, value)}

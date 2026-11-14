@@ -5,10 +5,10 @@
  */
 import { useId, useState } from 'react'
 
+import type { Plan } from './plans'
 import type { ResultsFile, Stat } from './results-file'
 
 type Fight = ResultsFile['fights'][number]
-type Plan = ResultsFile['plans'][number]
 type Result = ResultsFile['results'][number]
 type TimePoint = NonNullable<Result['timeline']>[number]
 type Pull = NonNullable<Result['pulls']>[number]
@@ -28,14 +28,6 @@ const STAT_LABELS: Record<Stat, string> = {
 }
 
 const NOT_SIMMED = 'Not simmed'
-
-/** The plan with the highest damage mix, the first in file order on a tie. */
-export function defaultPlan(plans: Plan[]): Plan | null {
-    let best: Plan | null = null
-    for (const plan of plans)
-        if (best === null || plan.mix.damage > best.mix.damage) best = plan
-    return best
-}
 
 /** `m:ss`, whole seconds rounded down. */
 export function minutesSeconds(seconds: number): string {
