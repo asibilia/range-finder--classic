@@ -1,17 +1,23 @@
 /**
  * The new-visitor state: how to bring a character in. A file picker, a drop
- * target and the bundled sample. Files are read in the browser only.
+ * box and the bundled sample. The page itself takes a dropped file, wherever
+ * it lands (see `App`). Files are read in the browser only.
  */
-import type { DragEvent } from 'react'
-
 import { SCHEMA_VERSION } from './results-file'
 
 export type ReadError =
+    | { kind: 'unreadable' }
     | { kind: 'not-json' }
     | { kind: 'version'; version: number }
     | { kind: 'invalid'; problems: string[] }
 
 function ErrorMessage({ error }: { error: ReadError }) {
+    if (error.kind === 'unreadable')
+        return (
+            <div role="alert" className="read-error">
+                <p>This file couldn&apos;t be read.</p>
+            </div>
+        )
     if (error.kind === 'not-json')
         return (
             <div role="alert" className="read-error">
@@ -47,14 +53,6 @@ export function BringIn({
     onFile: (file: File) => void
     onSample: () => void
 }) {
-    const onDragOver = (event: DragEvent) => {
-        event.preventDefault()
-    }
-    const onDrop = (event: DragEvent) => {
-        event.preventDefault()
-        const file = event.dataTransfer?.files?.[0]
-        if (file) onFile(file)
-    }
     return (
         <section className="bring-in" aria-labelledby="bring-in-heading">
             <h2 id="bring-in-heading">Bring your character in</h2>
@@ -81,8 +79,6 @@ export function BringIn({
                 role="region"
                 aria-label="Drop a results file"
                 className="drop-target"
-                onDragOver={onDragOver}
-                onDrop={onDrop}
             >
                 <p>Or drop the file here.</p>
             </div>

@@ -2,7 +2,7 @@
  * The armory planner's page. It opens with nothing loaded, reads a results
  * file picked, dropped or bundled as the sample, and shows the character.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { BringIn, type ReadError } from './bring-in'
 import { Card } from './card'
@@ -41,7 +41,13 @@ function load(input: unknown): Loaded {
 
 /** Reads a picked or dropped file's text as a results file. */
 async function readFile(file: File): Promise<Loaded> {
-    const text = await file.text()
+    let text: string
+    try {
+        text = await file.text()
+    } catch {
+        // A folder, or a file the browser can't read.
+        return { file: null, error: { kind: 'unreadable' } }
+    }
     let input: unknown
     try {
         input = JSON.parse(text)
@@ -163,6 +169,24 @@ function Planner() {
     const onFile = (picked: File) => {
         void readFile(picked).then(open)
     }
+
+    // A file dropped anywhere on the page must not make the browser open it.
+    // With nothing loaded yet, the drop loads it, as the drop box does.
+    const waiting = loaded.file === null
+    useEffect(() => {
+        const onDragOver = (event: DragEvent) => event.preventDefault()
+        const onDrop = (event: DragEvent) => {
+            event.preventDefault()
+            const dropped = event.dataTransfer?.files?.[0]
+            if (waiting && dropped) void readFile(dropped).then(open)
+        }
+        window.addEventListener('dragover', onDragOver)
+        window.addEventListener('drop', onDrop)
+        return () => {
+            window.removeEventListener('dragover', onDragOver)
+            window.removeEventListener('drop', onDrop)
+        }
+    }, [waiting])
 
     const moveSlider = (role: Role, value: number) => {
         setMix((current) => (current ? { ...current, [role]: value } : current))

@@ -161,6 +161,20 @@ describe('opening the wrong file', () => {
         ).toBeDefined()
     })
 
+    test('a file that cannot be read says so', async () => {
+        const unreadable = new File([''], 'a-folder.json', {
+            type: 'application/json',
+        })
+        Object.defineProperty(unreadable, 'text', {
+            value: () => Promise.reject(new Error('NotReadableError')),
+        })
+        await pick(renderApp(), unreadable)
+
+        expect(
+            await screen.findByText("This file couldn't be read.")
+        ).toBeDefined()
+    })
+
     test('a file of schema version 2 names its version', async () => {
         await openWrongFile(
             variant((file) => {
@@ -231,6 +245,41 @@ describe('loading a results file', () => {
         ).toBeDefined()
         expect(
             screen.getByText('Level 30 Orc Enhancement Shaman')
+        ).toBeDefined()
+    })
+
+    test('dropping the sample anywhere on the page loads it', async () => {
+        renderApp()
+        const file = jsonFile(sample)
+
+        const over = fireEvent.dragOver(document.body, {
+            dataTransfer: { files: [file] },
+        })
+        expect(over).toBe(false)
+        const dropped = fireEvent.drop(document.body, {
+            dataTransfer: { files: [file] },
+        })
+        expect(dropped).toBe(false)
+
+        expect(
+            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+        ).toBeDefined()
+    })
+
+    test('once a file is open, a drop on the page is ignored and the browser does not open it', async () => {
+        await openFile(sample)
+        const other = variant((file) => {
+            ;(file.character as Json).name = 'Someone'
+        })
+
+        const dropped = fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(other)] },
+        })
+        expect(dropped).toBe(false)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+
+        expect(
+            screen.getByRole('heading', { level: 1, name: 'Truncha' })
         ).toBeDefined()
     })
 
