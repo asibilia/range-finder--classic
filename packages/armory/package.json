@@ -7,6 +7,7 @@
   "dependencies": {
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-error-boundary": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

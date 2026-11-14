@@ -31,6 +31,14 @@ afterEach(() => {
 })
 
 describe('the error boundary', () => {
+    test('is a function component (no class), from react-error-boundary', () => {
+        expect(typeof ErrorBoundary).toBe('function')
+        expect(
+            (ErrorBoundary as { prototype?: { isReactComponent?: unknown } })
+                .prototype?.isReactComponent
+        ).toBeUndefined()
+    })
+
     test('a render error shows the message, the error and Start over', async () => {
         // React reports caught render errors on the console; keep it quiet.
         const quiet = spyOn(console, 'error').mockImplementation(() => {})
