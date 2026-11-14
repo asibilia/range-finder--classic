@@ -9,8 +9,10 @@ import {
     bestUpgrade,
     formatGain,
     type Gain,
+    gainOf,
     gainSize,
     type Item,
+    type SlotEntry,
 } from './gains'
 import type { ResultsFile, Slot } from './results-file'
 import {
@@ -37,13 +39,61 @@ function GainBadge({ gain }: { gain: Gain }) {
     )
 }
 
+type Plan = ResultsFile['plans'][number]
+
+type Shown = {
+    item: Item | null
+    gain: Gain | null
+    note: string | undefined
+    sameAsWorn: boolean
+}
+
+/** What a slot shows in the worn view. */
+function wornView(entry: SlotEntry | undefined): Shown {
+    const worn = entry?.worn ?? null
+    const best = bestUpgrade(entry)
+    return {
+        item: worn,
+        gain: best?.gain ?? null,
+        note: best ? `Best: ${best.item.name}` : worn?.source.text,
+        sameAsWorn: false,
+    }
+}
+
+/** What a slot shows in the plan view. */
+function planView(
+    entry: SlotEntry | undefined,
+    planItemId: number | null
+): Shown {
+    const worn = entry?.worn ?? null
+    if (planItemId === (worn?.item_id ?? null))
+        return {
+            item: worn,
+            gain: null,
+            note: worn ? 'Same as what you wear' : undefined,
+            sameAsWorn: worn !== null,
+        }
+    const alternative = entry?.alternatives.find(
+        (candidate) => candidate.item.item_id === planItemId
+    )
+    const gain = alternative ? gainOf(alternative) : null
+    return {
+        item: alternative?.item ?? null,
+        gain: gain && gain.value > 0 ? gain : null,
+        note: `Replaces ${worn ? worn.name : 'nothing'}`,
+        sameAsWorn: false,
+    }
+}
+
 function SlotButton({
     slot,
     file,
+    plan,
     onOpen,
 }: {
     slot: Slot
     file: ResultsFile | null
+    plan: Plan | null
     onOpen: (slot: Slot) => void
 }) {
     const label = SLOT_LABELS[slot]
@@ -60,26 +110,29 @@ function SlotButton({
         )
     }
     const entry = file.slots.find((candidate) => candidate.slot === slot)
-    const worn = entry?.worn ?? null
-    const best = bestUpgrade(entry)
-    const gainText = best ? `, ${formatGain(best.gain)}` : ''
-    const note = best ? `Best: ${best.item.name}` : worn?.source.text
+    const { item, gain, note, sameAsWorn } = plan
+        ? planView(entry, plan.gear[slot])
+        : wornView(entry)
+    const name = item ? item.name : 'Nothing equipped'
+    const suffix = sameAsWorn
+        ? ', same as what you wear'
+        : gain
+          ? `, ${formatGain(gain)}`
+          : ''
     return (
         <button
             type="button"
-            className={worn ? 'slot' : 'slot slot-empty'}
-            data-quality={worn?.quality}
-            aria-label={`${label}: ${worn ? worn.name : 'Nothing equipped'}${gainText}`}
+            className={item ? 'slot' : 'slot slot-empty'}
+            data-quality={item?.quality}
+            aria-label={`${label}: ${name}${suffix}`}
             onClick={() => onOpen(slot)}
         >
             <span className="slot-glyph" aria-hidden="true">
-                {worn ? QUALITY_GLYPHS[worn.quality] : ''}
+                {item ? QUALITY_GLYPHS[item.quality] : ''}
             </span>
             <span className="slot-label">{label}</span>
-            <span className="slot-item">
-                {worn ? worn.name : 'Nothing equipped'}
-            </span>
-            {best && <GainBadge gain={best.gain} />}
+            <span className="slot-item">{name}</span>
+            {gain && <GainBadge gain={gain} />}
             {note && <span className="slot-note">{note}</span>}
         </button>
     )
@@ -140,9 +193,14 @@ function CharacterSheet({ file }: { file: ResultsFile }) {
 
 export function GearPane({
     file,
+    plan = null,
+    top,
     onOpenSlot,
 }: {
     file: ResultsFile | null
+    /** The plan whose gear the slots show, or null for what you wear. */
+    plan?: Plan | null
+    top?: ReactNode
     onOpenSlot: (slot: Slot) => void
 }) {
     const column = (slots: Slot[], className: string, after?: ReactNode) => (
@@ -152,6 +210,7 @@ export function GearPane({
                     key={slot}
                     slot={slot}
                     file={file}
+                    plan={plan}
                     onOpen={onOpenSlot}
                 />
             ))}
@@ -160,6 +219,7 @@ export function GearPane({
     )
     return (
         <section className="gear-pane" aria-label="Gear">
+            {top && <div className="gear-top">{top}</div>}
             {column(
                 LEFT_SLOTS,
                 'gear-left',

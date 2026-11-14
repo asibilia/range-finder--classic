@@ -62,10 +62,33 @@ body {
     display: grid;
     grid-template-columns: 14rem 1fr 14rem;
     grid-template-areas:
+        'top top top'
         'left middle right'
         'bottom bottom bottom';
     gap: var(--space-3);
     margin-top: var(--space-4);
+}
+
+.gear-top {
+    grid-area: top;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-3);
+}
+
+.gear-top h2 {
+    margin: 0;
+}
+
+.role-slider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.role-slider label {
+    min-width: 6rem;
 }
 
 .gear-left {

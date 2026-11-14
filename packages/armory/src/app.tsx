@@ -10,6 +10,13 @@ import type { Item } from './gains'
 import { GearPane } from './gear-pane'
 import { ItemPicker, type Wishlist, WishlistDialog } from './item-picker'
 import { readResultsFile, type ResultsFile, type Slot } from './results-file'
+import {
+    closestPlan,
+    type Mix,
+    type Plan,
+    type Role,
+    RoleSliders,
+} from './role-sliders'
 import sample from './sample-truncha.json'
 
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
@@ -72,6 +79,41 @@ function Header({
     )
 }
 
+/** The gear heading, the switch between views, and why the view switched. */
+function GearTop({
+    plan,
+    showPlan,
+    switched,
+    onShowPlan,
+    onShowWorn,
+}: {
+    plan: Plan | null
+    showPlan: boolean
+    switched: boolean
+    onShowPlan: () => void
+    onShowWorn: () => void
+}) {
+    const planShown = showPlan && plan !== null
+    return (
+        <>
+            <h2>{planShown ? `Sim's plan: ${plan.label}` : 'What you wear'}</h2>
+            {plan &&
+                (planShown ? (
+                    <button type="button" onClick={onShowWorn}>
+                        Show what I wear
+                    </button>
+                ) : (
+                    <button type="button" onClick={onShowPlan}>
+                        Show the sim&apos;s plan
+                    </button>
+                ))}
+            {planShown && switched && (
+                <p>Switched to the sim&apos;s plan for this mix.</p>
+            )}
+        </>
+    )
+}
+
 type OpenDialog = { kind: 'picker'; slot: Slot } | { kind: 'wishlist' } | null
 
 export function App() {
@@ -79,8 +121,27 @@ export function App() {
     const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
     const [dialog, setDialog] = useState<OpenDialog>(null)
 
+    const [mix, setMix] = useState<Mix | null>(null)
+    const [showPlan, setShowPlan] = useState(false)
+    const [switched, setSwitched] = useState(false)
+
+    const open = (next: Loaded) => {
+        setLoaded(next)
+        setMix(next.file ? (defaultPlan(next.file.plans)?.mix ?? null) : null)
+        setShowPlan(false)
+        setSwitched(false)
+    }
+
     const onFile = (picked: File) => {
-        void readFile(picked).then(setLoaded)
+        void readFile(picked).then(open)
+    }
+
+    const moveSlider = (role: Role, value: number) => {
+        setMix((current) => (current ? { ...current, [role]: value } : current))
+        if (!showPlan) {
+            setShowPlan(true)
+            setSwitched(true)
+        }
     }
 
     const toggleWishlist = (item: Item, slot: Slot) => {
@@ -103,6 +164,7 @@ export function App() {
     const closeDialog = () => setDialog(null)
 
     const { file, error } = loaded
+    const plan = file && mix ? closestPlan(file.plans, mix) : null
     return (
         <main className="planner">
             {file ? (
@@ -120,15 +182,42 @@ export function App() {
                 <BringIn
                     error={error}
                     onFile={onFile}
-                    onSample={() => setLoaded(load(sample))}
+                    onSample={() => open(load(sample))}
                 />
             )}
             <div className="planner-body">
-                <GearPane
-                    file={file}
-                    onOpenSlot={(slot) => setDialog({ kind: 'picker', slot })}
-                />
-                {file && <Card file={file} plan={defaultPlan(file.plans)} />}
+                <div className="gear-column">
+                    <GearPane
+                        file={file}
+                        plan={showPlan ? plan : null}
+                        top={
+                            file && (
+                                <GearTop
+                                    plan={plan}
+                                    showPlan={showPlan}
+                                    switched={switched}
+                                    onShowPlan={() => setShowPlan(true)}
+                                    onShowWorn={() => {
+                                        setShowPlan(false)
+                                        setSwitched(false)
+                                    }}
+                                />
+                            )
+                        }
+                        onOpenSlot={(slot) =>
+                            setDialog({ kind: 'picker', slot })
+                        }
+                    />
+                    {file && file.plans.length > 0 && mix && (
+                        <RoleSliders
+                            plans={file.plans}
+                            mix={mix}
+                            plan={plan}
+                            onChange={moveSlider}
+                        />
+                    )}
+                </div>
+                {file && <Card file={file} plan={plan} />}
             </div>
             {file && dialog?.kind === 'picker' && (
                 <ItemPicker
