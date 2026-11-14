@@ -1,0 +1,28 @@
+{
+  "name": "@goturbo/armory",
+  "description": "The armory planner: a web page that opens a results file the gear sim made offline and shows a character's gear, the sim's plan and its numbers.",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "bun build src/index.html --outdir dist --minify",
+    "dev": "bun src/index.html",
+    "test": "bun test --isolate",
+    "type-check": "bunx tsc --noEmit"
+  }
+}

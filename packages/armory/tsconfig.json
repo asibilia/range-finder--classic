@@ -1,0 +1,17 @@
+{
+	// The armory planner: the page (src/) and its tests (tests/).
+	"include": ["src/**/*", "tests/**/*"],
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"types": ["bun"],
+		"jsx": "react-jsx",
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"verbatimModuleSyntax": true,
+		"resolveJsonModule": true
+	}
+}
