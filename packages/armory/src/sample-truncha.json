@@ -1,0 +1,2984 @@
+{
+  "schema_version": 1,
+  "made_at": "2026-11-13T18:00:00Z",
+  "export_saved_at": "2026-11-13T17:24:14Z",
+  "game_build": "70938",
+  "sample": true,
+  "provisional": true,
+  "checks": [
+    {
+      "name": "level 60 regression",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet strength",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet agility",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet stamina",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet intellect",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet spirit",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet attackPower",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet dodge",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet meleeHit",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet armor",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet meleeCrit",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet spellCrit",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet health",
+      "passed": true,
+      "detail": "Matches the game."
+    },
+    {
+      "name": "sheet mana",
+      "passed": true,
+      "detail": "Matches the game."
+    }
+  ],
+  "character": {
+    "name": "Truncha",
+    "level": 30,
+    "race": "Orc",
+    "class": "Shaman",
+    "spec": "Enhancement"
+  },
+  "sheet_buffed": true,
+  "sheet": {
+    "strength": 73,
+    "agility": 96,
+    "stamina": 122,
+    "intellect": 85,
+    "spirit": 103,
+    "attack_power": 289,
+    "armor": 952,
+    "health": 1375,
+    "mana": 1660,
+    "melee_crit_pct": 11.95,
+    "spell_crit_pct": 7.32,
+    "dodge_pct": 11.75,
+    "melee_hit_pct": 0
+  },
+  "fights": [
+    {
+      "fight_id": "solo-hit-short",
+      "label": "Solo, 30 s, level 31",
+      "kind": "single",
+      "target_level": 31,
+      "duration_s": 30,
+      "setup": {
+        "starting_mana_pct": 100,
+        "being_hit": true,
+        "pulls": 1,
+        "gap_s": 0,
+        "drinks": false,
+        "target_armor": 1100
+      }
+    },
+    {
+      "fight_id": "dungeon-short",
+      "label": "Dungeon, 30 s, level 32",
+      "kind": "single",
+      "target_level": 32,
+      "duration_s": 30,
+      "setup": {
+        "starting_mana_pct": 100,
+        "being_hit": false,
+        "pulls": 1,
+        "gap_s": 0,
+        "drinks": false,
+        "target_armor": 1150
+      }
+    },
+    {
+      "fight_id": "dungeon-long",
+      "label": "Dungeon, 2 min, level 33",
+      "kind": "single",
+      "target_level": 33,
+      "duration_s": 120,
+      "setup": {
+        "starting_mana_pct": 100,
+        "being_hit": false,
+        "pulls": 1,
+        "gap_s": 0,
+        "drinks": false,
+        "target_armor": 1200
+      }
+    },
+    {
+      "fight_id": "chain-4",
+      "label": "Chain, 4 pulls 20 s apart, level 33",
+      "kind": "chain",
+      "target_level": 33,
+      "duration_s": 30,
+      "setup": {
+        "starting_mana_pct": 100,
+        "being_hit": false,
+        "pulls": 4,
+        "gap_s": 20,
+        "drinks": false,
+        "target_armor": 1200
+      }
+    }
+  ],
+  "default_fight_id": "chain-4",
+  "slots": [
+    {
+      "slot": "head",
+      "worn": {
+        "item_id": 252504,
+        "name": "Brawler's Leather Hood",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 252455,
+            "name": "Defender's Leather Helm",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 25,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking; Drop: World Drop"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 16.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 14584,
+            "name": "Dokebi Hat",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 13.4,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 284712,
+            "name": "Hyena Hide Helm",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 12.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 3020,
+            "name": "Enduring Cap",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 11.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 4322,
+            "name": "Enchanter's Cowl",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 11.2,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "neck",
+      "worn": {
+        "item_id": 273049,
+        "name": "Archmagister's Faceted Pendant",
+        "quality": "uncommon",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 288926,
+            "name": "Choker of the Fire Lord",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 1.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 273049,
+            "name": "Archmagister's Faceted Pendant",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 0,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 286984,
+            "name": "Mark of the Marsh",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": -1.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 13084,
+            "name": "Kaleidoscope Chain",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": -2.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 285331,
+            "name": "Mark of the Pack Leader",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 20,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": -3.2,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "shoulder",
+      "worn": {
+        "item_id": 5404,
+        "name": "Serpent's Shoulders",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 6697,
+            "name": "Batwing Mantle",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Blind Hunter, Razorfen Kraul"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 17.8,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 7057,
+            "name": "Green Silken Shoulders",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 17.3,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 7684,
+            "name": "Bloodmage Mantle",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Bloodmage Thalnos, Scarlet Monastery"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 16.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 2278,
+            "name": "Forest Tracker Epaulets",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 26,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 15.4,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 6685,
+            "name": "Death Speaker Mantle",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 27,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Death Speaker Jargba, Razorfen Kraul"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 15.1,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 4251,
+            "name": "Berylline Pads",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 25,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 7,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "back",
+      "worn": {
+        "item_id": 279848,
+        "name": "Item 279848",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 16315,
+            "name": "Sergeant Major's Cape",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 25,
+            "source": {
+              "kind": "pvp",
+              "text": "PvP reward"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 6.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 286994,
+            "name": "Tattered Kirin Tor Cloak",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 282658,
+            "name": "Dragonmaw Battle Shroud",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 27,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 4,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 271720,
+            "name": "Crocolisk Skin Gaiter",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 25,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 3.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 4326,
+            "name": "Long Silken Cloak",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 32,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 2.7,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "chest",
+      "worn": {
+        "item_id": 252509,
+        "name": "Trapper's Leather Tunic",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 7054,
+            "name": "Robe of Power",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 33,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 15.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 252451,
+            "name": "Totemic Leather Tunic",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 22,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 15.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 9406,
+            "name": "Spirewind Fetter",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Trash, Uldaman"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 13.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 273044,
+            "name": "Violet Sorcerer's Robes",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 27,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 13.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 273026,
+            "name": "Garb of Florid Feathers",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 26,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 11.3,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "wrist",
+      "worn": {
+        "item_id": 279875,
+        "name": "Item 279875",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 7386,
+            "name": "Green Whelp Bracers",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 33,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 16.8,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 273036,
+            "name": "Graveweave Bindings",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 26,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 15,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 13106,
+            "name": "Glowing Magical Bracelets",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 26,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 12.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 14590,
+            "name": "Hawkeye's Bracers",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 10.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 6902,
+            "name": "Bands of Serra'kis",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 22,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Old Serra'kis, Blackfathom Deeps"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 9.3,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "hands",
+      "worn": {
+        "item_id": 4253,
+        "name": "Toughened Leather Gloves",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 17721,
+            "name": "Gloves of the Greatfather",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 33,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 21.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 7756,
+            "name": "Dog Training Gloves",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Houndmaster Loksey, Scarlet Monastery"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 6.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 286989,
+            "name": "Violet Sorcerer's Wraps",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 6.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 6419,
+            "name": "Glyphed Mitts",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 33,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 4.9,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 6408,
+            "name": "Insignia Gloves",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 2,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "waist",
+      "worn": {
+        "item_id": 252429,
+        "name": "Trapper's Leather Belt",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 252461,
+            "name": "Skirmisher's Leather Belt",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 23.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 252459,
+            "name": "Prowler's Leather Belt",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 21,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 273807,
+            "name": "Demolition Girdle",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 24,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Kam Deepfury, The Stockade"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 19.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 20191,
+            "name": "Defiler's Leather Girdle",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "reputation",
+              "text": "Reputation reward; Vendor: Rutherford Twing"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 16.9,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "legs",
+      "worn": {
+        "item_id": 252517,
+        "name": "Trapper's Leather Legguards",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 6690,
+            "name": "Ferine Leggings",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Agathelos the Raging, Razorfen Kraul"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 23.6,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 252458,
+            "name": "Totemic Leather Leggings",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 25,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 17.9,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 285338,
+            "name": "Kodohide Legguards",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 24,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Brontus, The Barrens"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 15.9,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 252446,
+            "name": "Totemic Leather Pants",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 20,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 14.4,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 286988,
+            "name": "Violet Sorcerer's Leggings",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 12.5,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "feet",
+      "worn": {
+        "item_id": 251963,
+        "name": "Item 251963",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 284403,
+            "name": "Shapeshifting Sentinel's Strides",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 24,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 18.7,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 254005,
+            "name": "Fiery Slippers",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 18.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 279840,
+            "name": "Renewing Footpads",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 12.8,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 252442,
+            "name": "Totemic Leather Boots",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 17,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Leatherworking"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 12.4,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 254001,
+            "name": "Gilded Slippers",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 30,
+            "source": {
+              "kind": "crafted",
+              "text": "Crafted: Tailoring"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 11.6,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "finger_1",
+      "worn": {
+        "item_id": 6414,
+        "name": "Seal of Sylvanas",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 288927,
+            "name": "Quick Strike Ring",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 19.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 2262,
+            "name": "Mark of Kern",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Trash, Scarlet Monastery"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 15.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 285190,
+            "name": "Wyvern Heart Band",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Heartrazor, Thousand Needles"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 15,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 13097,
+            "name": "Thunderbrow Ring",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 24,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 14.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 288931,
+            "name": "Ring of Spell Power",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 13.8,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "finger_2",
+      "worn": {
+        "item_id": 6748,
+        "name": "Item 6748",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 288927,
+            "name": "Quick Strike Ring",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 19.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 2262,
+            "name": "Mark of Kern",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Trash, Scarlet Monastery"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 15.5,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 285190,
+            "name": "Wyvern Heart Band",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Heartrazor, Thousand Needles"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 15,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 13097,
+            "name": "Thunderbrow Ring",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 24,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "classic"
+          },
+          "gain_ep": 14.2,
+          "gain_dps": null
+        },
+        {
+          "item": {
+            "item_id": 288931,
+            "name": "Ring of Spell Power",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 1,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": 13.8,
+          "gain_dps": null
+        }
+      ]
+    },
+    {
+      "slot": "trinket_1",
+      "worn": null,
+      "alternatives": []
+    },
+    {
+      "slot": "trinket_2",
+      "worn": null,
+      "alternatives": []
+    },
+    {
+      "slot": "main_hand",
+      "worn": {
+        "item_id": 273046,
+        "name": "Guardian's Dualblade",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 28,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": [
+        {
+          "item": {
+            "item_id": 6687,
+            "name": "Corpsemaker",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 29,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Overlord Ramtusk, Razorfen Kraul"
+            },
+            "data": "classic"
+          },
+          "gain_ep": null,
+          "gain_dps": 6
+        },
+        {
+          "item": {
+            "item_id": 286983,
+            "name": "Ancient Cleaver",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 28,
+            "source": {
+              "kind": "unknown",
+              "text": "Source unknown"
+            },
+            "data": "forever"
+          },
+          "gain_ep": null,
+          "gain_dps": 4.8
+        },
+        {
+          "item": {
+            "item_id": 9459,
+            "name": "Thermaplugg's Left Arm",
+            "quality": "uncommon",
+            "item_level": null,
+            "required_level": 31,
+            "source": {
+              "kind": "drop",
+              "text": "Drop: Mekgineer Thermaplugg, Gnomeregan"
+            },
+            "data": "classic"
+          },
+          "gain_ep": null,
+          "gain_dps": 4
+        }
+      ]
+    },
+    {
+      "slot": "off_hand",
+      "worn": null,
+      "alternatives": []
+    },
+    {
+      "slot": "relic",
+      "worn": {
+        "item_id": 263412,
+        "name": "Item 263412",
+        "quality": "rare",
+        "item_level": null,
+        "required_level": 30,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "forever"
+      },
+      "alternatives": []
+    }
+  ],
+  "bag_upgrades": [
+    {
+      "slot": "shoulder",
+      "item": {
+        "item_id": 4251,
+        "name": "Berylline Pads",
+        "quality": "uncommon",
+        "item_level": null,
+        "required_level": 25,
+        "source": {
+          "kind": "unknown",
+          "text": "Source unknown"
+        },
+        "data": "classic"
+      },
+      "gain_ep": 7
+    }
+  ],
+  "plans": [
+    {
+      "plan_id": "max-damage",
+      "label": "Max damage",
+      "mix": {
+        "damage": 100,
+        "survival": 0,
+        "healing": 0,
+        "utility": 0
+      },
+      "gear": {
+        "head": 252455,
+        "neck": 288926,
+        "shoulder": 6697,
+        "back": 16315,
+        "chest": 7054,
+        "wrist": 7386,
+        "hands": 17721,
+        "waist": 252461,
+        "legs": 6690,
+        "feet": 284403,
+        "finger_1": 288927,
+        "finger_2": 2262,
+        "trinket_1": null,
+        "trinket_2": null,
+        "main_hand": 6687,
+        "off_hand": null,
+        "relic": 263412
+      }
+    },
+    {
+      "plan_id": "damage-survival",
+      "label": "Damage and survival",
+      "mix": {
+        "damage": 60,
+        "survival": 60,
+        "healing": 0,
+        "utility": 0
+      },
+      "gear": {
+        "head": 284712,
+        "neck": 288926,
+        "shoulder": 6697,
+        "back": 282658,
+        "chest": 7054,
+        "wrist": 7386,
+        "hands": 17721,
+        "waist": 20191,
+        "legs": 285338,
+        "feet": 284403,
+        "finger_1": 288927,
+        "finger_2": 285190,
+        "trinket_1": null,
+        "trinket_2": null,
+        "main_hand": 286983,
+        "off_hand": null,
+        "relic": 263412
+      }
+    },
+    {
+      "plan_id": "max-survival",
+      "label": "Max survival",
+      "mix": {
+        "damage": 30,
+        "survival": 100,
+        "healing": 0,
+        "utility": 0
+      },
+      "gear": {
+        "head": 3020,
+        "neck": 288926,
+        "shoulder": 6685,
+        "back": 282658,
+        "chest": 7054,
+        "wrist": 7386,
+        "hands": 7756,
+        "waist": 20191,
+        "legs": 285338,
+        "feet": 252442,
+        "finger_1": 13097,
+        "finger_2": 285190,
+        "trinket_1": null,
+        "trinket_2": null,
+        "main_hand": 273046,
+        "off_hand": null,
+        "relic": 263412
+      }
+    }
+  ],
+  "results": [
+    {
+      "gear": "worn",
+      "fight_id": "solo-hit-short",
+      "dps": 103.7,
+      "health": 1375,
+      "armor": 952,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 34,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "worn",
+      "fight_id": "dungeon-short",
+      "dps": 97.3,
+      "health": 1375,
+      "armor": 952,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 34,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "worn",
+      "fight_id": "dungeon-long",
+      "dps": 75.4,
+      "health": 1375,
+      "armor": 952,
+      "out_of_mana_s": 48,
+      "time_to_die_s": 34,
+      "timeline": [
+        {
+          "t_s": 0,
+          "dps": 94.3,
+          "mana": 1660
+        },
+        {
+          "t_s": 5,
+          "dps": 94.3,
+          "mana": 1487
+        },
+        {
+          "t_s": 10,
+          "dps": 94.3,
+          "mana": 1314
+        },
+        {
+          "t_s": 15,
+          "dps": 94.3,
+          "mana": 1141
+        },
+        {
+          "t_s": 20,
+          "dps": 94.3,
+          "mana": 968
+        },
+        {
+          "t_s": 25,
+          "dps": 94.3,
+          "mana": 795
+        },
+        {
+          "t_s": 30,
+          "dps": 94.3,
+          "mana": 623
+        },
+        {
+          "t_s": 35,
+          "dps": 94.3,
+          "mana": 450
+        },
+        {
+          "t_s": 40,
+          "dps": 94.3,
+          "mana": 277
+        },
+        {
+          "t_s": 45,
+          "dps": 94.3,
+          "mana": 104
+        },
+        {
+          "t_s": 50,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 55,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 60,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 65,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 70,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 75,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 80,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 85,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 90,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 95,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 100,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 105,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 110,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 115,
+          "dps": 56.6,
+          "mana": 0
+        },
+        {
+          "t_s": 120,
+          "dps": 56.6,
+          "mana": 0
+        }
+      ],
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-damage",
+      "fight_id": "solo-hit-short",
+      "dps": 118.4,
+      "health": 1310,
+      "armor": 1010,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 31,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-damage",
+      "fight_id": "dungeon-short",
+      "dps": 111.2,
+      "health": 1310,
+      "armor": 1010,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 31,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-damage",
+      "fight_id": "dungeon-long",
+      "dps": 84.1,
+      "health": 1310,
+      "armor": 1010,
+      "out_of_mana_s": 57,
+      "time_to_die_s": 31,
+      "timeline": [
+        {
+          "t_s": 0,
+          "dps": 105.1,
+          "mana": 1745
+        },
+        {
+          "t_s": 5,
+          "dps": 105.1,
+          "mana": 1592
+        },
+        {
+          "t_s": 10,
+          "dps": 105.1,
+          "mana": 1439
+        },
+        {
+          "t_s": 15,
+          "dps": 105.1,
+          "mana": 1286
+        },
+        {
+          "t_s": 20,
+          "dps": 105.1,
+          "mana": 1133
+        },
+        {
+          "t_s": 25,
+          "dps": 105.1,
+          "mana": 980
+        },
+        {
+          "t_s": 30,
+          "dps": 105.1,
+          "mana": 827
+        },
+        {
+          "t_s": 35,
+          "dps": 105.1,
+          "mana": 674
+        },
+        {
+          "t_s": 40,
+          "dps": 105.1,
+          "mana": 520
+        },
+        {
+          "t_s": 45,
+          "dps": 105.1,
+          "mana": 367
+        },
+        {
+          "t_s": 50,
+          "dps": 105.1,
+          "mana": 214
+        },
+        {
+          "t_s": 55,
+          "dps": 105.1,
+          "mana": 61
+        },
+        {
+          "t_s": 60,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 65,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 70,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 75,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 80,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 85,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 90,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 95,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 100,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 105,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 110,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 115,
+          "dps": 63.1,
+          "mana": 0
+        },
+        {
+          "t_s": 120,
+          "dps": 63.1,
+          "mana": 0
+        }
+      ],
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "damage-survival",
+      "fight_id": "solo-hit-short",
+      "dps": 111,
+      "health": 1545,
+      "armor": 1290,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 42,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "damage-survival",
+      "fight_id": "dungeon-short",
+      "dps": 104.9,
+      "health": 1545,
+      "armor": 1290,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 42,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "damage-survival",
+      "fight_id": "dungeon-long",
+      "dps": 80.2,
+      "health": 1545,
+      "armor": 1290,
+      "out_of_mana_s": 52,
+      "time_to_die_s": 42,
+      "timeline": [
+        {
+          "t_s": 0,
+          "dps": 100.3,
+          "mana": 1700
+        },
+        {
+          "t_s": 5,
+          "dps": 100.3,
+          "mana": 1537
+        },
+        {
+          "t_s": 10,
+          "dps": 100.3,
+          "mana": 1373
+        },
+        {
+          "t_s": 15,
+          "dps": 100.3,
+          "mana": 1210
+        },
+        {
+          "t_s": 20,
+          "dps": 100.3,
+          "mana": 1046
+        },
+        {
+          "t_s": 25,
+          "dps": 100.3,
+          "mana": 883
+        },
+        {
+          "t_s": 30,
+          "dps": 100.3,
+          "mana": 719
+        },
+        {
+          "t_s": 35,
+          "dps": 100.3,
+          "mana": 556
+        },
+        {
+          "t_s": 40,
+          "dps": 100.3,
+          "mana": 392
+        },
+        {
+          "t_s": 45,
+          "dps": 100.3,
+          "mana": 229
+        },
+        {
+          "t_s": 50,
+          "dps": 100.3,
+          "mana": 65
+        },
+        {
+          "t_s": 55,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 60,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 65,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 70,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 75,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 80,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 85,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 90,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 95,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 100,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 105,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 110,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 115,
+          "dps": 60.2,
+          "mana": 0
+        },
+        {
+          "t_s": 120,
+          "dps": 60.2,
+          "mana": 0
+        }
+      ],
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-survival",
+      "fight_id": "solo-hit-short",
+      "dps": 99.2,
+      "health": 1790,
+      "armor": 1620,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 58,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-survival",
+      "fight_id": "dungeon-short",
+      "dps": 93.6,
+      "health": 1790,
+      "armor": 1620,
+      "out_of_mana_s": "never",
+      "time_to_die_s": 58,
+      "timeline": null,
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-survival",
+      "fight_id": "dungeon-long",
+      "dps": 72.5,
+      "health": 1790,
+      "armor": 1620,
+      "out_of_mana_s": 45,
+      "time_to_die_s": 58,
+      "timeline": [
+        {
+          "t_s": 0,
+          "dps": 90.6,
+          "mana": 1640
+        },
+        {
+          "t_s": 5,
+          "dps": 90.6,
+          "mana": 1458
+        },
+        {
+          "t_s": 10,
+          "dps": 90.6,
+          "mana": 1276
+        },
+        {
+          "t_s": 15,
+          "dps": 90.6,
+          "mana": 1093
+        },
+        {
+          "t_s": 20,
+          "dps": 90.6,
+          "mana": 911
+        },
+        {
+          "t_s": 25,
+          "dps": 90.6,
+          "mana": 729
+        },
+        {
+          "t_s": 30,
+          "dps": 90.6,
+          "mana": 547
+        },
+        {
+          "t_s": 35,
+          "dps": 90.6,
+          "mana": 364
+        },
+        {
+          "t_s": 40,
+          "dps": 90.6,
+          "mana": 182
+        },
+        {
+          "t_s": 45,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 50,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 55,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 60,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 65,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 70,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 75,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 80,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 85,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 90,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 95,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 100,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 105,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 110,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 115,
+          "dps": 54.4,
+          "mana": 0
+        },
+        {
+          "t_s": 120,
+          "dps": 54.4,
+          "mana": 0
+        }
+      ],
+      "pulls": null,
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "worn",
+      "fight_id": "chain-4",
+      "dps": 82,
+      "health": 1375,
+      "armor": 952,
+      "out_of_mana_s": 118,
+      "time_to_die_s": 34,
+      "timeline": null,
+      "pulls": [
+        {
+          "pull": 1,
+          "dps": 101,
+          "mana_start": 1660,
+          "mana_end": 980
+        },
+        {
+          "pull": 2,
+          "dps": 97,
+          "mana_start": 1010,
+          "mana_end": 330
+        },
+        {
+          "pull": 3,
+          "dps": 72,
+          "mana_start": 360,
+          "mana_end": 0
+        },
+        {
+          "pull": 4,
+          "dps": 58,
+          "mana_start": 30,
+          "mana_end": 0
+        }
+      ],
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    },
+    {
+      "gear": "max-damage",
+      "fight_id": "chain-4",
+      "dps": 96.8,
+      "health": 1310,
+      "armor": 1010,
+      "out_of_mana_s": 124,
+      "time_to_die_s": 31,
+      "timeline": null,
+      "pulls": [
+        {
+          "pull": 1,
+          "dps": 120,
+          "mana_start": 1745,
+          "mana_end": 1100
+        },
+        {
+          "pull": 2,
+          "dps": 115,
+          "mana_start": 1130,
+          "mana_end": 480
+        },
+        {
+          "pull": 3,
+          "dps": 86,
+          "mana_start": 510,
+          "mana_end": 0
+        },
+        {
+          "pull": 4,
+          "dps": 66,
+          "mana_start": 40,
+          "mana_end": 0
+        }
+      ],
+      "damage_split": [
+        {
+          "name": "Melee",
+          "share_pct": 33
+        },
+        {
+          "name": "Windfury",
+          "share_pct": 17
+        },
+        {
+          "name": "Flame Shock",
+          "share_pct": 15
+        },
+        {
+          "name": "Stormstrike",
+          "share_pct": 15
+        },
+        {
+          "name": "Earth Shock",
+          "share_pct": 11
+        },
+        {
+          "name": "Lightning Shield",
+          "share_pct": 9
+        }
+      ]
+    }
+  ],
+  "stat_weights": [
+    {
+      "fight_id": "solo-hit-short",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2
+        },
+        {
+          "stat": "agility",
+          "ep": 0.94
+        },
+        {
+          "stat": "intellect",
+          "ep": 1.15
+        },
+        {
+          "stat": "spirit",
+          "ep": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.39
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.8
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 1.41
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 0
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.19
+        }
+      ]
+    },
+    {
+      "fight_id": "dungeon-short",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2
+        },
+        {
+          "stat": "agility",
+          "ep": 0.88
+        },
+        {
+          "stat": "intellect",
+          "ep": 1.16
+        },
+        {
+          "stat": "spirit",
+          "ep": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.31
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.85
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 0.89
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 0
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.18
+        }
+      ]
+    },
+    {
+      "fight_id": "dungeon-long",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2
+        },
+        {
+          "stat": "agility",
+          "ep": 1.02
+        },
+        {
+          "stat": "intellect",
+          "ep": 4.04
+        },
+        {
+          "stat": "spirit",
+          "ep": 0.94
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.69
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.98
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 0.8
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 3.89
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.19
+        }
+      ]
+    }
+  ],
+  "talents": {
+    "tree": "Enhancement",
+    "points": 21,
+    "yours": [
+      {
+        "talent_id": 16043,
+        "name": "Earth's Grasp",
+        "tier": 1,
+        "column": 1,
+        "rank": 0,
+        "max_rank": 2
+      },
+      {
+        "talent_id": 16255,
+        "name": "Thundering Strikes",
+        "tier": 1,
+        "column": 2,
+        "rank": 2,
+        "max_rank": 5
+      },
+      {
+        "talent_id": 17485,
+        "name": "Ancestral Knowledge",
+        "tier": 1,
+        "column": 3,
+        "rank": 5,
+        "max_rank": 5
+      },
+      {
+        "talent_id": 16258,
+        "name": "Guardian Totems",
+        "tier": 2,
+        "column": 1,
+        "rank": 0,
+        "max_rank": 2
+      },
+      {
+        "talent_id": 415140,
+        "name": "Mental Dexterity",
+        "tier": 2,
+        "column": 2,
+        "rank": 3,
+        "max_rank": 3
+      },
+      {
+        "talent_id": 16261,
+        "name": "Improved Lightning Shield",
+        "tier": 2,
+        "column": 3,
+        "rank": 0,
+        "max_rank": 3
+      },
+      {
+        "talent_id": 16266,
+        "name": "Elemental Weapons",
+        "tier": 3,
+        "column": 1,
+        "rank": 3,
+        "max_rank": 3
+      },
+      {
+        "talent_id": 1223030,
+        "name": "Shamanistic Focus",
+        "tier": 3,
+        "column": 3,
+        "rank": 1,
+        "max_rank": 1
+      },
+      {
+        "talent_id": 16254,
+        "name": "Anticipation",
+        "tier": 3,
+        "column": 4,
+        "rank": 1,
+        "max_rank": 3
+      },
+      {
+        "talent_id": 16252,
+        "name": "Toughness",
+        "tier": 4,
+        "column": 1,
+        "rank": 0,
+        "max_rank": 5
+      },
+      {
+        "talent_id": 16256,
+        "name": "Flurry",
+        "tier": 4,
+        "column": 2,
+        "rank": 4,
+        "max_rank": 5
+      },
+      {
+        "talent_id": 17364,
+        "name": "Stormstrike",
+        "tier": 4,
+        "column": 3,
+        "rank": 1,
+        "max_rank": 1
+      },
+      {
+        "talent_id": 16262,
+        "name": "Improved Ghost Wolf",
+        "tier": 4,
+        "column": 4,
+        "rank": 0,
+        "max_rank": 2
+      },
+      {
+        "talent_id": 16268,
+        "name": "Spirit Weapons",
+        "tier": 5,
+        "column": 1,
+        "rank": 0,
+        "max_rank": 1
+      },
+      {
+        "talent_id": 30812,
+        "name": "Mental Quickness",
+        "tier": 5,
+        "column": 2,
+        "rank": 0,
+        "max_rank": 2
+      },
+      {
+        "talent_id": 1223031,
+        "name": "Improved Stormstrike",
+        "tier": 5,
+        "column": 3,
+        "rank": 1,
+        "max_rank": 2
+      },
+      {
+        "talent_id": 408498,
+        "name": "Maelstrom Weapon",
+        "tier": 6,
+        "column": 3,
+        "rank": 0,
+        "max_rank": 5
+      },
+      {
+        "talent_id": 425336,
+        "name": "Rage of the Farseer",
+        "tier": 7,
+        "column": 2,
+        "rank": 0,
+        "max_rank": 1
+      }
+    ],
+    "best": {
+      "ranks": [
+        {
+          "talent_id": 16043,
+          "rank": 0
+        },
+        {
+          "talent_id": 16255,
+          "rank": 2
+        },
+        {
+          "talent_id": 17485,
+          "rank": 5
+        },
+        {
+          "talent_id": 16258,
+          "rank": 0
+        },
+        {
+          "talent_id": 415140,
+          "rank": 3
+        },
+        {
+          "talent_id": 16261,
+          "rank": 0
+        },
+        {
+          "talent_id": 16266,
+          "rank": 3
+        },
+        {
+          "talent_id": 1223030,
+          "rank": 1
+        },
+        {
+          "talent_id": 16254,
+          "rank": 0
+        },
+        {
+          "talent_id": 16252,
+          "rank": 0
+        },
+        {
+          "talent_id": 16256,
+          "rank": 5
+        },
+        {
+          "talent_id": 17364,
+          "rank": 1
+        },
+        {
+          "talent_id": 16262,
+          "rank": 0
+        },
+        {
+          "talent_id": 16268,
+          "rank": 0
+        },
+        {
+          "talent_id": 30812,
+          "rank": 0
+        },
+        {
+          "talent_id": 1223031,
+          "rank": 1
+        },
+        {
+          "talent_id": 408498,
+          "rank": 0
+        },
+        {
+          "talent_id": 425336,
+          "rank": 0
+        }
+      ],
+      "dps_gain": 1.6,
+      "fight_id": "solo-hit-short"
+    }
+  },
+  "pawn": [
+    {
+      "label": "Enh solo L30 (provisional)",
+      "text": "( Pawn: v1: \"Enh solo L30 (provisional)\": Strength=2.00, Agility=0.94, Intellect=1.15, Ap=1.00, HitRating=1.39, CritRating=0.80, SpellDamage=1.41, MeleeDps=14.19 )"
+    },
+    {
+      "label": "Enh dungeon L30 (provisional)",
+      "text": "( Pawn: v1: \"Enh dungeon L30 (provisional)\": Strength=2.00, Agility=0.88, Intellect=1.16, Ap=1.00, HitRating=1.31, CritRating=0.85, SpellDamage=0.89, MeleeDps=14.18 )"
+    }
+  ]
+}

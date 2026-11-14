@@ -1,6 +1,6 @@
 {
   "name": "turbo",
-  "description": "Turbo, spell macros for WoW: Forever. Bun monorepo: the addon (@goturbo/addon) and the Turbo site (@goturbo/web).",
+  "description": "Turbo, spell macros for WoW: Forever. Bun monorepo: the addon (@goturbo/addon), the Turbo site (@goturbo/web) and the armory planner (@goturbo/armory).",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -19,12 +19,15 @@
     "typescript-eslint": "^8.59.0"
   },
   "scripts": {
+    "armory:schema": "bun packages/armory/scripts/write-results-schema.ts",
+    "build:armory": "cd packages/armory && bun run build",
     "changeset": "bunx changeset",
     "changeset:status": "bunx changeset status",
     "changeset:version": "bunx changeset version && bun install",
     "check": "bun run check:all && bun run lua:all",
-    "check:all": "bun run type-check && bun run lint && bun run syncpack:check",
+    "check:all": "bun run type-check && bun run lint && bun run syncpack:check && bun run test:armory",
     "commit": "bunx --bun @alecsibilia/commit",
+    "dev:armory": "cd packages/armory && bun run dev",
     "dev:link": "bun packages/addon/scripts/dev-link.ts",
     "dev:watch": "bun packages/addon/scripts/dev-watch.ts",
     "lint": "eslint .",
@@ -34,13 +37,15 @@
     "lua:format": "cd packages/addon && bun run lua:format",
     "lua:format:check": "cd packages/addon && bun run lua:format:check",
     "lua:guard": "cd packages/addon && bun run lua:guard",
-    "lua:test": "bun test packages/addon",
+    "lua:test": "bun test --isolate packages/addon",
     "syncpack:check": "bunx syncpack lint",
     "syncpack:fix": "bunx syncpack fix-mismatches",
-    "test": "bun test",
+    "test": "bun test --isolate",
+    "test:armory": "bun test --isolate packages/armory",
     "tools:fetch": "bun packages/addon/scripts/fetch-tools.ts",
-    "type-check": "bun run type-check:addon && bun run type-check:web && bun run type-check:repo",
+    "type-check": "bun run type-check:addon && bun run type-check:web && bun run type-check:armory && bun run type-check:repo",
     "type-check:addon": "cd packages/addon && bunx tsc --noEmit",
+    "type-check:armory": "cd packages/armory && bunx tsc --noEmit",
     "type-check:repo": "bunx tsc --noEmit",
     "type-check:web": "cd packages/web && bunx tsc --noEmit"
   },
@@ -49,10 +54,20 @@
       "packages/*"
     ],
     "catalog": {
+      "@happy-dom/global-registrator": "^20.0.0",
       "@johnnymorganz/stylua-bin": "^2.5.2",
+      "@testing-library/dom": "^10.4.0",
+      "@testing-library/react": "^16.3.0",
+      "@testing-library/user-event": "^14.6.1",
       "@types/bun": "^1.3.14",
+      "@types/react": "^19.2.0",
+      "@types/react-dom": "^19.2.0",
       "lua-wasm-bindings": "^0.5.3",
-      "typescript": "^5.9.3"
+      "react": "^19.2.0",
+      "react-dom": "^19.2.0",
+      "react-error-boundary": "^6.1.6",
+      "typescript": "^5.9.3",
+      "zod": "^4.1.0"
     }
   }
 }

@@ -66,6 +66,24 @@ _Avoid_: Cast macro, rank macro
 The spell macro for an attacking spell: it also starts auto-attack (`/startattack`) before the cast. Crowd control that damage breaks (Gouge, Sap, Polymorph...) never gets one: its spell macro is the plain kind.
 _Avoid_: Startattack macro
 
+### The armory planner
+
+**Armory planner**:
+The web page that opens a results file and shows one character's gear, the sim's plans and its numbers.
+_Avoid_: armory site, dashboard, web app
+
+**Results file**:
+One versioned JSON file the gear sim writes for one character, which the armory planner reads.
+_Avoid_: report (that's the sim's Markdown), export
+
+**Plan**:
+A gear set the sim made for one mix of damage, survival, healing and utility.
+_Avoid_: loadout, build (a build is talents)
+
+**Export addon**:
+TurboCharExport, the addon that writes a character to a SavedVariables file with `/tbexport`. It is not Turbo and does not ship with it.
+_Avoid_: Turbo export
+
 ### Retired
 
 Words for the Shaman HUD that Turbo no longer ships: HUD, Class kit, Class helper, Module, Engaged, Debug mode, Display-only, Self-timed, Resync, Reminder, Recall reminder, Range band, Totem slot, Clip, Safe window, Hard cast. Forever's own UI covers most of that HUD; `docs/research/forever-native-ui.md` compares the two, and git history (before the trim to attack macros) keeps the code and the old definitions.

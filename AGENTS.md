@@ -9,12 +9,17 @@ covered most of it: see `docs/research/forever-native-ui.md`; git history
 keeps the code. Read `CONTEXT.md` first for the words this repo uses
 (Forever, secret value, restriction, probe, safe layer, spell macro...).
 
+The repo also holds the **armory planner** (`packages/armory`), a web page
+that opens a results file the gear sim made offline and shows a character's
+gear, the sim's plan and its numbers. It is separate from the addon and from
+the Turbo site, and nothing in it ships with the addon.
+
 ## Ground rules
 
 - **Bun only.** `bun install`, `bun run`, `bun test`, `bunx`. Never
   npm/yarn/pnpm; their lockfiles are gitignored on purpose.
 - **`bun run check` before any PR.** It is what CI runs: `check:all`
-  (type-check, ESLint + Prettier, syncpack) and then `lua:all` (StyLua format
+  (type-check, ESLint + Prettier, syncpack, the armory tests) and then `lua:all` (StyLua format
   check, LuaLS, the secret-read guard, and `bun test`). ESLint is the
   TypeScript formatter; `bun run lua:format` formats the Lua.
 - **A fresh checkout needs `bun run tools:fetch`** (LuaLS, the WoW API
@@ -44,6 +49,7 @@ keeps the code. Read `CONTEXT.md` first for the words this repo uses
 | The fake game and test harness | `packages/addon/tests/fake-game/` |
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |
+| The armory planner (a web page; not the Turbo site). How to run it and the samples: its README | `packages/armory/`, `packages/armory/README.md` |
 | The probe (dev tool, never released; raw results gitignored) | `tools/probe/` |
 | Glossary | `CONTEXT.md` |
 | Research (Forever's native UI vs the retired HUD) | `docs/research/` |
@@ -77,8 +83,8 @@ keeps the code. Read `CONTEXT.md` first for the words this repo uses
 
 Every PR into `main` must carry a changeset (`bun run changeset`);
 `require-changesets.yml` fails the PR without one. Repo and tooling changes use
-a `patch` on the package they serve. Nothing is published to npm: both packages
-are `"private": true`.
+a `patch` on the package they serve. Nothing is published to npm: every package
+is `"private": true`.
 
 Merging the changesets Version PR is the only release step: it tags
 `v<addon version>` and the BigWigs packager publishes the addon folder. See
