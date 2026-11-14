@@ -20,6 +20,11 @@ export default defineConfig({
             },
         },
     },
+    optimizeDeps: {
+        // Found only once the page is served, so a fresh install's first
+        // dev visit re-bundled and reloaded the page, losing a click.
+        include: ['zod'],
+    },
     plugins: [
         cloudflare({ viteEnvironment: { name: 'ssr' } }),
         tailwindcss(),
