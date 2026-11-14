@@ -1,0 +1,1058 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "number",
+      "const": 1
+    },
+    "made_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "export_saved_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "game_build": {
+      "type": "string"
+    },
+    "sample": {
+      "type": "boolean"
+    },
+    "provisional": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "passed",
+          "detail"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "character": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "character_key": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "race": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "spec": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "level",
+        "race",
+        "class",
+        "spec"
+      ],
+      "additionalProperties": false
+    },
+    "sheet_buffed": {
+      "type": "boolean"
+    },
+    "sheet": {
+      "type": "object",
+      "properties": {
+        "strength": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "agility": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "stamina": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "intellect": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "spirit": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "attack_power": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "armor": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "health": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "mana": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "melee_crit_pct": {
+          "type": "number"
+        },
+        "spell_crit_pct": {
+          "type": "number"
+        },
+        "dodge_pct": {
+          "type": "number"
+        },
+        "melee_hit_pct": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "strength",
+        "agility",
+        "stamina",
+        "intellect",
+        "spirit",
+        "attack_power",
+        "armor",
+        "health",
+        "mana",
+        "melee_crit_pct",
+        "spell_crit_pct",
+        "dodge_pct",
+        "melee_hit_pct"
+      ],
+      "additionalProperties": false
+    },
+    "fights": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fight_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "single",
+              "chain"
+            ]
+          },
+          "target_level": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "duration_s": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "setup": {
+            "type": "object",
+            "properties": {
+              "starting_mana_pct": {
+                "type": "number"
+              },
+              "being_hit": {
+                "type": "boolean"
+              },
+              "pulls": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "gap_s": {
+                "type": "number"
+              },
+              "drinks": {
+                "type": "boolean"
+              },
+              "target_armor": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "starting_mana_pct",
+              "being_hit",
+              "pulls",
+              "gap_s",
+              "drinks",
+              "target_armor"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "fight_id",
+          "label",
+          "kind",
+          "target_level",
+          "duration_s"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "default_fight_id": {
+      "type": "string"
+    },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "head",
+              "neck",
+              "shoulder",
+              "back",
+              "chest",
+              "wrist",
+              "hands",
+              "waist",
+              "legs",
+              "feet",
+              "finger_1",
+              "finger_2",
+              "trinket_1",
+              "trinket_2",
+              "main_hand",
+              "off_hand",
+              "relic"
+            ]
+          },
+          "worn": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "item_id": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "quality": {
+                    "type": "string",
+                    "enum": [
+                      "poor",
+                      "common",
+                      "uncommon",
+                      "rare",
+                      "epic",
+                      "legendary"
+                    ]
+                  },
+                  "item_level": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "required_level": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "drop",
+                          "crafted",
+                          "quest",
+                          "vendor",
+                          "reputation",
+                          "pvp",
+                          "unknown"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "data": {
+                    "type": "string",
+                    "enum": [
+                      "forever",
+                      "classic"
+                    ]
+                  }
+                },
+                "required": [
+                  "item_id",
+                  "name",
+                  "quality",
+                  "item_level",
+                  "required_level",
+                  "source",
+                  "data"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "properties": {
+                    "item_id": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "quality": {
+                      "type": "string",
+                      "enum": [
+                        "poor",
+                        "common",
+                        "uncommon",
+                        "rare",
+                        "epic",
+                        "legendary"
+                      ]
+                    },
+                    "item_level": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "required_level": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "drop",
+                            "crafted",
+                            "quest",
+                            "vendor",
+                            "reputation",
+                            "pvp",
+                            "unknown"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "string",
+                      "enum": [
+                        "forever",
+                        "classic"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item_id",
+                    "name",
+                    "quality",
+                    "item_level",
+                    "required_level",
+                    "source",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "gain_ep": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "gain_dps": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "item",
+                "gain_ep",
+                "gain_dps"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "slot",
+          "worn",
+          "alternatives"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "bag_upgrades": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "head",
+              "neck",
+              "shoulder",
+              "back",
+              "chest",
+              "wrist",
+              "hands",
+              "waist",
+              "legs",
+              "feet",
+              "finger_1",
+              "finger_2",
+              "trinket_1",
+              "trinket_2",
+              "main_hand",
+              "off_hand",
+              "relic"
+            ]
+          },
+          "item": {
+            "type": "object",
+            "properties": {
+              "item_id": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "poor",
+                  "common",
+                  "uncommon",
+                  "rare",
+                  "epic",
+                  "legendary"
+                ]
+              },
+              "item_level": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "required_level": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "drop",
+                      "crafted",
+                      "quest",
+                      "vendor",
+                      "reputation",
+                      "pvp",
+                      "unknown"
+                    ]
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text"
+                ],
+                "additionalProperties": false
+              },
+              "data": {
+                "type": "string",
+                "enum": [
+                  "forever",
+                  "classic"
+                ]
+              }
+            },
+            "required": [
+              "item_id",
+              "name",
+              "quality",
+              "item_level",
+              "required_level",
+              "source",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          "gain_ep": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "slot",
+          "item",
+          "gain_ep"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "mix": {
+            "type": "object",
+            "properties": {
+              "damage": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "survival": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "healing": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "utility": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "damage",
+              "survival",
+              "healing",
+              "utility"
+            ],
+            "additionalProperties": false
+          },
+          "gear": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "head",
+                "neck",
+                "shoulder",
+                "back",
+                "chest",
+                "wrist",
+                "hands",
+                "waist",
+                "legs",
+                "feet",
+                "finger_1",
+                "finger_2",
+                "trinket_1",
+                "trinket_2",
+                "main_hand",
+                "off_hand",
+                "relic"
+              ]
+            },
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": [
+              "head",
+              "neck",
+              "shoulder",
+              "back",
+              "chest",
+              "wrist",
+              "hands",
+              "waist",
+              "legs",
+              "feet",
+              "finger_1",
+              "finger_2",
+              "trinket_1",
+              "trinket_2",
+              "main_hand",
+              "off_hand",
+              "relic"
+            ]
+          }
+        },
+        "required": [
+          "plan_id",
+          "label",
+          "mix",
+          "gear"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "gear": {
+            "type": "string"
+          },
+          "fight_id": {
+            "type": "string"
+          },
+          "dps": {
+            "type": "number"
+          },
+          "health": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "armor": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "out_of_mana_s": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "time_to_die_s": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "timeline": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "t_s": {
+                      "type": "number"
+                    },
+                    "dps": {
+                      "type": "number"
+                    },
+                    "mana": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "t_s",
+                    "dps",
+                    "mana"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pulls": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "pull": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dps": {
+                      "type": "number"
+                    },
+                    "mana_start": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "mana_end": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "pull",
+                    "dps",
+                    "mana_start",
+                    "mana_end"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "damage_split": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "share_pct": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "share_pct"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "gear",
+          "fight_id",
+          "dps",
+          "health",
+          "armor",
+          "out_of_mana_s",
+          "time_to_die_s",
+          "timeline",
+          "pulls",
+          "damage_split"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "stat_weights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fight_id": {
+            "type": "string"
+          },
+          "weights": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stat": {
+                  "type": "string",
+                  "enum": [
+                    "strength",
+                    "agility",
+                    "stamina",
+                    "intellect",
+                    "spirit",
+                    "attack_power",
+                    "hit_rating",
+                    "crit_rating",
+                    "spell_damage",
+                    "mana_per_5",
+                    "weapon_dps"
+                  ]
+                },
+                "ep": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "stat",
+                "ep"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "fight_id",
+          "weights"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "talents": {
+      "type": "object",
+      "properties": {
+        "tree": {
+          "type": "string"
+        },
+        "points": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "yours": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "talent_id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "column": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "max_rank": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "talent_id",
+              "name",
+              "tier",
+              "column",
+              "rank",
+              "max_rank"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "best": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ranks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "talent_id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "rank": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "talent_id",
+                      "rank"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "dps_gain": {
+                  "type": "number"
+                },
+                "fight_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ranks",
+                "dps_gain",
+                "fight_id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tree",
+        "points",
+        "yours",
+        "best"
+      ],
+      "additionalProperties": false
+    },
+    "pawn": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "made_at",
+    "export_saved_at",
+    "game_build",
+    "sample",
+    "provisional",
+    "checks",
+    "character",
+    "sheet_buffed",
+    "sheet",
+    "fights",
+    "default_fight_id",
+    "slots",
+    "bag_upgrades",
+    "plans",
+    "results",
+    "stat_weights",
+    "talents",
+    "pawn"
+  ],
+  "additionalProperties": false
+}
