@@ -5,6 +5,7 @@
 import { useState } from 'react'
 
 import { BringIn, type ReadError } from './bring-in'
+import { Card, defaultPlan } from './card'
 import { GearPane } from './gear-pane'
 import { readResultsFile, type ResultsFile } from './results-file'
 import sample from './sample-truncha.json'
@@ -80,7 +81,10 @@ export function App() {
                     onSample={() => setLoaded(load(sample))}
                 />
             )}
-            <GearPane file={file} />
+            <div className="planner-body">
+                <GearPane file={file} />
+                {file && <Card file={file} plan={defaultPlan(file.plans)} />}
+            </div>
         </main>
     )
 }

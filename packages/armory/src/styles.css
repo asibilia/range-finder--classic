@@ -6,6 +6,8 @@
     --color-surface: #f4f4f6;
     --color-border: #c8c8cf;
     --color-error: #a4161a;
+    --color-chart-worn: #1f5fbf;
+    --color-chart-plan: #b85c00;
     --color-quality-poor: #8a8a8a;
     --color-quality-common: #4a4a4a;
     --color-quality-uncommon: #1e7b2e;
@@ -182,4 +184,109 @@ body {
 .sheet-note {
     font-size: var(--font-size-small);
     color: var(--color-muted);
+}
+
+.planner-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-4);
+}
+
+.card {
+    flex: 0 1 22rem;
+    margin-top: var(--space-4);
+    padding: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.fight-settings,
+.damage-split,
+.chart-legend {
+    padding-left: var(--space-3);
+    font-size: var(--font-size-small);
+}
+
+.readings-heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.provisional {
+    position: relative;
+}
+
+.provisional-marker {
+    padding: 0 var(--space-1);
+    font-size: var(--font-size-small);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.provisional-text {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 1;
+    width: 14rem;
+    padding: var(--space-2);
+    font-size: var(--font-size-small);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    visibility: hidden;
+}
+
+.provisional:hover .provisional-text,
+.provisional:focus-within .provisional-text {
+    visibility: visible;
+}
+
+.chart {
+    width: 100%;
+    height: auto;
+}
+
+.chart .line {
+    stroke-width: 2;
+}
+
+.chart .dps-worn,
+.chart .mana-worn,
+.chart .marker-worn {
+    stroke: var(--color-chart-worn);
+}
+
+.chart .dps-plan,
+.chart .mana-plan,
+.chart .marker-plan {
+    stroke: var(--color-chart-plan);
+}
+
+.chart .mana-worn,
+.chart .mana-plan {
+    stroke-dasharray: 2 2;
+}
+
+.chart .bar.dps-worn,
+.chart .bar.mana-worn {
+    fill: var(--color-chart-worn);
+}
+
+.chart .bar.dps-plan,
+.chart .bar.mana-plan {
+    fill: var(--color-chart-plan);
+}
+
+.chart .bar.end {
+    opacity: 0.5;
+}
+
+.chart text {
+    font-size: 9px;
+    fill: var(--color-text);
+    stroke: none;
 }
