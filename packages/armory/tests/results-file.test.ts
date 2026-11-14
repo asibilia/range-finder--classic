@@ -475,3 +475,52 @@ describe('out_of_mana_s', () => {
         for (const r of first) expect(r.out_of_mana_s).toBeNull()
     })
 })
+
+describe('duplicates', () => {
+    test('each duplicate is refused with its own message', () => {
+        const breakages: Breakage[] = [
+            {
+                rule: 'duplicate fight_id',
+                message: 'fights: Each fight_id must be unique.',
+                breakIt: (f) => {
+                    f.fights.push(structuredClone(f.fights[0]))
+                },
+            },
+            {
+                rule: 'two sets of stat weights for one fight',
+                message:
+                    'stat_weights: Each fight needs at most one set of stat weights.',
+                breakIt: (f) => {
+                    f.stat_weights.push(structuredClone(f.stat_weights[0]))
+                },
+            },
+            {
+                rule: 'duplicate Pawn label',
+                message: 'pawn: Each Pawn label must be unique.',
+                breakIt: (f) => {
+                    f.pawn[1].label = f.pawn[0].label
+                },
+            },
+            {
+                rule: 'an item twice in one slot',
+                message:
+                    "slots.0.alternatives: An item can appear only once in a slot's alternatives.",
+                breakIt: (f) => {
+                    const alternatives = f.slots[0].alternatives
+                    alternatives.push(structuredClone(alternatives[0]))
+                },
+            },
+        ]
+        expect(unmet(breakages)).toEqual([])
+    })
+
+    test('the same item in two different slots is fine', () => {
+        // Both fingers list the same rings, as the sample already shows.
+        const f = sample()
+        const fingers = f.slots.filter((s: any) => s.slot.startsWith('finger'))
+        expect(fingers[0].alternatives[0].item.item_id).toBe(
+            fingers[1].alternatives[0].item.item_id
+        )
+        expect((readResultsFile(f) as any).problems).toBeUndefined()
+    })
+})

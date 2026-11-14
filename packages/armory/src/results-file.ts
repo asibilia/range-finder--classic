@@ -328,6 +328,8 @@ const NO_FIGHT = 'This names no fight in this file.'
 function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
     const problem = (path: PropertyKey[], message: string) =>
         ctx.addIssue({ code: 'custom', path, message })
+    const repeats = (values: unknown[]) =>
+        new Set(values).size !== values.length
 
     const fights = new Map(file.fights.map((f) => [f.fight_id, f]))
     const planIds = new Set(file.plans.map((p) => p.plan_id))
@@ -338,6 +340,9 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
             'default_fight_id names no fight in this file.'
         )
 
+    if (repeats(file.fights.map((f) => f.fight_id)))
+        problem(['fights'], 'Each fight_id must be unique.')
+
     file.fights.forEach((f, i) => {
         if (f.kind === 'chain' && f.setup === undefined)
             problem(['fights', i], 'A chain fight needs a setup.')
@@ -346,6 +351,14 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
     const seenSlots = new Set(file.slots.map((s) => s.slot))
     if (file.slots.length !== SLOTS.length || seenSlots.size !== SLOTS.length)
         problem(['slots'], 'Each slot must appear exactly once.')
+
+    file.slots.forEach((entry, i) => {
+        if (repeats(entry.alternatives.map((a) => a.item.item_id)))
+            problem(
+                ['slots', i, 'alternatives'],
+                "An item can appear only once in a slot's alternatives."
+            )
+    })
 
     if (planIds.size !== file.plans.length)
         problem(['plans'], 'Each plan_id must be unique.')
@@ -400,6 +413,14 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
         if (!fights.has(w.fight_id))
             problem(['stat_weights', i, 'fight_id'], NO_FIGHT)
     })
+    if (repeats(file.stat_weights.map((w) => w.fight_id)))
+        problem(
+            ['stat_weights'],
+            'Each fight needs at most one set of stat weights.'
+        )
+
+    if (repeats(file.pawn.map((p) => p.label)))
+        problem(['pawn'], 'Each Pawn label must be unique.')
 
     const cells = new Set<string>()
     let sharedCell = false
@@ -447,7 +468,11 @@ const FILE_DESCRIPTION = [
     "- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.",
     '- slots has each slot exactly once.',
     '- Every fight has a result for worn gear.',
+    '- Each fight_id in fights is unique.',
     '- Each plan_id is unique.',
+    "- No item_id appears twice in one slot's alternatives.",
+    '- stat_weights has at most one entry per fight.',
+    '- Each Pawn label is unique.',
     '- No two results share a gear and fight.',
     '- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.',
     "- A talent's rank is at most its max_rank.",
