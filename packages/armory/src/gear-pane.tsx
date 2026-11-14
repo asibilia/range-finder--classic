@@ -3,6 +3,15 @@
  * placeholder and the character sheet. With no file, every slot is an empty
  * outline.
  */
+import type { ReactNode } from 'react'
+
+import {
+    bestUpgrade,
+    formatGain,
+    type Gain,
+    gainSize,
+    type Item,
+} from './gains'
 import type { ResultsFile, Slot } from './results-file'
 import {
     BOTTOM_SLOTS,
@@ -10,8 +19,6 @@ import {
     RIGHT_SLOTS,
     SLOT_LABELS,
 } from './slot-labels'
-
-type Item = NonNullable<ResultsFile['slots'][number]['worn']>
 
 const QUALITY_GLYPHS: Record<Item['quality'], string> = {
     poor: '·',
@@ -22,7 +29,23 @@ const QUALITY_GLYPHS: Record<Item['quality'], string> = {
     legendary: '✦',
 }
 
-function SlotButton({ slot, file }: { slot: Slot; file: ResultsFile | null }) {
+function GainBadge({ gain }: { gain: Gain }) {
+    return (
+        <span className="slot-gain" data-size={gainSize(gain)}>
+            {formatGain(gain)}
+        </span>
+    )
+}
+
+function SlotButton({
+    slot,
+    file,
+    onOpen,
+}: {
+    slot: Slot
+    file: ResultsFile | null
+    onOpen: (slot: Slot) => void
+}) {
     const label = SLOT_LABELS[slot]
     if (!file) {
         return (
@@ -36,33 +59,42 @@ function SlotButton({ slot, file }: { slot: Slot; file: ResultsFile | null }) {
             </button>
         )
     }
-    const worn = file.slots.find((entry) => entry.slot === slot)?.worn ?? null
-    if (!worn) {
-        return (
-            <button
-                type="button"
-                className="slot slot-empty"
-                aria-label={`${label}: Nothing equipped`}
-            >
-                <span className="slot-label">{label}</span>
-                <span className="slot-item">Nothing equipped</span>
-            </button>
-        )
-    }
+    const entry = file.slots.find((candidate) => candidate.slot === slot)
+    const worn = entry?.worn ?? null
+    const best = bestUpgrade(entry)
+    const gainText = best ? `, ${formatGain(best.gain)}` : ''
+    const note = best ? `Best: ${best.item.name}` : worn?.source.text
     return (
         <button
             type="button"
-            className="slot"
-            data-quality={worn.quality}
-            aria-label={`${label}: ${worn.name}`}
+            className={worn ? 'slot' : 'slot slot-empty'}
+            data-quality={worn?.quality}
+            aria-label={`${label}: ${worn ? worn.name : 'Nothing equipped'}${gainText}`}
+            onClick={() => onOpen(slot)}
         >
             <span className="slot-glyph" aria-hidden="true">
-                {QUALITY_GLYPHS[worn.quality]}
+                {worn ? QUALITY_GLYPHS[worn.quality] : ''}
             </span>
             <span className="slot-label">{label}</span>
-            <span className="slot-item">{worn.name}</span>
-            <span className="slot-note">{worn.source.text}</span>
+            <span className="slot-item">
+                {worn ? worn.name : 'Nothing equipped'}
+            </span>
+            {best && <GainBadge gain={best.gain} />}
+            {note && <span className="slot-note">{note}</span>}
         </button>
+    )
+}
+
+function BagUpgrades({ file }: { file: ResultsFile }) {
+    if (file.bag_upgrades.length === 0) return null
+    return (
+        <ul className="bag-upgrades">
+            {file.bag_upgrades.map((upgrade) => (
+                <li key={`${upgrade.slot}-${upgrade.item.item_id}`}>
+                    {`In your bags: ${upgrade.item.name}, ${formatGain({ value: upgrade.gain_ep, unit: 'EP' })} over what you wear.`}
+                </li>
+            ))}
+        </ul>
     )
 }
 
@@ -106,17 +138,33 @@ function CharacterSheet({ file }: { file: ResultsFile }) {
     )
 }
 
-export function GearPane({ file }: { file: ResultsFile | null }) {
-    const column = (slots: Slot[], className: string) => (
+export function GearPane({
+    file,
+    onOpenSlot,
+}: {
+    file: ResultsFile | null
+    onOpenSlot: (slot: Slot) => void
+}) {
+    const column = (slots: Slot[], className: string, after?: ReactNode) => (
         <div className={className}>
             {slots.map((slot) => (
-                <SlotButton key={slot} slot={slot} file={file} />
+                <SlotButton
+                    key={slot}
+                    slot={slot}
+                    file={file}
+                    onOpen={onOpenSlot}
+                />
             ))}
+            {after}
         </div>
     )
     return (
         <section className="gear-pane" aria-label="Gear">
-            {column(LEFT_SLOTS, 'gear-left')}
+            {column(
+                LEFT_SLOTS,
+                'gear-left',
+                file && <BagUpgrades file={file} />
+            )}
             <div className="gear-middle">
                 <figure className="model">
                     <div className="model-figure" aria-hidden="true" />

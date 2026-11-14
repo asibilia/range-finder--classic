@@ -6,8 +6,10 @@ import { useState } from 'react'
 
 import { BringIn, type ReadError } from './bring-in'
 import { Card, defaultPlan } from './card'
+import type { Item } from './gains'
 import { GearPane } from './gear-pane'
-import { readResultsFile, type ResultsFile } from './results-file'
+import { ItemPicker, type Wishlist, WishlistDialog } from './item-picker'
+import { readResultsFile, type ResultsFile, type Slot } from './results-file'
 import sample from './sample-truncha.json'
 
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
@@ -38,7 +40,15 @@ async function readFile(file: File): Promise<Loaded> {
     return load(input)
 }
 
-function Header({ file }: { file: ResultsFile }) {
+function Header({
+    file,
+    wishlistCount,
+    onOpenWishlist,
+}: {
+    file: ResultsFile
+    wishlistCount: number
+    onOpenWishlist: () => void
+}) {
     const { character } = file
     const exportDate = new Date(file.export_saved_at).toISOString().slice(0, 10)
     return (
@@ -53,22 +63,54 @@ function Header({ file }: { file: ResultsFile }) {
                 {`Level ${character.level} ${character.race} ${character.spec} ${character.class}`}
             </p>
             <p>{`From your export of ${exportDate}`}</p>
+            <div className="header-actions">
+                <button type="button" onClick={onOpenWishlist}>
+                    {`Wishlist (${wishlistCount})`}
+                </button>
+            </div>
         </header>
     )
 }
 
+type OpenDialog = { kind: 'picker'; slot: Slot } | { kind: 'wishlist' } | null
+
 export function App() {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
+    const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
+    const [dialog, setDialog] = useState<OpenDialog>(null)
 
     const onFile = (picked: File) => {
         void readFile(picked).then(setLoaded)
     }
 
+    const toggleWishlist = (item: Item, slot: Slot) => {
+        setWishlist((current) => {
+            const next = new Map(current)
+            if (next.has(item.item_id)) next.delete(item.item_id)
+            else next.set(item.item_id, { item, slot })
+            return next
+        })
+    }
+
+    const removeFromWishlist = (itemId: number) => {
+        setWishlist((current) => {
+            const next = new Map(current)
+            next.delete(itemId)
+            return next
+        })
+    }
+
+    const closeDialog = () => setDialog(null)
+
     const { file, error } = loaded
     return (
         <main className="planner">
             {file ? (
-                <Header file={file} />
+                <Header
+                    file={file}
+                    wishlistCount={wishlist.size}
+                    onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
+                />
             ) : (
                 <header className="page-header">
                     <h1>Armory planner</h1>
@@ -82,9 +124,31 @@ export function App() {
                 />
             )}
             <div className="planner-body">
-                <GearPane file={file} />
+                <GearPane
+                    file={file}
+                    onOpenSlot={(slot) => setDialog({ kind: 'picker', slot })}
+                />
                 {file && <Card file={file} plan={defaultPlan(file.plans)} />}
             </div>
+            {file && dialog?.kind === 'picker' && (
+                <ItemPicker
+                    entry={file.slots.find(
+                        (entry) => entry.slot === dialog.slot
+                    )}
+                    slot={dialog.slot}
+                    level={file.character.level}
+                    wishlist={wishlist}
+                    onToggle={toggleWishlist}
+                    onClose={closeDialog}
+                />
+            )}
+            {file && dialog?.kind === 'wishlist' && (
+                <WishlistDialog
+                    wishlist={wishlist}
+                    onRemove={removeFromWishlist}
+                    onClose={closeDialog}
+                />
+            )}
         </main>
     )
 }
