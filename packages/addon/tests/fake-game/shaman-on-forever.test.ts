@@ -1,6 +1,6 @@
 /**
  * The baseline game the Turbo tests start from: a Shaman on Forever, out of
- * combat, who knows every spell Turbo asks about.
+ * combat.
  *
  * This file holds no tests. It ends in `.test.ts` only so it lives with the
  * tests; bun shares modules between test files, so a test declared here
@@ -22,8 +22,8 @@ export const SHAMAN = ['Shaman', 'SHAMAN', 7]
 
 /**
  * Scripts the readings Turbo takes: a Shaman on the Forever client, out of
- * combat, knowing every spell. Spell names are left unscripted, so a test
- * that needs them scripts them.
+ * combat. Spell readings (name, harmful) are left unscripted, so a
+ * test that needs them scripts them.
  *
  * @param overrides - readings to script instead of the baseline's
  */
@@ -33,7 +33,6 @@ export function scriptShamanOnForever(g: FakeGame, overrides: Readings = {}) {
         flavor: ['forever'],
         playerClass: SHAMAN,
         inCombat: [false],
-        spellKnown: [true],
         // Forever's project ID says "retail" (1). Turbo must never rely on it.
         projectId: [1],
         ...overrides,

@@ -1,12 +1,11 @@
 ## Interface: 16001
 ## Title: Turbo
-## Notes: Attack macros for WoW: Forever.
+## Notes: Spell macros for WoW: Forever.
 ## Author: Turbo crew
 ## Version: @project-version@
 
 core\safe-layer.lua
 core\boot.lua
-kits\shaman.lua
-core\attack-macros.lua
+core\spell-macros.lua
 core\slash.lua
 core\start.lua

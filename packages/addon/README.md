@@ -1,8 +1,10 @@
 # @goturbo/addon
 
-The Turbo addon for WoW: Forever: `/turbo macros` makes attack macros and
-puts them on your action bars. That is all it does; the old Shaman HUD is
-retired (see `docs/research/forever-native-ui.md` at the repo root).
+The Turbo addon for WoW: Forever: `/turbo macros` makes spell macros (top
+rank, plus `/startattack` for attacking spells, except crowd control that
+damage breaks) for every spell on your bars with more than one rank, for any
+class, and puts them there. That is all it does; the old Shaman
+HUD is retired (see `docs/research/forever-native-ui.md` at the repo root).
 
 Only the `Turbo/` folder ships. Everything else here (API type stubs, tests,
 tool configs, scripts) is dev-only and stays outside it.

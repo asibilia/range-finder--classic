@@ -1,6 +1,6 @@
 {
   "name": "@goturbo/addon",
-  "description": "Turbo, attack macros for WoW: Forever. Only the Turbo/ folder ships.",
+  "description": "Turbo, spell macros for WoW: Forever. Only the Turbo/ folder ships.",
   "version": "0.0.0",
   "private": true,
   "type": "module",

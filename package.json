@@ -1,6 +1,6 @@
 {
   "name": "turbo",
-  "description": "Turbo, attack macros for WoW: Forever. Bun monorepo: the addon (@goturbo/addon), the Turbo site (@goturbo/web) and the armory planner (@goturbo/armory).",
+  "description": "Turbo, spell macros for WoW: Forever. Bun monorepo: the addon (@goturbo/addon), the Turbo site (@goturbo/web) and the armory planner (@goturbo/armory).",
   "version": "0.0.0",
   "private": true,
   "type": "module",
