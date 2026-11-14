@@ -28,10 +28,12 @@ jobs:
             # `bunx react-router` and `bunx wrangler` (the armory planner's
             # build and type-check) run under Node (their bins start with
             # `#!/usr/bin/env node`), and React Router 8 requires Node >= 22.22,
-            # newer than some runner images ship.
-            - uses: actions/setup-node@v4
+            # newer than some runner images ship. v7 (as jre-web) runs on the
+            # node24 Actions runtime; no npm cache, Bun installs here.
+            - uses: actions/setup-node@v7
               with:
                   node-version: 24
+                  package-manager-cache: false
 
             - run: bun install --frozen-lockfile
 

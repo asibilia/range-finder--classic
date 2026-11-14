@@ -5,8 +5,12 @@
  * that reading and comparing without swapping the real Node.
  */
 import { describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { MINIMUM_NODE, nodeVersionProblem } from './node-version'
+
+const REPO_ROOT = join(import.meta.dir, '../../..')
 
 const message = (found: string) =>
     `this test builds the page and needs Node 22.22 or newer; found ${found}`
@@ -44,5 +48,30 @@ describe('nodeVersionProblem', () => {
     test('output that is not a version counts as too old, shown as found', () => {
         expect(nodeVersionProblem('bun 1.4.3')).toBe(message('bun 1.4.3'))
         expect(nodeVersionProblem('')).toBe(message('no node'))
+    })
+})
+
+describe('Node in CI', () => {
+    // As jre-web's CI: setup-node v7 (runs on the node24 Actions runtime),
+    // Node 24, and no npm cache (Bun installs here, not npm).
+    test('ci.yml sets up Node 24 with actions/setup-node@v7 and no package-manager cache', () => {
+        const ci = Bun.YAML.parse(
+            readFileSync(join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8')
+        ) as {
+            jobs?: Record<
+                string,
+                {
+                    steps?: { uses?: string; with?: Record<string, unknown> }[]
+                }
+            >
+        }
+        const setupNode = (ci.jobs?.check?.steps ?? []).filter((s) =>
+            s.uses?.startsWith('actions/setup-node@')
+        )
+        expect(setupNode.map((s) => s.uses)).toEqual(['actions/setup-node@v7'])
+        expect(setupNode[0]?.with).toEqual({
+            'node-version': 24,
+            'package-manager-cache': false,
+        })
     })
 })
