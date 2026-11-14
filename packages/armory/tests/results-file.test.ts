@@ -11,8 +11,9 @@ import { join } from 'node:path'
 
 // Loaded by a computed path, so the package type-checks before the module exists.
 const MODULE_PATH: string = '../src/results-file'
+type Outcome = { ok: boolean } & Record<string, unknown>
 const { readResultsFile } = (await import(MODULE_PATH)) as {
-    readResultsFile: (input: unknown) => { ok: boolean } & Record<string, unknown>
+    readResultsFile: (input: unknown) => Outcome
 }
 
 const SRC = join(import.meta.dir, '../src')
@@ -229,8 +230,8 @@ describe('the cross-field rules', () => {
                 rule: 'results fight_id',
                 message: 'This names no fight in this file.',
                 breakIt: (f) => {
-                    f.results[resultIndex(f, 'max-damage', 'dungeon-long')].fight_id =
-                        'nowhere'
+                    const at = resultIndex(f, 'max-damage', 'dungeon-long')
+                    f.results[at].fight_id = 'nowhere'
                 },
             },
             {
@@ -251,8 +252,8 @@ describe('the cross-field rules', () => {
                 rule: 'results gear',
                 message: 'This names no plan in this file.',
                 breakIt: (f) => {
-                    f.results[resultIndex(f, 'max-damage', 'dungeon-long')].gear =
-                        'no-such-plan'
+                    const at = resultIndex(f, 'max-damage', 'dungeon-long')
+                    f.results[at].gear = 'no-such-plan'
                 },
             },
             {
@@ -303,7 +304,8 @@ describe('the cross-field rules', () => {
             },
             {
                 rule: 'best.ranks lists every talent once',
-                message: 'best.ranks must list every talent in yours exactly once.',
+                message:
+                    'best.ranks must list every talent in yours exactly once.',
                 breakIt: (f) => {
                     f.talents.best.ranks.pop()
                 },
@@ -368,8 +370,7 @@ describe('the JSON Schema', () => {
                 )
                 expect({
                     exitCode: result.exitCode,
-                    output:
-                        result.stdout.toString() + result.stderr.toString(),
+                    output: result.stdout.toString() + result.stderr.toString(),
                 }).toMatchObject({ exitCode: 0 })
                 fresh = readFileSync(SCHEMA_PATH, 'utf8')
             } finally {
