@@ -34,24 +34,35 @@ export function wornManaWords(
 }
 
 /**
- * The sim's plan and mana, worded as `wornManaWords` is: `The sim's plan
- * runs out at 0:57.`
+ * The sim's plan and mana, in the approved mockup's words: compared with
+ * what you wear when both run out at a time (`The sim's plan holds out to
+ * 0:57.`, `The sim's plan runs dry sooner, at 0:45.`, `The sim's plan runs
+ * dry at the same time.`), else on its own (`The sim's plan runs out at
+ * 0:57.`).
  *
  * @param outOfMana - The plan result's `out_of_mana_s`.
  * @param kept - How a fight that never runs dry is said (`keeps mana ...`).
  * @param dryPull - On a chain fight, the pull it ran dry in.
+ * @param wornOutOfMana - What you wear's `out_of_mana_s`, to compare with.
  * @returns The sentence.
  */
 export function planManaWords(
     outOfMana: OutOfMana,
     kept: string,
-    dryPull: number | null = null
+    dryPull: number | null = null,
+    wornOutOfMana: OutOfMana = null
 ): string {
     if (outOfMana === null)
         return "The sim's plan wasn't checked for running out of mana."
     if (outOfMana === 'never') return `The sim's plan ${kept}.`
     if (dryPull !== null) return `The sim's plan runs dry in pull ${dryPull}.`
-    return `The sim's plan runs out at ${minutesSeconds(outOfMana)}.`
+    const at = minutesSeconds(outOfMana)
+    if (typeof wornOutOfMana !== 'number')
+        return `The sim's plan runs out at ${at}.`
+    const later = Math.floor(outOfMana) - Math.floor(wornOutOfMana)
+    if (later > 0) return `The sim's plan holds out to ${at}.`
+    if (later < 0) return `The sim's plan runs dry sooner, at ${at}.`
+    return "The sim's plan runs dry at the same time."
 }
 
 /**

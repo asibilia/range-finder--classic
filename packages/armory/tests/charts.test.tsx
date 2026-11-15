@@ -10,6 +10,8 @@ import './chart-layout'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, render, screen, within } from '@testing-library/react'
 
+import { chartsLoaded } from './open-app'
+
 import { DamageSplit, SPLIT_CHART_NAME } from '../src/components/damage-split'
 import { FIGHT_CHART_NAME, FightChart } from '../src/components/fight-chart'
 import { PULL_CHART_NAME, PullChart } from '../src/components/pull-chart'
@@ -48,7 +50,7 @@ afterEach(() => {
 })
 
 describe('the fight chart', () => {
-    test('is one SVG named DPS and mana over the fight, described by its sentences', () => {
+    test('is one SVG named DPS and mana over the fight, described by its sentences', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -56,22 +58,24 @@ describe('the fight chart', () => {
                 plan={result('max-damage', 'dungeon-long')}
             />
         )
-        const chart = screen.getByRole('img', { name: FIGHT_CHART_NAME })
+        const chart = await screen.findByRole('img', { name: FIGHT_CHART_NAME })
         expect(chart.tagName.toLowerCase()).toBe('svg')
         expect(description(chart)).toBe(
-            "In what you wear you run out of mana at 0:48.The sim's plan runs out at 0:57."
+            "In what you wear you run out of mana at 0:48. The sim's plan holds out to 0:57."
         )
         expect(count('svg[role="img"]')).toBe(1)
     })
 
-    test('draws DPS lines, the plan mana area, the worn mana dashed, and two markers', () => {
+    test('draws DPS lines, the plan mana area, the worn mana dashed, and two markers', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
                 worn={result('worn', 'dungeon-long')}
                 plan={result('max-damage', 'dungeon-long')}
+                planLabel="Max damage"
             />
         )
+        await chartsLoaded()
         // Lines: DPS worn, DPS plan, mana worn. Area: mana plan.
         expect(count('.recharts-line-curve')).toBe(3)
         expect(count('.recharts-area-area')).toBe(1)
@@ -86,16 +90,29 @@ describe('the fight chart', () => {
         // Two y-axes: DPS on the left, mana on the right; time in m:ss.
         expect(count('.recharts-yAxis')).toBe(2)
         expect(screen.getByText('2:00')).toBeDefined()
-        for (const entry of [
-            'DPS, what you wear',
-            "DPS, sim's plan",
-            'Mana, what you wear',
-            "Mana, sim's plan",
-        ])
-            expect(screen.getByText(entry)).toBeDefined()
+        // The legend in the mockup's order.
+        const legend = document.querySelector('.recharts-legend-wrapper')
+        expect(legend?.textContent).toBe(
+            "DPS, sim's planDPS, what you wearMana, sim's planMana, what you wear"
+        )
+        // The times in the sentence are coloured; the mana ticks are in the
+        // mana colour.
+        expect(screen.getByText('0:57', { selector: 'span' }).className).toBe(
+            'text-chart-1-text'
+        )
+        expect(
+            document.querySelectorAll(
+                'text.recharts-cartesian-axis-tick-value[style*="--chart-2-text"]'
+            ).length
+        ).toBeGreaterThan(0)
+        expect(
+            screen.getByText(
+                /^Average about \d+\.\d DPS in what you wear, \d+\.\d with the sim's plan \(max damage\)\. Points every 5 seconds\.$/
+            )
+        ).toBeDefined()
     })
 
-    test('without the plan: two lines, no area, one marker, no plan legend', () => {
+    test('without the plan: two lines, no area, one marker, no plan legend', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -103,6 +120,7 @@ describe('the fight chart', () => {
                 plan={null}
             />
         )
+        await chartsLoaded()
         expect(count('.recharts-line-curve')).toBe(2)
         expect(count('.recharts-area-area')).toBe(0)
         expect(count('.recharts-reference-line-line')).toBe(1)
@@ -112,17 +130,17 @@ describe('the fight chart', () => {
 })
 
 describe('the pull chart', () => {
-    test('is one SVG named DPS and mana per pull, with four bars per pull', () => {
+    test('is one SVG named DPS and mana per pull, with four bars per pull', async () => {
         render(
             <PullChart
                 worn={result('worn', 'chain-4')}
                 plan={result('max-damage', 'chain-4')}
             />
         )
-        const chart = screen.getByRole('img', { name: PULL_CHART_NAME })
+        const chart = await screen.findByRole('img', { name: PULL_CHART_NAME })
         expect(chart.tagName.toLowerCase()).toBe('svg')
         expect(description(chart)).toBe(
-            "In what you wear you run dry in pull 3.The sim's plan runs dry in pull 3."
+            "In what you wear you run dry in pull 3. The sim's plan runs dry in pull 3."
         )
         // DPS worn, DPS plan, mana worn, mana plan, for 4 pulls; pull 3 and
         // 4 of what you wear end at 0 mana, still drawn as a span.
@@ -136,8 +154,9 @@ describe('the pull chart', () => {
             ).toBeDefined()
     })
 
-    test('without the plan: two bars per pull and no plan legend', () => {
+    test('without the plan: two bars per pull and no plan legend', async () => {
         render(<PullChart worn={result('worn', 'chain-4')} plan={null} />)
+        await chartsLoaded()
         expect(count('.recharts-bar-rectangle')).toBe(8)
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()
@@ -159,6 +178,27 @@ describe('the damage split', () => {
         ])
         expect(screen.getByText('Melee 33%')).toBeDefined()
         expect(screen.getByText('Lightning Shield 9%')).toBeDefined()
+    })
+})
+
+describe('the damage split with two parts of one name', () => {
+    test('draws both (keys by place, not name)', () => {
+        const worn = result('worn', 'dungeon-long')
+        render(
+            <DamageSplit
+                worn={{
+                    ...worn,
+                    damage_split: [
+                        { name: 'Melee', share_pct: 60 },
+                        { name: 'Melee', share_pct: 40 },
+                    ],
+                }}
+            />
+        )
+        const bar = screen.getByRole('img', { name: SPLIT_CHART_NAME })
+        expect(bar.querySelectorAll('[data-part="Melee"]')).toHaveLength(2)
+        expect(screen.getByText('Melee 60%')).toBeDefined()
+        expect(screen.getByText('Melee 40%')).toBeDefined()
     })
 })
 
@@ -188,8 +228,22 @@ describe('the stat weights', () => {
         expect(screen.queryByText(/Dashed:/)).toBeNull()
     })
 
-    test('the chain fight says it has no weights', () => {
+    test("the chain fight: bars, and no dashed bars, since its (made-up) weights are the 2-minute fight's", () => {
         render(<StatWeights file={sample} fightId="chain-4" />)
+        const bars = screen.getByLabelText(WEIGHTS_CHART_NAME)
+        expect(bars.querySelectorAll('[data-bar="fight"]')).toHaveLength(9)
+        expect(bars.querySelectorAll('[data-bar="compare"]')).toHaveLength(0)
+        expect(screen.queryByText(/Dashed:/)).toBeNull()
+    })
+
+    test('a fight without weights says so', () => {
+        const without = {
+            ...sample,
+            stat_weights: sample.stat_weights.filter(
+                (entry) => entry.fight_id !== 'chain-4'
+            ),
+        }
+        render(<StatWeights file={without} fightId="chain-4" />)
         expect(
             screen.getByText('No stat weights for this fight.')
         ).toBeDefined()

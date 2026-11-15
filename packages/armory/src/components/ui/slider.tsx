@@ -10,6 +10,7 @@ function Slider({
     thumbProps,
     ...props
 }: SliderPrimitive.Root.Props & {
+    // Ours: thumbProps is ours, not shadcn's: props for every thumb.
     /** Passed to each thumb, whose hidden range input carries the name and value text. */
     thumbProps?: SliderPrimitive.Thumb.Props
 }) {

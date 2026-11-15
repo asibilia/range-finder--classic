@@ -86,15 +86,24 @@ export function fightChartData(
     times.sort((a, b) => a.at_s - b.at_s)
     const lastT = points.at(-1)?.t_s ?? 0
     const duration_s = Math.max(fight.duration_s, lastT)
-    // Labels read rightwards from their line, on two rows so two close
-    // markers don't overlap; one past 60% of the fight reads leftwards so
-    // it stays inside the chart.
+    // As the mockup places them: with two markers the earlier label reads
+    // leftwards from its line (top row) and the later one rightwards (second
+    // row), so they never overlap. A label that would run off the chart
+    // flips: leftwards past 60% of the fight, rightwards before 30%.
+    const anchorFor = (at_s: number, preferred: 'start' | 'end') => {
+        if (at_s > duration_s * 0.6) return 'end'
+        if (at_s < duration_s * 0.3) return 'start'
+        return preferred
+    }
     const markers = times.map(({ who, at_s }, index): ManaMarker => ({
         who,
         at_s,
         label: `${who === 'worn' ? 'Worn' : 'Plan'}: out of mana ${minutesSeconds(at_s)}`,
         row: index === 0 ? 0 : 1,
-        anchor: at_s > duration_s * 0.6 ? 'end' : 'start',
+        anchor: anchorFor(
+            at_s,
+            times.length === 2 && index === 0 ? 'end' : 'start'
+        ),
     }))
     return {
         points,
@@ -103,6 +112,71 @@ export function fightChartData(
         duration_s,
     }
 }
+function average(values: number[]): number | null {
+    if (values.length === 0) return null
+    return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+/** The averages under a chart, and how far apart its points are. */
+export type ChartAverages = {
+    worn: number
+    /** The plan's average, or null when the chart draws no plan. */
+    plan: number | null
+    /** Seconds between points when they are evenly spaced, else null. */
+    spacing_s: number | null
+}
+
+/**
+ * The fight chart's averages: mean DPS over the timeline for what you wear
+ * and the plan, and the spacing between its points.
+ *
+ * @param worn - What you wear's result (with a timeline).
+ * @param plan - The plan's result, or null.
+ * @returns The averages, or null without a worn timeline.
+ */
+export function timelineAverages(
+    worn: Result,
+    plan: Result | null
+): ChartAverages | null {
+    const wornAverage = average((worn.timeline ?? []).map((point) => point.dps))
+    if (wornAverage === null || !worn.timeline) return null
+    const gaps = worn.timeline
+        .slice(1)
+        .map((point, index) => point.t_s - (worn.timeline?.[index]?.t_s ?? 0))
+    const spacing = gaps[0]
+    return {
+        worn: wornAverage,
+        plan: average((plan?.timeline ?? []).map((point) => point.dps)),
+        spacing_s:
+            spacing !== undefined &&
+            spacing > 0 &&
+            gaps.every((gap) => Math.abs(gap - spacing) < 1e-9)
+                ? spacing
+                : null,
+    }
+}
+
+/**
+ * The pull chart's averages: mean DPS per pull for what you wear and the
+ * plan (spacing is one pull, so null).
+ *
+ * @param worn - What you wear's result on the chain fight.
+ * @param plan - The plan's result, or null.
+ * @returns The averages, or null without worn pulls.
+ */
+export function pullAverages(
+    worn: Result,
+    plan: Result | null
+): ChartAverages | null {
+    const wornAverage = average((worn.pulls ?? []).map((pull) => pull.dps))
+    if (wornAverage === null) return null
+    return {
+        worn: wornAverage,
+        plan: average((plan?.pulls ?? []).map((pull) => pull.dps)),
+        spacing_s: null,
+    }
+}
+
 /** Time ticks from 0 to the end: every 10 s up to a minute, 15 s up to 3 minutes, else 30 s. */
 export function timeTicks(duration_s: number): number[] {
     const step = duration_s <= 60 ? 10 : duration_s <= 180 ? 15 : 30
@@ -236,7 +310,8 @@ export type StatWeightsData = {
 /**
  * The stat weights for a fight, with the longest single fight that has
  * weights (the 2-minute dungeon fight in the samples) as a second, dashed
- * bar to compare, unless it is the chosen fight.
+ * bar to compare, unless it is the chosen fight or its weights are the
+ * chosen fight's.
  *
  * @param file - The loaded results file.
  * @param fightId - The fight the card is on.
@@ -266,8 +341,18 @@ export function statWeightsData(
                         : longest,
                 null
             ) ?? null
-    const compareWith = compare && compare.fight_id !== fightId ? compare : null
-    const compareWeights = compareWith ? weightsOf(compareWith.fight_id) : null
+    const otherFight = compare && compare.fight_id !== fightId ? compare : null
+    const otherWeights = otherFight ? weightsOf(otherFight.fight_id) : null
+    // Weights the same as the chosen fight's add nothing to compare.
+    const same =
+        otherWeights !== null &&
+        chosen.every(
+            (weight) =>
+                otherWeights.find((other) => other.stat === weight.stat)?.ep ===
+                weight.ep
+        )
+    const compareWith = same ? null : otherFight
+    const compareWeights = compareWith ? otherWeights : null
     const compareEp = (stat: Stat) =>
         compareWeights?.find((weight) => weight.stat === stat)?.ep ?? null
 
@@ -303,4 +388,31 @@ export function statWeightsData(
         offScale,
         max,
     }
+}
+
+/**
+ * The line under a chart, as the mockup words it: `Average about 75.4 DPS
+ * in what you wear, 84.5 with the sim's plan (max damage). Points every 5
+ * seconds.`
+ *
+ * @param averages - The chart's averages.
+ * @param planLabel - The plan's label, or null when the chart draws no plan.
+ * @param perPull - On the pull chart: `DPS per pull`, and no spacing.
+ * @returns The sentence(s).
+ */
+export function averageWords(
+    averages: ChartAverages,
+    planLabel: string | null,
+    perPull = false
+): string {
+    const unit = perPull ? 'DPS per pull' : 'DPS'
+    const plan =
+        averages.plan !== null && planLabel !== null
+            ? `, ${averages.plan.toFixed(1)} with the sim's plan (${planLabel.toLowerCase()})`
+            : ''
+    const spacing =
+        averages.spacing_s === null
+            ? ''
+            : ` Points every ${averages.spacing_s} ${averages.spacing_s === 1 ? 'second' : 'seconds'}.`
+    return `Average about ${averages.worn.toFixed(1)} ${unit} in what you wear${plan}.${spacing}`
 }

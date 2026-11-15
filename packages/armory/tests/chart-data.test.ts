@@ -6,11 +6,13 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+    averageWords,
     fightChartData,
     pullChartData,
     splitParts,
     statWeightsData,
     timeTicks,
+    timelineAverages,
 } from '../src/chart-data'
 import { readResultsFile, type ResultsFile } from '../src/results-file'
 import firstRunJson from '../src/sample-truncha-first-run.json'
@@ -52,7 +54,7 @@ describe('the fight chart data', () => {
         )
     })
 
-    test('marks out of mana for both, earlier first, on two rows', () => {
+    test('marks out of mana for both, earlier first, on two rows; as in the mockup the earlier label reads left of its line', () => {
         const { markers } = fightChartData(long, worn, plan)!
         expect(markers).toEqual([
             {
@@ -60,7 +62,7 @@ describe('the fight chart data', () => {
                 at_s: 48,
                 label: 'Worn: out of mana 0:48',
                 row: 0,
-                anchor: 'start',
+                anchor: 'end',
             },
             {
                 who: 'plan',
@@ -75,6 +77,52 @@ describe('the fight chart data', () => {
     test('a marker late in the fight reads leftwards, inside the chart', () => {
         const late = { ...worn, out_of_mana_s: 100 }
         expect(fightChartData(long, late, null)!.markers[0]?.anchor).toBe('end')
+    })
+
+    test('a lone marker reads rightwards, and an early one never reads off the left edge', () => {
+        expect(fightChartData(long, worn, null)!.markers[0]?.anchor).toBe(
+            'start'
+        )
+        const early = { ...worn, out_of_mana_s: 20 }
+        expect(
+            fightChartData(long, early, plan)!.markers.map(
+                (marker) => marker.anchor
+            )
+        ).toEqual(['start', 'start'])
+    })
+
+    test('the averages: mean DPS for each, and the spacing of the points', () => {
+        const averages = timelineAverages(worn, plan)!
+        const mean = (values: number[]) =>
+            values.reduce((sum, value) => sum + value, 0) / values.length
+        expect(averages.worn).toBeCloseTo(
+            mean(worn.timeline!.map((point) => point.dps)),
+            9
+        )
+        expect(averages.plan).toBeCloseTo(
+            mean(plan.timeline!.map((point) => point.dps)),
+            9
+        )
+        expect(averages.spacing_s).toBe(5)
+        expect(averageWords(averages, 'Max damage')).toBe(
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear, ${averages.plan!.toFixed(1)} with the sim's plan (max damage). Points every 5 seconds.`
+        )
+        expect(averageWords({ ...averages, plan: null }, null)).toBe(
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear. Points every 5 seconds.`
+        )
+        const uneven = {
+            ...worn,
+            timeline: [
+                { t_s: 0, dps: 10, mana: 1 },
+                { t_s: 5, dps: 20, mana: 1 },
+                { t_s: 12, dps: 30, mana: 1 },
+            ],
+        }
+        expect(timelineAverages(uneven, null)).toEqual({
+            worn: 20,
+            plan: null,
+            spacing_s: null,
+        })
     })
 
     test('without a plan timeline: only what you wear, no plan marker', () => {
@@ -200,7 +248,14 @@ describe('the stat weights', () => {
         })
     })
 
-    test('the chain fight has no weights', () => {
-        expect(statWeightsData(sample, 'chain-4')).toBeNull()
+    test('a fight with no weights has none (a copy without the chain weights)', () => {
+        const without = {
+            ...sample,
+            stat_weights: sample.stat_weights.filter(
+                (entry) => entry.fight_id !== 'chain-4'
+            ),
+        }
+        expect(statWeightsData(without, 'chain-4')).toBeNull()
+        expect(statWeightsData(sample, 'chain-4')?.rows).toHaveLength(9)
     })
 })

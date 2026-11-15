@@ -14,9 +14,16 @@ export const SPLIT_CHART_NAME = 'Damage split'
 /**
  * The damage split.
  *
- * @param worn - What you wear's result on the fight the card is on.
+ * @param worn - What you wear's result on the fight the band is on.
+ * @param fightLabel - That fight's label, for the note under the heading.
  */
-export function DamageSplit({ worn }: { worn: Result }) {
+export function DamageSplit({
+    worn,
+    fightLabel,
+}: {
+    worn: Result
+    fightLabel?: string
+}) {
     const parts = splitParts(worn)
     return (
         <section className="flex flex-col gap-2">
@@ -24,16 +31,20 @@ export function DamageSplit({ worn }: { worn: Result }) {
                 Where the damage comes from
             </h2>
             <p className="text-xs text-muted-foreground">
-                What you wear, in this fight.
+                {fightLabel
+                    ? `${fightLabel}, what you wear.`
+                    : 'What you wear, in this fight.'}
             </p>
             <div
                 role="img"
                 aria-label={SPLIT_CHART_NAME}
                 className="flex h-3.5 gap-0.5 overflow-hidden rounded-full"
             >
-                {parts.map((part) => (
+                {/* Keys by place: the contract doesn't forbid two parts
+                    with one name. */}
+                {parts.map((part, index) => (
                     <span
-                        key={part.name}
+                        key={`${index}-${part.name}`}
                         data-part={part.name}
                         className="h-full"
                         style={{
@@ -45,8 +56,11 @@ export function DamageSplit({ worn }: { worn: Result }) {
                 ))}
             </div>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                {parts.map((part) => (
-                    <li key={part.name} className="flex items-center gap-2">
+                {parts.map((part, index) => (
+                    <li
+                        key={`${index}-${part.name}`}
+                        className="flex items-center gap-2"
+                    >
                         <span
                             aria-hidden="true"
                             className="size-2.5 shrink-0 rounded-[3px]"

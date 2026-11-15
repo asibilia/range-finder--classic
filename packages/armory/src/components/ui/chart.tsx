@@ -58,11 +58,14 @@ function ChartContainer({
 
     return (
         <ChartContext.Provider value={{ config }}>
+            {/* Ours: the tick colour selector is `.recharts-cartesian-axis-tick-value`;
+                shadcn's `.recharts-cartesian-axis-tick text` misses Recharts 3's
+                tick labels, which then keep its #666 (3.1:1 on the dark card). */}
             <div
                 data-slot="chart"
                 data-chart={chartId}
                 className={cn(
-                    "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
+                    "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick-value]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
                     className
                 )}
                 {...props}
@@ -260,9 +263,10 @@ function ChartTooltipContent({
                                                 />
                                             )
                                         )}
+                                        {/* Ours: gap-3, so a long label never runs into its value on a phone. */}
                                         <div
                                             className={cn(
-                                                'flex flex-1 justify-between leading-none',
+                                                'flex flex-1 justify-between gap-3 leading-none',
                                                 nestLabel
                                                     ? 'items-end'
                                                     : 'items-center'

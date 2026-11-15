@@ -99,15 +99,21 @@ export const PULL_KEYS: Record<string, ComponentType> = {
     mana_plan: barKey(SERIES_COLOR.mana, false),
 }
 
-/** The legend's words, in the order the spec lists them. */
+/** The legend's words, in the approved mockup's order. */
 export const SERIES_LABELS = {
-    dps_worn: 'DPS, what you wear',
     dps_plan: "DPS, sim's plan",
-    mana_worn: 'Mana, what you wear',
+    dps_worn: 'DPS, what you wear',
     mana_plan: "Mana, sim's plan",
+    mana_worn: 'Mana, what you wear',
 } as const
 
-/** Legend order: DPS worn, DPS plan, mana worn, mana plan. */
+/** Legend order, as the mockup's: DPS plan, DPS worn, mana plan, mana worn. */
 export function legendOrder(item: { dataKey?: unknown }): number {
     return Object.keys(SERIES_LABELS).indexOf(String(item.dataKey))
 }
+
+/** The fight chart's accessible name. */
+export const FIGHT_CHART_NAME = 'DPS and mana over the fight'
+
+/** The pull chart's accessible name. */
+export const PULL_CHART_NAME = 'DPS and mana per pull'
