@@ -279,10 +279,8 @@ function ChartTooltipContent({
                                             </div>
                                             {item.value != null && (
                                                 <span className="font-mono font-medium text-foreground tabular-nums">
-                                                    {typeof item.value ===
-                                                    'number'
-                                                        ? item.value.toLocaleString()
-                                                        : String(item.value)}
+                                                    {/* Ours: String, not toLocaleString: no thousands separator (spec section 5). */}
+                                                    {String(item.value)}
                                                 </span>
                                             )}
                                         </div>
