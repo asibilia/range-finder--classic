@@ -9,3 +9,6 @@ regains a little mana after 0. The sheet says the game's weapon skill names
 short (`Two-Handed Axes` reads `Axe skill`), and it never grows past its
 column, so the slots and gain pills no longer cover it. The contract says
 `talents.points` is the points spent in the tree.
+Items the sim leaves out of its plans now have their own optional field,
+`left_out_items`, listed under `Left out of the plan:` in How sure is this?
+and not counted with the checks.

@@ -570,6 +570,67 @@ describe('duplicates', () => {
     })
 })
 
+describe('left_out_items', () => {
+    test('is optional: absent, empty or a list of items all read', () => {
+        for (const items of [
+            undefined,
+            [],
+            [{ item_id: 1, name: 'A', reason: 'B' }],
+        ]) {
+            const f = sample()
+            if (items === undefined) delete f.left_out_items
+            else f.left_out_items = items
+            expect((readResultsFile(f) as any).problems).toBeUndefined()
+        }
+    })
+
+    test('each item is strict: a positive item_id, a name and a reason', () => {
+        const broken: [any, string][] = [
+            [
+                { item_id: 0, name: 'A', reason: 'B' },
+                'left_out_items.0.item_id: ',
+            ],
+            [{ item_id: 1, name: '', reason: 'B' }, 'left_out_items.0.name: '],
+            [
+                { item_id: 1, name: 'A', reason: '' },
+                'left_out_items.0.reason: ',
+            ],
+            [
+                { item_id: 1, name: 'A', reason: 'B', owned: true },
+                'left_out_items.0: ',
+            ],
+        ]
+        for (const [item, prefix] of broken) {
+            const f = sample()
+            f.left_out_items = [item]
+            expect(problemsOf(f).some((p) => p.startsWith(prefix))).toBe(true)
+        }
+    })
+
+    test('the full sample has one made-up item; the first-run sample has none, and neither lists a left-out item in checks', () => {
+        expect(sample().left_out_items).toHaveLength(1)
+        expect(
+            sample('sample-truncha-first-run.json').left_out_items
+        ).toBeUndefined()
+        for (const name of [
+            'sample-truncha.json',
+            'sample-truncha-first-run.json',
+        ])
+            for (const check of sample(name).checks)
+                expect(check.name).not.toMatch(/^left out/i)
+    })
+
+    test('the JSON Schema describes it and each of its fields', () => {
+        const [list] = descriptionsOf('left_out_items')
+        expect(list).toContain('Absent: none recorded.')
+        expect(list).toContain('not in checks')
+        for (const key of ['item_id', 'name', 'reason'])
+            expect(
+                descriptionsOf(key).some((d) => d.startsWith('The left-out'))
+            ).toBe(true)
+    })
+})
+
 describe('the optional mockup fields (schema version 1)', () => {
     test('the full sample has all six; the first-run sample has none of them', () => {
         const full = sample()

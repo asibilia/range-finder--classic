@@ -158,6 +158,12 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   no mana); a time past the last pull is said as a time (`run out of mana
   at 3:01`). `never` reads `keep mana through every pull`; null, the
   not-simmed sentence. The rule is `dryPull` in `src/mana-words.ts`.
+- `left_out_items` (optional) lists items the sim left out of every plan
+  (`{item_id, name, reason}`), apart from `checks`, which are the accuracy
+  gates the `N checks passed` line counts. How sure is this? lists them
+  under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
+  (99901), because it has no source and needs level 1.` Absent or empty:
+  no list.
 - `talents.points` is the points spent in the tree (the sum of the ranks in
   `talents.yours`): `Talents: your build, 22 points`.
 - Six optional fields (schema version 1 still) carry what the mockup shows
@@ -186,7 +192,9 @@ report, and the page shows a note that some numbers are made up.
   times and the times to die), the best talent build, the Berylline Pads'
   item id, the 2-minute fight's gap between pulls (10 s, the mockup's), and
   the stat weights of the 2-minute and chain fights (the solo fight's, but
-  intellect 4.04 and mana per 5 3.89, as the mockup shows them). The six
+  intellect 4.04 and mana per 5 3.89, as the mockup shows them), and the one
+  `left_out_items` entry (Made-up Hood of Nowhere, item 99901, so the
+  left-out list in How sure is this? shows). The six
   optional fields are the mockup's numbers: the slider reach (the mockup's
   limits at each plan's mix), Two-Handed Axes 148/150, the miss chances 5.5, 6.0 and
   8.0% at levels 31, 32 and 33, the spell schools, `Windfury Weapon`, and
@@ -196,5 +204,6 @@ report, and the page shows a note that some numbers are made up.
 - `src/sample-truncha-first-run.json` is shaped like the runner's first
   output: only the max damage plan, and every `timeline`, `pulls`,
   `time_to_die_s` and `out_of_mana_s` is null (not simmed), as is
-  `talents.best`; it has none of the six optional fields. It opens on the
+  `talents.best`; it has none of the six optional fields, and no
+  `left_out_items`. It opens on the
   same fight, with the same labels, as the full sample.

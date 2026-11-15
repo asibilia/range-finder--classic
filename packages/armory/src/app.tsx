@@ -176,7 +176,9 @@ function Footer({ file }: { file: ResultsFile | null }) {
                     is original placeholder.
                 </span>
             </p>
-            {file && <Checks checks={file.checks} />}
+            {file && (
+                <Checks checks={file.checks} leftOut={file.left_out_items} />
+            )}
         </footer>
     )
 }

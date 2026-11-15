@@ -77,6 +77,13 @@
       "detail": "Matches the game."
     }
   ],
+  "left_out_items": [
+    {
+      "item_id": 99901,
+      "name": "Made-up Hood of Nowhere",
+      "reason": "it has no source and needs level 1"
+    }
+  ],
   "character": {
     "name": "Truncha",
     "level": 30,

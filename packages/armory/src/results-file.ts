@@ -261,6 +261,27 @@ const baseSchema = z.strictObject({
             detail: z.string(),
         })
     ),
+    left_out_items: z
+        .array(
+            z.strictObject({
+                item_id: z.int().positive().meta({
+                    description: "The left-out item's item_id.",
+                }),
+                name: z.string().min(1).meta({
+                    description:
+                        "The left-out item's name, as the game has it.",
+                }),
+                reason: z.string().min(1).meta({
+                    description:
+                        'The left-out item\'s reason, said after "because": "it has no source and needs level 1". The page adds the full stop.',
+                }),
+            })
+        )
+        .optional()
+        .meta({
+            description:
+                'Items the sim left out of every plan (a suspect item: no source and required level 1 or less, unless worn or in the bags). Recorded here, not in checks: checks are the accuracy gates the page counts. The page lists them under "Left out of the plan:" in How sure is this?, one line each: "Made-up Helm (12345), because it has no source and needs level 1." Absent: none recorded.',
+        }),
     character: z.strictObject({
         name: z.string().meta({
             description:
