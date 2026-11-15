@@ -41,9 +41,28 @@ export default defineConfig({
         ],
     },
     optimizeDeps: {
-        // Found only once the page is served, so a fresh install's first
-        // dev visit re-bundled and reloaded the page, losing a click.
-        include: ['zod'],
+        // Found only once the page is served (or, for the charts, once a
+        // lazy chunk loads), so a fresh install's first dev visit
+        // re-bundled and reloaded the page, losing a click. Every browser
+        // dependency the page imports, listed up front;
+        // tests/vite-config.test.ts checks the list against the imports.
+        include: [
+            '@base-ui/react/button',
+            '@base-ui/react/dialog',
+            '@base-ui/react/merge-props',
+            '@base-ui/react/radio',
+            '@base-ui/react/radio-group',
+            '@base-ui/react/select',
+            '@base-ui/react/separator',
+            '@base-ui/react/slider',
+            '@base-ui/react/tooltip',
+            '@base-ui/react/use-render',
+            'class-variance-authority',
+            'cn',
+            'lucide-react',
+            'recharts',
+            'zod',
+        ],
     },
     plugins: [
         cloudflare({ viteEnvironment: { name: 'ssr' } }),
