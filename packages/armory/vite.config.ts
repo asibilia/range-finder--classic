@@ -1,24 +1,44 @@
 import { reactRouter } from '@react-router/dev/vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
 /**
  * The armory planner's build: React Router on a Cloudflare Worker, with
- * Tailwind 4 (theme and utilities only, no preflight; see `src/styles.css`).
+ * Tailwind 4 and shadcn/ui on Base UI (see `src/styles.css` and
+ * `components.json`).
  */
 export default defineConfig({
     build: {
         rollupOptions: {
-            // zod ships comments Rollup can't place; a harmless warning on
-            // every build, silenced so the ones that matter stand out.
+            // Harmless warnings on every build, silenced so the ones that
+            // matter stand out: zod ships comments Rollup can't place, and
+            // Base UI marks its modules 'use client' (for server components,
+            // which this page doesn't use), which Rollup drops.
             onwarn(warning, warn) {
                 const fromDependency = warning.id?.includes('/node_modules/')
-                if (warning.code === 'INVALID_ANNOTATION' && fromDependency)
+                const harmless = [
+                    'INVALID_ANNOTATION',
+                    'MODULE_LEVEL_DIRECTIVE',
+                    'SOURCEMAP_ERROR',
+                ]
+                if (fromDependency && harmless.includes(warning.code ?? ''))
                     return
                 warn(warning)
             },
         },
+    },
+    resolve: {
+        // shadcn's import alias (components.json, and `paths` in
+        // tsconfig.json for TypeScript and Bun's tests): `@/` is `src/`.
+        // Vite's own alias, so no tsconfig-paths plugin.
+        alias: [
+            {
+                find: /^@\//,
+                replacement: `${fileURLToPath(new URL('./src', import.meta.url))}/`,
+            },
+        ],
     },
     optimizeDeps: {
         // Found only once the page is served, so a fresh install's first

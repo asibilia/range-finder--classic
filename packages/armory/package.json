@@ -5,9 +5,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@base-ui/react": "catalog:",
+    "class-variance-authority": "catalog:",
+    "cn": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-router": "catalog:",
+    "recharts": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -23,6 +28,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "wrangler": "catalog:"
