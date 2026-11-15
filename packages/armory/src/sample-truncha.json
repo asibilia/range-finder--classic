@@ -2741,6 +2741,51 @@
           "ep": 14.19
         }
       ]
+    },
+    {
+      "fight_id": "chain-4",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2
+        },
+        {
+          "stat": "agility",
+          "ep": 1.02
+        },
+        {
+          "stat": "intellect",
+          "ep": 4.04
+        },
+        {
+          "stat": "spirit",
+          "ep": 0.94
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.69
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.98
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 0.8
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 3.89
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.19
+        }
+      ]
     }
   ],
   "talents": {
