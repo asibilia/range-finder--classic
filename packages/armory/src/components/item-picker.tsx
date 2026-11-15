@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import { formatGain, gainOf, type Item, type SlotEntry } from '../gains'
+import { itemName } from '../item-name'
 import type { Slot } from '../results-file'
 import { SLOT_LABELS } from '../slot-labels'
 import { PlannerDialog } from './planner-dialog'
@@ -41,6 +42,7 @@ function ClassicData({ item }: { item: Item }) {
  * @param entry - The slot's entry in the file.
  * @param slot - The slot.
  * @param level - The character's level (for `Needs level`).
+ * @param characterClass - The character's class (names unnamed items).
  * @param bagItemIds - Items in the bags that beat what is worn here.
  * @param wishlist - The wishlist.
  * @param onToggle - Adds an item to the wishlist, or takes it off.
@@ -50,6 +52,7 @@ export function ItemPicker({
     entry,
     slot,
     level,
+    characterClass,
     bagItemIds,
     wishlist,
     onToggle,
@@ -58,6 +61,7 @@ export function ItemPicker({
     entry: SlotEntry | undefined
     slot: Slot
     level: number
+    characterClass: string
     bagItemIds: number[]
     wishlist: Wishlist
     onToggle: (item: Item, slot: Slot) => void
@@ -84,7 +88,9 @@ export function ItemPicker({
                         </span>
                         {worn ? (
                             <div className="flex flex-col gap-0.5">
-                                <p className="font-semibold">{worn.name}</p>
+                                <p className="font-semibold">
+                                    {itemName(worn, slot, characterClass)}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
                                     {worn.source.text}
                                 </p>
@@ -115,12 +121,16 @@ export function ItemPicker({
                                     <QualityGem quality={item.quality} />
                                     <div className="flex flex-wrap items-center gap-1.5">
                                         <p className="font-semibold">
-                                            {item.name}
+                                            {itemName(
+                                                item,
+                                                slot,
+                                                characterClass
+                                            )}
                                         </p>
                                         {bagItemIds.includes(item.item_id) && (
                                             <Badge
                                                 variant="outline"
-                                                className="h-4 border-chart-2 px-1.5 text-[0.65rem] text-chart-2"
+                                                className="h-4 border-chart-2 px-1.5 text-[0.65rem] text-chart-2-text"
                                             >
                                                 In your bags
                                             </Badge>
@@ -128,7 +138,7 @@ export function ItemPicker({
                                         {item.required_level > level && (
                                             <Badge
                                                 variant="outline"
-                                                className="h-4 border-gain px-1.5 text-[0.65rem] text-gain"
+                                                className="h-4 border-gain px-1.5 text-[0.65rem] text-gain-text"
                                             >
                                                 {`Needs level ${item.required_level}`}
                                             </Badge>
@@ -139,7 +149,7 @@ export function ItemPicker({
                                             className={cn(
                                                 'text-right text-xl font-semibold tabular-nums',
                                                 gain.value > 0
-                                                    ? 'text-gain'
+                                                    ? 'text-gain-text'
                                                     : 'text-muted-foreground'
                                             )}
                                         >
@@ -183,15 +193,18 @@ export function ItemPicker({
  * source and `Remove`.
  *
  * @param wishlist - The wishlist.
+ * @param characterClass - The character's class (names unnamed items).
  * @param onRemove - Takes an item off.
  * @param onClose - Closes the dialog.
  */
 export function WishlistDialog({
     wishlist,
+    characterClass,
     onRemove,
     onClose,
 }: {
     wishlist: Wishlist
+    characterClass: string
     onRemove: (itemId: number) => void
     onClose: () => void
 }) {
@@ -212,7 +225,9 @@ export function WishlistDialog({
                         >
                             <QualityGem quality={item.quality} />
                             <div className="flex flex-col gap-0.5">
-                                <p className="font-semibold">{item.name}</p>
+                                <p className="font-semibold">
+                                    {itemName(item, slot, characterClass)}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
                                     {SLOT_LABELS[slot]}
                                 </p>

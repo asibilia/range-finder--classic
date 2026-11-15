@@ -12,7 +12,7 @@ const HANDS = 'Hands: Toughened Leather Gloves, +21.6 EP'
 const NECK = "Neck: Archmagister's Faceted Pendant, +1.7 EP"
 const LEGS = "Legs: Trapper's Leather Legguards, +23.6 EP"
 const FINGER_1 = 'Finger 1: Seal of Sylvanas, +19.2 EP'
-const FINGER_2 = 'Finger 2: Item 6748, +19.2 EP'
+const FINGER_2 = 'Finger 2: Unnamed ring (6748), +19.2 EP'
 
 /** Clicks the slot button named `name` and returns the picker it opens. */
 async function openPicker(
@@ -112,13 +112,15 @@ describe('gains on the slots', () => {
         // one comes from the zero gain.
         await openSample()
         const before = screen.getByRole('button', {
-            name: 'Back: Item 279848, +6.2 EP',
+            name: 'Back: Unnamed cloak (279848), +6.2 EP',
         })
         expect(within(before).getByText('+6.2 EP')).toBeDefined()
         cleanup()
 
         await openFile(changed)
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
 
         expect(within(slot).queryByText(/EP$/)).toBeNull()
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
@@ -139,7 +141,9 @@ describe('gains on the slots', () => {
                 first.gain_ep = 0.04
             })
         )
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
 
         expect(within(slot).queryByText(/EP$/)).toBeNull()
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
@@ -164,11 +168,17 @@ describe('gains on the slots', () => {
                 first.gain_dps = null
             })
         )
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
         expect(within(slot).queryByText(/(EP|DPS)$/)).toBeNull()
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
 
-        const dialog = await openPicker(user, 'Back: Item 279848', 'Back')
+        const dialog = await openPicker(
+            user,
+            'Back: Unnamed cloak (279848)',
+            'Back'
+        )
         const row = rowFor(dialog, "Sergeant Major's Cape")
         expect(within(row).queryByText(/(EP|DPS)$/)).toBeNull()
         expect(

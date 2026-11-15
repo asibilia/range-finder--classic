@@ -13,6 +13,7 @@ import {
     type Item,
     type SlotEntry,
 } from './gains'
+import { itemName, shortSource } from './item-name'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
 import { SLOT_LABELS, SLOTS_IN_ORDER } from './slot-labels'
@@ -22,8 +23,15 @@ export type SlotShown = {
     slot: Slot
     label: string
     item: Item | null
+    /** The item's name as shown (`Unnamed cloak (279848)` for a placeholder). */
+    itemName: string | null
     gain: Gain | null
     note: string | undefined
+    /**
+     * Said to a screen reader after the name (the button's description),
+     * e.g. `Replaces Trapper's Leather Legguards` in the plan view.
+     */
+    description: string | undefined
     /** Plan view: the plan keeps what you wear here (drawn faded). */
     sameAsWorn: boolean
     /** Chips under the label, e.g. `Needs level 33`. */
@@ -44,8 +52,10 @@ export function emptySlot(slot: Slot): SlotShown {
         slot,
         label,
         item: null,
+        itemName: null,
         gain: null,
         note: undefined,
+        description: undefined,
         sameAsWorn: false,
         chips: [],
         name: `${label}: Empty`,
@@ -67,13 +77,24 @@ export function slotShown(
 ): SlotShown {
     const label = SLOT_LABELS[slot]
     const entry = file.slots.find((candidate) => candidate.slot === slot)
-    const shown = plan ? planView(entry, plan.gear[slot]) : wornView(entry)
+    const named = (item: Item) => itemName(item, slot, file.character.class)
+    const shown = plan
+        ? planView(entry, plan.gear[slot], named)
+        : wornView(entry, named)
+    if (
+        !shown.item &&
+        !entry?.worn &&
+        isTrinket(slot) &&
+        !entry?.alternatives.length
+    )
+        shown.note = 'No trinkets in the data yet'
     const chips: string[] = []
     if (shown.item && shown.item.required_level > file.character.level)
         chips.push(`Needs level ${shown.item.required_level}`)
     if (!plan && file.bag_upgrades.some((upgrade) => upgrade.slot === slot))
         chips.push('Better in bags')
-    const name = shown.item ? shown.item.name : 'Nothing equipped'
+    const shownName = shown.item ? named(shown.item) : null
+    const name = shownName ?? 'Nothing equipped'
     const suffix = shown.sameAsWorn
         ? ', same as what you wear'
         : shown.gain
@@ -83,27 +104,40 @@ export function slotShown(
         slot,
         label,
         ...shown,
+        itemName: shownName,
         chips,
         name: `${label}: ${name}${suffix}`,
     }
 }
 
-type View = Pick<SlotShown, 'item' | 'gain' | 'note' | 'sameAsWorn'>
+type View = Pick<
+    SlotShown,
+    'item' | 'gain' | 'note' | 'description' | 'sameAsWorn'
+>
 
-function wornView(entry: SlotEntry | undefined): View {
+function isTrinket(slot: Slot): boolean {
+    return slot === 'trinket_1' || slot === 'trinket_2'
+}
+
+function wornView(
+    entry: SlotEntry | undefined,
+    named: (item: Item) => string
+): View {
     const worn = entry?.worn ?? null
     const best = bestUpgrade(entry)
     return {
         item: worn,
         gain: best?.gain ?? null,
-        note: best ? `Best: ${best.item.name}` : worn?.source.text,
+        note: best ? `Best: ${named(best.item)}` : worn?.source.text,
+        description: undefined,
         sameAsWorn: false,
     }
 }
 
 function planView(
     entry: SlotEntry | undefined,
-    planItemId: number | null
+    planItemId: number | null,
+    named: (item: Item) => string
 ): View {
     const worn = entry?.worn ?? null
     if (planItemId === (worn?.item_id ?? null))
@@ -111,16 +145,21 @@ function planView(
             item: worn,
             gain: null,
             note: worn ? 'Same as what you wear' : undefined,
+            description: undefined,
             sameAsWorn: worn !== null,
         }
     const alternative = entry?.alternatives.find(
         (candidate) => candidate.item.item_id === planItemId
     )
     const gain = alternative ? gainOf(alternative) : null
+    const item = alternative?.item ?? null
     return {
-        item: alternative?.item ?? null,
+        item,
         gain: isUpgrade(gain) ? gain : null,
-        note: `Replaces ${worn ? worn.name : 'nothing'}`,
+        // The mockup's line under a swapped-in item: where it comes from.
+        // What it replaces is said to a screen reader instead.
+        note: item ? shortSource(item.source.text) : undefined,
+        description: `Replaces ${worn ? named(worn) : 'nothing'}`,
         sameAsWorn: false,
     }
 }
