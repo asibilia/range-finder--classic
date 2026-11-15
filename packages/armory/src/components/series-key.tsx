@@ -112,6 +112,19 @@ export function legendOrder(item: { dataKey?: unknown }): number {
     return Object.keys(SERIES_LABELS).indexOf(String(item.dataKey))
 }
 
+/**
+ * A chart tooltip's items in legend order. Recharts skips its `itemSorter`
+ * with custom tooltip content, so the content sorts them itself.
+ *
+ * @param payload - The tooltip's items.
+ * @returns A sorted copy.
+ */
+export function inLegendOrder<T extends { dataKey?: unknown }>(
+    payload: readonly T[] | undefined
+): T[] {
+    return [...(payload ?? [])].sort((a, b) => legendOrder(a) - legendOrder(b))
+}
+
 /** The fight chart's accessible name. */
 export const FIGHT_CHART_NAME = 'DPS and mana over the fight'
 

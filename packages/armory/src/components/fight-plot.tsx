@@ -32,6 +32,7 @@ import { minutesSeconds } from '../format'
 import {
     FIGHT_CHART_NAME,
     FIGHT_KEYS,
+    inLegendOrder,
     legendOrder,
     SERIES_COLOR,
     SERIES_LABELS,
@@ -203,18 +204,20 @@ export default function FightPlot({
                     />
                 ))}
                 <ChartTooltip
-                    itemSorter={legendOrder}
                     // Below the out-of-mana labels, so it never covers them.
                     position={{ y: 54 }}
-                    content={
+                    content={(props) => (
                         <ChartTooltipContent
+                            active={props.active}
+                            label={props.label}
+                            payload={inLegendOrder(props.payload)}
                             labelFormatter={(_, payload) =>
                                 minutesSeconds(
                                     Number(payload[0]?.payload?.t_s ?? 0)
                                 )
                             }
                         />
-                    }
+                    )}
                 />
                 <ChartLegend
                     itemSorter={legendOrder}

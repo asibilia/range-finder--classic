@@ -15,6 +15,7 @@ import { chartsLoaded } from './open-app'
 import { DamageSplit, SPLIT_CHART_NAME } from '../src/components/damage-split'
 import { FIGHT_CHART_NAME, FightChart } from '../src/components/fight-chart'
 import { PULL_CHART_NAME, PullChart } from '../src/components/pull-chart'
+import { inLegendOrder } from '../src/components/series-key'
 import { StatWeights, WEIGHTS_CHART_NAME } from '../src/components/stat-weights'
 import { readResultsFile, type ResultsFile } from '../src/results-file'
 import sampleJson from '../src/sample-truncha.json'
@@ -126,6 +127,19 @@ describe('the fight chart', () => {
         expect(count('.recharts-reference-line-line')).toBe(1)
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()
         expect(screen.queryByText("Mana, sim's plan")).toBeNull()
+    })
+})
+
+describe('tooltip order', () => {
+    test('tooltip items sort in the legend order (Recharts skips itemSorter with custom content)', () => {
+        expect(
+            inLegendOrder([
+                { dataKey: 'mana_plan' },
+                { dataKey: 'mana_worn' },
+                { dataKey: 'dps_worn' },
+                { dataKey: 'dps_plan' },
+            ]).map((item) => item.dataKey)
+        ).toEqual(['dps_plan', 'dps_worn', 'mana_plan', 'mana_worn'])
     })
 })
 

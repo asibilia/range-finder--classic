@@ -19,6 +19,7 @@ import {
 
 import type { PullChartData } from '../chart-data'
 import {
+    inLegendOrder,
     legendOrder,
     PULL_CHART_NAME,
     PULL_KEYS,
@@ -143,11 +144,13 @@ export default function PullPlot({
                     />
                 )}
                 <ChartTooltip
-                    itemSorter={legendOrder}
                     // Pinned to the top of the plot, clear of the bars' labels.
                     position={{ y: 28 }}
-                    content={
+                    content={(props) => (
                         <ChartTooltipContent
+                            active={props.active}
+                            label={props.label}
+                            payload={inLegendOrder(props.payload)}
                             formatter={(value, name) => (
                                 <span className="flex w-full justify-between gap-3">
                                     <span className="text-muted-foreground">
@@ -159,7 +162,7 @@ export default function PullPlot({
                                 </span>
                             )}
                         />
-                    }
+                    )}
                 />
                 <ChartLegend
                     itemSorter={legendOrder}
