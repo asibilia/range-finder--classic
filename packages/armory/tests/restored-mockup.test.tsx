@@ -12,6 +12,7 @@ import {
     description,
     openFile,
     openSample,
+    pill,
     readingChange,
     renderApp,
     variant,
@@ -23,9 +24,9 @@ import { cleanup, screen, within } from '@testing-library/react'
 import { initials } from '../src/components/talents-dialog'
 
 const SHOW_PLAN = "Show the sim's plan"
-const DUNGEON_LONG = 'Dungeon, 2 min, level 33'
-const DPS_SOLO = 'DPS, Solo, 30 s, level 31'
-const DPS_LONG = `DPS, ${DUNGEON_LONG}`
+const DUNGEON_LONG = 'Dungeon, 2 min vs level 33'
+const DPS_SOLO = 'Solo, 30 s vs level 31'
+const DPS_LONG = DUNGEON_LONG
 
 afterEach(() => {
     cleanup()
@@ -36,15 +37,11 @@ describe('the gear pane', () => {
         await openSample()
         const gear = screen.getByRole('region', { name: 'Gear' })
 
-        expect(
-            within(gear).getByText(
-                'is the best gain the sim found for that slot. 11 slots have a big upgrade (15 EP or 3 DPS and up).'
-            )
-        ).toBeDefined()
-        const example = within(gear)
-            .getAllByText('+16.7 EP')
-            .find((pill) => !pill.closest('button'))
-        expect(example?.getAttribute('data-size')).toBe('big')
+        const line = within(gear).getByText(
+            'is the best gain the sim found for that slot. 11 slots have a big upgrade (15 EP or 3 DPS and up).',
+            { exact: false }
+        )
+        expect(pill(line, '+16.7 EP').getAttribute('data-size')).toBe('big')
     })
 
     test('in the plan view says what the labels and faded slots mean, and fades unchanged slots', async () => {
@@ -59,7 +56,7 @@ describe('the gear pane', () => {
         expect(
             screen
                 .getByRole('button', {
-                    name: 'Relic: Unnamed totem (263412), same as what you wear',
+                    name: 'Totem: Unnamed totem (263412), same as what you wear',
                 })
                 .getAttribute('data-same')
         ).toBe('true')
@@ -70,16 +67,16 @@ describe('the gear pane', () => {
         ).toBe(false)
     })
 
-    test('a plan item above your level carries a Needs level chip, and the slot name stays exact', async () => {
+    test('a plan item above your level carries a needs chip, and the slot name stays exact', async () => {
         const user = await openSample()
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
         const hands = screen.getByRole('button', {
             name: 'Hands: Gloves of the Greatfather, +21.6 EP',
         })
-        expect(within(hands).getByText('Needs level 33')).toBeDefined()
+        expect(within(hands).getByText('needs 33')).toBeDefined()
         expect(description(hands)).toBe(
-            'Needs level 33 Replaces Toughened Leather Gloves'
+            'needs 33 Replaces Toughened Leather Gloves'
         )
     })
 
@@ -88,13 +85,13 @@ describe('the gear pane', () => {
         const shoulder = screen.getByRole('button', {
             name: "Shoulder: Serpent's Shoulders, +17.8 EP",
         })
-        expect(description(shoulder)).toBe('Better in bags')
+        expect(description(shoulder)).toBe('better in bags')
         expect(
             description(screen.getByRole('button', { name: /^Head: / }))
         ).toBe('')
 
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
-        expect(screen.queryByText('Better in bags')).toBeNull()
+        expect(screen.queryByText('better in bags')).toBeNull()
     })
 
     test('the worn view says moving a role switches to the plan; the plan view does not', async () => {
@@ -110,17 +107,16 @@ describe('the gear pane', () => {
 describe('the readings', () => {
     test("the plan view adds each reading's change from what you wear", async () => {
         const user = await openSample()
-        await chooseFight(user, DUNGEON_LONG)
         expect(readingChange(DPS_LONG)).toBeNull()
 
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
-        expect(readingChange(DPS_SOLO)).toBe('+14.7 vs what you wear')
-        expect(readingChange(DPS_LONG)).toBe('+8.7 vs what you wear')
-        expect(readingChange('Health')).toBe('-65 vs what you wear')
-        expect(readingChange('Armor')).toBe('+58 vs what you wear')
-        expect(readingChange('Out of mana at')).toBe('+9 s vs what you wear')
-        expect(readingChange('Time to die')).toBe('-3 s vs what you wear')
+        expect(readingChange(DPS_SOLO)).toBe('+14.7')
+        expect(readingChange(DPS_LONG)).toBe('+8.7')
+        expect(readingChange('Health')).toBe('-65')
+        expect(readingChange('Armor')).toBe('+58')
+        expect(readingChange('Mana runs out at')).toBe('+9 s later')
+        expect(readingChange('Time to die vs a level 33 elite')).toBe('-3 s')
     })
 
     test('a plan not simmed on the fight has no change to say', async () => {
@@ -137,12 +133,13 @@ describe('the readings', () => {
                 )
             })
         )
+        await chooseFight(user, 'Chain, 4 pulls 20 s apart vs level 33')
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
         // The chain fight's readings: the plan has no result there.
-        expect(readingChange('Out of mana at')).toBeNull()
+        expect(readingChange('Mana runs out at')).toBeNull()
         expect(readingChange('Health')).toBeNull()
         // Solo and the 2-minute fight are still simmed for the plan.
-        expect(readingChange(DPS_LONG)).toBe('+8.7 vs what you wear')
+        expect(readingChange(DPS_LONG)).toBe('+8.7')
     })
 })
 
@@ -154,11 +151,11 @@ describe('the item picker', () => {
         const row = within(dialog)
             .getByText('Berylline Pads')
             .closest('li') as HTMLElement
-        expect(within(row).getByText('In your bags')).toBeDefined()
+        expect(within(row).getByText('in your bags')).toBeDefined()
         expect(
             within(
                 within(dialog).getByText('Batwing Mantle').closest('li')!
-            ).queryByText('In your bags')
+            ).queryByText('in your bags')
         ).toBeNull()
     })
 })
@@ -234,7 +231,7 @@ describe('the mockup details', () => {
             'Wrist: Unnamed bracers (279875), +16.8 EP',
             'Feet: Unnamed boots (251963), +18.7 EP',
             'Finger 2: Unnamed ring (6748), +19.2 EP',
-            'Relic: Unnamed totem (263412)',
+            'Totem: Unnamed totem (263412)',
         ])
             expect(screen.getByRole('button', { name })).toBeDefined()
         expect(screen.queryByText(/^Item \d+$/)).toBeNull()
@@ -244,8 +241,20 @@ describe('the mockup details', () => {
         expect(within(dialog).getByText('Unnamed cloak (279848)')).toBeDefined()
     })
 
-    test('empty trinket slots say there are no trinkets in the data yet; the empty off hand says nothing more', async () => {
-        await openSample()
+    test('empty trinket slots say there are no trinkets in the data yet; an empty off hand says nothing more', async () => {
+        await openFile(
+            variant((file) => {
+                // An off-hand alternative keeps the off-hand slot shown.
+                const slots = file.slots as {
+                    slot: string
+                    alternatives: unknown[]
+                }[]
+                const off = slots.find((entry) => entry.slot === 'off_hand')
+                const main = slots.find((entry) => entry.slot === 'main_hand')
+                if (!off || !main) throw new Error('no weapon slots')
+                off.alternatives = [structuredClone(main.alternatives[1])]
+            })
+        )
         for (const name of ['Trinket 1', 'Trinket 2'])
             expect(
                 within(
@@ -257,21 +266,20 @@ describe('the mockup details', () => {
         expect(
             within(
                 screen.getByRole('button', {
-                    name: 'Off hand: Nothing equipped',
+                    name: /^Off hand: Nothing equipped/,
                 })
             ).queryByText('No trinkets in the data yet')
         ).toBeNull()
     })
 
-    test('the fight band is headed Across the fight, the fight, and Provisional', async () => {
-        const user = await openSample()
-        await chooseFight(user, DUNGEON_LONG)
+    test('the fight band is headed Across the fight, the fight in words, Provisional and the sample tag', async () => {
+        await openSample()
         const band = screen.getByRole('region', { name: 'Across the fight' })
         const heading = within(band).getByRole('heading', {
             name: 'Across the fight',
         })
         expect(heading.parentElement?.textContent).toBe(
-            `Across the fight·${DUNGEON_LONG}·Provisional${'Sim numbers are estimates until matched to real fights.'}`
+            `Across the fightDungeon, 2 minutes vs level 33Provisional${'Sim numbers are estimates until matched to real fights.'}Sample file`
         )
     })
 })

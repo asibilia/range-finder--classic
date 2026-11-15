@@ -177,9 +177,21 @@ describe('the pull chart', () => {
     })
 })
 
+/** A legend entry's text, name then share (`Melee 33%`). */
+function legend(): string[] {
+    return [...document.querySelectorAll('li')].map((item) =>
+        (item.textContent ?? '').replace(/\s+/g, ' ').trim()
+    )
+}
+
 describe('the damage split', () => {
     test('is one 100% bar of six parts, sized by share, with a legend', () => {
-        render(<DamageSplit worn={result('worn', 'dungeon-long')} />)
+        render(
+            <DamageSplit
+                worn={result('worn', 'solo-hit-short')}
+                fightLabel="Solo, 30 seconds vs level 31"
+            />
+        )
         const bar = screen.getByRole('img', { name: SPLIT_CHART_NAME })
         const parts = [...bar.querySelectorAll<HTMLElement>('[data-part]')]
         expect(parts.map((part) => part.style.flexGrow)).toEqual([
@@ -190,8 +202,29 @@ describe('the damage split', () => {
             '11',
             '9',
         ])
-        expect(screen.getByText('Melee 33%')).toBeDefined()
-        expect(screen.getByText('Lightning Shield 9%')).toBeDefined()
+        expect(legend()[0]).toBe('Melee 33%')
+        expect(legend()[5]).toBe('Lightning Shield 9%')
+        expect(
+            screen.getByText(
+                'Solo, 30 seconds vs level 31, what you wear. Colour is the spell school.'
+            )
+        ).toBeDefined()
+    })
+
+    test('without spell schools it says nothing about colour', () => {
+        const worn = result('worn', 'solo-hit-short')
+        render(
+            <DamageSplit
+                worn={{
+                    ...worn,
+                    damage_split: worn.damage_split.map(
+                        ({ school: _school, ...part }) => part
+                    ),
+                }}
+                fightLabel="Solo"
+            />
+        )
+        expect(screen.getByText('Solo, what you wear.')).toBeDefined()
     })
 })
 
@@ -211,18 +244,24 @@ describe('the damage split with two parts of one name', () => {
         )
         const bar = screen.getByRole('img', { name: SPLIT_CHART_NAME })
         expect(bar.querySelectorAll('[data-part="Melee"]')).toHaveLength(2)
-        expect(screen.getByText('Melee 60%')).toBeDefined()
-        expect(screen.getByText('Melee 40%')).toBeDefined()
+        expect(legend()).toEqual(['Melee 60%', 'Melee 40%'])
     })
 })
 
 describe('the stat weights', () => {
-    test('on the solo fight: a bar per stat and a dashed 2-minute bar, with both values', () => {
-        render(<StatWeights file={sample} fightId="solo-hit-short" />)
+    test('solo solid and the 2-minute fight dashed where it differs, with both values', () => {
+        render(
+            <StatWeights
+                file={sample}
+                fightId="solo-hit-short"
+                compareId="dungeon-long"
+            />
+        )
         const bars = screen.getByLabelText(WEIGHTS_CHART_NAME)
-        expect(bars.querySelectorAll('[data-bar="fight"]')).toHaveLength(9)
-        expect(bars.querySelectorAll('[data-bar="compare"]')).toHaveLength(9)
-        expect(bars.textContent).toMatch(/Intellect1\.154\.04/)
+        expect(bars.querySelectorAll('[data-bar="fight"]')).toHaveLength(7)
+        expect(bars.querySelectorAll('[data-bar="compare"]')).toHaveLength(2)
+        expect(bars.textContent).toMatch(/Intellect1\.15 4\.04/)
+        expect(bars.textContent).toMatch(/Mana per 5 3\.89$/)
         expect(
             screen.getByText(
                 'In attack power (1 attack power = 1). Dashed: in 2-minute dungeon fights, once you run dry.'
@@ -235,17 +274,9 @@ describe('the stat weights', () => {
         ).toBeDefined()
     })
 
-    test('on the 2-minute fight: no dashed bar and no dashed note', () => {
+    test('with nothing to compare: no dashed bar and no dashed note', () => {
         render(<StatWeights file={sample} fightId="dungeon-long" />)
         const bars = screen.getByLabelText(WEIGHTS_CHART_NAME)
-        expect(bars.querySelectorAll('[data-bar="compare"]')).toHaveLength(0)
-        expect(screen.queryByText(/Dashed:/)).toBeNull()
-    })
-
-    test("the chain fight: bars, and no dashed bars, since its (made-up) weights are the 2-minute fight's", () => {
-        render(<StatWeights file={sample} fightId="chain-4" />)
-        const bars = screen.getByLabelText(WEIGHTS_CHART_NAME)
-        expect(bars.querySelectorAll('[data-bar="fight"]')).toHaveLength(9)
         expect(bars.querySelectorAll('[data-bar="compare"]')).toHaveLength(0)
         expect(screen.queryByText(/Dashed:/)).toBeNull()
     })

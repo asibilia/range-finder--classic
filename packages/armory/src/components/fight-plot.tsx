@@ -27,7 +27,12 @@ import {
 } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
 
-import { type FightChartData, type ManaMarker, timeTicks } from '../chart-data'
+import {
+    type FightChartData,
+    type ManaMarker,
+    timeTicks,
+    valueTicks,
+} from '../chart-data'
 import { minutesSeconds } from '../format'
 import {
     FIGHT_CHART_NAME,
@@ -86,6 +91,20 @@ export default function FightPlot({
     data: FightChartData
     describedBy: string
 }) {
+    const highest = (keys: (keyof (typeof data.points)[number])[]) =>
+        Math.max(
+            0,
+            ...data.points.flatMap((point) =>
+                keys.map((key) => Number(point[key] ?? 0))
+            )
+        )
+    const dpsTicks = valueTicks(highest(['dps_worn', 'dps_plan']), 4, 1.1, 20)
+    const manaTicks = valueTicks(
+        highest(['mana_worn', 'mana_plan']),
+        3,
+        1.3,
+        300
+    )
     return (
         <ChartContainer
             config={CONFIG}
@@ -114,6 +133,8 @@ export default function FightPlot({
                 />
                 <YAxis
                     yAxisId="dps"
+                    domain={[0, dpsTicks.at(-1) ?? 'auto']}
+                    ticks={dpsTicks}
                     width={34}
                     tickLine={false}
                     axisLine={false}
@@ -127,6 +148,8 @@ export default function FightPlot({
                 <YAxis
                     yAxisId="mana"
                     orientation="right"
+                    domain={[0, manaTicks.at(-1) ?? 'auto']}
+                    ticks={manaTicks}
                     width={40}
                     tickLine={false}
                     axisLine={false}

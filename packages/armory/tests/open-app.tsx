@@ -66,7 +66,7 @@ export async function pick(user: User, file: File): Promise<void> {
 export async function openSample(): Promise<User> {
     const user = renderApp()
     await user.click(
-        screen.getByRole('button', { name: 'Look at a sample character' })
+        screen.getByRole('button', { name: 'Or look at a sample character' })
     )
     await screen.findByRole('heading', { level: 1, name: 'Truncha' })
     await chartsLoaded()
@@ -90,67 +90,65 @@ export async function openFile(
 }
 
 /**
- * The readings table's row named `label`: the value in each of its cells
- * after the label (what you wear, then the plan), or null. The table is
- * drawn as stat blocks; a cell's value is its `data-reading-value` element,
- * apart from the change line under it.
+ * The value shown in the reading named `label` (what you wear's, or the
+ * plan's in the plan view), or null when there is no such reading.
  */
-export function readingRow(label: string): string[] | null {
-    const header = screen.getByRole('columnheader', { name: 'What you wear' })
-    const table = header.closest('[role="table"]')
-    if (!table) throw new Error('the readings table is missing')
-    for (const row of within(table as HTMLElement).getAllByRole('row')) {
-        const name = within(row).queryByRole('rowheader')?.textContent?.trim()
-        if (name !== label) continue
-        return within(row)
-            .getAllByRole('cell')
-            .map((cell) =>
-                (
-                    cell.querySelector('[data-reading-value]')?.textContent ??
-                    ''
-                ).trim()
-            )
-    }
-    return null
+export function readingValue(label: string): string | null {
+    const cell = document.querySelector(`[data-reading="${CSS.escape(label)}"]`)
+    if (!cell) return null
+    return (
+        cell.querySelector('[data-reading-value]')?.textContent ?? ''
+    ).trim()
 }
 
-/** The readings change line under the plan's value, or null. */
+/** The labels of the readings, in order. */
+export function readingLabels(): string[] {
+    return [...document.querySelectorAll('[data-reading]')].map(
+        (cell) => cell.getAttribute('data-reading') ?? ''
+    )
+}
+
+/** The change under a reading's value in the plan view, or null. */
 export function readingChange(label: string): string | null {
-    const header = screen.getByRole('columnheader', { name: 'What you wear' })
-    const table = header.closest('[role="table"]') as HTMLElement
-    for (const row of within(table).getAllByRole('row'))
-        if (within(row).queryByRole('rowheader')?.textContent === label)
-            return (
-                within(row).queryByText(/vs what you wear$/)?.textContent ??
-                null
-            )
-    return null
+    const cell = document.querySelector(`[data-reading="${CSS.escape(label)}"]`)
+    const text = cell?.querySelector('[data-reading-change]')?.textContent
+    return text ? text.trim() : null
 }
 
-/** The card's fight picker (a shadcn Select on Base UI). */
-export function fightSelect(): HTMLElement {
-    return screen.getByRole('combobox', { name: 'Fight' })
-}
-
-/** The fight the picker shows. */
+/** The fight the chart, the readings and the band are on (its label). */
 export function shownFight(): string {
-    return (fightSelect().textContent ?? '').replace(/[▼▾]/g, '').trim()
+    return (
+        document
+            .querySelector('[data-slot="fight-band"]')
+            ?.getAttribute('data-fight') ?? ''
+    )
 }
 
-/** Opens the fight picker and returns its options' labels. */
-export async function fightOptions(user: User): Promise<string[]> {
-    await user.click(fightSelect())
-    const options = await screen.findAllByRole('option')
-    const labels = options.map((option) => (option.textContent ?? '').trim())
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
-    return labels
+/** The fight length select in the fight settings. */
+export function lengthSelect(): HTMLElement {
+    return screen.getByRole('combobox', { name: 'Fight length' })
 }
 
-/** Picks the fight labelled `label` with the card's fight picker. */
-export async function chooseFight(user: User, label: string): Promise<void> {
-    await user.click(fightSelect())
+/** Picks a fight length (`30 seconds`, `1 minute`) in the fight settings. */
+export async function chooseLength(user: User, label: string): Promise<void> {
+    await user.click(lengthSelect())
     await user.click(await screen.findByRole('option', { name: label }))
+    await waitFor(() =>
+        expect((lengthSelect().textContent ?? '').trim()).toContain(label)
+    )
+}
+
+/**
+ * Puts the page on the fight labelled `label` through the fight settings:
+ * a length no fight in the sample has (1 minute) makes them say `Not simmed
+ * for this combination.` and list the file's fights, and the fight is
+ * picked from that list.
+ */
+export async function chooseFight(user: User, label: string): Promise<void> {
+    if (shownFight() === label) return
+    await chooseLength(user, '1 minute')
+    const list = await screen.findByRole('status')
+    await user.click(within(list).getByRole('button', { name: label }))
     await waitFor(() => expect(shownFight()).toBe(label))
     await chartsLoaded()
 }
@@ -172,4 +170,23 @@ export function sentence(text: string) {
     return (_: string, element: Element | null): boolean =>
         element?.textContent === text &&
         [...element.children].every((child) => child.textContent !== text)
+}
+
+/**
+ * The gain pill in `element` that reads `text` (`+23.6 EP`; the unit is
+ * drawn small, in its own element). Throws when there is none.
+ */
+export function pill(element: HTMLElement, text: string): HTMLElement {
+    const found = [
+        ...element.querySelectorAll<HTMLElement>('[data-size]'),
+    ].find((candidate) => candidate.textContent === text)
+    if (!found) throw new Error(`no gain pill reading ${text}`)
+    return found
+}
+
+/** The gain pills in `element`, as they read. */
+export function pills(element: HTMLElement): string[] {
+    return [...element.querySelectorAll('[data-size]')].map(
+        (candidate) => candidate.textContent ?? ''
+    )
 }

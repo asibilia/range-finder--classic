@@ -5,7 +5,7 @@
  * Pure functions, so each chart is tested on the series it is given apart
  * from how Recharts draws it.
  */
-import { minutesSeconds } from './format'
+import { lengthWords, minutesSeconds } from './format'
 import type { ResultsFile, Stat } from './results-file'
 
 type Fight = ResultsFile['fights'][number]
@@ -177,6 +177,29 @@ export function pullAverages(
     }
 }
 
+/**
+ * Ticks for a value axis as the mockup's fight chart has them: from 0 to a
+ * round top with some room above the highest value, in `parts` even steps
+ * (DPS 0, 35, 70, 105, 140; mana 0, 800, 1600, 2400).
+ *
+ * @param highest - The highest value drawn.
+ * @param parts - How many steps.
+ * @param room - How much room above it (1.1: a tenth).
+ * @param round - The top is a multiple of this.
+ * @returns The ticks, from 0 up.
+ */
+export function valueTicks(
+    highest: number,
+    parts: number,
+    room: number,
+    round: number
+): number[] {
+    const top = Math.max(round, Math.ceil((highest * room) / round) * round)
+    return Array.from({ length: parts + 1 }, (_, index) =>
+        Math.round((top / parts) * index)
+    )
+}
+
 /** Time ticks from 0 to the end: every 10 s up to a minute, 15 s up to 3 minutes, else 30 s. */
 export function timeTicks(duration_s: number): number[] {
     const step = duration_s <= 60 ? 10 : duration_s <= 180 ? 15 : 30
@@ -239,7 +262,7 @@ export function pullChartData(
     }
 }
 
-/** One part of the damage split, with its colour by order. */
+/** One part of the damage split, with its colour. */
 export type SplitPart = {
     name: string
     share_pct: number
@@ -249,23 +272,53 @@ export type SplitPart = {
 }
 
 /**
- * The damage split's parts in file order, coloured by order (the file has
- * no spell school to colour by).
+ * The damage split's parts in file order. When every part has a spell
+ * school (`damage_split[].school`) each is coloured by its school, a little
+ * darker for each further part of the same school, as the mockup colours
+ * them; otherwise by order.
  *
  * @param worn - What you wear's result.
  * @returns The parts.
  */
 export function splitParts(worn: Result): SplitPart[] {
-    return worn.damage_split.map((part, index) => ({
-        name: part.name,
-        share_pct: part.share_pct,
-        text: `${part.name} ${Math.round(part.share_pct)}%`,
-        // Five chart colours, then the same five paler.
-        color:
-            index < 5
-                ? `var(--chart-${index + 1})`
-                : `color-mix(in oklch, var(--chart-${(index % 5) + 1}) 50%, var(--background))`,
-    }))
+    const bySchool = splitHasSchools(worn)
+    const seen = new Map<string, number>()
+    return worn.damage_split.map((part, index) => {
+        let color: string
+        if (bySchool && part.school) {
+            const nth = seen.get(part.school) ?? 0
+            seen.set(part.school, nth + 1)
+            color =
+                nth === 0
+                    ? `var(--school-${part.school})`
+                    : `color-mix(in oklch, var(--school-${part.school}), black ${Math.min(nth * 22, 60)}%)`
+        } else
+            // Five chart colours, then the same five paler.
+            color =
+                index < 5
+                    ? `var(--chart-${index + 1})`
+                    : `color-mix(in oklch, var(--chart-${(index % 5) + 1}) 50%, var(--background))`
+        return {
+            name: part.name,
+            share_pct: part.share_pct,
+            text: `${part.name} ${Math.round(part.share_pct)}%`,
+            color,
+        }
+    })
+}
+
+/**
+ * True when every part of the split has a spell school, so the split is
+ * coloured by school (and says so).
+ *
+ * @param worn - What you wear's result.
+ * @returns Whether the split is coloured by school.
+ */
+export function splitHasSchools(worn: Result): boolean {
+    return (
+        worn.damage_split.length > 0 &&
+        worn.damage_split.every((part) => Boolean(part.school))
+    )
 }
 
 /** The words for each stat in the results file (spec section 9). */
@@ -279,25 +332,28 @@ export const STAT_LABELS: Record<Stat, string> = {
     hit_rating: 'Hit rating',
     crit_rating: 'Crit rating',
     spell_damage: 'Spell damage',
-    mana_per_5: 'Mana per 5 s',
+    mana_per_5: 'Mana per 5',
     weapon_dps: 'Weapon DPS',
 }
 
 /** Stats worth far more per point than the rest, kept off the bar scale. */
 const OFF_SCALE: readonly Stat[] = ['weapon_dps']
 
-/** One stat's bars: the chosen fight, and the long fight to compare. */
+/**
+ * One stat's bars: the solid fight's value (null when it is worth nothing
+ * there) and, when it differs, the dashed fight's.
+ */
 export type WeightRow = {
     stat: Stat
     label: string
-    ep: number
+    ep: number | null
     compare_ep: number | null
 }
 
 /** Everything the stat weights draw. */
 export type StatWeightsData = {
     rows: WeightRow[]
-    /** The longest single fight with weights, when it isn't the chosen one. */
+    /** The fight drawn dashed, or null with none to compare. */
     compare: Fight | null
     /** The note for the dashed bars, when there is a fight to compare. */
     compareNote: string | null
@@ -308,64 +364,77 @@ export type StatWeightsData = {
 }
 
 /**
- * The stat weights for a fight, with the longest single fight that has
- * weights (the 2-minute dungeon fight in the samples) as a second, dashed
- * bar to compare, unless it is the chosen fight or its weights are the
- * chosen fight's.
+ * How the dashed fight is named in the note, as the mockup words it: `2-minute
+ * dungeon fights`. Falls back to the fight's label.
+ */
+function fightsLike(fight: Fight): string {
+    const kind = fight.label.split(',')[0]?.trim().toLowerCase() ?? ''
+    if (fight.kind !== 'single' || !kind) return fight.label
+    const length =
+        fight.duration_s % 60 === 0
+            ? `${fight.duration_s / 60}-minute`
+            : `${fight.duration_s}-second`
+    return `${length} ${kind} fights`
+}
+
+/**
+ * The stat weights as the mockup shows them: a solid bar per stat for one
+ * fight (the shortest single fight, solo in the sample) and, where the other
+ * fight's value differs, a dashed bar for it (the fight picked in the fight
+ * settings: the 2-minute dungeon fight the sample opens on), with both
+ * values. Stats worth nothing in both are left out; rows run from the most
+ * worth (solid) down, stats worth nothing in the solid fight last.
  *
  * @param file - The loaded results file.
- * @param fightId - The fight the card is on.
- * @returns The data, or null when the fight has no weights.
+ * @param fightId - The solid fight.
+ * @param compareId - The dashed fight, or null.
+ * @returns The data, or null when neither fight has weights.
  */
 export function statWeightsData(
     file: ResultsFile,
-    fightId: string
+    fightId: string,
+    compareId: string | null = null
 ): StatWeightsData | null {
-    const weightsOf = (id: string) =>
-        file.stat_weights.find((entry) => entry.fight_id === id)?.weights ??
-        null
+    const weightsOf = (id: string | null) =>
+        id === null
+            ? null
+            : (file.stat_weights.find((entry) => entry.fight_id === id)
+                  ?.weights ?? null)
     const chosen = weightsOf(fightId)
     if (!chosen || chosen.length === 0) return null
+    const compareFight =
+        compareId !== null && compareId !== fightId
+            ? (file.fights.find((fight) => fight.fight_id === compareId) ??
+              null)
+            : null
+    const other = compareFight ? weightsOf(compareFight.fight_id) : null
+    const otherEp = (stat: Stat) =>
+        other?.find((weight) => weight.stat === stat)?.ep ?? null
+    const differs = chosen.some((weight) => {
+        const value = otherEp(weight.stat)
+        return value !== null && value !== weight.ep
+    })
+    const compare = other && differs ? compareFight : null
 
-    const compare =
-        file.fights
-            .filter(
-                (fight) =>
-                    fight.kind === 'single' &&
-                    (weightsOf(fight.fight_id)?.length ?? 0) > 0
-            )
-            .reduce<Fight | null>(
-                (longest, fight) =>
-                    !longest || fight.duration_s > longest.duration_s
-                        ? fight
-                        : longest,
-                null
-            ) ?? null
-    const otherFight = compare && compare.fight_id !== fightId ? compare : null
-    const otherWeights = otherFight ? weightsOf(otherFight.fight_id) : null
-    // Weights the same as the chosen fight's add nothing to compare.
-    const same =
-        otherWeights !== null &&
-        chosen.every(
-            (weight) =>
-                otherWeights.find((other) => other.stat === weight.stat)?.ep ===
-                weight.ep
-        )
-    const compareWith = same ? null : otherFight
-    const compareWeights = compareWith ? otherWeights : null
-    const compareEp = (stat: Stat) =>
-        compareWeights?.find((weight) => weight.stat === stat)?.ep ?? null
-
-    const rows = chosen
+    const rows: WeightRow[] = chosen
         .filter((weight) => !OFF_SCALE.includes(weight.stat))
-        .map((weight) => ({
-            stat: weight.stat,
-            label: STAT_LABELS[weight.stat],
-            ep: weight.ep,
-            compare_ep: compareWith ? compareEp(weight.stat) : null,
-        }))
+        .map((weight) => {
+            const value = compare ? otherEp(weight.stat) : null
+            return {
+                stat: weight.stat,
+                label: STAT_LABELS[weight.stat],
+                ep: weight.ep === 0 ? null : weight.ep,
+                compare_ep:
+                    value !== null && value !== weight.ep && value !== 0
+                        ? value
+                        : null,
+            }
+        })
+        .filter((row) => row.ep !== null || row.compare_ep !== null)
         .sort(
-            (a, b) => b.ep - a.ep || (b.compare_ep ?? 0) - (a.compare_ep ?? 0)
+            (a, b) =>
+                (b.ep ?? -1) - (a.ep ?? -1) ||
+                (b.compare_ep ?? 0) - (a.compare_ep ?? 0)
         )
     const offScale = chosen
         .filter((weight) => OFF_SCALE.includes(weight.stat))
@@ -375,19 +444,39 @@ export function statWeightsData(
         )
     const max = Math.max(
         0,
-        ...rows.flatMap((row) => [row.ep, row.compare_ep ?? 0])
+        ...rows.flatMap((row) => [row.ep ?? 0, row.compare_ep ?? 0])
     )
+    const runsDry =
+        compare !== null &&
+        file.results.some(
+            (result) =>
+                result.gear === 'worn' &&
+                result.fight_id === compare.fight_id &&
+                typeof result.out_of_mana_s === 'number'
+        )
     return {
         rows,
-        compare: compareWith,
-        compareNote: compareWith
-            ? compareWith.fight_id === 'dungeon-long'
-                ? 'Dashed: in 2-minute dungeon fights, once you run dry.'
-                : `Dashed: in ${compareWith.label}.`
+        compare,
+        compareNote: compare
+            ? `Dashed: in ${fightsLike(compare)}${runsDry ? ', once you run dry' : ''}.`
             : null,
         offScale,
         max,
     }
+}
+
+/**
+ * A fight in the mockup's words, for headings and notes: `Dungeon, 2
+ * minutes vs level 33` (the label's first part, the length in words and the
+ * level). A chain fight keeps its label.
+ *
+ * @param fight - The fight.
+ * @returns The words.
+ */
+export function fightWords(fight: Fight): string {
+    const kind = fight.label.split(',')[0]?.trim()
+    if (fight.kind !== 'single' || !kind) return fight.label
+    return `${kind}, ${lengthWords(fight.duration_s)} vs level ${fight.target_level}`
 }
 
 /**

@@ -39,6 +39,17 @@ export const STATS = [
     'weapon_dps',
 ] as const
 
+/** The spell schools the damage split can be coloured by. */
+export const SCHOOLS = [
+    'physical',
+    'fire',
+    'nature',
+    'frost',
+    'arcane',
+    'shadow',
+    'holy',
+] as const
+
 export const SCHEMA_VERSION = 1
 
 const slot = z.enum(SLOTS)
@@ -88,6 +99,10 @@ const fight = z.strictObject({
         description:
             'The fight length in seconds. On a chain fight, the length of one pull.',
     }),
+    melee_miss_pct: z.number().min(0).max(100).nullable().optional().meta({
+        description:
+            "The chance, in percent, that a melee swing misses this fight's target, with the sheet's melee_hit_pct. The page says it under the enemy level: With 0 hit, you miss 8.0% of melee swings at level 33. Absent or null: not simmed (the sentence is left out).",
+    }),
     setup: z
         .strictObject({
             starting_mana_pct: z.number(),
@@ -119,6 +134,19 @@ const plan = z.strictObject({
         description:
             "An item_id for each of the 17 slots: the slot's worn item or one of its alternatives. Null: the plan puts nothing in that slot.",
     }),
+    reach: z
+        .strictObject({
+            damage: roleValue,
+            survival: roleValue,
+            healing: roleValue,
+            utility: roleValue,
+        })
+        .nullable()
+        .optional()
+        .meta({
+            description:
+                "How far each role's slider can go, 0 to 100, while this plan is the one the sliders pick: the items the sim knows can't reach further with this plan's mix. 100: no limit. The page draws the part past it hatched, says Can reach N with this mix (No limit with this mix at 100), and stops a slider there. Absent or null: not simmed (no reach is shown and the sliders aren't stopped).",
+        }),
 })
 
 const result = z.strictObject({
@@ -170,9 +198,19 @@ const result = z.strictObject({
                 'DPS and mana per pull. Chain fights only: null on a single fight. A pull runs dry when its mana_end is 0. Null on a chain fight: no pull data in this file.',
         }),
     damage_split: z.array(
-        z.strictObject({ name: z.string(), share_pct: z.number() })
+        z.strictObject({
+            name: z.string(),
+            share_pct: z.number(),
+            school: z.enum(SCHOOLS).nullable().optional().meta({
+                description:
+                    'The spell school of this part of the damage: physical for melee swings and weapon procs. The page colours the split by it. Absent or null: not simmed (the page colours parts by order and leaves out "Colour is the spell school.").',
+            }),
+        })
     ),
 })
+
+/** A result for gear that isn't a plan: what you wear with one bag item put on. */
+const bagResult = result.omit({ gear: true })
 
 /*
  * Talent limits. Forever's real trees (WoWSims' talent data, nine class
@@ -250,6 +288,21 @@ const baseSchema = z.strictObject({
         spell_crit_pct: z.number(),
         dodge_pct: z.number(),
         melee_hit_pct: z.number(),
+        weapon_skill: z
+            .strictObject({
+                weapon_type: z.string().min(1).meta({
+                    description:
+                        'The main-hand weapon\'s type, as the sheet names its skill: "Axe" reads "Axe skill".',
+                }),
+                current: z.int().min(0),
+                max: z.int().min(1),
+            })
+            .nullable()
+            .optional()
+            .meta({
+                description:
+                    'The weapon skill for the main-hand weapon at export, e.g. Axe 148 of 150. The sheet shows it as "Axe skill 148/150". Absent or null: not exported (the sheet leaves that line out).',
+            }),
     }),
     fights: z.array(fight).min(1),
     default_fight_id: z.string().meta({
@@ -261,6 +314,10 @@ const baseSchema = z.strictObject({
                 slot,
                 worn: item.nullable().meta({
                     description: 'Null: nothing equipped in this slot.',
+                }),
+                imbue: z.string().min(1).nullable().optional().meta({
+                    description:
+                        'The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. The page names the main hand\'s in the header: "Guardian\'s Dualblade with Windfury Weapon." Absent or null: none, or not exported (the header names the weapon alone).',
                 }),
                 alternatives: z
                     .array(
@@ -284,7 +341,17 @@ const baseSchema = z.strictObject({
         .meta({
             description: 'One entry per slot, each slot exactly once.',
         }),
-    bag_upgrades: z.array(z.strictObject({ slot, item, gain_ep: z.number() })),
+    bag_upgrades: z.array(
+        z.strictObject({
+            slot,
+            item,
+            gain_ep: z.number(),
+            results: z.array(bagResult).nullable().optional().meta({
+                description:
+                    "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Wear them button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Wear them button).",
+            }),
+        })
+    ),
     plans: z.array(plan),
     results: z.array(result),
     stat_weights: z.array(
@@ -409,6 +476,34 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
     if (!wornOnEvery)
         problem(['results'], 'Every fight needs a result for worn gear.')
 
+    file.bag_upgrades.forEach((upgrade, i) => {
+        const bagResults = upgrade.results ?? []
+        bagResults.forEach((r, j) => {
+            const f = fights.get(r.fight_id)
+            const at = ['bag_upgrades', i, 'results', j]
+            if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
+            if (f?.kind === 'chain' && r.timeline !== null)
+                problem(
+                    [...at, 'timeline'],
+                    'Only a single fight has a timeline.'
+                )
+            if (f?.kind === 'single' && r.pulls !== null)
+                problem([...at, 'pulls'], 'Only a chain fight has pulls.')
+        })
+        if (repeats(bagResults.map((r) => r.fight_id)))
+            problem(
+                ['bag_upgrades', i, 'results'],
+                'Each fight needs at most one result per bag item.'
+            )
+    })
+
+    const skill = file.sheet.weapon_skill
+    if (skill && skill.current > skill.max)
+        problem(
+            ['sheet', 'weapon_skill', 'current'],
+            "A weapon skill can't be above its max."
+        )
+
     file.stat_weights.forEach((w, i) => {
         if (!fights.has(w.fight_id))
             problem(['stat_weights', i, 'fight_id'], NO_FIGHT)
@@ -463,7 +558,9 @@ const FILE_DESCRIPTION = [
     'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
     "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
     '- default_fight_id names a fight in fights.',
-    '- Every fight_id in results, stat_weights and talents.best names a fight in fights.',
+    '- Every fight_id in results, bag_upgrades results, stat_weights and talents.best names a fight in fights.',
+    "- A bag upgrade's results have at most one entry per fight.",
+    '- sheet.weapon_skill.current is at most its max.',
     '- Every gear in results is worn or a plan_id in plans.',
     "- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.",
     '- slots has each slot exactly once.',
@@ -478,8 +575,8 @@ const FILE_DESCRIPTION = [
     "- A talent's rank is at most its max_rank.",
     '- No two talents in talents.yours share a tier and column.',
     '- A chain fight has a setup.',
-    "- timeline is null on a chain fight's results.",
-    "- pulls is null on a single fight's results.",
+    "- timeline is null on a chain fight's results (bag upgrade results too).",
+    "- pulls is null on a single fight's results (bag upgrade results too).",
     'The runner must also keep these, which nothing checks:',
     "- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',

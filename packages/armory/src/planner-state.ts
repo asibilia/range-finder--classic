@@ -26,6 +26,11 @@ export type PlannerState = {
     view: View
     /** True after a slider move switched the view to the plan. */
     switched: boolean
+    /**
+     * The bag upgrade put on with Wear them (its item_id), or null. What you
+     * wear then shows that item in its slot and the bag upgrade's results.
+     */
+    bagWorn: number | null
 }
 
 const SLIDER_VALUE = z.number().int().min(0).max(100)
@@ -49,6 +54,8 @@ export const plannerActionSchema = z.discriminatedUnion('type', [
     z.strictObject({ type: z.literal('pick-fight'), fight_id: z.string() }),
     z.strictObject({ type: z.literal('show-plan') }),
     z.strictObject({ type: z.literal('show-worn') }),
+    z.strictObject({ type: z.literal('wear-bag-item'), item_id: z.int() }),
+    z.strictObject({ type: z.literal('undo-bag-item') }),
 ])
 
 /** One of the actions `plannerActionSchema` accepts. */
@@ -67,13 +74,16 @@ export function initialPlannerState(file: ResultsFile): PlannerState {
         mix: defaultPlan(file.plans)?.mix ?? null,
         view: 'worn',
         switched: false,
+        bagWorn: null,
     }
 }
 
 /**
  * Moves the role sliders. Roles no plan has (not live) stay at 0; the
- * others keep the values set. On the worn view this switches to the plan
- * and says so (`switched`).
+ * others keep the values set, but no further than the reach of the plan
+ * the sliders pick now (`plans[].reach`, when the file has it), as the
+ * mockup's sliders stop at "Can reach N with this mix". On the worn view
+ * this switches to the plan and says so (`switched`).
  *
  * @param file - The loaded results file.
  * @param state - The current state.
@@ -90,8 +100,10 @@ export function setSliders(
 ): PlannerState {
     if (state.mix === null) return state
     const next: Mix = { ...state.mix }
+    const reach = closestPlan(file.plans, state.mix)?.reach ?? null
     for (const [role, value] of Object.entries(mix) as [keyof Mix, number][])
-        if (isLive(file.plans, role)) next[role] = value
+        if (isLive(file.plans, role))
+            next[role] = reach ? Math.min(value, reach[role]) : value
     return {
         ...state,
         mix: next,
@@ -159,6 +171,29 @@ export function showView(
 }
 
 /**
+ * Puts a bag upgrade on (Wear them), or takes it off again (Undo). Only a
+ * bag upgrade with results can be worn: the page has no numbers for it
+ * otherwise.
+ *
+ * @param file - The loaded results file.
+ * @param state - The current state.
+ * @param itemId - The bag upgrade's item_id, or null to take it off.
+ * @returns The new state, or `state` for an item that can't be worn.
+ */
+export function wearBagItem(
+    file: ResultsFile,
+    state: PlannerState,
+    itemId: number | null
+): PlannerState {
+    if (itemId === null) return { ...state, bagWorn: null }
+    const upgrade = file.bag_upgrades.find(
+        (candidate) => candidate.item.item_id === itemId
+    )
+    if (!upgrade?.results) return state
+    return { ...state, bagWorn: itemId }
+}
+
+/**
  * Applies one action. The reducer the page runs on.
  *
  * @param file - The loaded results file.
@@ -182,6 +217,10 @@ export function plannerReducer(
             return showView(file, state, 'plan')
         case 'show-worn':
             return showView(file, state, 'worn')
+        case 'wear-bag-item':
+            return wearBagItem(file, state, action.item_id)
+        case 'undo-bag-item':
+            return wearBagItem(file, state, null)
     }
 }
 
@@ -226,4 +265,37 @@ export function pickedPlan(
     state: PlannerState
 ): Plan | null {
     return state.mix ? closestPlan(file.plans, state.mix) : null
+}
+
+type Result = ResultsFile['results'][number]
+
+/**
+ * What you wear's result on a fight, with the worn bag upgrade (if any) put
+ * on: the bag upgrade's result for that fight, else worn's. With a bag item
+ * on and no result for the fight, null (not simmed).
+ *
+ * @param file - The loaded results file.
+ * @param state - The current state (its `bagWorn`).
+ * @param fightId - The fight.
+ * @returns The result, shaped like `results` (gear `worn`), or null.
+ */
+export function wornResult(
+    file: ResultsFile,
+    state: Pick<PlannerState, 'bagWorn'>,
+    fightId: string
+): Result | null {
+    if (state.bagWorn !== null) {
+        const upgrade = file.bag_upgrades.find(
+            (candidate) => candidate.item.item_id === state.bagWorn
+        )
+        const found = upgrade?.results?.find(
+            (result) => result.fight_id === fightId
+        )
+        return found ? { gear: 'worn', ...found } : null
+    }
+    return (
+        file.results.find(
+            (result) => result.gear === 'worn' && result.fight_id === fightId
+        ) ?? null
+    )
 }

@@ -14,6 +14,8 @@ import {
     plannerReducer,
     setSliders,
     showView,
+    wearBagItem,
+    wornResult,
 } from '../src/planner-state'
 import { readResultsFile, type ResultsFile } from '../src/results-file'
 import firstRunJson from '../src/sample-truncha-first-run.json'
@@ -31,10 +33,11 @@ const firstRun = read(firstRunJson)
 describe('the opening state', () => {
     test('is the default fight, the sliders at Max damage, on what you wear', () => {
         expect(initialPlannerState(sample)).toEqual({
-            fightId: 'chain-4',
+            fightId: 'dungeon-long',
             mix: { damage: 100, survival: 0, healing: 0, utility: 0 },
             view: 'worn',
             switched: false,
+            bagWorn: null,
         })
         expect(pickedPlan(sample, initialPlannerState(sample))?.label).toBe(
             'Max damage'
@@ -51,19 +54,41 @@ describe('the opening state', () => {
 })
 
 describe('set sliders', () => {
-    test('Survival 80 picks Damage and survival and switches to the plan, saying so', () => {
+    test("Survival 80 stops at Max damage's reach (35) and switches to the plan, saying so", () => {
         const state = setSliders(sample, initialPlannerState(sample), {
             survival: 80,
         })
         expect(state.mix).toEqual({
             damage: 100,
-            survival: 80,
+            survival: 35,
             healing: 0,
             utility: 0,
         })
         expect(state.view).toBe('plan')
         expect(state.switched).toBe(true)
+        expect(pickedPlan(sample, state)?.plan_id).toBe('max-damage')
+    })
+
+    test("lowering Damage first lets Survival go on to Damage and survival, as the mockup's limits do", () => {
+        let state = initialPlannerState(sample)
+        state = setSliders(sample, state, { damage: 45 })
+        state = setSliders(sample, state, { survival: 35 })
         expect(pickedPlan(sample, state)?.plan_id).toBe('damage-survival')
+        state = setSliders(sample, state, { survival: 80 })
+        expect(state.mix?.survival).toBe(80)
+        expect(pickedPlan(sample, state)?.plan_id).toBe('damage-survival')
+    })
+
+    test('without a reach in the file the sliders go anywhere', () => {
+        const noReach = {
+            ...sample,
+            plans: sample.plans.map(({ reach: _reach, ...plan }) => plan),
+        }
+        const state = setSliders(noReach, initialPlannerState(noReach), {
+            survival: 80,
+        })
+        expect(state.mix?.survival).toBe(80)
+        expect(pickedPlan(noReach, state)?.plan_id).toBe('damage-survival')
     })
 
     test('a role no plan has stays at 0', () => {
@@ -149,5 +174,38 @@ describe('actions from outside the page', () => {
             expect(outcome.ok).toBe(false)
             if (!outcome.ok) expect(outcome.problems.length).toBeGreaterThan(0)
         }
+    })
+})
+
+describe('wear a bag item', () => {
+    const pads = sample.bag_upgrades[0]?.item.item_id ?? 0
+
+    test("Wear them puts the bag item on: worn results become the bag item's", () => {
+        const state = applyPlannerAction(sample, initialPlannerState(sample), {
+            type: 'wear-bag-item',
+            item_id: pads,
+        })
+        if (!state.ok) throw new Error('refused')
+        expect(state.state.bagWorn).toBe(pads)
+        expect(wornResult(sample, state.state, 'dungeon-long')?.dps).toBe(75.7)
+        expect(
+            wornResult(sample, initialPlannerState(sample), 'dungeon-long')?.dps
+        ).toBe(75.4)
+    })
+
+    test('Undo takes it off again', () => {
+        const on = wearBagItem(sample, initialPlannerState(sample), pads)
+        expect(wearBagItem(sample, on, null).bagWorn).toBeNull()
+    })
+
+    test("a bag upgrade without results can't be worn", () => {
+        const without = {
+            ...sample,
+            bag_upgrades: sample.bag_upgrades.map(
+                ({ results: _results, ...upgrade }) => upgrade
+            ),
+        }
+        const state = initialPlannerState(without)
+        expect(wearBagItem(without, state, pads)).toBe(state)
     })
 })

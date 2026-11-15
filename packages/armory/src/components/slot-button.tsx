@@ -1,13 +1,20 @@
 /**
- * One gear slot: a button with the item's tile, its slot label, name and a
- * note, the gain pill on the edge facing the figure, and chips (`Needs
- * level 33`, `Better in bags`). The button's accessible name is spelled out
- * (spec section 5); the chips describe it (`aria-describedby`) so the name
+ * One gear slot, as the mockup draws it: a compact button with the item's
+ * tile, its slot label (with chips: `needs 33`, `better in bags`), the
+ * item's name on one line (cut off with an ellipsis) and a note on the next
+ * (`Best: Defender's Leather Helm`), and the gain pill on the edge facing
+ * the figure. The full name is in the button's accessible name and in a
+ * tooltip. The chips describe the button (`aria-describedby`) so the name
  * stays exact.
  */
 import { useId } from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 import { formatGain, type Gain, gainSize } from '../gains'
@@ -22,23 +29,24 @@ export type SlotSide = 'left' | 'right' | 'bottom'
  * Where the pill sits. Around the figure (the gear pane's three-column
  * doll, `@min-[49rem]` of its container) it sits on the edge facing the
  * figure, in the gap between the columns; on a narrower doll it sits on
- * the slot's top edge, inside the card, as the mockup does under 860 px.
+ * the slot's top edge, as the mockup does under 860 px.
  */
 const PILL_PLACE: Record<SlotSide, string> = {
-    left: '-top-2.5 right-3 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:-right-7 @min-[49rem]/doll:-translate-y-1/2',
-    right: '-top-2.5 right-3 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:right-auto @min-[49rem]/doll:-left-7 @min-[49rem]/doll:-translate-y-1/2',
-    bottom: '-top-2.5 right-3',
+    left: '-top-2.75 right-2.5 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:-right-7 @min-[49rem]/doll:-translate-y-1/2',
+    right: '-top-2.75 right-2.5 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:right-auto @min-[49rem]/doll:-left-7 @min-[49rem]/doll:-translate-y-1/2',
+    bottom: '-top-3 right-3.5',
 }
 
 /** Room on the inner edge for the pill, so it never covers the name. */
 const ROOM_FOR_PILL: Record<SlotSide, string> = {
-    left: 'pt-3.5 @min-[49rem]/doll:pt-2 @min-[49rem]/doll:pr-10',
-    right: 'pt-3.5 @min-[49rem]/doll:pt-2 @min-[49rem]/doll:pl-10',
-    bottom: 'pt-3.5',
+    left: '@min-[49rem]/doll:pr-10.5',
+    right: '@min-[49rem]/doll:pl-10.5',
+    bottom: '',
 }
 
 /**
- * The gain pill: filled for a big upgrade, outlined for a small one.
+ * The gain pill: filled for a big upgrade, outlined for a small one; the
+ * unit small after the number (`+16.7 EP`).
  *
  * @param gain - The gain to show.
  * @param className - Placement.
@@ -51,13 +59,21 @@ export function GainPill({
     className?: string
 }) {
     const size = gainSize(gain)
+    const text = formatGain(gain)
+    const unitAt = text.lastIndexOf(' ')
     return (
         <Badge
             data-size={size}
             variant={size === 'big' ? 'gain' : 'gain-outline'}
-            className={cn('h-6 px-2 text-xs shadow-sm', className)}
+            className={cn(
+                'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]',
+                className
+            )}
         >
-            {formatGain(gain)}
+            {text.slice(0, unitAt)}
+            <small className="text-[0.625rem] font-bold opacity-75">
+                {text.slice(unitAt)}
+            </small>
         </Badge>
     )
 }
@@ -86,7 +102,7 @@ export function SlotButton({
         ...chips.map((_, index) => `${chipId}-${index}`),
         ...(description ? [`${chipId}-description`] : []),
     ]
-    return (
+    const button = (
         <button
             type="button"
             disabled={empty}
@@ -98,11 +114,11 @@ export function SlotButton({
             data-same={shown.sameAsWorn || undefined}
             onClick={() => onOpen?.(shown.slot)}
             className={cn(
-                'relative grid min-h-16 w-full grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-card py-2 pr-3 pl-2 text-left shadow-xs transition-[border-color,background-color,opacity] outline-none hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                'relative grid min-h-14.5 w-full grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-card py-1.75 pr-2.5 pl-2 text-left transition-[border-color,background-color,opacity] outline-none hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                 gain && ROOM_FOR_PILL[side],
                 gain && gainSize(gain) === 'big' && 'border-gain/50',
-                shown.sameAsWorn && 'opacity-55',
-                empty && 'border-dashed bg-transparent shadow-none',
+                shown.sameAsWorn && 'opacity-60',
+                empty && 'border-dashed bg-transparent',
                 !item && !empty && 'border-dashed'
             )}
         >
@@ -112,25 +128,28 @@ export function SlotButton({
                 empty={empty}
             />
             <span className="flex min-w-0 flex-col">
-                <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-xs leading-tight text-muted-foreground">
                     {shown.label}
                     {chips.map((chip, index) => (
                         <Badge
                             key={chip}
                             id={`${chipId}-${index}`}
                             variant="outline"
-                            className="h-4 border-gain px-1.5 text-[0.65rem] font-normal text-gain-text"
+                            className={cn(
+                                'h-auto px-1.5 py-0 text-[0.65625rem] leading-normal font-normal',
+                                chip.startsWith('needs')
+                                    ? 'border-gain text-gain-text'
+                                    : 'border-chart-2 text-chart-2-text'
+                            )}
                         >
                             {chip}
                         </Badge>
                     ))}
                 </span>
-                {/* Ours: names wrap (two lines at most in practice) rather
-                    than cut off, so similar names stay apart. */}
                 <span
                     data-slot-name
                     className={cn(
-                        'text-sm leading-snug font-semibold break-words',
+                        'truncate text-sm leading-tight font-bold',
                         !item && 'font-normal text-muted-foreground italic',
                         empty && 'not-italic'
                     )}
@@ -138,7 +157,10 @@ export function SlotButton({
                     {shown.itemName ?? (empty ? 'Empty' : 'Nothing equipped')}
                 </span>
                 {note && (
-                    <span className="text-xs leading-snug break-words text-muted-foreground">
+                    <span
+                        data-slot-note
+                        className="truncate text-xs leading-tight text-muted-foreground"
+                    >
                         {note}
                     </span>
                 )}
@@ -155,5 +177,14 @@ export function SlotButton({
                 />
             )}
         </button>
+    )
+    if (!shown.itemName) return button
+    // A long name is cut off with an ellipsis: the tooltip (and the
+    // accessible name) carry it whole.
+    return (
+        <Tooltip>
+            <TooltipTrigger render={button} />
+            <TooltipContent>{shown.itemName}</TooltipContent>
+        </Tooltip>
     )
 }

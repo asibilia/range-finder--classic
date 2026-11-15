@@ -82,6 +82,8 @@ const TEXT = [
     'chart-1-text',
     'chart-2-text',
     'gain-text',
+    // Good changes in the readings and the Copied note.
+    'good-text',
 ]
 
 /**

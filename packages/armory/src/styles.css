@@ -115,6 +115,8 @@
     --color-gain: var(--gain);
     --color-gain-foreground: var(--gain-foreground);
     --color-gain-text: var(--gain-text);
+    /* Ours: a change that is good for you (more health, mana for longer). */
+    --color-good-text: var(--good-text);
     --color-quality-poor: var(--quality-poor);
     --color-quality-common: var(--quality-common);
     --color-quality-uncommon: var(--quality-uncommon);
@@ -171,6 +173,18 @@
     --gain: oklch(0.72 0.16 50);
     --gain-foreground: oklch(0.25 0.06 45);
     --gain-text: oklch(0.55 0.15 50);
+    --good-text: oklch(0.5 0.11 165);
+    /*
+     * The spell schools the damage split is coloured by (a further part of
+     * the same school is drawn darker).
+     */
+    --school-physical: oklch(0.72 0.03 290);
+    --school-fire: oklch(0.7 0.16 50);
+    --school-nature: oklch(0.72 0.11 230);
+    --school-frost: oklch(0.8 0.08 210);
+    --school-arcane: oklch(0.65 0.15 320);
+    --school-shadow: oklch(0.45 0.12 300);
+    --school-holy: oklch(0.85 0.12 95);
     --quality-poor: oklch(0.6 0 0);
     --quality-common: oklch(0.45 0 0);
     --quality-uncommon: oklch(0.58 0.16 145);
@@ -209,6 +223,14 @@
         --gain: oklch(0.78 0.14 55);
         --gain-foreground: oklch(0.22 0.05 45);
         --gain-text: var(--gain);
+        --good-text: oklch(0.85 0.1 165);
+        --school-physical: oklch(0.88 0.04 290);
+        --school-fire: oklch(0.78 0.15 50);
+        --school-nature: oklch(0.82 0.1 230);
+        --school-frost: oklch(0.88 0.07 210);
+        --school-arcane: oklch(0.75 0.14 320);
+        --school-shadow: oklch(0.6 0.13 300);
+        --school-holy: oklch(0.9 0.11 95);
         --quality-poor: oklch(0.65 0 0);
         --quality-common: oklch(0.85 0 0);
         --quality-uncommon: oklch(0.75 0.17 145);

@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 
 import { BringIn, type ReadError } from '@/components/bring-in'
+import { Checks } from '@/components/checks'
 import { FightBand } from '@/components/fight-band'
 import { GearPane } from '@/components/gear-pane'
 import {
@@ -25,14 +26,18 @@ import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 import type { Item } from './gains'
+import { itemName } from './item-name'
 import {
     initialPlannerState,
     pickedPlan,
     type PlannerAction,
     plannerReducer,
     type PlannerState,
+    wornResult,
 } from './planner-state'
 import { readResultsFile, type ResultsFile, type Slot } from './results-file'
+import { slotLabel } from './slot-labels'
+import { slotEntry } from './slot-view'
 import sample from './sample-truncha.json'
 
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
@@ -69,6 +74,27 @@ async function readFile(file: File): Promise<Loaded> {
     return load(input)
 }
 
+/**
+ * The header line under the name, as the mockup writes it: `Orc
+ * Enhancement Shaman, level 30. Guardian's Dualblade with Windfury
+ * Weapon.` The weapon is the main hand's worn item; `with ...` is its imbue
+ * (`slots[].imbue`), left out when the file has none.
+ *
+ * @param file - The loaded results file.
+ * @returns The line.
+ */
+export function headerLine(file: ResultsFile): string {
+    const { character } = file
+    const who = `${character.race} ${character.spec} ${character.class}, level ${character.level}.`
+    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
+    if (!mainHand?.worn) return who
+    const weapon = itemName(mainHand.worn, 'main_hand', character.class)
+    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
+    return `${who} ${weapon}${imbue}.`
+}
+
+const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
+
 function Header({
     file,
     wishlistCount,
@@ -80,47 +106,78 @@ function Header({
     onOpenWishlist: () => void
     onOpenPawn: () => void
 }) {
-    if (!file)
-        return (
-            <header className="flex flex-col gap-1">
-                <h1 className="text-4xl font-semibold tracking-tight">
-                    Armory planner
-                </h1>
-                <p className="text-muted-foreground">
-                    See your gear, what the sim would change, and how a fight
-                    plays out.
-                </p>
-            </header>
-        )
-    const { character } = file
-    const exportDate = new Date(file.export_saved_at).toISOString().slice(0, 10)
     return (
-        <header className="flex flex-col gap-3">
-            {file.sample && (
-                <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                    Sample file: some numbers here are made up to try the page.
+        <header className="flex flex-wrap items-end gap-6">
+            <div>
+                <h1 className="text-[2.625rem] leading-none tracking-[0.01em]">
+                    {file ? file.character.name : 'Armory planner'}
+                </h1>
+                <p className="mt-1.5 text-muted-foreground">
+                    {file
+                        ? headerLine(file)
+                        : 'See your gear, what the sim would change, and how a fight plays out.'}
                 </p>
-            )}
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-4xl font-semibold tracking-tight">
-                        {character.name}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {`Level ${character.level} ${character.race} ${character.spec} ${character.class}`}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{`From your export of ${exportDate}`}</p>
-                </div>
-                <div className="ml-auto flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={onOpenWishlist}>
-                        {`Wishlist (${wishlistCount})`}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+                {file && (
+                    <Button
+                        variant="ghost"
+                        className="h-auto px-1 py-1 text-[0.9375rem] font-normal text-muted-foreground"
+                        aria-haspopup="dialog"
+                        onClick={onOpenWishlist}
+                    >
+                        Wishlist{' '}
+                        <b
+                            aria-live="polite"
+                            className="min-w-[1ch] font-bold text-foreground"
+                        >
+                            {wishlistCount}
+                        </b>
                     </Button>
-                    <Button variant="outline" onClick={onOpenPawn}>
-                        Export Pawn string
-                    </Button>
-                </div>
+                )}
+                <Button
+                    variant="outline"
+                    className={PILL}
+                    aria-haspopup="dialog"
+                    disabled={!file}
+                    onClick={onOpenPawn}
+                >
+                    Export Pawn string
+                </Button>
             </div>
         </header>
+    )
+}
+
+/**
+ * The footer, where the mockup has its own: the sample note (a sample file
+ * has made-up numbers), how sure the sim is (its checks), and the line on
+ * the art.
+ */
+function Footer({ file }: { file: ResultsFile | null }) {
+    return (
+        <footer className="mt-7 flex flex-col gap-2 text-[0.78125rem] text-muted-foreground">
+            <p>
+                {file?.sample && (
+                    <>
+                        <span>
+                            Sample file: some numbers here are made up to try
+                            the page.
+                        </span>{' '}
+                    </>
+                )}
+                {file?.provisional && (
+                    <>
+                        <span>Sim numbers are provisional.</span>{' '}
+                    </>
+                )}
+                <span>
+                    Not affiliated with the game&apos;s publisher; all art here
+                    is original placeholder.
+                </span>
+            </p>
+            {file && <Checks checks={file.checks} />}
+        </footer>
     )
 }
 
@@ -196,10 +253,13 @@ export function App() {
     const closeDialog = () => setDialog(null)
     const plan = file && planner ? pickedPlan(file, planner) : null
     const planShown = planner?.view === 'plan'
+    const bagWorn = planner?.bagWorn ?? null
+    const wornOf = (fightId: string) =>
+        file && planner ? wornResult(file, planner, fightId) : null
 
     return (
         <TooltipProvider>
-            <main className="mx-auto flex max-w-360 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+            <main className="mx-auto flex max-w-360 flex-col px-4 pt-5.5 pb-9 sm:px-6 lg:px-10">
                 <Header
                     file={file}
                     wishlistCount={wishlist.size}
@@ -208,13 +268,17 @@ export function App() {
                 />
                 <div
                     data-slot="planner-body"
-                    className="grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
+                    className="mt-4.5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
                 >
                     <GearPane
                         file={file}
                         plan={plan}
                         planShown={planShown}
-                        switched={planner?.switched ?? false}
+                        bagWorn={bagWorn}
+                        onWearBag={(itemId) =>
+                            dispatch({ type: 'wear-bag-item', item_id: itemId })
+                        }
+                        onUndoBag={() => dispatch({ type: 'undo-bag-item' })}
                         middle={
                             <BringIn
                                 error={error}
@@ -234,6 +298,7 @@ export function App() {
                             fightId={planner.fightId}
                             plan={plan}
                             planShown={planShown}
+                            wornOf={wornOf}
                             onOpenTalents={() => setDialog({ kind: 'talents' })}
                             sliders={
                                 planner.mix && (
@@ -242,6 +307,10 @@ export function App() {
                                         mix={planner.mix}
                                         plan={plan}
                                         inWornView={!planShown}
+                                        switched={planner.switched}
+                                        onShowWorn={() =>
+                                            dispatch({ type: 'show-worn' })
+                                        }
                                         onChange={(role, value) =>
                                             dispatch({
                                                 type: 'set-sliders',
@@ -261,17 +330,19 @@ export function App() {
                         file={file}
                         plan={plan}
                         fightId={planner.fightId}
+                        wornOf={wornOf}
                         onPickFight={(fightId) =>
                             dispatch({ type: 'pick-fight', fight_id: fightId })
                         }
                     />
                 )}
+                <Footer file={file} />
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
-                        entry={file.slots.find(
-                            (entry) => entry.slot === dialog.slot
-                        )}
+                        entry={slotEntry(file, dialog.slot, bagWorn)}
                         slot={dialog.slot}
+                        label={slotLabel(dialog.slot, file)}
+                        provisional={file.provisional}
                         level={file.character.level}
                         characterClass={file.character.class}
                         bagItemIds={file.bag_upgrades
@@ -294,6 +365,8 @@ export function App() {
                     <TalentsDialog
                         talents={file.talents}
                         fights={file.fights}
+                        sample={file.sample}
+                        provisional={file.provisional}
                         onClose={closeDialog}
                     />
                 )}

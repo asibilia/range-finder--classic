@@ -12,7 +12,7 @@ From the repo root:
 2. `bun run dev:armory`
 3. Open the local address it prints (http://localhost:5173 unless that port
    is taken).
-4. Press `Look at a sample character`, or open a results file of your own.
+4. Press `Or look at a sample character`, or open a results file of your own.
 
 Files are read in the browser only; nothing is sent anywhere.
 
@@ -30,8 +30,10 @@ of `bun run check`: it serves the build (run `bun run build:armory` first)
 and, through the `playwright-cli` command if you have it (it is not a
 dependency here), measures the page at 390, 1024, 1280, 1366, 1440 and 1920
 px. It fails when the gear pane's middle column, the new-visitor card, the
-sheet or the chart gets too narrow, a slot name is cut off, a gain pill hangs
-past the gear card, or the page scrolls sideways. happy-dom lays nothing out,
+sheet or the chart gets too narrow, a control (a button, a select, a slider)
+is clipped, a gain pill hangs past the gear card, or the page scrolls
+sideways. Slot names may end in an ellipsis, as the mockup's do: the full
+name is in the slot button's name and its tooltip. happy-dom lays nothing out,
 so the tests can't check this. Without `playwright-cli` it says so and exits.
 
 ## The stack
@@ -54,8 +56,11 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   neutral, icons from `lucide-react`). shadcn's components are copied into
   `src/components/ui/` as our own source; the page's components are in
   `src/components/`. Dialogs (focus moves to Close, Tab stays inside,
-  Escape closes, focus goes back), the fight Select, the role Sliders, the
-  talents RadioGroup and the Provisional Tooltip are Base UI's.
+  Escape closes, focus goes back), the fight length Select, the Sliders
+  (roles, starting mana, time between pulls) and the Tooltips (Provisional,
+  a slot's full item name) are Base UI's. The segmented controls (enemy
+  level, kind of fight, which talent build) are native radios in a
+  fieldset (`components/segmented.tsx`).
 - **Charts: Recharts 3** inside shadcn's `chart` (`ChartContainer`,
   `ChartTooltip`, `ChartLegend`): the fight chart (DPS and mana on two axes,
   out-of-mana lines) and the pull chart. The damage split and the stat
@@ -65,19 +70,36 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   series. The drawings (`fight-plot.tsx`, `pull-plot.tsx`) load lazily
   (`React.lazy`), so the first load and the new-visitor screen carry no
   Recharts; a placeholder of the chart's height holds its place.
-- **The layout is the approved mockup's**: the gear with a card on its
-  right (what the sim says, what to gear for, the Talents button) from
-  90rem (1440 px), stacked below that; under both, a full-width band with
-  the fight chart, the damage split and stat weights, and the fight
-  settings (the fight picker). The gear pane's doll lays out by the pane's
-  own width (a container query): three columns around the figure from 49rem,
-  two below, one on a phone.
+- **The layout is the approved mockup's**, element for element at 1440 px
+  (`direction-c2-armory-planner.html`, `?roles=sliders`): the header (name,
+  `Orc Enhancement Shaman, level 30. Guardian's Dualblade with Windfury
+  Weapon.`, `Wishlist 0`, `Export Pawn string`); the gear pane with a column
+  on its right (what the sim says, what to gear for, the Talents button)
+  from 90rem, stacked below that; under both, a full-width band with the
+  fight chart, the damage split and stat weights, and the fight settings;
+  then a footer (the sample note, how sure the sim is). The gear pane's doll
+  lays out by the pane's own width (a container query): the mockup's two
+  268 px slot columns around the figure from 49rem, two columns below, one
+  on a phone. Slots are one line for the name (an ellipsis when long; the
+  full name in the button's name and a tooltip) and one for the note. The
+  bottom row reads the file: a shaman with nothing for the off hand shows
+  `Two-hand` and `Totem` (`src/slot-labels.ts`: the contract has no
+  two-handed flag, so an empty off hand with no off-hand alternative, plan
+  item or bag upgrade reads as a two-hander).
+- **The fight settings pick a pre-made fight** (`src/fight-settings.ts`):
+  enemy level (31, 32, 33), fight length (30 seconds to 5 minutes), kind of
+  fight (PvP: not simmed yet), starting mana and time between pulls, as the
+  mockup has them. The fight whose level, length, starting mana and (for a
+  chain) gap match is shown; any other combination says `Not simmed for
+  this combination.`, keeps the chart and readings on the last fight, and
+  lists the file's fights to pick from. Nothing is re-simmed.
 - **State as plain actions.** What the page shows for a loaded file (the
-  fight, the sliders and so the plan, worn or plan view) is
-  `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
-  `pick-fight`, `show-plan`, `show-worn`) that anything outside the
-  components can apply with `applyPlannerAction`, which checks the action
-  with Zod first.
+  fight, the sliders and so the plan, worn or plan view, a bag item put on)
+  is `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
+  `pick-fight`, `show-plan`, `show-worn`, `wear-bag-item`, `undo-bag-item`)
+  that anything outside the components can apply with `applyPlannerAction`,
+  which checks the action with Zod first. A slider stops at the picked
+  plan's reach (`plans[].reach`) when the file has one.
 - **Tailwind 4** with its preflight, scanning only the folders
   `src/styles.css` names with `@source` (the components, `app.tsx` and
   `error-boundary.tsx`), never the samples or the schema.
@@ -127,19 +149,41 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   `scripts/write-results-schema.ts`). A test fails when the committed file
   differs from a fresh one.
 - In every part of the file, null means "not simmed".
+- Six optional fields (schema version 1 still) carry what the mockup shows
+  beyond the first contract. Absent or null, the page leaves out only the
+  part that needs them:
+
+  | Field | Shown as | Absent or null |
+  | --- | --- | --- |
+  | `plans[].reach` `{damage, survival, healing, utility}` (0 to 100) | `Can reach 35 with this mix` / `No limit with this mix` under each slider, the track past it hatched, the slider stopping there, and the line `Raising one role lowers how far the others can go. ...` | No reach line, no hatching, sliders not stopped |
+  | `sheet.weapon_skill` `{weapon_type, current, max}` | `Axe skill 148/150` on the sheet | The line is left out |
+  | `bag_upgrades[].results` (results per fight with the bag item on, no `gear`) | `Wear them` on the bag card; once worn the slot, the readings and the chart use them, and `Undo` takes it off | No `Wear them` button |
+  | `results[].damage_split[].school` (`physical`, `fire`, `nature`, `frost`, `arcane`, `shadow`, `holy`) | The split coloured by school, and `Colour is the spell school.` | Coloured by order, no colour sentence |
+  | `fights[].melee_miss_pct` | `With 0 hit, you miss 8.0% of melee swings at level 33.` under the enemy level (hit from the sheet) | The sentence is left out |
+  | `slots[].imbue` (the worn weapon's imbue) | `... Guardian's Dualblade with Windfury Weapon.` in the header | The weapon alone |
 
 ## The two samples
 
 Both are hand-made for Truncha (`sample: true`), from his 13 November 2026
 report, and the page shows a note that some numbers are made up.
 
-- `src/sample-truncha.json` (`provisional: true`): made up are the plans other
-  than max damage, every result number except the DPS for what he wears (so
-  the timelines, the pulls, the out-of-mana times and the times to die), the
-  best talent build, the Berylline Pads' item id, and the chain fight's
-  (`chain-4`) stat weights, copied from the 2-minute dungeon fight's so the
-  page's first screen (it opens on the chain fight) isn't half empty.
+- `src/sample-truncha.json` (`provisional: true`) opens on the 2-minute
+  dungeon fight (`dungeon-long`), as the mockup does. Made up are the plans
+  other than max damage (and max damage's chest and wrist, set to the
+  mockup's), every result number except the DPS for what he wears (so the
+  timelines, drawn with the mockup's own curve, the pulls, the out-of-mana
+  times and the times to die), the best talent build, the Berylline Pads'
+  item id, the 2-minute fight's gap between pulls (10 s, the mockup's), and
+  the stat weights of the 2-minute and chain fights (the solo fight's, but
+  intellect 4.04 and mana per 5 3.89, as the mockup shows them). The six
+  optional fields are the mockup's numbers: the slider reach (the mockup's
+  limits at each plan's mix), Axe 148/150, the miss chances 5.5, 6.0 and
+  8.0% at levels 31, 32 and 33, the spell schools, `Windfury Weapon`, and
+  the results with Berylline Pads on (the mockup's nudge: +0.4 DPS solo,
+  +0.3 in the dungeon). Fight labels and Pawn labels are written the
+  mockup's way (`Dungeon, 2 min vs level 33`, `Solo, level 30`).
 - `src/sample-truncha-first-run.json` is shaped like the runner's first
   output: only the max damage plan, and every `timeline`, `pulls`,
   `time_to_die_s` and `out_of_mana_s` is null (not simmed), as is
-  `talents.best`.
+  `talents.best`; it has none of the six optional fields. It opens on the
+  same fight, with the same labels, as the full sample.

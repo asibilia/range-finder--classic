@@ -45,26 +45,43 @@ describe('the page layout (approved C2 mockup)', () => {
         )
     })
 
-    test("the doll's middle column has a minimum, by the pane's own width", async () => {
+    test("the doll's columns are the mockup's: two 268 px slot columns around the figure", async () => {
         await openSample()
         const gear = screen.getByRole('region', { name: 'Gear' })
         const container = gear.querySelector('.\\@container\\/doll')
         expect(container).not.toBeNull()
         expect(container!.firstElementChild!.className).toContain(
-            '@min-[49rem]/doll:grid-cols-[minmax(14rem,20rem)_minmax(16.5rem,1fr)_minmax(14rem,20rem)]'
+            '@min-[49rem]/doll:grid-cols-[16.75rem_minmax(0,1fr)_16.75rem]'
         )
     })
 
-    test('slot names and their notes wrap; nothing is truncated with an ellipsis', async () => {
+    test('slots are one line for the name, cut off with an ellipsis, and the full name is in the accessible name', async () => {
         await openSample()
         const gear = screen.getByRole('region', { name: 'Gear' })
         const names = gear.querySelectorAll('[data-slot-name]')
-        expect(names).toHaveLength(17)
-        for (const element of within(gear).getAllByRole('button')) {
-            for (const part of element.querySelectorAll('*'))
-                expect(String(part.getAttribute('class'))).not.toMatch(
-                    /\b(truncate|text-ellipsis|line-clamp-\d)\b/
-                )
-        }
+        expect(names).toHaveLength(16)
+        for (const name of names)
+            expect(name.className.split(/\s+/)).toContain('truncate')
+        const gloves = within(gear).getByRole('button', {
+            name: /^Hands: Toughened Leather Gloves, /,
+        })
+        expect(gloves.querySelector('[data-slot-name]')?.textContent).toBe(
+            'Toughened Leather Gloves'
+        )
+    })
+
+    test('the page has one h1, one header (banner) and one footer, with a file and without', async () => {
+        await openSample()
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+        expect(screen.getAllByRole('banner')).toHaveLength(1)
+        expect(screen.getAllByRole('contentinfo')).toHaveLength(1)
+        expect(
+            screen.getAllByText(
+                'Sample file: some numbers here are made up to try the page.'
+            )
+        ).toHaveLength(1)
+        expect(
+            screen.getAllByRole('button', { name: 'Export Pawn string' })
+        ).toHaveLength(1)
     })
 })

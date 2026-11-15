@@ -47,8 +47,8 @@ async function openWrongFile(data: unknown) {
 }
 
 /** The slot buttons' labels (the part before the colon), in page order. */
-function slotLabelsInOrder(): string[] {
-    const slots = SLOT_LABELS.map((label) => ({
+function slotLabelsInOrder(labels: string[] = SLOT_LABELS): string[] {
+    const slots = labels.map((label) => ({
         label,
         button: screen.getByRole('button', {
             name: new RegExp(`^${label}: `),
@@ -81,19 +81,16 @@ describe('the new-visitor state', () => {
                 name: 'Bring your character in',
             })
         ).toBeDefined()
-        expect(
-            screen.getByText(
-                'Open a results file from the gear sim to see your character.'
-            )
-        ).toBeDefined()
-
         const input = screen.getByLabelText('Open a results file')
         expect(input.tagName).toBe('INPUT')
         expect(input.getAttribute('type')).toBe('file')
         expect(input.getAttribute('accept')).toBe('.json,application/json')
 
         const drop = screen.getByRole('region', { name: 'Drop a results file' })
-        expect(within(drop).getByText('Or drop the file here.')).toBeDefined()
+        expect(drop.textContent).toContain('Drop your results file here')
+        expect(drop.textContent).toContain('or select to open it')
+        // The drop box is the file picker too.
+        expect(drop.contains(input)).toBe(true)
 
         expect(
             screen.getByText(
@@ -101,7 +98,9 @@ describe('the new-visitor state', () => {
             )
         ).toBeDefined()
         expect(
-            screen.getByRole('button', { name: 'Look at a sample character' })
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
         ).toBeDefined()
     })
 
@@ -125,7 +124,7 @@ describe('the new-visitor state', () => {
         ])
     })
 
-    test('shows 17 empty slot buttons and no Wishlist, Talents or Export Pawn string button', () => {
+    test('shows 17 empty slot buttons, no Wishlist or Talents button, and Export Pawn string disabled (as the mockup)', () => {
         renderApp()
 
         for (const label of SLOT_LABELS) {
@@ -139,9 +138,8 @@ describe('the new-visitor state', () => {
 
         expect(screen.queryByRole('button', { name: /^Wishlist/ })).toBeNull()
         expect(screen.queryByRole('button', { name: /^Talents/ })).toBeNull()
-        expect(
-            screen.queryByRole('button', { name: 'Export Pawn string' })
-        ).toBeNull()
+        const pawn = screen.getByRole('button', { name: 'Export Pawn string' })
+        expect(pawn.hasAttribute('disabled')).toBe(true)
     })
 })
 
@@ -243,9 +241,6 @@ describe('loading a results file', () => {
         expect(
             await screen.findByRole('heading', { level: 1, name: 'Truncha' })
         ).toBeDefined()
-        expect(
-            screen.getByText('Level 30 Orc Enhancement Shaman')
-        ).toBeDefined()
     })
 
     test('dropping the sample anywhere on the page loads it', async () => {
@@ -283,10 +278,12 @@ describe('loading a results file', () => {
         ).toBeDefined()
     })
 
-    test('Look at a sample character loads Truncha with the level line and export date', async () => {
+    test("Or look at a sample character loads Truncha with the mockup's header line and export date", async () => {
         const user = renderApp()
         await user.click(
-            screen.getByRole('button', { name: 'Look at a sample character' })
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
         )
 
         expect(
@@ -296,9 +293,15 @@ describe('loading a results file', () => {
             screen.queryByRole('heading', { level: 1, name: 'Armory planner' })
         ).toBeNull()
         expect(
-            screen.getByText('Level 30 Orc Enhancement Shaman')
+            screen.getByText(
+                "Orc Enhancement Shaman, level 30. Guardian's Dualblade with Windfury Weapon."
+            )
         ).toBeDefined()
-        expect(screen.getByText('From your export of 2026-11-13')).toBeDefined()
+        expect(
+            screen.getByText(', from your export of 13 November', {
+                exact: false,
+            })
+        ).toBeDefined()
     })
 
     test('the sample says it holds made-up numbers', async () => {
@@ -319,10 +322,44 @@ describe('loading a results file', () => {
 })
 
 describe('the gear pane with a file', () => {
-    test('the slots run left column, right column, then the bottom row', async () => {
+    test('the slots run left column, right column, then the bottom row: Two-hand and Totem for a shaman with a two-hander, as the mockup', async () => {
         await openFile(sample)
 
-        expect(slotLabelsInOrder()).toEqual(SLOT_LABELS)
+        const labels = [...SLOT_LABELS.slice(0, 14), 'Two-hand', 'Totem']
+        expect(slotLabelsInOrder([...labels].reverse())).toEqual(labels)
+        expect(screen.queryByRole('button', { name: /^Off hand: / })).toBeNull()
+        expect(
+            screen.queryByRole('button', { name: /^Main hand: / })
+        ).toBeNull()
+    })
+
+    test('a file with an off-hand item keeps Main hand and Off hand', async () => {
+        await openFile(
+            variant((file) => {
+                const slots = file.slots as Json[]
+                const main = slots.find((entry) => entry.slot === 'main_hand')
+                const off = slots.find((entry) => entry.slot === 'off_hand')
+                if (!main || !off) throw new Error('no weapon slots')
+                off.worn = structuredClone(main.worn)
+            })
+        )
+
+        const labels = [...SLOT_LABELS.slice(0, 16), 'Totem']
+        expect(slotLabelsInOrder([...labels].reverse())).toEqual(labels)
+    })
+
+    test('the header names the weapon alone when the file has no imbue', async () => {
+        await openFile(
+            variant((file) => {
+                for (const entry of file.slots as Json[]) delete entry.imbue
+            })
+        )
+
+        expect(
+            screen.getByText(
+                "Orc Enhancement Shaman, level 30. Guardian's Dualblade."
+            )
+        ).toBeDefined()
     })
 
     test('shows the worn legs and an empty trinket slot', async () => {
@@ -338,28 +375,50 @@ describe('the gear pane with a file', () => {
         ).toBeDefined()
     })
 
-    test('the middle shows the model placeholder, the sheet and the buffed note', async () => {
+    test('the middle shows the model placeholder and the sheet as the mockup lays it out, Axe skill last', async () => {
         await openFile(sample)
 
         expect(screen.getByText('Character model goes here')).toBeDefined()
-        const page = document.body.textContent ?? ''
-        expect(page).toMatch(/Strength\s*:?\s*73(?!\d)/)
-        expect(page).toMatch(/Mana\s*:?\s*1660(?!\d)/)
+        const sheet = screen.getByLabelText('Character sheet')
+        const pairs = [...sheet.querySelectorAll('dt')].map(
+            (term) =>
+                `${term.textContent} ${term.nextElementSibling?.textContent}`
+        )
+        expect(pairs).toEqual([
+            'Str 73',
+            'Agi 96',
+            'Sta 122',
+            'Int 85',
+            'Spi 103',
+            'AP 289',
+            'Crit 11.95%',
+            'Spell crit 7.32%',
+            'Dodge 11.75%',
+            'Hit 0%',
+            'Armor 952',
+            'Axe skill 148/150',
+        ])
+        expect(sheet.querySelector('abbr[title="Strength"]')).not.toBeNull()
         expect(
             screen.getByText(
-                'Buffed sheet: as the game showed it at export, with the buffs you had up.'
+                'Sheet from your export of 13 November, as worn, with the buffs you had up.'
             )
         ).toBeDefined()
-        expect(screen.queryByText('Unbuffed sheet.')).toBeNull()
     })
 
-    test('a copy with sheet_buffed false says Unbuffed sheet.', async () => {
+    test('without a weapon skill the sheet leaves that line out; unbuffed says so', async () => {
         await openFile(
             variant((file) => {
                 file.sheet_buffed = false
+                delete (file.sheet as Json).weapon_skill
             })
         )
 
-        expect(screen.getByText('Unbuffed sheet.')).toBeDefined()
+        const sheet = screen.getByLabelText('Character sheet')
+        expect(sheet.textContent).not.toContain('skill')
+        expect(sheet.querySelectorAll('dt')).toHaveLength(11)
+        expect(
+            screen.getByText('Sheet from your export of 13 November, as worn.')
+        ).toBeDefined()
     })
 })

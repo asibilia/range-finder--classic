@@ -1,0 +1,5 @@
+---
+'@goturbo/armory': minor
+---
+
+The armory planner now matches the approved mockup element for element at 1440 px: the header line names the weapon and its imbue, the gear pane has the mockup's compact one-line slots (full names in a tooltip) with Two-hand and Totem for a shaman with a two-hander, the bag card has Wear them and Undo, the sheet has the weapon skill, the readings are the mockup's six, the sliders say how far each role can reach with the track past it hatched, the stat weights are solo against the 2-minute fight, the damage split is coloured by spell school, and the fight settings are the mockup's controls (enemy level, fight length, kind of fight, starting mana, time between pulls) picking among the file's pre-made fights. The full sample opens on the 2-minute dungeon fight. The results file gains six optional fields for this (schema version 1): `plans[].reach`, `sheet.weapon_skill`, `bag_upgrades[].results`, `damage_split[].school`, `fights[].melee_miss_pct` and `slots[].imbue`.

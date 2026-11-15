@@ -5,14 +5,6 @@
  * read in the browser only.
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card'
 
 import { SCHEMA_VERSION } from '../results-file'
 
@@ -65,60 +57,62 @@ export function BringIn({
     onSample: () => void
 }) {
     return (
-        <section aria-labelledby="bring-in-heading" className="w-full">
-            <Card className="shadow-lg ring-ring/40">
-                <CardHeader>
-                    <CardTitle className="text-lg">
-                        <h2 id="bring-in-heading">Bring your character in</h2>
-                    </CardTitle>
-                    <CardDescription>
-                        Open a results file from the gear sim to see your
-                        character.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                    <ol className="list-decimal pl-5 text-sm marker:text-muted-foreground">
-                        <li>
-                            Install the Turbo addon and type /tbexport in the
-                            game.
-                        </li>
-                        <li>
-                            Run the gear sim on that export to get a results
-                            file.
-                        </li>
-                        <li>
-                            Open the results file here, or drop it on this page.
-                        </li>
-                    </ol>
-                    {error && <ErrorMessage error={error} />}
-                    <label className="flex flex-col gap-1.5 text-sm font-medium">
-                        Open a results file
-                        <input
-                            type="file"
-                            accept=".json,application/json"
-                            className="w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border file:border-border file:bg-background file:px-2 file:py-1 file:text-xs file:font-medium file:text-foreground"
-                            onChange={(event) => {
-                                const file = event.target.files?.[0]
-                                if (file) onFile(file)
-                                event.target.value = ''
-                            }}
-                        />
-                    </label>
-                    <div
-                        role="region"
-                        aria-label="Drop a results file"
-                        className="rounded-lg border border-dashed border-ring/60 bg-muted/40 px-3 py-4 text-center text-sm"
-                    >
-                        <p>Or drop the file here.</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        Simming your own export right here is coming later.
-                    </p>
-                    <Button variant="secondary" onClick={onSample}>
-                        Look at a sample character
-                    </Button>
-                </CardContent>
-            </Card>
+        <section
+            aria-labelledby="bring-in-heading"
+            className="mt-3 w-full rounded-[0.875rem] border border-ring/60 bg-card px-4 py-3.5 shadow-lg"
+        >
+            <h2 id="bring-in-heading" className="mb-2 text-xl leading-tight">
+                Bring your character in
+            </h2>
+            <ol className="mb-3 list-decimal pl-5 text-sm marker:text-muted-foreground [&>li]:my-0.75">
+                <li>
+                    Install the Turbo addon and type{' '}
+                    <code className="font-mono text-[0.8125rem] text-chart-2-text">
+                        /tbexport
+                    </code>{' '}
+                    in the game.
+                </li>
+                <li>Run the gear sim on that export to get a results file.</li>
+                <li>Open the results file here, or drop it on this page.</li>
+            </ol>
+            {error && (
+                <div className="mb-2">
+                    <ErrorMessage error={error} />
+                </div>
+            )}
+            {/* The drop box is the file picker too: select it to open a
+                file, or drop one on it (or anywhere on the page). */}
+            <label
+                role="region"
+                aria-label="Drop a results file"
+                className="block w-full cursor-pointer rounded-lg border-[1.5px] border-dashed border-ring/60 bg-muted/40 px-2.5 py-4 text-center text-sm hover:border-chart-2 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50"
+            >
+                Drop your results file here
+                <small className="mt-0.5 block text-[0.78125rem] text-muted-foreground">
+                    or select to open it
+                </small>
+                <input
+                    type="file"
+                    aria-label="Open a results file"
+                    accept=".json,application/json"
+                    className="sr-only"
+                    onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        if (file) onFile(file)
+                        event.target.value = ''
+                    }}
+                />
+            </label>
+            <p className="mt-1.5 mb-1 text-[0.78125rem] text-muted-foreground">
+                Simming your own export right here is coming later.
+            </p>
+            <button
+                type="button"
+                className="text-[0.8125rem] text-muted-foreground underline underline-offset-3 hover:text-foreground"
+                onClick={onSample}
+            >
+                Or look at a sample character
+            </button>
         </section>
     )
 }

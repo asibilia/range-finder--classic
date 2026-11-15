@@ -2,7 +2,9 @@
  * Measures the built page in a real browser at several widths and fails if
  * the layout breaks: the gear pane's middle column (the new-visitor card,
  * the character sheet) collapsing, a gain pill hanging past the gear card,
- * a slot name cut off, the chart squeezed, or the page scrolling sideways.
+ * a control (a button, a select, a slider) clipped, the chart squeezed, or
+ * the page scrolling sideways. Slot names may end in an ellipsis, as the
+ * mockup's do: their full name is in the button's name and a tooltip.
  * happy-dom lays nothing out, so the tests can't see any of this.
  *
  * A manual script, not part of `bun run check`: it needs a browser, through
@@ -30,9 +32,9 @@ const WIDTHS_DEFAULT = [390, 1024, 1280, 1366, 1440, 1920]
 
 /** The smallest widths that still read well, in CSS pixels. */
 const LIMITS = {
-    /** The new-visitor card and the sheet's column (the sheet is 16.5rem). */
-    middle: 256,
-    sheet: 240,
+    /** The new-visitor card and the sheet's column (236 px in the mockup at 1440). */
+    middle: 230,
+    sheet: 220,
     chart: 300,
 } as const
 
@@ -43,7 +45,7 @@ const MeasureSchema = z.object({
     middle: z.number(),
     sheet: z.number(),
     chart: z.number(),
-    cutNames: z.number(),
+    clipped: z.number(),
     pillsOutside: z.number(),
     sideways: z.boolean(),
 })
@@ -59,25 +61,34 @@ function browserCode(url: string, widths: number[]): string {
     await page.waitForLoadState('networkidle');
     const visitor = await page.evaluate(() => {
       const card = [...document.querySelectorAll('h2')].find(h => h.textContent === 'Bring your character in')?.closest('section');
-      const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'Look at a sample character');
+      const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'Or look at a sample character');
       button?.scrollIntoView({ block: 'center' });
       const r = button?.getBoundingClientRect();
       const hit = r && r.width > 0 ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
       return { bringIn: Math.round(card?.getBoundingClientRect().width ?? 0), sampleClickable: !!(hit && button.contains(hit)) };
     });
-    await page.getByRole('button', { name: 'Look at a sample character' }).click();
+    await page.getByRole('button', { name: 'Or look at a sample character' }).click();
     await page.waitForFunction(() => !document.querySelector('[data-chart-loading]') && document.querySelector('[data-slot="chart"]'));
     const loaded = await page.evaluate(() => {
-      const gear = document.querySelector('[aria-label="Gear"]');
+      const gear = document.querySelector('[data-slot="gear-pane"]');
       const box = gear.getBoundingClientRect();
       const w = (el) => Math.round(el?.getBoundingClientRect().width ?? 0);
-      const texts = [...gear.querySelectorAll('button [data-slot-name], button [data-slot-name] + span')];
+      // Slot buttons are left out: their pills sit past their edge on purpose.
+      const controls = [...document.querySelectorAll('button, [role="combobox"], [data-slot="slider"]')]
+        .filter(el => !el.closest('[data-slot^="slots-"]'));
       const pills = [...gear.querySelectorAll('button [data-size]')];
       return {
         middle: w(document.querySelector('[data-slot="doll-middle"]')),
         sheet: w(document.querySelector('[aria-label="Character sheet"]')),
         chart: w(document.querySelector('[data-slot="chart"]')),
-        cutNames: texts.filter(t => t.scrollWidth > t.clientWidth + 1).length,
+        // A slider's thumb has a wider invisible hit area: its drawn thumb is measured instead.
+        clipped: controls.filter(c => {
+          const r = c.getBoundingClientRect();
+          if (r.right > window.innerWidth + 0.5) return true;
+          if (c.matches('[data-slot="slider"]'))
+            return [...c.querySelectorAll('[data-slot="slider-thumb"]')].some(t => { const b = t.getBoundingClientRect(); return b.left < r.left - 0.5 || b.right > r.right + 0.5; });
+          return c.scrollWidth > c.clientWidth + 1;
+        }).length,
         pillsOutside: pills.filter(p => { const r = p.getBoundingClientRect(); return r.left < box.left - 0.5 || r.right > box.right + 0.5; }).length,
         sideways: document.documentElement.scrollWidth > window.innerWidth,
       };
@@ -114,15 +125,15 @@ function problems(measure: Measure): string[] {
     if (measure.bringIn < LIMITS.middle)
         found.push(`the new-visitor card is ${measure.bringIn} px wide`)
     if (!measure.sampleClickable)
-        found.push("'Look at a sample character' can't be clicked")
+        found.push("'Or look at a sample character' can't be clicked")
     if (measure.middle < LIMITS.middle)
         found.push(`the middle column is ${measure.middle} px wide`)
     if (measure.sheet < LIMITS.sheet)
         found.push(`the sheet is ${measure.sheet} px wide`)
     if (measure.chart < LIMITS.chart)
         found.push(`the chart is ${measure.chart} px wide`)
-    if (measure.cutNames > 0)
-        found.push(`${measure.cutNames} slot texts are cut off`)
+    if (measure.clipped > 0)
+        found.push(`${measure.clipped} controls are clipped`)
     if (measure.pillsOutside > 0)
         found.push(`${measure.pillsOutside} gain pills hang past the gear card`)
     if (measure.sideways) found.push('the page scrolls sideways')
@@ -187,12 +198,12 @@ async function main() {
             process.exit(1)
         }
         console.log(
-            'width  bring-in  middle  sheet  chart  cut  pills-out  sideways'
+            'width  bring-in  middle  sheet  chart  clip pills-out  sideways'
         )
         let failed = false
         for (const m of parsed.data) {
             console.log(
-                `${String(m.width).padEnd(6)} ${String(m.bringIn).padEnd(9)} ${String(m.middle).padEnd(7)} ${String(m.sheet).padEnd(6)} ${String(m.chart).padEnd(6)} ${String(m.cutNames).padEnd(4)} ${String(m.pillsOutside).padEnd(10)} ${m.sideways}`
+                `${String(m.width).padEnd(6)} ${String(m.bringIn).padEnd(9)} ${String(m.middle).padEnd(7)} ${String(m.sheet).padEnd(6)} ${String(m.chart).padEnd(6)} ${String(m.clipped).padEnd(4)} ${String(m.pillsOutside).padEnd(10)} ${m.sideways}`
             )
             for (const problem of problems(m)) {
                 failed = true

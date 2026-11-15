@@ -109,16 +109,21 @@ describe('the talents dialog', () => {
         ).toBeDefined()
     })
 
-    test('Talents opens a dialog with 21 points and a Build radio group on Best simmed', async () => {
+    test('Talents opens a dialog with a Best simmed | Your build radio group (a segmented control) on Best simmed', async () => {
         const user = await openSample()
         const dialog = await openTalents(user)
 
-        expect(within(dialog).getByText('21 points')).toBeDefined()
-        const group = within(dialog).getByRole('radiogroup', { name: 'Build' })
-        const best = within(group).getByRole('radio', { name: 'Best simmed' })
-        const yours = within(group).getByRole('radio', { name: 'Your build' })
-        expect(best.getAttribute('aria-checked')).toBe('true')
-        expect(yours.getAttribute('aria-checked')).toBe('false')
+        const group = within(dialog).getByRole('group', {
+            name: 'Which build to show',
+        })
+        const best = within(group).getByRole('radio', {
+            name: 'Best simmed',
+        }) as HTMLInputElement
+        const yours = within(group).getByRole('radio', {
+            name: 'Your build',
+        }) as HTMLInputElement
+        expect(best.checked).toBe(true)
+        expect(yours.checked).toBe(false)
     })
 
     test('Best simmed marks Flurry 5/5 changed from 4/5 and Anticipation 0/3 changed', async () => {
@@ -140,7 +145,7 @@ describe('the talents dialog', () => {
         expect(changedFlag(stormstrike)).not.toBe('true')
     })
 
-    test('Your build shows Flurry 4/5 and Anticipation 1/3 with nothing marked changed', async () => {
+    test('Your build shows Flurry 4/5 and Anticipation 1/3, still ringed where the sim differs, and the points', async () => {
         const user = await openSample()
         const dialog = await openTalents(user)
         await user.click(
@@ -151,7 +156,12 @@ describe('the talents dialog', () => {
         expect(within(flurry).getByText('4/5')).toBeDefined()
         const anticipation = within(dialog).getByLabelText('Anticipation, 1/3')
         expect(within(anticipation).getByText('1/3')).toBeDefined()
-        expect(dialog.querySelectorAll('[data-changed="true"]')).toHaveLength(0)
+        expect(dialog.querySelectorAll('[data-changed="true"]')).toHaveLength(2)
+        expect(
+            within(dialog).getByText(
+                'Your 21 points. Dashed rings mark where the sim would differ.'
+            )
+        ).toBeDefined()
     })
 
     test('talents sit by tier and column, 18 in the grid', async () => {
@@ -173,79 +183,87 @@ describe('the talents dialog', () => {
         })
     })
 
-    test('the dialog says what the best build gains', async () => {
+    test("the dialog says what the best build moves and gains, in the mockup's words", async () => {
         const user = await openSample()
         const dialog = await openTalents(user)
 
+        const line = dialog.querySelector('[data-best-build]')
+        expect(line?.textContent).toBe(
+            'Best simmed moves the point from Anticipation into Flurry 5/5: about +1.6 DPS solo.'
+        )
         expect(
-            within(dialog).getByText(
-                "The sim's best build: +1.6 DPS in Solo, 30 s, level 31."
-            )
-        ).toBeDefined()
+            [...(line?.querySelectorAll('b') ?? [])].map((b) => b.textContent)
+        ).toEqual(['Anticipation', 'Flurry 5/5', '+1.6 DPS'])
     })
 
     test('with best null, Best simmed is disabled, Your build is checked, and No best build in this file. shows', async () => {
         const user = await openFile(firstRun)
         const dialog = await openTalents(user)
 
-        const best = within(dialog).getByRole('radio', { name: 'Best simmed' })
-        const yours = within(dialog).getByRole('radio', { name: 'Your build' })
-        expect(best.getAttribute('aria-disabled')).toBe('true')
-        expect(yours.getAttribute('aria-checked')).toBe('true')
+        const best = within(dialog).getByRole('radio', {
+            name: 'Best simmed',
+        }) as HTMLInputElement
+        const yours = within(dialog).getByRole('radio', {
+            name: 'Your build',
+        }) as HTMLInputElement
+        expect(best.disabled).toBe(true)
+        expect(yours.checked).toBe(true)
         expect(
-            within(dialog).getByText('No best build in this file.')
+            within(dialog).getByText(
+                'Your 21 points. No best build in this file.'
+            )
         ).toBeDefined()
-        expect(within(dialog).queryByText(/^The sim's best build/)).toBeNull()
+        expect(within(dialog).queryByText(/^Best simmed moves/)).toBeNull()
     })
 })
 
 describe('the Pawn strings dialog', () => {
-    test('Export Pawn string opens Pawn strings with the how-to and both strings in read-only text boxes', async () => {
+    test('Export Pawn string opens Pawn strings with the how-to and each string under its label', async () => {
         const user = await openSample()
         const dialog = await openPawn(user)
 
         expect(
             within(dialog).getByText(
-                'In game: Pawn, then Scale, then Import. Paste one string.'
+                'In the game, open Pawn, then Scale, then Import, and paste one.'
             )
         ).toBeDefined()
         for (const pawn of [SOLO_PAWN, DUNGEON_PAWN]) {
-            const box = within(dialog).getByRole('textbox', {
+            const heading = within(dialog).getByRole('heading', {
+                level: 3,
                 name: pawn.label,
-            }) as HTMLInputElement | HTMLTextAreaElement
-            expect(box.value).toBe(pawn.text)
-            expect(box.readOnly).toBe(true)
+            })
+            const item = heading.closest('li') as HTMLElement
+            expect(item.querySelector('pre')?.textContent).toBe(pawn.text)
         }
+        expect(
+            within(dialog)
+                .getAllByRole('button', { name: /^Copy / })
+                .map((button) => button.textContent)
+        ).toEqual(['Copy solo string', 'Copy dungeon string'])
     })
 
-    test('Copy writes the string, reads Copied, then Copy again after 2 seconds', async () => {
+    test('Copy writes the string and says Copied beside the button for 2.4 seconds', async () => {
         const user = await openSample()
         const writeText = mock((_text: string) => Promise.resolve())
         mockClipboard(writeText)
         const dialog = await openPawn(user)
 
-        const [first] = within(dialog).getAllByRole('button', { name: 'Copy' })
-        if (!first) throw new Error('no Copy button')
-        await user.click(first)
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Copy solo string' })
+        )
 
         expect(writeText).toHaveBeenCalledWith(SOLO_PAWN.text)
+        expect(await within(dialog).findByText('Copied')).toBeDefined()
+        await wait(2000)
+        expect(within(dialog).getByText('Copied')).toBeDefined()
+        await wait(600)
+        expect(within(dialog).queryByText('Copied')).toBeNull()
         expect(
-            await within(dialog).findByRole('button', { name: 'Copied' })
+            within(dialog).getByRole('button', { name: 'Copy solo string' })
         ).toBeDefined()
-        await wait(1500)
-        expect(
-            within(dialog).getByRole('button', { name: 'Copied' })
-        ).toBeDefined()
-        await wait(800)
-        expect(
-            within(dialog).queryByRole('button', { name: 'Copied' })
-        ).toBeNull()
-        expect(
-            within(dialog).getAllByRole('button', { name: 'Copy' })
-        ).toHaveLength(2)
     })
 
-    test('a rejected clipboard write reads Copy failed, then Copy again after 2 seconds', async () => {
+    test('a rejected clipboard write says how to copy by hand', async () => {
         const user = await openSample()
         const writeText = mock((_text: string) =>
             Promise.reject(new Error('denied'))
@@ -253,24 +271,15 @@ describe('the Pawn strings dialog', () => {
         mockClipboard(writeText)
         const dialog = await openPawn(user)
 
-        const [first] = within(dialog).getAllByRole('button', { name: 'Copy' })
-        if (!first) throw new Error('no Copy button')
-        await user.click(first)
+        await user.click(
+            within(dialog).getByRole('button', { name: 'Copy dungeon string' })
+        )
 
         expect(
-            await within(dialog).findByRole('button', { name: 'Copy failed' })
+            await within(dialog).findByText(
+                'Copy failed. Select the text and copy it by hand.'
+            )
         ).toBeDefined()
-        await wait(1500)
-        expect(
-            within(dialog).getByRole('button', { name: 'Copy failed' })
-        ).toBeDefined()
-        await wait(800)
-        expect(
-            within(dialog).queryByRole('button', { name: 'Copy failed' })
-        ).toBeNull()
-        expect(
-            within(dialog).getAllByRole('button', { name: 'Copy' })
-        ).toHaveLength(2)
     })
 })
 

@@ -13,6 +13,9 @@ import {
     statWeightsData,
     timeTicks,
     timelineAverages,
+    fightWords,
+    splitHasSchools,
+    valueTicks,
 } from '../src/chart-data'
 import { readResultsFile, type ResultsFile } from '../src/results-file'
 import firstRunJson from '../src/sample-truncha-first-run.json'
@@ -188,7 +191,7 @@ describe('the pull chart data', () => {
 })
 
 describe('the damage split', () => {
-    test('six parts in file order, as whole percents, coloured by order', () => {
+    test('six parts in file order, as whole percents, coloured by spell school', () => {
         const parts = splitParts(result(sample, 'worn', 'dungeon-long'))
         expect(parts.map((part) => part.text)).toEqual([
             'Melee 33%',
@@ -198,6 +201,23 @@ describe('the damage split', () => {
             'Earth Shock 11%',
             'Lightning Shield 9%',
         ])
+        expect(parts.map((part) => part.color)).toEqual([
+            'var(--school-physical)',
+            'color-mix(in oklch, var(--school-physical), black 22%)',
+            'var(--school-fire)',
+            'var(--school-nature)',
+            'color-mix(in oklch, var(--school-nature), black 22%)',
+            'color-mix(in oklch, var(--school-nature), black 44%)',
+        ])
+        expect(splitHasSchools(result(sample, 'worn', 'dungeon-long'))).toBe(
+            true
+        )
+    })
+
+    test('without schools (the first-run sample), parts are coloured by order', () => {
+        const worn = result(firstRun, 'worn', 'dungeon-long')
+        expect(splitHasSchools(worn)).toBe(false)
+        const parts = splitParts(worn)
         expect(parts.slice(0, 5).map((part) => part.color)).toEqual([
             'var(--chart-1)',
             'var(--chart-2)',
@@ -206,24 +226,28 @@ describe('the damage split', () => {
             'var(--chart-5)',
         ])
         expect(parts[5]?.color).toContain('var(--chart-1)')
-        expect(new Set(parts.map((part) => part.color)).size).toBe(6)
     })
 })
 
 describe('the stat weights', () => {
-    test('the solo fight compares with the 2-minute dungeon fight, dashed', () => {
-        const data = statWeightsData(sample, 'solo-hit-short')!
+    test("solo solid and the 2-minute fight dashed: the mockup's eight stats, in its order", () => {
+        const data = statWeightsData(sample, 'solo-hit-short', 'dungeon-long')!
         expect(data.compare?.fight_id).toBe('dungeon-long')
         expect(data.compareNote).toBe(
             'Dashed: in 2-minute dungeon fights, once you run dry.'
         )
-        expect(data.rows.find((row) => row.stat === 'intellect')).toEqual({
-            stat: 'intellect',
-            label: 'Intellect',
-            ep: 1.15,
-            compare_ep: 4.04,
-        })
-        expect(data.rows[0]?.label).toBe('Strength')
+        expect(
+            data.rows.map((row) => [row.label, row.ep, row.compare_ep])
+        ).toEqual([
+            ['Strength', 2, null],
+            ['Spell damage', 1.41, null],
+            ['Hit rating', 1.39, null],
+            ['Intellect', 1.15, 4.04],
+            ['Attack power', 1, null],
+            ['Agility', 0.94, null],
+            ['Crit rating', 0.8, null],
+            ['Mana per 5', null, 3.89],
+        ])
         expect(data.max).toBe(4.04)
     })
 
@@ -235,27 +259,41 @@ describe('the stat weights', () => {
         ])
     })
 
-    test('on the 2-minute fight itself there is no second bar', () => {
-        const data = statWeightsData(sample, 'dungeon-long')!
-        expect(data.compare).toBeNull()
-        expect(data.compareNote).toBeNull()
-        expect(data.rows.every((row) => row.compare_ep === null)).toBe(true)
-        expect(data.rows[0]).toEqual({
-            stat: 'intellect',
-            label: 'Intellect',
-            ep: 4.04,
-            compare_ep: null,
-        })
+    test('with no fight to compare (or the same fight) there is no second bar', () => {
+        for (const compare of [null, 'solo-hit-short']) {
+            const data = statWeightsData(sample, 'solo-hit-short', compare)!
+            expect(data.compare).toBeNull()
+            expect(data.compareNote).toBeNull()
+            expect(data.rows.every((row) => row.compare_ep === null)).toBe(true)
+        }
     })
 
-    test('a fight with no weights has none (a copy without the chain weights)', () => {
+    test('a fight with no weights has none (a copy without the solo weights)', () => {
         const without = {
             ...sample,
             stat_weights: sample.stat_weights.filter(
-                (entry) => entry.fight_id !== 'chain-4'
+                (entry) => entry.fight_id !== 'solo-hit-short'
             ),
         }
-        expect(statWeightsData(without, 'chain-4')).toBeNull()
-        expect(statWeightsData(sample, 'chain-4')?.rows).toHaveLength(9)
+        expect(statWeightsData(without, 'solo-hit-short')).toBeNull()
+    })
+})
+
+describe('fight words and axis ticks', () => {
+    test('a single fight reads as the mockup words it; a chain keeps its label', () => {
+        expect(fightWords(fight(sample, 'dungeon-long'))).toBe(
+            'Dungeon, 2 minutes vs level 33'
+        )
+        expect(fightWords(fight(sample, 'solo-hit-short'))).toBe(
+            'Solo, 30 seconds vs level 31'
+        )
+        expect(fightWords(fight(sample, 'chain-4'))).toBe(
+            fight(sample, 'chain-4').label
+        )
+    })
+
+    test("the value axes run to a round top, as the mockup's 140 DPS and 2400 mana", () => {
+        expect(valueTicks(118.5, 4, 1.1, 20)).toEqual([0, 35, 70, 105, 140])
+        expect(valueTicks(1660, 3, 1.3, 300)).toEqual([0, 800, 1600, 2400])
     })
 })

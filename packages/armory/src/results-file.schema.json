@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Results file",
-  "description": "One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.\nThe page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:\n- default_fight_id names a fight in fights.\n- Every fight_id in results, stat_weights and talents.best names a fight in fights.\n- Every gear in results is worn or a plan_id in plans.\n- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.\n- slots has each slot exactly once.\n- Every fight has a result for worn gear.\n- Each fight_id in fights is unique.\n- Each plan_id is unique.\n- No item_id appears twice in one slot's alternatives.\n- stat_weights has at most one entry per fight.\n- Each Pawn label is unique.\n- No two results share a gear and fight.\n- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.\n- A talent's rank is at most its max_rank.\n- No two talents in talents.yours share a tier and column.\n- A chain fight has a setup.\n- timeline is null on a chain fight's results.\n- pulls is null on a single fight's results.\nThe runner must also keep these, which nothing checks:\n- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.\n- talents.yours lists every talent in the tree, at rank 0 or more.",
+  "description": "One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.\nThe page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:\n- default_fight_id names a fight in fights.\n- Every fight_id in results, bag_upgrades results, stat_weights and talents.best names a fight in fights.\n- A bag upgrade's results have at most one entry per fight.\n- sheet.weapon_skill.current is at most its max.\n- Every gear in results is worn or a plan_id in plans.\n- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.\n- slots has each slot exactly once.\n- Every fight has a result for worn gear.\n- Each fight_id in fights is unique.\n- Each plan_id is unique.\n- No item_id appears twice in one slot's alternatives.\n- stat_weights has at most one entry per fight.\n- Each Pawn label is unique.\n- No two results share a gear and fight.\n- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.\n- A talent's rank is at most its max_rank.\n- No two talents in talents.yours share a tier and column.\n- A chain fight has a setup.\n- timeline is null on a chain fight's results (bag upgrade results too).\n- pulls is null on a single fight's results (bag upgrade results too).\nThe runner must also keep these, which nothing checks:\n- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.\n- talents.yours lists every talent in the tree, at rank 0 or more.",
   "type": "object",
   "properties": {
     "schema_version": {
@@ -152,6 +152,40 @@
         },
         "melee_hit_pct": {
           "type": "number"
+        },
+        "weapon_skill": {
+          "description": "The weapon skill for the main-hand weapon at export, e.g. Axe 148 of 150. The sheet shows it as \"Axe skill 148/150\". Absent or null: not exported (the sheet leaves that line out).",
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "weapon_type": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The main-hand weapon's type, as the sheet names its skill: \"Axe\" reads \"Axe skill\"."
+                },
+                "current": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "weapon_type",
+                "current",
+                "max"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -201,6 +235,19 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
             "description": "The fight length in seconds. On a chain fight, the length of one pull."
+          },
+          "melee_miss_pct": {
+            "description": "The chance, in percent, that a melee swing misses this fight's target, with the sheet's melee_hit_pct. The page says it under the enemy level: With 0 hit, you miss 8.0% of melee swings at level 33. Absent or null: not simmed (the sentence is left out).",
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "setup": {
             "description": "Required on a chain fight; may be absent on a single fight.",
@@ -373,6 +420,18 @@
               }
             ],
             "description": "Null: nothing equipped in this slot."
+          },
+          "imbue": {
+            "description": "The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. The page names the main hand's in the header: \"Guardian's Dualblade with Windfury Weapon.\" Absent or null: none, or not exported (the header names the weapon alone).",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "alternatives": {
             "type": "array",
@@ -612,6 +671,185 @@
           },
           "gain_ep": {
             "type": "number"
+          },
+          "results": {
+            "description": "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Wear them button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Wear them button).",
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "fight_id": {
+                      "type": "string"
+                    },
+                    "dps": {
+                      "type": "number"
+                    },
+                    "health": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "armor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "out_of_mana_s": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "const": "never"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Seconds to the first out of mana (the sim's tto); on a chain fight, wall time from the start of the first pull, gaps included. \"never\": simmed, and it never runs dry in this fight. Null: not simmed."
+                    },
+                    "time_to_die_s": {
+                      "description": "Seconds to die. Null: not simmed.",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "timeline": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "t_s": {
+                                "type": "number"
+                              },
+                              "dps": {
+                                "type": "number"
+                              },
+                              "mana": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "t_s",
+                              "dps",
+                              "mana"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "DPS and mana over the fight. Single fights only: null on a chain fight. Null on a single fight: no timeline in this file."
+                    },
+                    "pulls": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "pull": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "dps": {
+                                "type": "number"
+                              },
+                              "mana_start": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "mana_end": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "pull",
+                              "dps",
+                              "mana_start",
+                              "mana_end"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "DPS and mana per pull. Chain fights only: null on a single fight. A pull runs dry when its mana_end is 0. Null on a chain fight: no pull data in this file."
+                    },
+                    "damage_split": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "share_pct": {
+                            "type": "number"
+                          },
+                          "school": {
+                            "description": "The spell school of this part of the damage: physical for melee swings and weapon procs. The page colours the split by it. Absent or null: not simmed (the page colours parts by order and leaves out \"Colour is the spell school.\").",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "physical",
+                                  "fire",
+                                  "nature",
+                                  "frost",
+                                  "arcane",
+                                  "shadow",
+                                  "holy"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "share_pct"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "fight_id",
+                    "dps",
+                    "health",
+                    "armor",
+                    "out_of_mana_s",
+                    "time_to_die_s",
+                    "timeline",
+                    "pulls",
+                    "damage_split"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -721,6 +959,46 @@
               "relic"
             ],
             "description": "An item_id for each of the 17 slots: the slot's worn item or one of its alternatives. Null: the plan puts nothing in that slot."
+          },
+          "reach": {
+            "description": "How far each role's slider can go, 0 to 100, while this plan is the one the sliders pick: the items the sim knows can't reach further with this plan's mix. 100: no limit. The page draws the part past it hatched, says Can reach N with this mix (No limit with this mix at 100), and stops a slider there. Absent or null: not simmed (no reach is shown and the sliders aren't stopped).",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "damage": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "survival": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "healing": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "utility": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "damage",
+                  "survival",
+                  "healing",
+                  "utility"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -863,6 +1141,26 @@
                 },
                 "share_pct": {
                   "type": "number"
+                },
+                "school": {
+                  "description": "The spell school of this part of the damage: physical for melee swings and weapon procs. The page colours the split by it. Absent or null: not simmed (the page colours parts by order and leaves out \"Colour is the spell school.\").",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "physical",
+                        "fire",
+                        "nature",
+                        "frost",
+                        "arcane",
+                        "shadow",
+                        "holy"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [

@@ -16,7 +16,7 @@ import {
 import { itemName, shortSource } from './item-name'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
-import { SLOT_LABELS, SLOTS_IN_ORDER } from './slot-labels'
+import { SLOT_LABELS, slotLabel, SLOTS_IN_ORDER } from './slot-labels'
 
 /** What one slot shows. */
 export type SlotShown = {
@@ -62,21 +62,61 @@ export function emptySlot(slot: Slot): SlotShown {
     }
 }
 
+/** A bag upgrade put on with Wear them: the item, and its EP over worn. */
+type BagOn = { item: Item; gain_ep: number }
+
+function bagOnFor(
+    file: ResultsFile,
+    slot: Slot,
+    bagWorn: number | null
+): BagOn | null {
+    const upgrade = file.bag_upgrades.find(
+        (candidate) =>
+            candidate.slot === slot && candidate.item.item_id === bagWorn
+    )
+    return upgrade ? { item: upgrade.item, gain_ep: upgrade.gain_ep } : null
+}
+
+/**
+ * A slot's entry as the page shows it: the file's, or, with a bag upgrade
+ * for this slot put on, the entry as if the bag item were worn (see
+ * `overBag`).
+ *
+ * @param file - The loaded results file.
+ * @param slot - The slot.
+ * @param bagWorn - The item_id of the bag upgrade put on, or null.
+ * @returns The entry, or undefined when the file has none for the slot.
+ */
+export function slotEntry(
+    file: ResultsFile,
+    slot: Slot,
+    bagWorn: number | null
+): SlotEntry | undefined {
+    const entry = file.slots.find((candidate) => candidate.slot === slot)
+    const bag = bagOnFor(file, slot, bagWorn)
+    return bag && entry ? overBag(entry, bag) : entry
+}
+
 /**
  * A slot with a file loaded, on what you wear or on the plan's gear.
  *
  * @param file - The loaded results file.
  * @param slot - The slot.
  * @param plan - The plan whose gear to show, or null for what you wear.
+ * @param bagWorn - The item_id of a bag upgrade put on (Wear them), or
+ * null. In its slot it stands for what you wear, and EP gains are taken
+ * over it (EP adds up: an alternative's gain less the bag item's).
  * @returns What it shows.
  */
 export function slotShown(
     file: ResultsFile,
     slot: Slot,
-    plan: Plan | null
+    plan: Plan | null,
+    bagWorn: number | null = null
 ): SlotShown {
-    const label = SLOT_LABELS[slot]
-    const entry = file.slots.find((candidate) => candidate.slot === slot)
+    const label = slotLabel(slot, file)
+    const bagOn = bagOnFor(file, slot, bagWorn)
+    const entry = slotEntry(file, slot, bagWorn)
     const named = (item: Item) => itemName(item, slot, file.character.class)
     const shown = plan
         ? planView(entry, plan.gear[slot], named)
@@ -90,9 +130,13 @@ export function slotShown(
         shown.note = 'No trinkets in the data yet'
     const chips: string[] = []
     if (shown.item && shown.item.required_level > file.character.level)
-        chips.push(`Needs level ${shown.item.required_level}`)
-    if (!plan && file.bag_upgrades.some((upgrade) => upgrade.slot === slot))
-        chips.push('Better in bags')
+        chips.push(`needs ${shown.item.required_level}`)
+    if (
+        !plan &&
+        !bagOn &&
+        file.bag_upgrades.some((candidate) => candidate.slot === slot)
+    )
+        chips.push('better in bags')
     const shownName = shown.item ? named(shown.item) : null
     const name = shownName ?? 'Nothing equipped'
     const suffix = shown.sameAsWorn
@@ -108,6 +152,34 @@ export function slotShown(
         chips,
         name: `${label}: ${name}${suffix}`,
     }
+}
+
+/**
+ * A slot's entry as if the bag item were worn: it is what you wear, the
+ * old worn item becomes an alternative at minus the bag item's EP, and every
+ * EP gain is taken over the bag item. DPS gains can't be moved that way, so
+ * they are dropped (not simmed over the bag item).
+ */
+function overBag(entry: SlotEntry, bag: BagOn): SlotEntry {
+    const over = (gain: number | null) =>
+        gain === null ? null : gain - bag.gain_ep
+    const alternatives = entry.alternatives
+        .filter((alternative) => alternative.item.item_id !== bag.item.item_id)
+        .map((alternative) => ({
+            item: alternative.item,
+            gain_ep: over(alternative.gain_ep),
+            gain_dps: null,
+        }))
+    if (entry.worn)
+        alternatives.push({
+            item: entry.worn,
+            gain_ep: -bag.gain_ep,
+            gain_dps: null,
+        })
+    alternatives.sort(
+        (a, b) => (b.gain_ep ?? -Infinity) - (a.gain_ep ?? -Infinity)
+    )
+    return { ...entry, worn: bag.item, alternatives }
 }
 
 type View = Pick<
@@ -144,7 +216,7 @@ function planView(
         return {
             item: worn,
             gain: null,
-            note: worn ? 'Same as what you wear' : undefined,
+            note: worn ? 'Same as you wear' : undefined,
             description: undefined,
             sameAsWorn: worn !== null,
         }

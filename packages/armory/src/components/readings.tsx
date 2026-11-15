@@ -1,12 +1,11 @@
 /**
- * What the sim says (spec section 9, as the approved mockup lays it out):
- * stat blocks in three columns. When the file has results for a short and
- * a long single fight (solo and the 2-minute dungeon fight in the sample)
- * their DPS sit side by side, as the mockup showed; then out of mana,
- * health, armor and time to die for the fight the band below is on. The
- * plan's value is drawn large with its change from what you wear (`+8.7
- * vs what you wear`) in the plan view. Underneath it is still a table (ARIA
- * roles): one row per reading, one column per gear, for a screen reader.
+ * What the sim says (spec section 9), as the approved mockup lays it out:
+ * six readings in three columns. The DPS of a short and a long single fight
+ * (solo and the 2-minute dungeon fight in the sample) whatever fight is
+ * picked, as the mockup keeps them; then `Mana runs out at`, health, armor
+ * and `Time to die vs a level 33 elite` for the fight picked in the fight
+ * settings. Each value is large; in the plan view it is the plan's, with
+ * its change from what you wear under it (`+8.7`), as the mockup shows.
  */
 import { useId } from 'react'
 
@@ -25,20 +24,18 @@ import type { ResultsFile } from '../results-file'
 type Fight = ResultsFile['fights'][number]
 type Result = ResultsFile['results'][number]
 
-/** One column of the table: a heading and the gear it reads. */
-type Column = { heading: string; gear: string }
-
 const NOT_SIMMED = 'Not simmed'
-const PROVISIONAL_TEXT = "The sim isn't checked against real fights yet."
+const PROVISIONAL_TEXT =
+    "The sim hasn't been checked against real fights yet. Treat these as estimates."
+
+/** How a change reads: DPS gains in the accent, the rest in green. */
+type Tone = 'dps' | 'good'
 
 type Reading = {
-    /** The row header's text (what a screen reader and the tests read). */
     label: string
-    /** What shows instead of `label`, when it differs (a fight's label). */
-    shown?: string
-    /** The fight it reads. */
     fightId: string
     unit?: string
+    tone: Tone
     read: (result: Result) => string
     /** The change from what you wear, or null when there is none to say. */
     change: (plan: Result, worn: Result) => string | null
@@ -48,26 +45,24 @@ function seconds(value: Result['out_of_mana_s']): number | null {
     return typeof value === 'number' ? value : null
 }
 
-function inSeconds(change: string | null): string | null {
-    return change ? `${change} s` : null
-}
-
-function dps(fightId: string, label = 'DPS', shown?: string): Reading {
+function dps(fight: Fight): Reading {
     return {
-        label,
-        shown,
-        fightId,
+        label: fight.label,
+        fightId: fight.fight_id,
         unit: 'DPS',
+        tone: 'dps',
         read: (result) => result.dps.toFixed(1),
         change: (plan, worn) => signed(plan.dps - worn.dps, 1),
     }
 }
 
-function forFight(fightId: string): Reading[] {
+function forFight(fight: Fight): Reading[] {
+    const fightId = fight.fight_id
     return [
         {
-            label: 'Out of mana at',
+            label: 'Mana runs out at',
             fightId,
+            tone: 'good',
             read: (result) =>
                 result.out_of_mana_s === null
                     ? NOT_SIMMED
@@ -78,44 +73,45 @@ function forFight(fightId: string): Reading[] {
                 const a = seconds(plan.out_of_mana_s)
                 const b = seconds(worn.out_of_mana_s)
                 if (a === null || b === null) return null
-                return inSeconds(signed(Math.floor(a) - Math.floor(b), 0))
+                const change = signed(Math.floor(a) - Math.floor(b), 0)
+                return change && `${change} s ${a > b ? 'later' : 'sooner'}`
             },
         },
         {
             label: 'Health',
             fightId,
+            tone: 'good',
             read: (result) => String(result.health),
             change: (plan, worn) => signed(plan.health - worn.health, 0),
         },
         {
             label: 'Armor',
             fightId,
+            tone: 'good',
             read: (result) => String(result.armor),
             change: (plan, worn) => signed(plan.armor - worn.armor, 0),
         },
-    ]
-}
-
-function timeToDie(fightId: string): Reading {
-    return {
-        label: 'Time to die',
-        fightId,
-        read: (result) =>
-            result.time_to_die_s === null
-                ? NOT_SIMMED
-                : `${Math.round(result.time_to_die_s)} s`,
-        change: (plan, worn) => {
-            if (plan.time_to_die_s === null || worn.time_to_die_s === null)
-                return null
-            return inSeconds(
-                signed(
+        {
+            label: `Time to die vs a level ${fight.target_level} elite`,
+            fightId,
+            unit: 's',
+            tone: 'good',
+            read: (result) =>
+                result.time_to_die_s === null
+                    ? NOT_SIMMED
+                    : String(Math.round(result.time_to_die_s)),
+            change: (plan, worn) => {
+                if (plan.time_to_die_s === null || worn.time_to_die_s === null)
+                    return null
+                const change = signed(
                     Math.round(plan.time_to_die_s) -
                         Math.round(worn.time_to_die_s),
                     0
                 )
-            )
+                return change && `${change} s`
+            },
         },
-    }
+    ]
 }
 
 /**
@@ -123,7 +119,7 @@ function timeToDie(fightId: string): Reading {
  * single fight (the first in file order on a tie: solo in the sample) and
  * the longest (the 2-minute dungeon fight), when their lengths differ and
  * both have a result for what you wear. Otherwise none, and the readings
- * show the DPS of the fight the band is on.
+ * show the DPS of the fight picked.
  *
  * @param file - The loaded results file.
  * @returns The two fights, or an empty list.
@@ -169,7 +165,7 @@ export function Provisional({ text = PROVISIONAL_TEXT }: { text?: string }) {
                             variant="outline"
                             tabIndex={0}
                             aria-describedby={textId}
-                            className="cursor-help border-dashed font-normal text-muted-foreground"
+                            className="h-auto cursor-help rounded-sm border-dashed px-1.75 py-px text-[0.71875rem] font-normal text-muted-foreground"
                         />
                     }
                 >
@@ -188,229 +184,114 @@ export function Provisional({ text = PROVISIONAL_TEXT }: { text?: string }) {
  * The readings.
  *
  * @param file - The loaded results file.
- * @param fight - The fight the band is on (out of mana, health, armor and
- * time to die read it).
+ * @param fight - The fight picked in the fight settings (mana, health,
+ * armor and time to die read it).
  * @param plan - The plan the sliders pick, or null (no plans).
- * @param planShown - The page shows the plan: its values are drawn large,
- * with their change from what you wear. Otherwise what you wear is large.
+ * @param planShown - The page shows the plan: its values, with their change
+ * from what you wear. Otherwise what you wear's.
+ * @param wornOf - What you wear's result on a fight (with a bag item put
+ * on, its results); the file's worn results by default.
  */
 export function Readings({
     file,
     fight,
     plan,
     planShown,
+    wornOf,
 }: {
     file: ResultsFile
     fight: Fight
     plan: Plan | null
     planShown: boolean
+    wornOf?: (fightId: string) => Result | null
 }) {
     const headingId = useId()
-    const columns: Column[] = [{ heading: 'What you wear', gear: 'worn' }]
-    if (plan) columns.push({ heading: plan.label, gear: plan.plan_id })
-    const large = planShown && plan ? 1 : 0
     const resultOf = (gear: string, fightId: string) =>
         file.results.find(
             (result) => result.gear === gear && result.fight_id === fightId
         ) ?? null
-
+    const wornResult =
+        wornOf ?? ((fightId: string) => resultOf('worn', fightId))
+    const showPlan = planShown && plan !== null
     const anchors = dpsFights(file)
     const readings: Reading[] = [
-        ...(anchors.length > 0
-            ? anchors.map((anchor) =>
-                  dps(anchor.fight_id, `DPS, ${anchor.label}`, anchor.label)
-              )
-            : [dps(fight.fight_id)]),
-        ...forFight(fight.fight_id),
+        ...(anchors.length > 0 ? anchors.map(dps) : [dps(fight)]),
+        ...forFight(fight),
     ]
-    if (
-        columns.some(
-            (column) =>
-                resultOf(column.gear, fight.fight_id)?.time_to_die_s != null
-        )
-    )
-        readings.push(timeToDie(fight.fight_id))
 
     return (
-        <section className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <h2 id={headingId} className="text-lg font-semibold">
+        <section aria-labelledby={headingId}>
+            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <h2 id={headingId} className="text-xl leading-tight">
                     What the sim says
                 </h2>
-                <span className="text-sm text-muted-foreground">
-                    {large === 1
+                <span className="text-[0.8125rem] text-muted-foreground">
+                    {showPlan
                         ? "for the sim's plan, vs what you wear"
                         : 'for what you wear'}
                 </span>
                 {file.provisional && <Provisional />}
             </div>
-            <div
-                role="table"
-                aria-labelledby={headingId}
-                className="flex flex-col gap-2"
+            <dl
+                aria-live="polite"
+                className="grid grid-cols-2 border-t min-[30rem]:grid-cols-3"
             >
-                <div role="rowgroup">
-                    <div
-                        role="row"
-                        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-                    >
-                        <span role="cell" className="sr-only">
-                            Reading
-                        </span>
-                        {columns.map((column, index) => (
-                            <span
-                                key={column.gear}
-                                role="columnheader"
+                {readings.map((reading) => {
+                    const worn = wornResult(reading.fightId)
+                    const planResult = plan
+                        ? resultOf(plan.plan_id, reading.fightId)
+                        : null
+                    const result = showPlan ? planResult : worn
+                    const value = result ? reading.read(result) : NOT_SIMMED
+                    const words = value === NOT_SIMMED || value === 'Never'
+                    const change =
+                        showPlan && planResult && worn
+                            ? reading.change(planResult, worn)
+                            : null
+                    return (
+                        <div
+                            key={reading.label}
+                            data-reading={reading.label}
+                            className="border-b pt-2.5 pr-2 pb-2.25"
+                        >
+                            <dt className="min-h-7.75 text-[0.78125rem] leading-tight text-muted-foreground">
+                                {reading.label}
+                            </dt>
+                            <dd className="mt-0.75">
+                                <span
+                                    data-reading-value
+                                    className={cn(
+                                        'tabular-nums',
+                                        words
+                                            ? 'text-lg'
+                                            : 'text-[1.625rem] leading-tight whitespace-nowrap'
+                                    )}
+                                >
+                                    {value}
+                                </span>
+                                {reading.unit && result && !words && (
+                                    <small className="ml-0.75 text-[0.8125rem] text-muted-foreground">
+                                        {reading.unit}
+                                    </small>
+                                )}
+                            </dd>
+                            <dd
+                                data-reading-change
                                 className={cn(
-                                    'flex items-center gap-1.5',
-                                    index === large && 'text-foreground'
+                                    'min-h-4.5 text-[0.78125rem] font-bold',
+                                    change?.startsWith('-')
+                                        ? 'text-muted-foreground'
+                                        : reading.tone === 'dps'
+                                          ? 'text-chart-1-text'
+                                          : 'text-good-text'
                                 )}
                             >
-                                <span
-                                    aria-hidden="true"
-                                    className={cn(
-                                        'inline-block size-2 rounded-full',
-                                        index === 0
-                                            ? 'bg-muted-foreground/60'
-                                            : 'bg-chart-1'
-                                    )}
-                                />
-                                {column.heading}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-                <div
-                    role="rowgroup"
-                    className="grid grid-cols-2 border-t min-[30rem]:grid-cols-3"
-                >
-                    {readings.map((reading) => {
-                        const wornResult = resultOf('worn', reading.fightId)
-                        const planResult = plan
-                            ? resultOf(plan.plan_id, reading.fightId)
-                            : null
-                        return (
-                            <div
-                                key={reading.label}
-                                role="row"
-                                className="flex min-w-0 flex-col gap-0.5 border-b py-2 pr-2"
-                            >
-                                <span
-                                    role="rowheader"
-                                    className="min-h-8 text-xs leading-snug text-muted-foreground"
-                                >
-                                    {reading.shown ? (
-                                        <>
-                                            <span className="sr-only">
-                                                DPS,{' '}
-                                            </span>
-                                            {reading.shown}
-                                        </>
-                                    ) : (
-                                        reading.label
-                                    )}
-                                </span>
-                                {columns.map((column, index) => (
-                                    <ReadingCell
-                                        key={column.gear}
-                                        reading={reading}
-                                        heading={column.heading}
-                                        result={
-                                            index === 0
-                                                ? wornResult
-                                                : planResult
-                                        }
-                                        large={index === large}
-                                        change={
-                                            index === 1 &&
-                                            large === 1 &&
-                                            planResult &&
-                                            wornResult
-                                                ? reading.change(
-                                                      planResult,
-                                                      wornResult
-                                                  )
-                                                : null
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-                {`Out of mana, health, armor and time to die: ${fight.label}.`}
-            </p>
+                                {change ?? ''}
+                            </dd>
+                        </div>
+                    )
+                })}
+            </dl>
         </section>
-    )
-}
-
-/** One cell: the value, large or as a small line naming its gear. */
-function ReadingCell({
-    reading,
-    heading,
-    result,
-    large,
-    change,
-}: {
-    reading: Reading
-    heading: string
-    result: Result | null
-    large: boolean
-    change: string | null
-}) {
-    const value = result ? reading.read(result) : NOT_SIMMED
-    const words = value === NOT_SIMMED || value === 'Never'
-    return (
-        <span
-            role="cell"
-            className={cn(
-                'flex min-w-0 flex-col',
-                large ? 'order-1' : 'order-2'
-            )}
-        >
-            {/* The small line wraps instead of cutting off ("Not simmed,
-                Max damage" on the first-run sample). */}
-            <span
-                className={cn(
-                    'flex flex-wrap items-baseline gap-x-1',
-                    !large && 'text-xs leading-snug text-muted-foreground'
-                )}
-            >
-                <span
-                    data-reading-value
-                    className={cn(
-                        'tabular-nums',
-                        large &&
-                            (words
-                                ? 'text-lg font-semibold'
-                                : 'text-2xl font-semibold tracking-tight whitespace-nowrap')
-                    )}
-                >
-                    {value}
-                </span>
-                {large && reading.unit && result && (
-                    <span className="text-xs text-muted-foreground">
-                        {reading.unit}
-                    </span>
-                )}
-                {!large && (
-                    <span>
-                        {heading === 'What you wear'
-                            ? 'what you wear'
-                            : heading}
-                    </span>
-                )}
-            </span>
-            {change && (
-                <span className="text-[0.7rem] text-muted-foreground">
-                    <span className="font-semibold text-chart-1-text">
-                        {change}
-                    </span>
-                    {' vs what you wear'}
-                </span>
-            )}
-        </span>
     )
 }

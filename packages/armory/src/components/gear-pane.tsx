@@ -1,21 +1,23 @@
 /**
- * The gear pane: its heading and the switch between what you wear and the
- * plan, every slot around the character (left, right, bottom), and the
- * middle with the figure and the character sheet. Before a file loads the
- * slots are disabled dashed outlines and the middle holds `middle` (the
- * new-visitor card).
+ * The gear pane, as the approved mockup lays it out: its heading row
+ * (`Gear`, which gear is shown, the switch between what you wear and the
+ * plan) and the line under it, every slot around the character (six on the
+ * left with the bag card under them, eight on the right, the weapons along
+ * the bottom), and the middle with the figure and the character sheet.
+ * Before a file loads the slots are disabled dashed outlines and the
+ * middle holds `middle` (the new-visitor card).
  */
 import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 import { formatGain } from '../gains'
+import { exportDay } from '../format'
 import { itemName } from '../item-name'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
-import { BOTTOM_SLOTS, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
+import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
 import { emptySlot, slotShown, upgradeSummary } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
 import { GainPill, SlotButton, type SlotSide } from './slot-button'
@@ -28,7 +30,7 @@ function Figure({ faded }: { faded: boolean }) {
                 viewBox="0 0 150 190"
                 aria-hidden="true"
                 className={cn(
-                    'h-60 w-48 text-foreground/80',
+                    'mt-1 h-67.5 w-52.5 text-foreground/80',
                     faded && 'opacity-30'
                 )}
             >
@@ -64,100 +66,173 @@ function Figure({ faded }: { faded: boolean }) {
                     />
                 </g>
             </svg>
-            <figcaption className="text-xs text-muted-foreground">
+            <figcaption className="-mt-0.5 text-[0.71875rem] text-muted-foreground">
                 Character model goes here
             </figcaption>
         </figure>
     )
 }
 
-function BagUpgrades({ file }: { file: ResultsFile }) {
-    if (file.bag_upgrades.length === 0) return null
+/** Plural slot words read `are in your bags`; the others `is`. */
+const PLURAL_WORDS = /s$/
+
+/**
+ * The bag card under the left column, in the mockup's words: `Berylline
+ * Pads are in your bags, +7.0 EP over the shoulders you wear. No dungeon
+ * needed.` and `Wear them`; once worn, `You wear Berylline Pads now.
+ * Serpent's Shoulders went to your bags.` and `Undo`. `Wear them` shows
+ * only when the file has the bag item's results (`bag_upgrades[].results`).
+ */
+function BagCard({
+    file,
+    bagWorn,
+    onWear,
+    onUndo,
+}: {
+    file: ResultsFile
+    bagWorn: number | null
+    onWear: (itemId: number) => void
+    onUndo: () => void
+}) {
+    const upgrade =
+        file.bag_upgrades.find(
+            (candidate) => candidate.item.item_id === bagWorn
+        ) ?? file.bag_upgrades[0]
+    if (!upgrade) return null
+    const named = (item: Parameters<typeof itemName>[0]) =>
+        itemName(item, upgrade.slot, file.character.class)
+    const worn =
+        file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
+    const word = slotWord(upgrade.slot)
+    const name = named(upgrade.item)
+    const on = bagWorn === upgrade.item.item_id
     return (
-        <ul className="flex flex-col gap-2 pt-1">
-            {file.bag_upgrades.map((upgrade) => (
-                <li
-                    key={`${upgrade.slot}-${upgrade.item.item_id}`}
-                    className="rounded-xl border border-dashed border-chart-2 bg-chart-2/5 px-3 py-2.5 text-sm"
+        <div
+            aria-live="polite"
+            className="mt-auto rounded-xl border border-dashed border-chart-2 bg-chart-2/5 px-3 py-2.5 text-[0.84375rem] text-muted-foreground"
+        >
+            {on ? (
+                <p>
+                    You wear <b className="text-foreground">{name}</b> now.
+                    {worn ? ` ${named(worn)} went to your bags.` : ''}
+                </p>
+            ) : (
+                <p>
+                    <b className="text-foreground">{name}</b>
+                    {` ${PLURAL_WORDS.test(word) ? 'are' : 'is'} in your bags, `}
+                    <span className="font-bold whitespace-nowrap text-gain-text">
+                        {formatGain({ value: upgrade.gain_ep, unit: 'EP' })}
+                    </span>
+                    {` over the ${word} you wear. No dungeon needed.`}
+                </p>
+            )}
+            {(on || upgrade.results) && (
+                <Button
+                    variant="outline"
+                    className="mt-2 h-auto rounded-full px-3 py-1.25 text-[0.84375rem] font-normal"
+                    onClick={() =>
+                        on ? onUndo() : onWear(upgrade.item.item_id)
+                    }
                 >
-                    {`In your bags: ${itemName(upgrade.item, upgrade.slot, file.character.class)}, ${formatGain({ value: upgrade.gain_ep, unit: 'EP' })} over what you wear.`}
-                </li>
-            ))}
-        </ul>
+                    {on ? 'Undo' : 'Wear them'}
+                </Button>
+            )}
+        </div>
     )
 }
 
-/** The heading row: which gear is shown, and the button to switch. */
+/** What one item in a slot is called in the bag card (`the shoulders`). */
+function slotWord(slot: Slot): string {
+    const words: Partial<Record<Slot, string>> = {
+        head: 'helm',
+        neck: 'necklace',
+        shoulder: 'shoulders',
+        back: 'cloak',
+        chest: 'chest piece',
+        wrist: 'bracers',
+        hands: 'gloves',
+        waist: 'belt',
+        legs: 'leggings',
+        feet: 'boots',
+        main_hand: 'weapon',
+        off_hand: 'off hand',
+    }
+    return words[slot] ?? 'item'
+}
+
+/** The heading row and the line under it. */
 function GearHead({
     file,
     plan,
     planShown,
-    switched,
     onShowPlan,
     onShowWorn,
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    switched: boolean
     onShowPlan: () => void
     onShowWorn: () => void
 }) {
-    if (!file)
-        return (
-            <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold">Gear</h2>
-                <p className="text-sm text-muted-foreground">
-                    Every slot fills in from your results file.
-                </p>
-            </div>
-        )
-    const summary = upgradeSummary(file)
+    const status = !file ? (
+        'No character loaded yet.'
+    ) : planShown && plan ? (
+        <>
+            <b className="font-bold text-foreground">The sim&apos;s plan</b>
+            {` for your mix: ${plan.label.toLowerCase()}`}
+        </>
+    ) : (
+        <>
+            <b className="font-bold text-foreground">What you wear</b>
+            {`, from your export of ${exportDay(file.export_saved_at)}`}
+        </>
+    )
+    const summary = file ? upgradeSummary(file) : null
     return (
-        <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-xl font-semibold">
-                    {planShown && plan
-                        ? `Sim's plan: ${plan.label}`
-                        : 'What you wear'}
+        <div>
+            <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
+                <h2 id="gear-heading" className="text-[1.375rem] leading-tight">
+                    Gear
                 </h2>
-                {plan &&
+                <span
+                    aria-live="polite"
+                    className="text-sm text-muted-foreground"
+                >
+                    {status}
+                </span>
+                {file &&
+                    plan &&
                     (planShown ? (
                         <Button
                             variant="outline"
-                            className="ml-auto"
+                            className="ml-auto h-auto rounded-full px-4 py-2"
                             onClick={onShowWorn}
                         >
                             Show what I wear
                         </Button>
                     ) : (
-                        <Button className="ml-auto" onClick={onShowPlan}>
+                        <Button
+                            className="ml-auto h-auto rounded-full bg-gain px-4 py-2 font-bold text-gain-foreground hover:bg-gain/85"
+                            onClick={onShowPlan}
+                        >
                             Show the sim&apos;s plan
                         </Button>
                     ))}
             </div>
-            {planShown ? (
-                <p className="text-sm text-muted-foreground">
-                    Labels show the gain over what you wear. Faded slots stay as
-                    they are.
-                </p>
-            ) : (
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                    {summary.example ? (
-                        <>
-                            <GainPill gain={summary.example} />
-                            {`is the best gain the sim found for that slot. ${bigUpgrades(summary.big)}`}
-                        </>
-                    ) : (
-                        'The sim found no upgrade for any slot.'
-                    )}
-                </p>
-            )}
-            {planShown && switched && (
-                <p className="border-l-2 border-chart-1 pl-2.5 text-sm">
-                    Switched to the sim&apos;s plan for this mix.
-                </p>
-            )}
+            <p className="mt-1 mb-3.5 flex min-h-4.75 flex-wrap items-center gap-x-1.5 text-[0.8125rem] text-muted-foreground">
+                {!file ? (
+                    'Every slot fills in from your export.'
+                ) : planShown ? (
+                    'Labels show the gain over what you wear. Faded slots stay as they are.'
+                ) : summary?.example ? (
+                    <>
+                        <GainPill gain={summary.example} />
+                        {`is the best gain the sim found for that slot. ${bigUpgrades(summary.big)}`}
+                    </>
+                ) : (
+                    'The sim found no upgrade for any slot.'
+                )}
+            </p>
         </div>
     )
 }
@@ -173,83 +248,102 @@ function bigUpgrades(count: number): string {
  * @param file - The loaded file, or null before one loads.
  * @param plan - The plan the sliders pick, or null.
  * @param planShown - True to show the plan's gear instead of what you wear.
- * @param switched - A slider move switched to the plan (says so).
+ * @param bagWorn - The bag upgrade put on with Wear them, or null.
  * @param middle - What sits in the middle before a file loads.
+ * @param onWearBag - Wear them: puts a bag upgrade on.
+ * @param onUndoBag - Undo: takes it off again.
  */
 export function GearPane({
     file,
     plan,
     planShown,
-    switched,
+    bagWorn = null,
     middle,
     onShowPlan,
     onShowWorn,
     onOpenSlot,
+    onWearBag = () => {},
+    onUndoBag = () => {},
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    switched: boolean
+    bagWorn?: number | null
     middle?: ReactNode
     onShowPlan: () => void
     onShowWorn: () => void
     onOpenSlot: (slot: Slot) => void
+    onWearBag?: (itemId: number) => void
+    onUndoBag?: () => void
 }) {
     const shownPlan = planShown ? plan : null
     const slot = (name: Slot, side: SlotSide) => (
         <SlotButton
             key={name}
             side={side}
-            shown={file ? slotShown(file, name, shownPlan) : emptySlot(name)}
+            shown={
+                file
+                    ? slotShown(file, name, shownPlan, bagWorn)
+                    : emptySlot(name)
+            }
             onOpen={file ? onOpenSlot : undefined}
         />
     )
     return (
-        <Card
-            role="region"
-            aria-label="Gear"
-            className="gap-5 rounded-2xl px-5 py-5"
+        <section
+            aria-labelledby="gear-heading"
+            data-slot="gear-pane"
+            className="rounded-[1.125rem] border bg-card px-5.5 pt-4 pb-4.5 text-card-foreground"
         >
             <GearHead
                 file={file}
                 plan={plan}
                 planShown={planShown && plan !== null}
-                switched={switched}
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}
             />
             {/* Ours: the doll lays out by the pane's own width (a container
-                query), not the window's: three columns around the figure
-                from 49rem (two 14-20rem slot columns, 2.25rem gaps for the
-                pills, a middle of at least 16.5rem for the sheet), two
-                columns under the figure from 30rem, else one. */}
+                query), not the window's: the mockup's three columns around
+                the figure (two 16.75rem slot columns, 2.125rem gaps for the
+                pills) from 49rem, two columns under the figure from 30rem,
+                else one. */}
             <div className="@container/doll">
-                <div className="grid grid-cols-1 gap-x-4 gap-y-3 @min-[30rem]/doll:grid-cols-2 @min-[49rem]/doll:grid-cols-[minmax(14rem,20rem)_minmax(16.5rem,1fr)_minmax(14rem,20rem)] @min-[49rem]/doll:gap-x-9">
+                <div className="grid grid-cols-1 gap-x-3.5 gap-y-2.5 @min-[30rem]/doll:grid-cols-2 @min-[49rem]/doll:grid-cols-[16.75rem_minmax(0,1fr)_16.75rem] @min-[49rem]/doll:gap-x-8.5 @min-[49rem]/doll:gap-y-0">
                     <div
                         data-slot="slots-left"
-                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
+                        className="flex flex-col gap-2 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
                     >
                         {LEFT_SLOTS.map((name) => slot(name, 'left'))}
-                        {file && <BagUpgrades file={file} />}
+                        {file && (
+                            <BagCard
+                                file={file}
+                                bagWorn={bagWorn}
+                                onWear={onWearBag}
+                                onUndo={onUndoBag}
+                            />
+                        )}
                     </div>
                     <div
                         data-slot="doll-middle"
-                        className="order-first flex min-w-0 flex-col items-center gap-3 @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
+                        className="order-first flex min-w-0 flex-col items-center @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
                     >
                         <Figure faded={file === null} />
                         {file ? <CharacterSheet file={file} /> : middle}
                     </div>
                     <div
                         data-slot="slots-right"
-                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-2 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:col-start-3 @min-[49rem]/doll:row-start-1"
+                        className="flex flex-col gap-2 @min-[30rem]/doll:col-start-2 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:col-start-3 @min-[49rem]/doll:row-start-1"
                     >
                         {RIGHT_SLOTS.map((name) => slot(name, 'right'))}
                     </div>
-                    <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-4 @min-[30rem]/doll:col-span-2 @min-[49rem]/doll:col-span-3 [&>*]:w-full @min-[30rem]/doll:[&>*]:w-64">
-                        {BOTTOM_SLOTS.map((name) => slot(name, 'bottom'))}
+                    <div
+                        data-slot="slots-bottom"
+                        className="mt-5 flex flex-wrap justify-center gap-x-7.5 gap-y-4 @min-[30rem]/doll:col-span-2 @min-[49rem]/doll:col-span-3 @min-[49rem]/doll:flex-nowrap [&>*]:w-full [&>*]:min-w-0 @min-[30rem]/doll:[&>*]:w-67 @min-[49rem]/doll:[&>*]:shrink"
+                    >
+                        {bottomSlots(file).map((name) => slot(name, 'bottom'))}
                     </div>
                 </div>
             </div>
-        </Card>
+        </section>
     )
 }

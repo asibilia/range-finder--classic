@@ -1,9 +1,11 @@
 /**
- * Where the damage comes from (spec section 9): one 100% stacked bar of
- * what you wear's split, and a legend with each part's swatch and share
- * (`Melee 33%`). Parts are coloured by order: the file has no spell school.
+ * Where the damage comes from (spec section 9), as the mockup draws it:
+ * one 100% stacked bar of what you wear's split, and a two-column legend
+ * with each part's swatch and share (`Melee 33%`). Coloured by spell
+ * school when the file has one for every part (and says so), else by
+ * order.
  */
-import { splitParts } from '../chart-data'
+import { splitHasSchools, splitParts } from '../chart-data'
 import type { ResultsFile } from '../results-file'
 
 type Result = ResultsFile['results'][number]
@@ -14,8 +16,8 @@ export const SPLIT_CHART_NAME = 'Damage split'
 /**
  * The damage split.
  *
- * @param worn - What you wear's result on the fight the band is on.
- * @param fightLabel - That fight's label, for the note under the heading.
+ * @param worn - What you wear's result on the fight it is for.
+ * @param fightLabel - That fight in words, for the note under the heading.
  */
 export function DamageSplit({
     worn,
@@ -26,19 +28,20 @@ export function DamageSplit({
 }) {
     const parts = splitParts(worn)
     return (
-        <section className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold">
+        <section>
+            <h2 className="mb-1.5 text-xl leading-tight">
                 Where the damage comes from
             </h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[0.78125rem] text-muted-foreground">
                 {fightLabel
                     ? `${fightLabel}, what you wear.`
                     : 'What you wear, in this fight.'}
+                {splitHasSchools(worn) && ' Colour is the spell school.'}
             </p>
             <div
                 role="img"
                 aria-label={SPLIT_CHART_NAME}
-                className="flex h-3.5 gap-0.5 overflow-hidden rounded-full"
+                className="mt-2 mb-2.5 flex h-3.5 gap-0.5 overflow-hidden rounded-full"
             >
                 {/* Keys by place: the contract doesn't forbid two parts
                     with one name. */}
@@ -55,18 +58,22 @@ export function DamageSplit({
                     />
                 ))}
             </div>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-0.75 text-[0.8125rem]">
                 {parts.map((part, index) => (
                     <li
                         key={`${index}-${part.name}`}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-1.75"
                     >
                         <span
                             aria-hidden="true"
-                            className="size-2.5 shrink-0 rounded-[3px]"
+                            className="size-2.25 shrink-0 rounded-[2px]"
                             style={{ background: part.color }}
                         />
-                        {part.text}
+                        {part.name}
+                        <span className="ml-auto text-muted-foreground tabular-nums">
+                            <span className="sr-only"> </span>
+                            {`${Math.round(part.share_pct)}%`}
+                        </span>
                     </li>
                 ))}
             </ul>
