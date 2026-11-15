@@ -22,6 +22,7 @@
     "typescript-eslint": "^8.59.0"
   },
   "scripts": {
+    "armory:check-widths": "bun packages/armory/scripts/check-widths.ts",
     "armory:schema": "bun packages/armory/scripts/write-results-schema.ts",
     "build:armory": "cd packages/armory && bun run build",
     "changeset": "bunx changeset",

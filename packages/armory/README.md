@@ -22,7 +22,17 @@ Other scripts, all from the repo root: `bun run test:armory`,
 `bun run type-check:armory`, `bun run build:armory` (writes the gitignored
 `packages/armory/build/`; the page is `build/client/index.html`),
 `bun run preview:armory` (builds, then serves the build the way Cloudflare
-would, in a local Worker) and `bun run armory:schema` (below).
+would, in a local Worker), `bun run armory:schema` (below) and
+`bun run armory:check-widths`.
+
+`armory:check-widths` (`scripts/check-widths.ts`) is a manual check, not part
+of `bun run check`: it serves the build (run `bun run build:armory` first)
+and, through the `playwright-cli` command if you have it (it is not a
+dependency here), measures the page at 390, 1024, 1280, 1366, 1440 and 1920
+px. It fails when the gear pane's middle column, the new-visitor card, the
+sheet or the chart gets too narrow, a slot name is cut off, a gain pill hangs
+past the gear card, or the page scrolls sideways. happy-dom lays nothing out,
+so the tests can't check this. Without `playwright-cli` it says so and exits.
 
 ## The stack
 
@@ -52,7 +62,16 @@ would, in a local Worker) and `bun run armory:schema` (below).
   weights are plain bars. What each chart is given is worked out first, in
   `src/chart-data.ts`, and tested on its own (`tests/chart-data.test.ts`);
   `tests/charts.test.tsx` draws each chart at a fixed size and checks its
-  series.
+  series. The drawings (`fight-plot.tsx`, `pull-plot.tsx`) load lazily
+  (`React.lazy`), so the first load and the new-visitor screen carry no
+  Recharts; a placeholder of the chart's height holds its place.
+- **The layout is the approved mockup's**: the gear with a card on its
+  right (what the sim says, what to gear for, the Talents button) from
+  90rem (1440 px), stacked below that; under both, a full-width band with
+  the fight chart, the damage split and stat weights, and the fight
+  settings (the fight picker). The gear pane's doll lays out by the pane's
+  own width (a container query): three columns around the figure from 49rem,
+  two below, one on a phone.
 - **State as plain actions.** What the page shows for a loaded file (the
   fight, the sliders and so the plan, worn or plan view) is
   `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
@@ -71,7 +90,10 @@ shadcn's neutral tokens (`--background`, `--primary`, `--chart-1` to
 quality). Light and dark follow the system (`prefers-color-scheme`); there is
 no toggle. A redesign is a change to those variables. In the charts,
 `--chart-1` is DPS and the sim's plan, `--chart-2` is mana, and what you wear
-is drawn in `--muted-foreground`. Fonts are the system's; nothing is
+is drawn in `--muted-foreground`. As text (labels, deltas, coloured times)
+those colours are `--chart-1-text`, `--chart-2-text` and `--gain-text`,
+darker in light mode so text reads at 4.5:1; `tests/contrast.test.ts` checks
+the pairs from `src/styles.css`. Fonts are the system's; nothing is
 downloaded.
 
 ### Adding a shadcn component
@@ -114,7 +136,9 @@ report, and the page shows a note that some numbers are made up.
 - `src/sample-truncha.json` (`provisional: true`): made up are the plans other
   than max damage, every result number except the DPS for what he wears (so
   the timelines, the pulls, the out-of-mana times and the times to die), the
-  best talent build, and the Berylline Pads' item id.
+  best talent build, the Berylline Pads' item id, and the chain fight's
+  (`chain-4`) stat weights, copied from the 2-minute dungeon fight's so the
+  page's first screen (it opens on the chain fight) isn't half empty.
 - `src/sample-truncha-first-run.json` is shaped like the runner's first
   output: only the max damage plan, and every `timeline`, `pulls`,
   `time_to_die_s` and `out_of_mana_s` is null (not simmed), as is
