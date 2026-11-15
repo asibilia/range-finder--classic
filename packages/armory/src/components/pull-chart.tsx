@@ -15,21 +15,26 @@ import { PULL_CHART_NAME } from './series-key'
 export { PULL_CHART_NAME }
 
 type Result = ResultsFile['results'][number]
+type Fight = ResultsFile['fights'][number]
 
 const PullPlot = lazy(() => import('./pull-plot'))
 
 /**
  * The pull chart with its sentences.
  *
+ * @param fight - The chain fight: its pull length and setup say which pull
+ * each out-of-mana time falls in.
  * @param worn - What you wear's result on the chain fight.
  * @param plan - The plan's result on it, or null.
  * @param planLabel - The plan's label, for the averages line.
  */
 export function PullChart({
+    fight,
     worn,
     plan,
     planLabel = null,
 }: {
+    fight: Fight
     worn: Result
     plan: Result | null
     planLabel?: string | null
@@ -54,7 +59,7 @@ export function PullChart({
                     {wornManaWords(
                         worn.out_of_mana_s,
                         'keep mana through every pull',
-                        dryPull(worn.pulls)
+                        dryPull(worn.out_of_mana_s, fight)
                     )}
                 </span>
                 {data.withPlan && plan && planPulls && (
@@ -64,7 +69,7 @@ export function PullChart({
                             {planManaWords(
                                 plan.out_of_mana_s,
                                 'keeps mana through every pull',
-                                dryPull(planPulls)
+                                dryPull(plan.out_of_mana_s, fight)
                             )}
                         </span>
                     </>

@@ -384,6 +384,49 @@ describe('the JSON Schema', () => {
     )
 })
 
+/** The descriptions of every property named `key` in the committed JSON Schema. */
+function descriptionsOf(key: string): string[] {
+    const found: string[] = []
+    const walk = (node: unknown) => {
+        if (Array.isArray(node)) return node.forEach(walk)
+        if (node === null || typeof node !== 'object') return
+        const record = node as Record<string, any>
+        const named = record.properties?.[key]
+        if (named?.description) found.push(named.description)
+        Object.values(record).forEach(walk)
+    }
+    walk(JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')))
+    return found
+}
+
+describe('what the contract tells the runner', () => {
+    test('which pull ran dry comes from out_of_mana_s, not a mana_end of 0', () => {
+        const [outOfMana] = descriptionsOf('out_of_mana_s')
+        expect(outOfMana).toContain('(k-1)*(duration_s + gap_s)')
+        expect(outOfMana).toContain(
+            'in the gap after a pull counts as the next pull'
+        )
+        const [manaEnd] = descriptionsOf('mana_end')
+        expect(manaEnd).toContain('can end a little above 0')
+        const [pulls] = descriptionsOf('pulls').filter((d) =>
+            d.startsWith('DPS and mana per pull')
+        )
+        expect(pulls).not.toContain('runs dry when its mana_end is 0')
+        expect(pulls).toContain('out_of_mana_s')
+    })
+
+    test('talents.points is the points spent in the tree', () => {
+        expect(descriptionsOf('points')).toEqual([
+            'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
+        ])
+    })
+
+    test("weapon_type is the game's skill name", () => {
+        const [weaponType] = descriptionsOf('weapon_type')
+        expect(weaponType).toContain('"Two-Handed Axes"')
+    })
+})
+
 describe('talent bounds', () => {
     /** The problems for a sample whose first talent is changed by `change`. */
     function talentProblems(change: (talent: any) => void): string[] {
@@ -504,6 +547,15 @@ describe('duplicates', () => {
                 },
             },
             {
+                rule: 'an item left out twice',
+                message:
+                    'left_out_items: Each left_out_items item_id must be unique.',
+                breakIt: (f) => {
+                    const items = f.left_out_items
+                    items.push(structuredClone(items[0]))
+                },
+            },
+            {
                 rule: 'an item twice in one slot',
                 message:
                     "slots.0.alternatives: An item can appear only once in a slot's alternatives.",
@@ -527,6 +579,67 @@ describe('duplicates', () => {
     })
 })
 
+describe('left_out_items', () => {
+    test('is optional: absent, empty or a list of items all read', () => {
+        for (const items of [
+            undefined,
+            [],
+            [{ item_id: 1, name: 'A', reason: 'B' }],
+        ]) {
+            const f = sample()
+            if (items === undefined) delete f.left_out_items
+            else f.left_out_items = items
+            expect((readResultsFile(f) as any).problems).toBeUndefined()
+        }
+    })
+
+    test('each item is strict: a positive item_id, a name and a reason', () => {
+        const broken: [any, string][] = [
+            [
+                { item_id: 0, name: 'A', reason: 'B' },
+                'left_out_items.0.item_id: ',
+            ],
+            [{ item_id: 1, name: '', reason: 'B' }, 'left_out_items.0.name: '],
+            [
+                { item_id: 1, name: 'A', reason: '' },
+                'left_out_items.0.reason: ',
+            ],
+            [
+                { item_id: 1, name: 'A', reason: 'B', owned: true },
+                'left_out_items.0: ',
+            ],
+        ]
+        for (const [item, prefix] of broken) {
+            const f = sample()
+            f.left_out_items = [item]
+            expect(problemsOf(f).some((p) => p.startsWith(prefix))).toBe(true)
+        }
+    })
+
+    test('the full sample has one made-up item; the first-run sample has none, and neither lists a left-out item in checks', () => {
+        expect(sample().left_out_items).toHaveLength(1)
+        expect(
+            sample('sample-truncha-first-run.json').left_out_items
+        ).toBeUndefined()
+        for (const name of [
+            'sample-truncha.json',
+            'sample-truncha-first-run.json',
+        ])
+            for (const check of sample(name).checks)
+                expect(check.name).not.toMatch(/^left out/i)
+    })
+
+    test('the JSON Schema describes it and each of its fields', () => {
+        const [list] = descriptionsOf('left_out_items')
+        expect(list).toContain('Absent: none recorded.')
+        expect(list).toContain('not in checks')
+        for (const key of ['item_id', 'name', 'reason'])
+            expect(
+                descriptionsOf(key).some((d) => d.startsWith('The left-out'))
+            ).toBe(true)
+    })
+})
+
 describe('the optional mockup fields (schema version 1)', () => {
     test('the full sample has all six; the first-run sample has none of them', () => {
         const full = sample()
@@ -536,7 +649,7 @@ describe('the optional mockup fields (schema version 1)', () => {
             { damage: 45, survival: 100, healing: 48, utility: 61 },
         ])
         expect(full.sheet.weapon_skill).toEqual({
-            weapon_type: 'Axe',
+            weapon_type: 'Two-Handed Axes',
             current: 148,
             max: 150,
         })

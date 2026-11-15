@@ -340,6 +340,7 @@ export function FightBand({
                     </p>
                 ) : fight.kind === 'chain' ? (
                     <PullChart
+                        fight={fight}
                         worn={worn}
                         plan={planResult}
                         planLabel={planLabel}

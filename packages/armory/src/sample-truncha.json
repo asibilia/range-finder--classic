@@ -77,6 +77,13 @@
       "detail": "Matches the game."
     }
   ],
+  "left_out_items": [
+    {
+      "item_id": 99901,
+      "name": "Made-up Hood of Nowhere",
+      "reason": "it has no source and needs level 1"
+    }
+  ],
   "character": {
     "name": "Truncha",
     "level": 30,
@@ -100,7 +107,7 @@
     "dodge_pct": 11.75,
     "melee_hit_pct": 0,
     "weapon_skill": {
-      "weapon_type": "Axe",
+      "weapon_type": "Two-Handed Axes",
       "current": 148,
       "max": 150
     }

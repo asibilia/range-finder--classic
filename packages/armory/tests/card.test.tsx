@@ -191,6 +191,46 @@ describe('the chain fight', () => {
         ).toBeDefined()
     })
 
+    test('a pull that runs dry can end a little above 0 mana: the pull is the one out_of_mana_s falls in', async () => {
+        // As a real file has it: after 0 the sim regains a little, so the
+        // dry pulls end at 28 mana, not 0.
+        const user = await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[]) {
+                    if (result.fight_id !== 'chain-4') continue
+                    for (const pull of result.pulls as Json[])
+                        if (pull.mana_end === 0) pull.mana_end = 28
+                }
+            })
+        )
+        await chooseFight(user, CHAIN)
+
+        // 1:58 and 2:04 fall in pull 3, 100 to 130 s from the start of pull 1.
+        expect(
+            screen.getByText('In what you wear you run dry in pull 3.')
+        ).toBeDefined()
+        expect(
+            screen.getByText("The sim's plan runs dry in pull 3.")
+        ).toBeDefined()
+    })
+
+    test('running dry in the gap after a pull says the next pull', async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[])
+                    if (result.fight_id === 'chain-4' && result.gear === 'worn')
+                        result.out_of_mana_s = 40
+            })
+        )
+        await chooseFight(user, CHAIN)
+
+        // 40 s is in the gap between pull 1 (0 to 30 s) and pull 2 (50 to
+        // 80 s): you start pull 2 with no mana.
+        expect(
+            screen.getByText('In what you wear you run dry in pull 2.')
+        ).toBeDefined()
+    })
+
     test('a chain fight that never runs dry keeps mana through every pull', async () => {
         const user = await openFile(
             variant((file) => {
@@ -600,6 +640,62 @@ describe('how sure the sim is', () => {
         expect(screen.getByText(/^Failed: /).textContent).toBe(
             'Failed: sheet strength. Off by 2.'
         )
+    })
+
+    test('items the sim left out are their own list, apart from the checks, and not counted with them', async () => {
+        const user = await openFile(
+            variant((file) => {
+                file.left_out_items = [
+                    {
+                        item_id: 12345,
+                        name: 'Made-up Helm',
+                        reason: 'it has no source and needs level 1',
+                    },
+                    {
+                        item_id: 23456,
+                        name: 'Made-up Ring',
+                        reason: 'it has no source.',
+                    },
+                ]
+            })
+        )
+        await user.click(screen.getByText('How sure is this?'))
+
+        expect(screen.getByText('14 checks passed, 0 failed.')).toBeDefined()
+        const list = screen.getByRole('list', { name: 'Left out of the plan:' })
+        expect(
+            within(list)
+                .getAllByRole('listitem')
+                .map((item) => item.textContent)
+        ).toEqual([
+            'Made-up Helm (12345), because it has no source and needs level 1.',
+            'Made-up Ring (23456), because it has no source.',
+        ])
+        expect(screen.queryByText(/^(Passed|Failed): Made-up/)).toBeNull()
+    })
+
+    test('with left_out_items absent or empty there is no left-out list', async () => {
+        for (const items of [undefined, []]) {
+            const user = await openFile(
+                variant((file) => {
+                    if (items === undefined) delete file.left_out_items
+                    else file.left_out_items = items
+                })
+            )
+            await user.click(screen.getByText('How sure is this?'))
+            expect(screen.queryByText('Left out of the plan:')).toBeNull()
+            expect(
+                screen.queryByRole('list', { name: 'Left out of the plan:' })
+            ).toBeNull()
+            cleanup()
+        }
+    })
+
+    test('the full sample shows its made-up left-out item', async () => {
+        const user = await openFile(sample)
+        await user.click(screen.getByText('How sure is this?'))
+        const list = screen.getByRole('list', { name: 'Left out of the plan:' })
+        expect(within(list).getAllByRole('listitem')).toHaveLength(1)
     })
 
     test('the sample shows a Provisional marker by the readings and by the fight band, each described by its text', async () => {
