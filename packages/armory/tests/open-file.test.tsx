@@ -138,7 +138,7 @@ describe('the new-visitor state', () => {
         ).toHaveLength(17)
 
         expect(screen.queryByRole('button', { name: /^Wishlist/ })).toBeNull()
-        expect(screen.queryByRole('button', { name: 'Talents' })).toBeNull()
+        expect(screen.queryByRole('button', { name: /^Talents/ })).toBeNull()
         expect(
             screen.queryByRole('button', { name: 'Export Pawn string' })
         ).toBeNull()

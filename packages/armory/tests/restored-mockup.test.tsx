@@ -9,6 +9,7 @@
 import './dom'
 import {
     chooseFight,
+    description,
     openFile,
     openSample,
     readingChange,
@@ -23,15 +24,8 @@ import { initials } from '../src/components/talents-dialog'
 
 const SHOW_PLAN = "Show the sim's plan"
 const DUNGEON_LONG = 'Dungeon, 2 min, level 33'
-
-/** The text of the elements an element's `aria-describedby` names. */
-function description(element: Element): string {
-    return (element.getAttribute('aria-describedby') ?? '')
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((id) => document.getElementById(id)?.textContent ?? '')
-        .join(' ')
-}
+const DPS_SOLO = 'DPS, Solo, 30 s, level 31'
+const DPS_LONG = `DPS, ${DUNGEON_LONG}`
 
 afterEach(() => {
     cleanup()
@@ -65,7 +59,7 @@ describe('the gear pane', () => {
         expect(
             screen
                 .getByRole('button', {
-                    name: 'Relic: Item 263412, same as what you wear',
+                    name: 'Relic: Unnamed totem (263412), same as what you wear',
                 })
                 .getAttribute('data-same')
         ).toBe('true')
@@ -84,7 +78,9 @@ describe('the gear pane', () => {
             name: 'Hands: Gloves of the Greatfather, +21.6 EP',
         })
         expect(within(hands).getByText('Needs level 33')).toBeDefined()
-        expect(description(hands)).toBe('Needs level 33')
+        expect(description(hands)).toBe(
+            'Needs level 33 Replaces Toughened Leather Gloves'
+        )
     })
 
     test('the shoulder slot says a better one is in your bags, on what you wear only', async () => {
@@ -115,11 +111,12 @@ describe('the readings', () => {
     test("the plan view adds each reading's change from what you wear", async () => {
         const user = await openSample()
         await chooseFight(user, DUNGEON_LONG)
-        expect(readingChange('DPS')).toBeNull()
+        expect(readingChange(DPS_LONG)).toBeNull()
 
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
-        expect(readingChange('DPS')).toBe('+8.7 vs what you wear')
+        expect(readingChange(DPS_SOLO)).toBe('+14.7 vs what you wear')
+        expect(readingChange(DPS_LONG)).toBe('+8.7 vs what you wear')
         expect(readingChange('Health')).toBe('-65 vs what you wear')
         expect(readingChange('Armor')).toBe('+58 vs what you wear')
         expect(readingChange('Out of mana at')).toBe('+9 s vs what you wear')
@@ -141,7 +138,11 @@ describe('the readings', () => {
             })
         )
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
-        expect(readingChange('DPS')).toBeNull()
+        // The chain fight's readings: the plan has no result there.
+        expect(readingChange('Out of mana at')).toBeNull()
+        expect(readingChange('Health')).toBeNull()
+        // Solo and the 2-minute fight are still simmed for the plan.
+        expect(readingChange(DPS_LONG)).toBe('+8.7 vs what you wear')
     })
 })
 
@@ -165,7 +166,7 @@ describe('the item picker', () => {
 describe('the talents', () => {
     test('each talent tile shows its initials', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: 'Talents' }))
+        await user.click(screen.getByRole('button', { name: /^Talents: / }))
         const dialog = screen.getByRole('dialog', { name: 'Talents' })
         const flurry = within(dialog).getByLabelText(
             'Flurry, 5/5, changed from 4/5'
@@ -197,5 +198,80 @@ describe('the new visitor', () => {
         expect(
             screen.queryByRole('complementary', { name: "The sim's numbers" })
         ).toBeNull()
+    })
+
+    test('the card shows dimmed and inert, as the mockup does: it says what unlocks, and nothing in it can be used', () => {
+        renderApp()
+
+        const locked = screen.getByRole('region', {
+            name: 'What unlocks with a character',
+        })
+        expect(
+            within(locked).getByText('These unlock once a character is loaded.')
+        ).toBeDefined()
+        const body = locked.querySelector('[data-slot="locked-body"]')
+        expect(body?.hasAttribute('inert')).toBe(true)
+        expect(body?.getAttribute('aria-hidden')).toBe('true')
+        expect(body?.className).toContain('opacity-40')
+        expect(
+            body?.querySelectorAll('button, input, [tabindex]')
+        ).toHaveLength(0)
+        // Its placeholders are hidden from a screen reader.
+        expect(within(locked).queryAllByRole('button')).toHaveLength(0)
+        expect(within(locked).queryAllByRole('slider')).toHaveLength(0)
+        expect(
+            screen.queryByRole('region', { name: 'Across the fight' })
+        ).toBeNull()
+    })
+})
+
+describe('the mockup details', () => {
+    test('unnamed items read as the mockup names them, in the slots, the picker and the bags line', async () => {
+        const user = await openSample()
+
+        for (const name of [
+            'Back: Unnamed cloak (279848), +6.2 EP',
+            'Wrist: Unnamed bracers (279875), +16.8 EP',
+            'Feet: Unnamed boots (251963), +18.7 EP',
+            'Finger 2: Unnamed ring (6748), +19.2 EP',
+            'Relic: Unnamed totem (263412)',
+        ])
+            expect(screen.getByRole('button', { name })).toBeDefined()
+        expect(screen.queryByText(/^Item \d+$/)).toBeNull()
+
+        await user.click(screen.getByRole('button', { name: /^Back: / }))
+        const dialog = screen.getByRole('dialog', { name: 'Back' })
+        expect(within(dialog).getByText('Unnamed cloak (279848)')).toBeDefined()
+    })
+
+    test('empty trinket slots say there are no trinkets in the data yet; the empty off hand says nothing more', async () => {
+        await openSample()
+        for (const name of ['Trinket 1', 'Trinket 2'])
+            expect(
+                within(
+                    screen.getByRole('button', {
+                        name: `${name}: Nothing equipped`,
+                    })
+                ).getByText('No trinkets in the data yet')
+            ).toBeDefined()
+        expect(
+            within(
+                screen.getByRole('button', {
+                    name: 'Off hand: Nothing equipped',
+                })
+            ).queryByText('No trinkets in the data yet')
+        ).toBeNull()
+    })
+
+    test('the fight band is headed Across the fight, the fight, and Provisional', async () => {
+        const user = await openSample()
+        await chooseFight(user, DUNGEON_LONG)
+        const band = screen.getByRole('region', { name: 'Across the fight' })
+        const heading = within(band).getByRole('heading', {
+            name: 'Across the fight',
+        })
+        expect(heading.parentElement?.textContent).toBe(
+            `Across the fight·${DUNGEON_LONG}·Provisional${'Sim numbers are estimates until matched to real fights.'}`
+        )
     })
 })

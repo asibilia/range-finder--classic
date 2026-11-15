@@ -7,6 +7,7 @@
 import './dom'
 import {
     chooseFight,
+    sentence,
     fightOptions,
     fightSelect,
     openFile,
@@ -17,7 +18,7 @@ import {
 } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 
 import firstRun from '../src/sample-truncha-first-run.json'
 import sample from '../src/sample-truncha.json'
@@ -28,6 +29,8 @@ const SOLO = 'Solo, 30 s, level 31'
 const DUNGEON_SHORT = 'Dungeon, 30 s, level 32'
 const DUNGEON_LONG = 'Dungeon, 2 min, level 33'
 const CHAIN = 'Chain, 4 pulls 20 s apart, level 33'
+const DPS_SOLO = `DPS, ${SOLO}`
+const DPS_LONG = `DPS, ${DUNGEON_LONG}`
 const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
 const PROVISIONAL_TEXT = "The sim isn't checked against real fights yet."
@@ -179,19 +182,48 @@ describe('the readings table', () => {
 
         await chooseFight(user, DUNGEON_LONG)
 
-        expect(readingRow('DPS')).toEqual(['75.4', '84.1'])
+        expect(readingRow(DPS_SOLO)).toEqual(['103.7', '118.4'])
+        expect(readingRow(DPS_LONG)).toEqual(['75.4', '84.1'])
         expect(readingRow('Health')).toEqual(['1375', '1310'])
         expect(readingRow('Armor')).toEqual(['952', '1010'])
         expect(readingRow('Out of mana at')).toEqual(['0:48', '0:57'])
         expect(readingRow('Time to die')).toEqual(['34 s', '31 s'])
     })
 
-    test('choosing the solo fight changes DPS and reads Never for out of mana', async () => {
+    test('solo and 2-minute DPS sit side by side on every fight, as in the mockup; out of mana follows the fight', async () => {
         const user = await openFile(sample)
+
+        // Opens on the chain fight: its out of mana, the two DPS anyway.
+        expect(readingRow(DPS_SOLO)).toEqual(['103.7', '118.4'])
+        expect(readingRow(DPS_LONG)).toEqual(['75.4', '84.1'])
+        expect(readingRow('DPS')).toBeNull()
+        expect(readingRow('Out of mana at')).toEqual(['1:58', '2:04'])
+        expect(
+            screen.getByText(
+                `Out of mana, health, armor and time to die: ${CHAIN}.`
+            )
+        ).toBeDefined()
+
         await chooseFight(user, SOLO)
 
-        expect(readingRow('DPS')).toEqual(['103.7', '118.4'])
+        expect(readingRow(DPS_SOLO)).toEqual(['103.7', '118.4'])
+        expect(readingRow(DPS_LONG)).toEqual(['75.4', '84.1'])
         expect(readingRow('Out of mana at')).toEqual(['Never', 'Never'])
+    })
+
+    test("a file without a short and a long single fight reads one DPS, the fight's", async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const fight of file.fights as Json[])
+                    if (fight.kind === 'single') fight.duration_s = 30
+            })
+        )
+
+        expect(readingRow(DPS_SOLO)).toBeNull()
+        expect(readingRow('DPS')).toEqual(['82.0', '96.8'])
+
+        await chooseFight(user, DUNGEON_SHORT)
+        expect(readingRow('DPS')).toEqual(['97.3', '111.2'])
     })
 
     test('a null time to die beside one that is simmed reads Not simmed', async () => {
@@ -213,7 +245,7 @@ describe('the readings table', () => {
     test('the first-run sample has no Time to die row and no 2-minute timeline', async () => {
         const user = await openFile(firstRun)
 
-        expect(readingRow('DPS')).not.toBeNull()
+        expect(readingRow(DPS_SOLO)).not.toBeNull()
         expect(readingRow('Time to die')).toBeNull()
 
         await chooseFight(user, DUNGEON_LONG)
@@ -283,7 +315,7 @@ describe('a file with no plans', () => {
         expect(
             screen.queryByRole('columnheader', { name: 'Max damage' })
         ).toBeNull()
-        expect(readingRow('DPS')).toEqual(['75.4'])
+        expect(readingRow(DPS_LONG)).toEqual(['75.4'])
         expect(chart(TIME_CHART)).not.toBeNull()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()
@@ -314,10 +346,13 @@ describe('the fight chart', () => {
         await chooseFight(user, DUNGEON_LONG)
 
         expect(
-            screen.getByText('In what you wear you run out of mana at 0:48.')
+            screen.getByText(
+                sentence('In what you wear you run out of mana at 0:48.')
+            )
         ).toBeDefined()
+        // The mockup's words, the plan compared with what you wear.
         expect(
-            screen.getByText("The sim's plan runs out at 0:57.")
+            screen.getByText(sentence("The sim's plan holds out to 0:57."))
         ).toBeDefined()
     })
 
@@ -424,8 +459,26 @@ describe('the damage split and stat weights', () => {
         expect(page).toMatch(/Mana per 5 s\s*:?\s*3\.89(?!\d)/)
     })
 
-    test('a fight with no stat weights says so', async () => {
+    test("the sample opens on the chain fight with its (made-up) weights, so the first screen isn't half empty", async () => {
         await openFile(sample)
+
+        expect(shownFight()).toBe(CHAIN)
+        expect(screen.queryByText('No stat weights for this fight.')).toBeNull()
+        expect(
+            screen
+                .getByLabelText('Stat weights')
+                .querySelectorAll('[data-bar="fight"]')
+        ).toHaveLength(9)
+    })
+
+    test('a fight with no stat weights says so (a copy without the chain weights)', async () => {
+        await openFile(
+            variant((file) => {
+                file.stat_weights = (
+                    file.stat_weights as { fight_id: string }[]
+                ).filter((entry) => entry.fight_id !== 'chain-4')
+            })
+        )
 
         expect(
             screen.getByText('No stat weights for this fight.')
@@ -463,19 +516,23 @@ describe('how sure the sim is', () => {
         )
     })
 
-    test('the sample shows the Provisional marker described by its text', async () => {
+    test('the sample shows a Provisional marker by the readings and by the fight band, each described by its text', async () => {
         await openFile(sample)
 
-        const marker = screen.getByText('Provisional')
-        const described = marker.closest('[aria-describedby]')
-        expect(described).not.toBeNull()
-        const ids = (described?.getAttribute('aria-describedby') ?? '').split(
-            /\s+/
-        )
-        const text = ids
-            .map((id) => document.getElementById(id)?.textContent ?? '')
-            .join(' ')
-        expect(text).toContain(PROVISIONAL_TEXT)
+        const texts = screen.getAllByText('Provisional').map((marker) => {
+            const described = marker.closest('[aria-describedby]')
+            expect(described).not.toBeNull()
+            return (described?.getAttribute('aria-describedby') ?? '')
+                .split(/\s+/)
+                .map((id) => document.getElementById(id)?.textContent ?? '')
+                .join(' ')
+        })
+        expect(texts).toEqual([
+            PROVISIONAL_TEXT,
+            'Sim numbers are estimates until matched to real fights.',
+        ])
+        const band = screen.getByRole('region', { name: 'Across the fight' })
+        expect(within(band).getByText('Provisional')).toBeDefined()
     })
 
     test('a copy with provisional false shows no marker', async () => {

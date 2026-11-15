@@ -1,13 +1,13 @@
 /**
- * The card on the right of the gear: the fight picker and its settings,
- * what the sim says, the fight or pull chart with its sentences, the role
- * sliders, where the damage comes from, the stat weights and how sure the
- * sim is. It shows what it is given; the fight is picked through
- * `onPickFight` (the `pick-fight` action).
+ * The band under the gear, full width, as the approved mockup lays it out:
+ * across the fight (the fight or pull chart with its sentences), where the
+ * damage comes from and the stat weights, and the fight settings (the
+ * fight picker, its settings read only, and how sure the sim is). Three
+ * columns from 90rem, two below (the chart across both), one on a phone.
+ * The fight is picked through `onPickFight` (the `pick-fight` action).
  */
-import { type ReactNode, useId } from 'react'
+import { useId } from 'react'
 
-import { Card, CardContent } from '@/components/ui/card'
 import {
     Select,
     SelectContent,
@@ -16,7 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 
 import { minutesSeconds } from '../format'
 import type { Plan } from '../plans'
@@ -25,7 +24,7 @@ import { Checks } from './checks'
 import { DamageSplit } from './damage-split'
 import { FightChart } from './fight-chart'
 import { PullChart } from './pull-chart'
-import { type ReadingColumn, Readings } from './readings'
+import { Provisional } from './readings'
 import { StatWeights } from './stat-weights'
 
 type Fight = ResultsFile['fights'][number]
@@ -51,7 +50,7 @@ function FightSettings({ fight }: { fight: Fight }) {
             `Target armor ${setup.target_armor}`
         )
     return (
-        <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <ul className="flex flex-col gap-0.5 text-sm text-muted-foreground">
             {lines.map((line) => (
                 <li key={line}>{line}</li>
             ))}
@@ -102,31 +101,30 @@ function FightPicker({
     )
 }
 
+/** What the band's Provisional marker says. */
+const BAND_PROVISIONAL_TEXT =
+    'Sim numbers are estimates until matched to real fights.'
+
 /**
- * The card.
+ * The band.
  *
  * @param file - The loaded results file.
  * @param plan - The plan the sliders pick, or null (no plans).
- * @param fightId - The fight the card is on.
- * @param planShown - The gear shows the plan (its readings are drawn large).
- * @param sliders - The role sliders, under the chart (when the file has plans).
+ * @param fightId - The fight the band is on.
  * @param onPickFight - Another fight was picked.
  */
-export function FightCard({
+export function FightBand({
     file,
     plan,
     fightId,
-    planShown,
-    sliders,
     onPickFight,
 }: {
     file: ResultsFile
     plan: Plan | null
     fightId: string
-    planShown: boolean
-    sliders?: ReactNode
     onPickFight: (fightId: string) => void
 }) {
+    const headingId = useId()
     const fight =
         file.fights.find((entry) => entry.fight_id === fightId) ??
         file.fights[0]
@@ -138,50 +136,73 @@ export function FightCard({
         ) ?? null
     const worn = resultFor('worn')
     const planResult = plan ? resultFor(plan.plan_id) : null
-    const columns: ReadingColumn[] = [
-        { heading: 'What you wear', result: worn },
-    ]
-    if (plan) columns.push({ heading: plan.label, result: planResult })
+    const planLabel = plan?.label ?? null
 
     return (
-        <aside aria-label="The sim's numbers">
-            <Card className="gap-0 rounded-2xl py-5">
-                <CardContent className="flex flex-col gap-5 px-5">
-                    <div className="flex flex-col gap-2">
-                        <FightPicker
-                            fights={file.fights}
-                            fightId={fight.fight_id}
-                            onPick={onPickFight}
-                        />
-                        <FightSettings fight={fight} />
-                    </div>
-                    <Readings
-                        columns={columns}
-                        provisional={file.provisional}
-                        planShown={planShown}
-                    />
-                    {worn &&
-                        (fight.kind === 'chain' ? (
-                            <PullChart worn={worn} plan={planResult} />
-                        ) : (
-                            <FightChart
-                                fight={fight}
-                                worn={worn}
-                                plan={planResult}
-                            />
-                        ))}
-                    {sliders && (
+        <section
+            aria-labelledby={headingId}
+            data-slot="fight-band"
+            className="grid gap-x-9 gap-y-8 border-t pt-6 md:grid-cols-2 min-[90rem]:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)_minmax(0,0.9fr)]"
+        >
+            <div
+                data-slot="fight-band-chart"
+                className="flex min-w-0 flex-col gap-2 md:col-span-2 min-[90rem]:col-span-1"
+            >
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <h2 id={headingId} className="text-lg font-semibold">
+                        Across the fight
+                    </h2>
+                    <span aria-hidden="true" className="text-muted-foreground">
+                        ·
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                        {fight.label}
+                    </span>
+                    {file.provisional && (
                         <>
-                            <Separator />
-                            {sliders}
+                            <span
+                                aria-hidden="true"
+                                className="text-muted-foreground"
+                            >
+                                ·
+                            </span>
+                            <Provisional text={BAND_PROVISIONAL_TEXT} />
                         </>
                     )}
-                    <Separator />
-                    {worn && <DamageSplit worn={worn} />}
-                    <StatWeights file={file} fightId={fight.fight_id} />
-                    <Checks checks={file.checks} />
-                </CardContent>
-            </Card>
-        </aside>
+                </div>
+                {!worn ? (
+                    <p className="text-sm text-muted-foreground">
+                        Not simmed for what you wear.
+                    </p>
+                ) : fight.kind === 'chain' ? (
+                    <PullChart
+                        worn={worn}
+                        plan={planResult}
+                        planLabel={planLabel}
+                    />
+                ) : (
+                    <FightChart
+                        fight={fight}
+                        worn={worn}
+                        plan={planResult}
+                        planLabel={planLabel}
+                    />
+                )}
+            </div>
+            <div className="flex min-w-0 flex-col gap-8">
+                {worn && <DamageSplit worn={worn} fightLabel={fight.label} />}
+                <StatWeights file={file} fightId={fight.fight_id} />
+            </div>
+            <div className="flex min-w-0 flex-col gap-4">
+                <h2 className="text-lg font-semibold">Fight settings</h2>
+                <FightPicker
+                    fights={file.fights}
+                    fightId={fight.fight_id}
+                    onPick={onPickFight}
+                />
+                <FightSettings fight={fight} />
+                <Checks checks={file.checks} />
+            </div>
+        </section>
     )
 }

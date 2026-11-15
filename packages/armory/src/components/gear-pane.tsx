@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 import { formatGain } from '../gains'
+import { itemName } from '../item-name'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { BOTTOM_SLOTS, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
@@ -73,13 +74,13 @@ function Figure({ faded }: { faded: boolean }) {
 function BagUpgrades({ file }: { file: ResultsFile }) {
     if (file.bag_upgrades.length === 0) return null
     return (
-        <ul className="mt-auto flex flex-col gap-2 pt-2">
+        <ul className="flex flex-col gap-2 pt-1">
             {file.bag_upgrades.map((upgrade) => (
                 <li
                     key={`${upgrade.slot}-${upgrade.item.item_id}`}
                     className="rounded-xl border border-dashed border-chart-2 bg-chart-2/5 px-3 py-2.5 text-sm"
                 >
-                    {`In your bags: ${upgrade.item.name}, ${formatGain({ value: upgrade.gain_ep, unit: 'EP' })} over what you wear.`}
+                    {`In your bags: ${itemName(upgrade.item, upgrade.slot, file.character.class)}, ${formatGain({ value: upgrade.gain_ep, unit: 'EP' })} over what you wear.`}
                 </li>
             ))}
         </ul>
@@ -217,20 +218,36 @@ export function GearPane({
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}
             />
-            <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,15rem)] xl:grid-cols-[minmax(0,15.5rem)_minmax(0,1fr)_minmax(0,15.5rem)]">
-                <div className="flex flex-col gap-2">
-                    {LEFT_SLOTS.map((name) => slot(name, 'left'))}
-                    {file && <BagUpgrades file={file} />}
-                </div>
-                <div className="flex min-w-0 flex-col items-center gap-3 md:row-start-1 md:col-start-2">
-                    <Figure faded={file === null} />
-                    {file ? <CharacterSheet file={file} /> : middle}
-                </div>
-                <div className="flex flex-col gap-2">
-                    {RIGHT_SLOTS.map((name) => slot(name, 'right'))}
-                </div>
-                <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-4 md:col-span-3 [&>*]:w-full sm:[&>*]:w-64">
-                    {BOTTOM_SLOTS.map((name) => slot(name, 'bottom'))}
+            {/* Ours: the doll lays out by the pane's own width (a container
+                query), not the window's: three columns around the figure
+                from 49rem (two 14-20rem slot columns, 2.25rem gaps for the
+                pills, a middle of at least 16.5rem for the sheet), two
+                columns under the figure from 30rem, else one. */}
+            <div className="@container/doll">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 @min-[30rem]/doll:grid-cols-2 @min-[49rem]/doll:grid-cols-[minmax(14rem,20rem)_minmax(16.5rem,1fr)_minmax(14rem,20rem)] @min-[49rem]/doll:gap-x-9">
+                    <div
+                        data-slot="slots-left"
+                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
+                    >
+                        {LEFT_SLOTS.map((name) => slot(name, 'left'))}
+                        {file && <BagUpgrades file={file} />}
+                    </div>
+                    <div
+                        data-slot="doll-middle"
+                        className="order-first flex min-w-0 flex-col items-center gap-3 @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
+                    >
+                        <Figure faded={file === null} />
+                        {file ? <CharacterSheet file={file} /> : middle}
+                    </div>
+                    <div
+                        data-slot="slots-right"
+                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-2 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:col-start-3 @min-[49rem]/doll:row-start-1"
+                    >
+                        {RIGHT_SLOTS.map((name) => slot(name, 'right'))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-4 @min-[30rem]/doll:col-span-2 @min-[49rem]/doll:col-span-3 [&>*]:w-full @min-[30rem]/doll:[&>*]:w-64">
+                        {BOTTOM_SLOTS.map((name) => slot(name, 'bottom'))}
+                    </div>
                 </div>
             </div>
         </Card>

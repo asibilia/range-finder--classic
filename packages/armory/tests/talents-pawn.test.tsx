@@ -16,7 +16,7 @@ const DUNGEON_PAWN = sample.pawn[1]
 if (!SOLO_PAWN || !DUNGEON_PAWN) throw new Error('the sample has no pawn')
 
 async function openTalents(user: User): Promise<HTMLElement> {
-    await user.click(screen.getByRole('button', { name: 'Talents' }))
+    await user.click(screen.getByRole('button', { name: /^Talents: / }))
     return screen.getByRole('dialog', { name: 'Talents' })
 }
 
@@ -93,6 +93,22 @@ afterEach(() => {
 })
 
 describe('the talents dialog', () => {
+    test('the Talents button says the build and points, as the mockup does', async () => {
+        await openSample()
+        expect(
+            screen.getByRole('button', {
+                name: 'Talents: best simmed, 21 points',
+            })
+        ).toBeDefined()
+        cleanup()
+        await openFile(firstRun)
+        expect(
+            screen.getByRole('button', {
+                name: 'Talents: your build, 21 points',
+            })
+        ).toBeDefined()
+    })
+
     test('Talents opens a dialog with 21 points and a Build radio group on Best simmed', async () => {
         const user = await openSample()
         const dialog = await openTalents(user)
@@ -261,7 +277,7 @@ describe('the Pawn strings dialog', () => {
 describe('keyboard', () => {
     test('the talents dialog takes focus, keeps Tab inside, closes on Escape and gives focus back', async () => {
         const user = await openSample()
-        const opener = screen.getByRole('button', { name: 'Talents' })
+        const opener = screen.getByRole('button', { name: /^Talents: / })
         const dialog = await openTalents(user)
 
         expect(document.activeElement).toBe(

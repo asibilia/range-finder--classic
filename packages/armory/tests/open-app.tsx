@@ -10,6 +10,11 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { App } from '../src/app'
+// The chart drawings are lazy in the page (so Recharts isn't in its first
+// load). Loaded here up front, so a test doesn't pay for Recharts inside
+// its own time limit; `lazy()` then resolves from the module cache.
+import '../src/components/fight-plot'
+import '../src/components/pull-plot'
 import sample from '../src/sample-truncha.json'
 
 export type Json = Record<string, unknown>
@@ -30,6 +35,22 @@ export function jsonFile(data: unknown, name = 'truncha.json'): File {
     return new File([JSON.stringify(data)], name, { type: 'application/json' })
 }
 
+/**
+ * Waits for the lazily loaded chart drawings (Recharts) to replace their
+ * placeholders.
+ */
+export async function chartsLoaded(): Promise<void> {
+    // A plain error: a failed expect() would print the whole element on
+    // every retry, which is slow on this page.
+    await waitFor(
+        () => {
+            if (document.querySelector('[data-chart-loading]'))
+                throw new Error('a chart is still loading')
+        },
+        { timeout: 4000 }
+    )
+}
+
 /** Renders the page with nothing loaded. */
 export function renderApp(): User {
     render(<App />)
@@ -48,6 +69,7 @@ export async function openSample(): Promise<User> {
         screen.getByRole('button', { name: 'Look at a sample character' })
     )
     await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+    await chartsLoaded()
     return user
 }
 
@@ -63,6 +85,7 @@ export async function openFile(
     const user = renderApp()
     await pick(user, jsonFile(data))
     await screen.findByRole('heading', { level: 1, name: character })
+    await chartsLoaded()
     return user
 }
 
@@ -129,4 +152,24 @@ export async function chooseFight(user: User, label: string): Promise<void> {
     await user.click(fightSelect())
     await user.click(await screen.findByRole('option', { name: label }))
     await waitFor(() => expect(shownFight()).toBe(label))
+    await chartsLoaded()
+}
+
+/** The text of the elements an element's `aria-describedby` names. */
+export function description(element: Element): string {
+    return (element.getAttribute('aria-describedby') ?? '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent ?? '')
+        .join(' ')
+}
+
+/**
+ * A text matcher for a sentence split across elements (its times are
+ * coloured spans): the innermost element whose whole text is `text`.
+ */
+export function sentence(text: string) {
+    return (_: string, element: Element | null): boolean =>
+        element?.textContent === text &&
+        [...element.children].every((child) => child.textContent !== text)
 }

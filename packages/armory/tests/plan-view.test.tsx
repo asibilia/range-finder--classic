@@ -5,6 +5,8 @@
 import './dom'
 import {
     chooseFight,
+    sentence,
+    description,
     openFile,
     openSample,
     readingRow,
@@ -72,12 +74,12 @@ describe('the plan view', () => {
         expect(within(slot('Legs')).getByText('Ferine Leggings')).toBeDefined()
     })
 
-    test('in the plan view Relic is the same as what you wear and Legs replaces the worn legguards', async () => {
+    test('in the plan view Relic is the same as what you wear, and Legs shows where Ferine Leggings come from and says what it replaces', async () => {
         const user = await openSample()
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
         const relic = screen.getByRole('button', {
-            name: 'Relic: Item 263412, same as what you wear',
+            name: 'Relic: Unnamed totem (263412), same as what you wear',
         })
         expect(within(relic).getByText('Same as what you wear')).toBeDefined()
         expect(within(relic).queryByText(/(EP|DPS)$/)).toBeNull()
@@ -85,9 +87,18 @@ describe('the plan view', () => {
         const legs = screen.getByRole('button', {
             name: 'Legs: Ferine Leggings, +23.6 EP',
         })
+        // The line under the name is the new item's source, as the mockup
+        // shows it (`Drop: ` left off); what it replaces is the button's
+        // description, read out after its name, and not shown.
+        const note = within(legs).getByText(
+            'Agathelos the Raging, Razorfen Kraul'
+        )
+        expect(note.className).not.toContain('sr-only')
+        expect(description(legs)).toBe("Replaces Trapper's Leather Legguards")
         expect(
             within(legs).getByText("Replaces Trapper's Leather Legguards")
-        ).toBeDefined()
+                .className
+        ).toContain('sr-only')
     })
 
     test('a file with no plans has no plan button and no What to gear for', async () => {
@@ -127,7 +138,7 @@ describe('the plan view', () => {
         expect(fromPlan.textContent).toBe(wornText)
     })
 
-    test('a plan item in a slot with nothing worn reads Replaces nothing', async () => {
+    test('a plan item in a slot with nothing worn is described as Replaces nothing', async () => {
         const withTrinket = variant((file) => {
             const slots = file.slots as {
                 slot: string
@@ -150,12 +161,13 @@ describe('the plan view', () => {
 
         const trinket = slot('Trinket 1')
         expect(within(trinket).getByText('Test Trinket')).toBeDefined()
-        expect(within(trinket).getByText('Replaces nothing')).toBeDefined()
+        expect(within(trinket).getByText('Source unknown')).toBeDefined()
+        expect(description(trinket)).toBe('Replaces nothing')
     })
 })
 
 describe('the role sliders', () => {
-    test('What to gear for sits in the card, after the fight chart and before the damage split', async () => {
+    test('What to gear for sits in the card after the readings and before Talents; the chart and damage split are in the band under the gear', async () => {
         await openSample()
 
         const card = screen.getByRole('complementary', {
@@ -167,16 +179,28 @@ describe('the role sliders', () => {
         expect(sliders).not.toBeNull()
         expect(card.contains(sliders)).toBe(true)
 
-        const chart = within(card).getByLabelText('DPS and mana per pull')
-        const split = within(card).getByRole('heading', {
-            name: 'Where the damage comes from',
+        const readings = within(card).getByRole('heading', {
+            name: 'What the sim says',
         })
+        const talents = within(card).getByRole('button', { name: /^Talents/ })
         const follows = (a: Node, b: Node) =>
             Boolean(
                 a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
             )
-        expect(follows(chart, sliders as Node)).toBe(true)
-        expect(follows(sliders as Node, split)).toBe(true)
+        expect(follows(readings, sliders as Node)).toBe(true)
+        expect(follows(sliders as Node, talents)).toBe(true)
+
+        const band = screen.getByRole('region', { name: 'Across the fight' })
+        expect(card.contains(band)).toBe(false)
+        expect(
+            within(band).getByLabelText('DPS and mana per pull')
+        ).toBeDefined()
+        expect(
+            within(band).getByRole('heading', {
+                name: 'Where the damage comes from',
+            })
+        ).toBeDefined()
+        expect(follows(card, band)).toBe(true)
     })
 
     test('Damage, Survival, Healing and Utility start at 100, 0, 0 and 0', async () => {
@@ -321,7 +345,10 @@ describe('the role sliders', () => {
         expect(
             screen.getByRole('columnheader', { name: 'Damage and survival' })
         ).toBeDefined()
-        expect(readingRow('DPS')).toEqual(['82.0', 'Not simmed'])
+        expect(readingRow('DPS, Solo, 30 s, level 31')).toEqual([
+            '103.7',
+            '111.0',
+        ])
         expect(readingRow('Health')).toEqual(['1375', 'Not simmed'])
         expect(readingRow('Armor')).toEqual(['952', 'Not simmed'])
         expect(readingRow('Out of mana at')).toEqual(['1:58', 'Not simmed'])
@@ -339,7 +366,10 @@ describe('the role sliders', () => {
 
         await chooseFight(user, 'Dungeon, 2 min, level 33')
 
-        expect(readingRow('DPS')).toEqual(['75.4', '80.2'])
+        expect(readingRow('DPS, Dungeon, 2 min, level 33')).toEqual([
+            '75.4',
+            '80.2',
+        ])
         expect(
             screen.getByRole('img', { name: 'DPS and mana over the fight' })
         ).toBeDefined()
@@ -348,7 +378,7 @@ describe('the role sliders', () => {
         expect(screen.getByText('Worn: out of mana 0:48')).toBeDefined()
         expect(screen.getByText('Plan: out of mana 0:52')).toBeDefined()
         expect(
-            screen.getByText("The sim's plan runs out at 0:52.")
+            screen.getByText(sentence("The sim's plan holds out to 0:52."))
         ).toBeDefined()
     })
 

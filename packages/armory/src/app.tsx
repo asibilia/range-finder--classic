@@ -1,13 +1,16 @@
 /**
  * The armory planner's page. It opens with nothing loaded, reads a results
  * file picked, dropped or bundled as the sample, and shows the character:
- * the gear pane, and the card on the right. What it shows for a loaded file
+ * the gear pane with the card on its right (what the sim says, what to gear
+ * for, talents), and the band under both (the fight chart, the damage split
+ * and stat weights, the fight settings), as the approved mockup lays them
+ * out. What it shows for a loaded file
  * is `PlannerState`, changed only by the pure actions in `planner-state.ts`.
  */
 import { useEffect, useState } from 'react'
 
 import { BringIn, type ReadError } from '@/components/bring-in'
-import { FightCard } from '@/components/fight-card'
+import { FightBand } from '@/components/fight-band'
 import { GearPane } from '@/components/gear-pane'
 import {
     ItemPicker,
@@ -16,6 +19,7 @@ import {
 } from '@/components/item-picker'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
+import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
 import { TalentsDialog } from '@/components/talents-dialog'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -69,13 +73,11 @@ function Header({
     file,
     wishlistCount,
     onOpenWishlist,
-    onOpenTalents,
     onOpenPawn,
 }: {
     file: ResultsFile | null
     wishlistCount: number
     onOpenWishlist: () => void
-    onOpenTalents: () => void
     onOpenPawn: () => void
 }) {
     if (!file)
@@ -112,9 +114,6 @@ function Header({
                 <div className="ml-auto flex flex-wrap gap-2">
                     <Button variant="ghost" onClick={onOpenWishlist}>
                         {`Wishlist (${wishlistCount})`}
-                    </Button>
-                    <Button variant="outline" onClick={onOpenTalents}>
-                        Talents
                     </Button>
                     <Button variant="outline" onClick={onOpenPawn}>
                         Export Pawn string
@@ -205,12 +204,11 @@ export function App() {
                     file={file}
                     wishlistCount={wishlist.size}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
-                    onOpenTalents={() => setDialog({ kind: 'talents' })}
                     onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
                 <div
                     data-slot="planner-body"
-                    className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_28rem]"
+                    className="grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
                 >
                     <GearPane
                         file={file}
@@ -230,18 +228,13 @@ export function App() {
                             setDialog({ kind: 'picker', slot })
                         }
                     />
-                    {file && planner && (
-                        <FightCard
+                    {file && planner ? (
+                        <SimPanel
                             file={file}
-                            plan={plan}
                             fightId={planner.fightId}
+                            plan={plan}
                             planShown={planShown}
-                            onPickFight={(fightId) =>
-                                dispatch({
-                                    type: 'pick-fight',
-                                    fight_id: fightId,
-                                })
-                            }
+                            onOpenTalents={() => setDialog({ kind: 'talents' })}
                             sliders={
                                 planner.mix && (
                                     <RoleSliders
@@ -259,8 +252,20 @@ export function App() {
                                 )
                             }
                         />
+                    ) : (
+                        <LockedSimPanel />
                     )}
                 </div>
+                {file && planner && (
+                    <FightBand
+                        file={file}
+                        plan={plan}
+                        fightId={planner.fightId}
+                        onPickFight={(fightId) =>
+                            dispatch({ type: 'pick-fight', fight_id: fightId })
+                        }
+                    />
+                )}
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
                         entry={file.slots.find(
@@ -268,6 +273,7 @@ export function App() {
                         )}
                         slot={dialog.slot}
                         level={file.character.level}
+                        characterClass={file.character.class}
                         bagItemIds={file.bag_upgrades
                             .filter((upgrade) => upgrade.slot === dialog.slot)
                             .map((upgrade) => upgrade.item.item_id)}
@@ -279,6 +285,7 @@ export function App() {
                 {file && dialog?.kind === 'wishlist' && (
                     <WishlistDialog
                         wishlist={wishlist}
+                        characterClass={file.character.class}
                         onRemove={removeFromWishlist}
                         onClose={closeDialog}
                     />

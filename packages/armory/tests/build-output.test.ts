@@ -139,17 +139,17 @@ describe('the build', () => {
         expect([...classes].filter((name) => !written(name))).toEqual([])
     })
 
-    test('at desktop width the CSS puts the gear and the card side by side', () => {
+    test('from 90rem the CSS puts the gear and the card side by side', () => {
         const css = filesUnder(CLIENT_DIR, '.css')
             .map((file) => readFileSync(file, 'utf8'))
             .join('\n')
-        const desktop = css.match(
-            /@media\s*\(min-width:\s*64rem\)\s*\{([^@]*)\}/
+        const wide = css.match(/@media\s*\(min-width:\s*90rem\)\s*\{([^@]*)\}/)
+        expect(wide).not.toBeNull()
+        expect(wide![1]).toContain(
+            '.min-\\[90rem\\]\\:grid-cols-\\[minmax\\(0\\,1fr\\)_27\\.75rem\\]{grid-template-columns:minmax(0,1fr) 27.75rem}'
         )
-        expect(desktop).not.toBeNull()
-        expect(desktop![1]).toContain(
-            '.lg\\:grid-cols-\\[minmax\\(0\\,1fr\\)_28rem\\]{grid-template-columns:minmax(0,1fr) 28rem}'
-        )
+        // The doll's three columns come from a container query on the pane.
+        expect(css).toMatch(/@container doll \(min-width:\s*49rem\)/)
     })
 
     test('no URL in the built JavaScript points at a server', () => {

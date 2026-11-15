@@ -18,16 +18,23 @@ import { SlotTile } from './slot-tile'
 /** Which side of the figure the slot sits on; the pill faces the figure. */
 export type SlotSide = 'left' | 'right' | 'bottom'
 
+/*
+ * Where the pill sits. Around the figure (the gear pane's three-column
+ * doll, `@min-[49rem]` of its container) it sits on the edge facing the
+ * figure, in the gap between the columns; on a narrower doll it sits on
+ * the slot's top edge, inside the card, as the mockup does under 860 px.
+ */
 const PILL_PLACE: Record<SlotSide, string> = {
-    left: 'top-1/2 -right-8 -translate-y-1/2',
-    right: 'top-1/2 -left-8 -translate-y-1/2',
-    bottom: '-top-2.5 right-4',
+    left: '-top-2.5 right-3 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:-right-7 @min-[49rem]/doll:-translate-y-1/2',
+    right: '-top-2.5 right-3 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:right-auto @min-[49rem]/doll:-left-7 @min-[49rem]/doll:-translate-y-1/2',
+    bottom: '-top-2.5 right-3',
 }
 
+/** Room on the inner edge for the pill, so it never covers the name. */
 const ROOM_FOR_PILL: Record<SlotSide, string> = {
-    left: 'pr-11',
-    right: 'pl-11',
-    bottom: '',
+    left: 'pt-3.5 @min-[49rem]/doll:pt-2 @min-[49rem]/doll:pr-10',
+    right: 'pt-3.5 @min-[49rem]/doll:pt-2 @min-[49rem]/doll:pl-10',
+    bottom: 'pt-3.5',
 }
 
 /**
@@ -73,17 +80,19 @@ export function SlotButton({
     onOpen?: (slot: Slot) => void
 }) {
     const chipId = useId()
-    const { item, gain, note, chips } = shown
+    const { item, gain, note, chips, description } = shown
     const empty = onOpen === undefined
+    const describedBy = [
+        ...chips.map((_, index) => `${chipId}-${index}`),
+        ...(description ? [`${chipId}-description`] : []),
+    ]
     return (
         <button
             type="button"
             disabled={empty}
             aria-label={shown.name}
             aria-describedby={
-                chips.length > 0
-                    ? chips.map((_, index) => `${chipId}-${index}`).join(' ')
-                    : undefined
+                describedBy.length > 0 ? describedBy.join(' ') : undefined
             }
             data-quality={item?.quality}
             data-same={shown.sameAsWorn || undefined}
@@ -110,24 +119,32 @@ export function SlotButton({
                             key={chip}
                             id={`${chipId}-${index}`}
                             variant="outline"
-                            className="h-4 border-gain px-1.5 text-[0.65rem] font-normal text-gain"
+                            className="h-4 border-gain px-1.5 text-[0.65rem] font-normal text-gain-text"
                         >
                             {chip}
                         </Badge>
                     ))}
                 </span>
+                {/* Ours: names wrap (two lines at most in practice) rather
+                    than cut off, so similar names stay apart. */}
                 <span
+                    data-slot-name
                     className={cn(
-                        'truncate text-sm font-semibold',
+                        'text-sm leading-snug font-semibold break-words',
                         !item && 'font-normal text-muted-foreground italic',
                         empty && 'not-italic'
                     )}
                 >
-                    {item ? item.name : empty ? 'Empty' : 'Nothing equipped'}
+                    {shown.itemName ?? (empty ? 'Empty' : 'Nothing equipped')}
                 </span>
                 {note && (
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="text-xs leading-snug break-words text-muted-foreground">
                         {note}
+                    </span>
+                )}
+                {description && (
+                    <span id={`${chipId}-description`} className="sr-only">
+                        {description}
                     </span>
                 )}
             </span>
