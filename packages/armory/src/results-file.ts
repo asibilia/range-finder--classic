@@ -162,10 +162,12 @@ const result = z.strictObject({
      * - a number: seconds to the first out of mana (the sim's tto);
      * - "never": simmed, and it never ran dry in this fight;
      * - null: not simmed.
+     * On a chain fight it also says which pull ran dry (mana-words.ts
+     * dryPull), not a pull's mana_end: the sim regains a little after 0.
      */
     out_of_mana_s: z.union([z.number(), z.literal('never'), z.null()]).meta({
         description:
-            'Seconds to the first out of mana (the sim\'s tto); on a chain fight, wall time from the start of the first pull, gaps included. "never": simmed, and it never runs dry in this fight. Null: not simmed.',
+            'Seconds to the first out of mana (the sim\'s tto); on a chain fight, wall time from the start of the first pull, gaps included. On a chain fight the page says the pull this falls in ran dry: pull k runs from (k-1)*(duration_s + gap_s) to that plus duration_s (setup.gap_s); a time in the gap after a pull counts as the next pull (you start it with no mana), and a time past the last pull is said as a time. "never": simmed, and it never runs dry in this fight. Null: not simmed.',
     }),
     time_to_die_s: z.number().nullable().meta({
         description: 'Seconds to die. Null: not simmed.',
@@ -189,13 +191,16 @@ const result = z.strictObject({
                 pull: z.int(),
                 dps: z.number(),
                 mana_start: z.int(),
-                mana_end: z.int(),
+                mana_end: z.int().meta({
+                    description:
+                        "The mana left at the end of the pull. A pull that ran dry can end a little above 0 (the sim regains some after running out), so the page doesn't read it to say which pull ran dry: out_of_mana_s says that.",
+                }),
             })
         )
         .nullable()
         .meta({
             description:
-                'DPS and mana per pull. Chain fights only: null on a single fight. A pull runs dry when its mana_end is 0. Null on a chain fight: no pull data in this file.',
+                'DPS and mana per pull. Chain fights only: null on a single fight. The pull that ran dry is the one out_of_mana_s falls in, not one whose mana_end is 0. Null on a chain fight: no pull data in this file.',
         }),
     damage_split: z.array(
         z.strictObject({
@@ -292,7 +297,7 @@ const baseSchema = z.strictObject({
             .strictObject({
                 weapon_type: z.string().min(1).meta({
                     description:
-                        'The main-hand weapon\'s type, as the sheet names its skill: "Axe" reads "Axe skill".',
+                        'The main-hand weapon\'s skill, by the game\'s name for it: "Two-Handed Axes", "Staves", "One-Handed Maces", "Fist Weapons". The sheet says it short: "Two-Handed Axes" reads "Axe skill"; a name the page doesn\'t know is shown as given.',
                 }),
                 current: z.int().min(0),
                 max: z.int().min(1),
@@ -301,7 +306,7 @@ const baseSchema = z.strictObject({
             .optional()
             .meta({
                 description:
-                    'The weapon skill for the main-hand weapon at export, e.g. Axe 148 of 150. The sheet shows it as "Axe skill 148/150". Absent or null: not exported (the sheet leaves that line out).',
+                    'The weapon skill for the main-hand weapon at export, e.g. Two-Handed Axes 148 of 150. The sheet shows it as "Axe skill 148/150". Absent or null: not exported (the sheet leaves that line out).',
             }),
     }),
     fights: z.array(fight).min(1),
@@ -362,7 +367,10 @@ const baseSchema = z.strictObject({
     ),
     talents: z.strictObject({
         tree: z.string(),
-        points: z.int(),
+        points: z.int().meta({
+            description:
+                'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
+        }),
         yours: z.array(talent).meta({
             description:
                 "Every talent in the tree, at rank 0 or more, which this schema doesn't check.",

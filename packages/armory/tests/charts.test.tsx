@@ -147,6 +147,7 @@ describe('the pull chart', () => {
     test('is one SVG named DPS and mana per pull, with four bars per pull', async () => {
         render(
             <PullChart
+                fight={fight('chain-4')}
                 worn={result('worn', 'chain-4')}
                 plan={result('max-damage', 'chain-4')}
             />
@@ -169,7 +170,13 @@ describe('the pull chart', () => {
     })
 
     test('without the plan: two bars per pull and no plan legend', async () => {
-        render(<PullChart worn={result('worn', 'chain-4')} plan={null} />)
+        render(
+            <PullChart
+                fight={fight('chain-4')}
+                worn={result('worn', 'chain-4')}
+                plan={null}
+            />
+        )
         await chartsLoaded()
         expect(count('.recharts-bar-rectangle')).toBe(8)
         expect(screen.getByText('DPS, what you wear')).toBeDefined()

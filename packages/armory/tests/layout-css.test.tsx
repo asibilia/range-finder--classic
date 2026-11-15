@@ -70,6 +70,18 @@ describe('the page layout (approved C2 mockup)', () => {
         )
     })
 
+    test("the character sheet never overflows the middle column: it is at most the column's width, and its names wrap rather than widen it", async () => {
+        await openSample()
+        const sheet = screen.getByLabelText('Character sheet')
+        expect(sheet.className.split(/\s+/)).toEqual(
+            expect.arrayContaining(['max-w-full', 'min-w-0'])
+        )
+        for (const name of sheet.querySelectorAll('dt'))
+            expect(name.className.split(/\s+/)).not.toContain(
+                'whitespace-nowrap'
+            )
+    })
+
     test('the page has one h1, one header (banner) and one footer, with a file and without', async () => {
         await openSample()
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)

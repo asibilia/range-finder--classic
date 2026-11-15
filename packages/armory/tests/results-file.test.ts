@@ -384,6 +384,49 @@ describe('the JSON Schema', () => {
     )
 })
 
+/** The descriptions of every property named `key` in the committed JSON Schema. */
+function descriptionsOf(key: string): string[] {
+    const found: string[] = []
+    const walk = (node: unknown) => {
+        if (Array.isArray(node)) return node.forEach(walk)
+        if (node === null || typeof node !== 'object') return
+        const record = node as Record<string, any>
+        const named = record.properties?.[key]
+        if (named?.description) found.push(named.description)
+        Object.values(record).forEach(walk)
+    }
+    walk(JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')))
+    return found
+}
+
+describe('what the contract tells the runner', () => {
+    test('which pull ran dry comes from out_of_mana_s, not a mana_end of 0', () => {
+        const [outOfMana] = descriptionsOf('out_of_mana_s')
+        expect(outOfMana).toContain('(k-1)*(duration_s + gap_s)')
+        expect(outOfMana).toContain(
+            'in the gap after a pull counts as the next pull'
+        )
+        const [manaEnd] = descriptionsOf('mana_end')
+        expect(manaEnd).toContain('can end a little above 0')
+        const [pulls] = descriptionsOf('pulls').filter((d) =>
+            d.startsWith('DPS and mana per pull')
+        )
+        expect(pulls).not.toContain('runs dry when its mana_end is 0')
+        expect(pulls).toContain('out_of_mana_s')
+    })
+
+    test('talents.points is the points spent in the tree', () => {
+        expect(descriptionsOf('points')).toEqual([
+            'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
+        ])
+    })
+
+    test("weapon_type is the game's skill name", () => {
+        const [weaponType] = descriptionsOf('weapon_type')
+        expect(weaponType).toContain('"Two-Handed Axes"')
+    })
+})
+
 describe('talent bounds', () => {
     /** The problems for a sample whose first talent is changed by `change`. */
     function talentProblems(change: (talent: any) => void): string[] {
@@ -536,7 +579,7 @@ describe('the optional mockup fields (schema version 1)', () => {
             { damage: 45, survival: 100, healing: 48, utility: 61 },
         ])
         expect(full.sheet.weapon_skill).toEqual({
-            weapon_type: 'Axe',
+            weapon_type: 'Two-Handed Axes',
             current: 148,
             max: 150,
         })

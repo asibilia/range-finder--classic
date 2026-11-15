@@ -191,6 +191,46 @@ describe('the chain fight', () => {
         ).toBeDefined()
     })
 
+    test('a pull that runs dry can end a little above 0 mana: the pull is the one out_of_mana_s falls in', async () => {
+        // As a real file has it: after 0 the sim regains a little, so the
+        // dry pulls end at 28 mana, not 0.
+        const user = await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[]) {
+                    if (result.fight_id !== 'chain-4') continue
+                    for (const pull of result.pulls as Json[])
+                        if (pull.mana_end === 0) pull.mana_end = 28
+                }
+            })
+        )
+        await chooseFight(user, CHAIN)
+
+        // 1:58 and 2:04 fall in pull 3, 100 to 130 s from the start of pull 1.
+        expect(
+            screen.getByText('In what you wear you run dry in pull 3.')
+        ).toBeDefined()
+        expect(
+            screen.getByText("The sim's plan runs dry in pull 3.")
+        ).toBeDefined()
+    })
+
+    test('running dry in the gap after a pull says the next pull', async () => {
+        const user = await openFile(
+            variant((file) => {
+                for (const result of file.results as Result[])
+                    if (result.fight_id === 'chain-4' && result.gear === 'worn')
+                        result.out_of_mana_s = 40
+            })
+        )
+        await chooseFight(user, CHAIN)
+
+        // 40 s is in the gap between pull 1 (0 to 30 s) and pull 2 (50 to
+        // 80 s): you start pull 2 with no mana.
+        expect(
+            screen.getByText('In what you wear you run dry in pull 2.')
+        ).toBeDefined()
+    })
+
     test('a chain fight that never runs dry keeps mana through every pull', async () => {
         const user = await openFile(
             variant((file) => {

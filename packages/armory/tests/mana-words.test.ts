@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test'
 
-import { planManaWords, wornManaWords } from '../src/mana-words'
+import { dryPull, planManaWords, wornManaWords } from '../src/mana-words'
 
 const KEPT = 'keeps mana to the end'
 
@@ -57,5 +57,31 @@ describe('what you wear and mana', () => {
         expect(wornManaWords(null, 'keep mana to the end')).toBe(
             "In what you wear the sim didn't check when mana runs out."
         )
+    })
+})
+
+describe('the pull a chain fight runs dry in', () => {
+    // Four 30 s pulls, 20 s apart: pull 1 is 0-30 s, pull 2 50-80 s, pull 3
+    // 100-130 s, pull 4 150-180 s, wall time from the start of pull 1.
+    const CHAIN = { duration_s: 30, setup: { pulls: 4, gap_s: 20 } }
+
+    test('is the pull whose span out_of_mana_s falls in, whatever its mana_end (the sim can regain a little after 0)', () => {
+        expect(dryPull(118, CHAIN)).toBe(3)
+        expect(dryPull(0, CHAIN)).toBe(1)
+        expect(dryPull(30, CHAIN)).toBe(1)
+        expect(dryPull(100, CHAIN)).toBe(3)
+        expect(dryPull(180, CHAIN)).toBe(4)
+    })
+
+    test('in a gap it is the next pull, the one you start with no mana', () => {
+        expect(dryPull(31, CHAIN)).toBe(2)
+        expect(dryPull(140, CHAIN)).toBe(4)
+    })
+
+    test('never, not simmed, or past the last pull is no pull', () => {
+        expect(dryPull('never', CHAIN)).toBeNull()
+        expect(dryPull(null, CHAIN)).toBeNull()
+        expect(dryPull(181, CHAIN)).toBeNull()
+        expect(dryPull(118, { duration_s: 30 })).toBeNull()
     })
 })

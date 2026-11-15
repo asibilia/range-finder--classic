@@ -1,13 +1,15 @@
 /**
  * The character sheet under the figure (spec section 5), as the mockup lays
  * it out: two pairs to a row (`Str 73  Agi 96`), short names with their
- * full names in `abbr`, the weapon skill last (`Axe skill 148/150`, when
- * the file has it), and a caption saying which export it is from.
+ * full names in `abbr`, the weapon skill last, said short (`Axe skill
+ * 148/150` for the game's Two-Handed Axes, when the file has it), and a
+ * caption saying which export it is from.
  */
 import type { ReactNode } from 'react'
 
 import { exportDay } from '../format'
 import type { ResultsFile } from '../results-file'
+import { weaponSkillLabel } from '../weapon-skill'
 
 /** `11.95%`, `0%`: at most two decimals, no trailing zeros. */
 function percent(value: number): string {
@@ -76,7 +78,7 @@ export function sheetRows(
     if (skill)
         rows.push({
             key: 'Weapon skill',
-            name: `${skill.weapon_type} skill`,
+            name: `${weaponSkillLabel(skill.weapon_type)} skill`,
             value: `${skill.current}/${skill.max}`,
         })
     return rows
@@ -91,13 +93,16 @@ export function CharacterSheet({ file }: { file: ResultsFile }) {
     const buffs = file.sheet_buffed ? ', with the buffs you had up' : ''
     return (
         <div className="flex w-full flex-col items-center">
+            {/* At most the middle column's width: a name too long for it
+                wraps (at a space or hyphen) rather than widening the sheet
+                under the slots and their gain pills. */}
             <dl
                 aria-label="Character sheet"
-                className="mt-3.5 grid grid-cols-[auto_auto_auto_auto] gap-x-2.25 gap-y-0.75 rounded-xl border bg-muted/40 px-2.5 py-2.5 text-[0.78125rem] text-muted-foreground"
+                className="mt-3.5 grid max-w-full min-w-0 grid-cols-[auto_auto_auto_auto] gap-x-2 gap-y-0.75 rounded-xl border bg-muted/40 px-2.5 py-2.5 text-[0.78125rem] text-muted-foreground"
             >
                 {sheetRows(file.sheet).map((row) => (
                     <div key={row.key} className="contents">
-                        <dt className="whitespace-nowrap">{row.name}</dt>
+                        <dt className="break-words">{row.name}</dt>
                         <dd className="text-right whitespace-nowrap text-foreground tabular-nums">
                             {row.value}
                         </dd>

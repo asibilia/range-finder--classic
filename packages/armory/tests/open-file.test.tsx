@@ -375,7 +375,7 @@ describe('the gear pane with a file', () => {
         ).toBeDefined()
     })
 
-    test('the middle shows the model placeholder and the sheet as the mockup lays it out, Axe skill last', async () => {
+    test("the middle shows the model placeholder and the sheet as the mockup lays it out, Axe skill last (the game's Two-Handed Axes, said short)", async () => {
         await openFile(sample)
 
         expect(screen.getByText('Character model goes here')).toBeDefined()

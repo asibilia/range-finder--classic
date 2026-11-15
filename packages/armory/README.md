@@ -149,6 +149,17 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   `scripts/write-results-schema.ts`). A test fails when the committed file
   differs from a fresh one.
 - In every part of the file, null means "not simmed".
+- **Which pull ran dry** on a chain fight comes from the result's
+  `out_of_mana_s` (wall time from the start of pull 1, gaps included), not
+  from a pull's `mana_end`: after running dry the sim regains a little, so a
+  dry pull can end at 28 mana. Pull k runs from `(k-1)*(duration_s + gap_s)`
+  to that plus `duration_s` (the fight's `setup.gap_s`), both ends included.
+  A time in the gap after a pull counts as the next pull (you start it with
+  no mana); a time past the last pull is said as a time (`run out of mana
+  at 3:01`). `never` reads `keep mana through every pull`; null, the
+  not-simmed sentence. The rule is `dryPull` in `src/mana-words.ts`.
+- `talents.points` is the points spent in the tree (the sum of the ranks in
+  `talents.yours`): `Talents: your build, 22 points`.
 - Six optional fields (schema version 1 still) carry what the mockup shows
   beyond the first contract. Absent or null, the page leaves out only the
   part that needs them:
@@ -156,7 +167,7 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   | Field | Shown as | Absent or null |
   | --- | --- | --- |
   | `plans[].reach` `{damage, survival, healing, utility}` (0 to 100) | `Can reach 35 with this mix` / `No limit with this mix` under each slider, the track past it hatched, the slider stopping there, and the line `Raising one role lowers how far the others can go. ...` | No reach line, no hatching, sliders not stopped |
-  | `sheet.weapon_skill` `{weapon_type, current, max}` | `Axe skill 148/150` on the sheet | The line is left out |
+  | `sheet.weapon_skill` `{weapon_type, current, max}` (`weapon_type` is the game's skill name, `Two-Handed Axes`) | `Axe skill 148/150` on the sheet: the name said short (`src/weapon-skill.ts`; a name it doesn't know is shown as given) | The line is left out |
   | `bag_upgrades[].results` (results per fight with the bag item on, no `gear`) | `Wear them` on the bag card; once worn the slot, the readings and the chart use them, and `Undo` takes it off | No `Wear them` button |
   | `results[].damage_split[].school` (`physical`, `fire`, `nature`, `frost`, `arcane`, `shadow`, `holy`) | The split coloured by school, and `Colour is the spell school.` | Coloured by order, no colour sentence |
   | `fights[].melee_miss_pct` | `With 0 hit, you miss 8.0% of melee swings at level 33.` under the enemy level (hit from the sheet) | The sentence is left out |
@@ -177,7 +188,7 @@ report, and the page shows a note that some numbers are made up.
   the stat weights of the 2-minute and chain fights (the solo fight's, but
   intellect 4.04 and mana per 5 3.89, as the mockup shows them). The six
   optional fields are the mockup's numbers: the slider reach (the mockup's
-  limits at each plan's mix), Axe 148/150, the miss chances 5.5, 6.0 and
+  limits at each plan's mix), Two-Handed Axes 148/150, the miss chances 5.5, 6.0 and
   8.0% at levels 31, 32 and 33, the spell schools, `Windfury Weapon`, and
   the results with Berylline Pads on (the mockup's nudge: +0.4 DPS solo,
   +0.3 in the dungeon). Fight labels and Pawn labels are written the
