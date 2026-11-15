@@ -546,6 +546,12 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
     if (repeats(file.pawn.map((p) => p.label)))
         problem(['pawn'], 'Each Pawn label must be unique.')
 
+    if (repeats((file.left_out_items ?? []).map((item) => item.item_id)))
+        problem(
+            ['left_out_items'],
+            'Each left_out_items item_id must be unique.'
+        )
+
     const cells = new Set<string>()
     let sharedCell = false
     file.talents.yours.forEach((t, i) => {
@@ -599,6 +605,7 @@ const FILE_DESCRIPTION = [
     "- No item_id appears twice in one slot's alternatives.",
     '- stat_weights has at most one entry per fight.',
     '- Each Pawn label is unique.',
+    '- Each item_id in left_out_items is unique.',
     '- No two results share a gear and fight.',
     '- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.',
     "- A talent's rank is at most its max_rank.",

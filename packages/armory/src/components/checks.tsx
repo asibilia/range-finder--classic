@@ -57,8 +57,10 @@ export function Checks({
                         aria-labelledby={leftOutId}
                         className="mt-1 flex flex-col gap-0.5 text-muted-foreground"
                     >
-                        {leftOut.map((item) => (
-                            <li key={item.item_id}>{leftOutWords(item)}</li>
+                        {leftOut.map((item, index) => (
+                            // By position: the schema refuses a repeated
+                            // item_id, but the list never relies on it.
+                            <li key={index}>{leftOutWords(item)}</li>
                         ))}
                     </ul>
                 </>

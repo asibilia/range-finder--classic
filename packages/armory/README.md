@@ -162,8 +162,8 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   (`{item_id, name, reason}`), apart from `checks`, which are the accuracy
   gates the `N checks passed` line counts. How sure is this? lists them
   under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
-  (99901), because it has no source and needs level 1.` Absent or empty:
-  no list.
+  (99901), because it has no source and needs level 1.` Each `item_id`
+  appears once (the page refuses a repeat). Absent or empty: no list.
 - `talents.points` is the points spent in the tree (the sum of the ranks in
   `talents.yours`): `Talents: your build, 22 points`.
 - Six optional fields (schema version 1 still) carry what the mockup shows

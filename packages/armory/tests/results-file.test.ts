@@ -547,6 +547,15 @@ describe('duplicates', () => {
                 },
             },
             {
+                rule: 'an item left out twice',
+                message:
+                    'left_out_items: Each left_out_items item_id must be unique.',
+                breakIt: (f) => {
+                    const items = f.left_out_items
+                    items.push(structuredClone(items[0]))
+                },
+            },
+            {
                 rule: 'an item twice in one slot',
                 message:
                     "slots.0.alternatives: An item can appear only once in a slot's alternatives.",
