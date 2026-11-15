@@ -94,7 +94,7 @@ function TalentGrid({ talents, build }: { talents: Talents; build: Build }) {
                                             className={cn(
                                                 'tabular-nums',
                                                 changed &&
-                                                    'font-semibold text-chart-2'
+                                                    'font-semibold text-chart-2-text'
                                             )}
                                         >
                                             {rank}

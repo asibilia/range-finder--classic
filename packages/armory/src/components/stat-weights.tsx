@@ -75,7 +75,7 @@ export function StatWeights({
                                 <dd className="flex justify-end gap-2 text-right tabular-nums">
                                     <span>{row.ep.toFixed(2)}</span>
                                     {row.compare_ep !== null && (
-                                        <span className="text-chart-2">
+                                        <span className="text-chart-2-text">
                                             {row.compare_ep.toFixed(2)}
                                         </span>
                                     )}

@@ -90,6 +90,9 @@
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    /* Ours: the chart colours as text (labels, deltas, coloured times). */
+    --color-chart-1-text: var(--chart-1-text);
+    --color-chart-2-text: var(--chart-2-text);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -111,6 +114,7 @@
     /* Ours: the gain pills, and item quality on the slot tiles. */
     --color-gain: var(--gain);
     --color-gain-foreground: var(--gain-foreground);
+    --color-gain-text: var(--gain-text);
     --color-quality-poor: var(--quality-poor);
     --color-quality-common: var(--quality-common);
     --color-quality-uncommon: var(--quality-uncommon);
@@ -157,8 +161,16 @@
     --chart-3: oklch(0.58 0.13 295);
     --chart-4: oklch(0.65 0.12 165);
     --chart-5: oklch(0.45 0.09 250);
+    /*
+     * The chart and gain colours as text on --background and --card: darker
+     * in light mode so text reads at 4.5:1 or more (chart-1 and gain are
+     * 3:1, enough for lines and fills only). tests/contrast.test.ts checks.
+     */
+    --chart-1-text: oklch(0.55 0.15 45);
+    --chart-2-text: oklch(0.54 0.13 240);
     --gain: oklch(0.72 0.16 50);
     --gain-foreground: oklch(0.25 0.06 45);
+    --gain-text: oklch(0.55 0.15 50);
     --quality-poor: oklch(0.6 0 0);
     --quality-common: oklch(0.45 0 0);
     --quality-uncommon: oklch(0.58 0.16 145);
@@ -192,8 +204,11 @@
         --chart-3: oklch(0.7 0.12 295);
         --chart-4: oklch(0.75 0.11 165);
         --chart-5: oklch(0.58 0.09 250);
+        --chart-1-text: var(--chart-1);
+        --chart-2-text: var(--chart-2);
         --gain: oklch(0.78 0.14 55);
         --gain-foreground: oklch(0.22 0.05 45);
+        --gain-text: var(--gain);
         --quality-poor: oklch(0.65 0 0);
         --quality-common: oklch(0.85 0 0);
         --quality-uncommon: oklch(0.75 0.17 145);

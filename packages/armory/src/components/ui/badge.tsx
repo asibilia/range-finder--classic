@@ -21,7 +21,7 @@ const badgeVariants = cva(
                 // Ours: the gain pills on the slots (big gains filled, small outlined).
                 gain: 'bg-gain font-semibold text-gain-foreground tabular-nums',
                 'gain-outline':
-                    'border-gain bg-background font-semibold text-gain tabular-nums',
+                    'border-gain bg-background font-semibold text-gain-text tabular-nums',
             },
         },
         defaultVariants: {
