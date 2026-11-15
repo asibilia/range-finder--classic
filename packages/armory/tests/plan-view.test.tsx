@@ -3,7 +3,15 @@
  * must be the first import.
  */
 import './dom'
-import { openFile, openSample, readingRow, variant } from './open-app'
+import {
+    chooseFight,
+    sentence,
+    description,
+    openFile,
+    openSample,
+    readingValue,
+    variant,
+} from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
@@ -15,7 +23,29 @@ const SHOW_WORN = 'Show what I wear'
 const ROLES = ['Damage', 'Survival', 'Healing', 'Utility'] as const
 const NOTHING_RESIMMED =
     'These pick from plans the sim already made. Nothing is re-simmed here.'
-const SWITCHED = "Switched to the sim's plan for this mix."
+const SWITCHED = "Switched the gear to the sim's plan for this mix."
+const CHAIN = 'Chain, 4 pulls 20 s apart vs level 33'
+
+/** What the gear pane says it shows, beside its Gear heading. */
+function paneStatus(): string {
+    const heading = screen.getByRole('heading', { level: 2, name: 'Gear' })
+    return heading.nextElementSibling?.textContent ?? ''
+}
+
+/** The line that names the plan the mix picks. */
+function picksLine(): string {
+    return (
+        screen.getByText('Your mix picks the', { exact: false }).textContent ??
+        ''
+    )
+}
+
+/** Moves Damage to 45, then Survival to 35 and 80: Damage and survival. */
+function toDamageAndSurvival() {
+    setSlider('Damage', 45)
+    setSlider('Survival', 35)
+    setSlider('Survival', 80)
+}
 
 function slider(name: string): HTMLInputElement {
     return screen.getByRole('slider', { name }) as HTMLInputElement
@@ -48,9 +78,9 @@ describe('the plan view', () => {
     test("the sample opens on What you wear with a Show the sim's plan button", async () => {
         await openSample()
 
-        expect(
-            screen.getByRole('heading', { name: 'What you wear' })
-        ).toBeDefined()
+        expect(paneStatus()).toBe(
+            'What you wear, from your export of 13 November'
+        )
         expect(screen.getByRole('button', { name: SHOW_PLAN })).toBeDefined()
     })
 
@@ -58,30 +88,37 @@ describe('the plan view', () => {
         const user = await openSample()
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
-        expect(
-            screen.getByRole('heading', { name: "Sim's plan: Max damage" })
-        ).toBeDefined()
+        expect(paneStatus()).toBe("The sim's plan for your mix: max damage")
         expect(screen.getByRole('button', { name: SHOW_WORN })).toBeDefined()
         expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
         expect(within(slot('Legs')).getByText('Ferine Leggings')).toBeDefined()
     })
 
-    test('in the plan view Relic is the same as what you wear and Legs replaces the worn legguards', async () => {
+    test('in the plan view Totem is the same as what you wear, and Legs shows where Ferine Leggings come from and says what it replaces', async () => {
         const user = await openSample()
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
 
         const relic = screen.getByRole('button', {
-            name: 'Relic: Item 263412, same as what you wear',
+            name: 'Totem: Unnamed totem (263412), same as what you wear',
         })
-        expect(within(relic).getByText('Same as what you wear')).toBeDefined()
-        expect(within(relic).queryByText(/(EP|DPS)$/)).toBeNull()
+        expect(within(relic).getByText('Same as you wear')).toBeDefined()
+        expect(relic.querySelector('[data-size]')).toBeNull()
 
         const legs = screen.getByRole('button', {
             name: 'Legs: Ferine Leggings, +23.6 EP',
         })
+        // The line under the name is the new item's source, as the mockup
+        // shows it (`Drop: ` left off); what it replaces is the button's
+        // description, read out after its name, and not shown.
+        const note = within(legs).getByText(
+            'Agathelos the Raging, Razorfen Kraul'
+        )
+        expect(note.className).not.toContain('sr-only')
+        expect(description(legs)).toBe("Replaces Trapper's Leather Legguards")
         expect(
             within(legs).getByText("Replaces Trapper's Leather Legguards")
-        ).toBeDefined()
+                .className
+        ).toContain('sr-only')
     })
 
     test('a file with no plans has no plan button and no What to gear for', async () => {
@@ -102,7 +139,7 @@ describe('the plan view', () => {
 
         expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
         expect(screen.queryByText('What to gear for')).toBeNull()
-        expect(screen.queryAllByRole('slider')).toHaveLength(0)
+        expect(screen.queryByRole('slider', { name: 'Damage' })).toBeNull()
     })
     test('the item picker opened from the plan view shows what it shows from the worn view', async () => {
         const user = await openSample()
@@ -121,7 +158,7 @@ describe('the plan view', () => {
         expect(fromPlan.textContent).toBe(wornText)
     })
 
-    test('a plan item in a slot with nothing worn reads Replaces nothing', async () => {
+    test('a plan item in a slot with nothing worn is described as Replaces nothing', async () => {
         const withTrinket = variant((file) => {
             const slots = file.slots as {
                 slot: string
@@ -144,12 +181,13 @@ describe('the plan view', () => {
 
         const trinket = slot('Trinket 1')
         expect(within(trinket).getByText('Test Trinket')).toBeDefined()
-        expect(within(trinket).getByText('Replaces nothing')).toBeDefined()
+        expect(within(trinket).getByText('Source unknown')).toBeDefined()
+        expect(description(trinket)).toBe('Replaces nothing')
     })
 })
 
 describe('the role sliders', () => {
-    test('What to gear for sits in the card, after the fight chart and before the damage split', async () => {
+    test('What to gear for sits in the card after the readings and before Talents; the chart and damage split are in the band under the gear', async () => {
         await openSample()
 
         const card = screen.getByRole('complementary', {
@@ -161,16 +199,28 @@ describe('the role sliders', () => {
         expect(sliders).not.toBeNull()
         expect(card.contains(sliders)).toBe(true)
 
-        const chart = within(card).getByLabelText('DPS and mana per pull')
-        const split = within(card).getByRole('heading', {
-            name: 'Where the damage comes from',
+        const readings = within(card).getByRole('heading', {
+            name: 'What the sim says',
         })
+        const talents = within(card).getByRole('button', { name: /^Talents/ })
         const follows = (a: Node, b: Node) =>
             Boolean(
                 a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
             )
-        expect(follows(chart, sliders as Node)).toBe(true)
-        expect(follows(sliders as Node, split)).toBe(true)
+        expect(follows(readings, sliders as Node)).toBe(true)
+        expect(follows(sliders as Node, talents)).toBe(true)
+
+        const band = screen.getByRole('region', { name: 'Across the fight' })
+        expect(card.contains(band)).toBe(false)
+        expect(
+            within(band).getByLabelText('DPS and mana over the fight')
+        ).toBeDefined()
+        expect(
+            within(band).getByRole('heading', {
+                name: 'Where the damage comes from',
+            })
+        ).toBeDefined()
+        expect(follows(card, band)).toBe(true)
     })
 
     test('Damage, Survival, Healing and Utility start at 100, 0, 0 and 0', async () => {
@@ -205,12 +255,65 @@ describe('the role sliders', () => {
         }
     })
 
-    test('no slider shows a Can reach line', async () => {
+    test('each slider says how far it can reach with this mix, and the track past it is hatched', async () => {
+        await openSample()
+
+        expect(
+            screen.getByText(
+                'Raising one role lowers how far the others can go. The hatched part is out of reach with this mix.'
+            )
+        ).toBeDefined()
+        const reach = ROLES.map(
+            (role) =>
+                sliderBox(slider(role)).querySelector('p')?.textContent ?? ''
+        )
+        expect(reach).toEqual([
+            'No limit with this mix',
+            'Can reach 35 with this mix',
+            'Can reach 20 with this mix',
+            'Can reach 40 with this mix',
+        ])
+        expect(description(slider('Survival'))).toBe(
+            'Can reach 35 with this mix'
+        )
+        expect(slider('Survival').getAttribute('aria-valuetext')).toBe(
+            '0, can reach up to 35'
+        )
+        expect(
+            sliderBox(slider('Damage')).querySelector(
+                '[data-slot="slider-out-of-reach"]'
+            )
+        ).toBeNull()
+        expect(
+            (
+                sliderBox(slider('Survival')).querySelector(
+                    '[data-slot="slider-out-of-reach"]'
+                ) as HTMLElement
+            ).style.left
+        ).toBe('35%')
+    })
+
+    test('a slider stops at its reach: Survival stops at 35 while Damage is at 100', async () => {
         await openSample()
         setSlider('Survival', 80)
+        expect(slider('Survival').value).toBe('35')
+        expect(picksLine()).toBe('Your mix picks the max damage set.')
+    })
 
-        expect(screen.queryByText(/Can reach/)).toBeNull()
+    test('a file without reach shows no Can reach line and no hatching, and the sliders go anywhere', async () => {
+        await openFile(
+            variant((file) => {
+                for (const plan of file.plans as Record<string, unknown>[])
+                    delete plan.reach
+            })
+        )
         expect(document.body.textContent ?? '').not.toContain('Can reach')
+        expect(document.body.textContent ?? '').not.toContain('hatched')
+        expect(
+            document.querySelector('[data-slot="slider-out-of-reach"]')
+        ).toBeNull()
+        setSlider('Survival', 80)
+        expect(slider('Survival').value).toBe('80')
     })
 
     test('each slider is a native range input from 0 to 100 in steps of 1', async () => {
@@ -242,58 +345,47 @@ describe('the role sliders', () => {
         }
     })
 
-    test('Survival at 80 picks Damage and survival and puts Kodohide Legguards in Legs', async () => {
+    test('Damage 45 and Survival 80 pick Damage and survival and put Kodohide Legguards in Legs', async () => {
         await openSample()
-        setSlider('Survival', 80)
+        toDamageAndSurvival()
 
-        expect(
-            screen.getByText('Closest ready-made plan: Damage and survival.')
-        ).toBeDefined()
-        expect(slider('Damage').value).toBe('100')
+        expect(picksLine()).toBe('Your mix picks the damage and survival set.')
+        expect(slider('Damage').value).toBe('45')
         expect(slider('Survival').value).toBe('80')
         expect(
             within(slot('Legs')).getByText('Kodohide Legguards')
         ).toBeDefined()
     })
 
-    test('then Damage at 40 picks Max survival, which heads the card plan column', async () => {
+    test('then Damage at 40 picks Max survival, whose numbers the readings show', async () => {
         await openSample()
-        setSlider('Survival', 80)
+        toDamageAndSurvival()
         setSlider('Damage', 40)
 
-        expect(
-            screen.getByText('Closest ready-made plan: Max survival.')
-        ).toBeDefined()
-        expect(
-            screen.getByRole('heading', { name: "Sim's plan: Max survival" })
-        ).toBeDefined()
-        expect(
-            screen.getByRole('columnheader', { name: 'Max survival' })
-        ).toBeDefined()
-        expect(
-            screen.queryByRole('columnheader', { name: 'Max damage' })
-        ).toBeNull()
+        expect(picksLine()).toBe('Your mix picks the max survival set.')
+        expect(paneStatus()).toBe("The sim's plan for your mix: max survival")
+        expect(readingValue('Health')).toBe('1790')
     })
 
     test('moving a slider on the worn view switches to the plan and says so, until Show what I wear', async () => {
         const user = await openSample()
         expect(screen.queryByText(SWITCHED)).toBeNull()
 
-        setSlider('Survival', 80)
+        toDamageAndSurvival()
 
-        expect(
-            screen.getByRole('heading', {
-                name: "Sim's plan: Damage and survival",
-            })
-        ).toBeDefined()
-        expect(screen.getByText(SWITCHED)).toBeDefined()
+        expect(paneStatus()).toBe(
+            "The sim's plan for your mix: damage and survival"
+        )
+        expect(screen.getByText(SWITCHED, { exact: false })).toBeDefined()
 
-        await user.click(screen.getByRole('button', { name: SHOW_WORN }))
+        // The line's own Show what I wear goes back, as the mockup's does.
+        const line = screen.getByText(SWITCHED, { exact: false })
+        await user.click(within(line).getByRole('button', { name: SHOW_WORN }))
 
-        expect(
-            screen.getByRole('heading', { name: 'What you wear' })
-        ).toBeDefined()
-        expect(screen.queryByText(SWITCHED)).toBeNull()
+        expect(paneStatus()).toBe(
+            'What you wear, from your export of 13 November'
+        )
+        expect(screen.queryByText(SWITCHED, { exact: false })).toBeNull()
     })
 
     test('the page always says the sliders pick from ready-made plans', async () => {
@@ -303,25 +395,21 @@ describe('the role sliders', () => {
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
         expect(screen.getByText(NOTHING_RESIMMED)).toBeDefined()
 
-        setSlider('Survival', 80)
+        toDamageAndSurvival()
         expect(screen.getByText(NOTHING_RESIMMED)).toBeDefined()
     })
 
     test('a picked plan with no chain result reads Not simmed and leaves the pull chart to what you wear, until a fight it has', async () => {
         const user = await openSample()
-        setSlider('Survival', 80)
+        await chooseFight(user, CHAIN)
+        toDamageAndSurvival()
 
-        // The sample opens on the chain fight, where Damage and survival has no result.
-        expect(
-            screen.getByRole('columnheader', { name: 'Damage and survival' })
-        ).toBeDefined()
-        expect(readingRow('DPS')).toEqual(['82.0', 'Not simmed'])
-        expect(readingRow('Health')).toEqual(['1375', 'Not simmed'])
-        expect(readingRow('Armor')).toEqual(['952', 'Not simmed'])
-        expect(readingRow('Out of mana at')).toEqual(['1:58', 'Not simmed'])
-        expect(
-            screen.getByRole('img', { name: 'DPS and mana per pull' })
-        ).toBeDefined()
+        // Damage and survival has no result on the chain fight.
+        expect(readingValue('Solo, 30 s vs level 31')).toBe('111.0')
+        expect(readingValue('Health')).toBe('Not simmed')
+        expect(readingValue('Armor')).toBe('Not simmed')
+        expect(readingValue('Mana runs out at')).toBe('Not simmed')
+        expect(screen.getByLabelText('DPS and mana per pull')).toBeDefined()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
         expect(screen.getByText('Mana, what you wear')).toBeDefined()
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()
@@ -329,30 +417,31 @@ describe('the role sliders', () => {
         expect(
             screen.getByText('In what you wear you run dry in pull 3.')
         ).toBeDefined()
-        expect(screen.queryByText(/^The sim's plan/)).toBeNull()
-
-        await user.selectOptions(
-            screen.getByRole('combobox', { name: 'Fight' }),
-            screen.getByRole('option', { name: 'Dungeon, 2 min, level 33' })
+        expect(document.body.textContent ?? '').not.toMatch(
+            /The sim's plan (runs|holds|keeps|wasn't)/
         )
 
-        expect(readingRow('DPS')).toEqual(['75.4', '80.2'])
+        await chooseFight(user, 'Dungeon, 2 min vs level 33')
+
+        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('80.2')
         expect(
-            screen.getByRole('img', { name: 'DPS and mana over the fight' })
+            screen.getByLabelText('DPS and mana over the fight')
         ).toBeDefined()
         expect(screen.getByText("DPS, sim's plan")).toBeDefined()
         expect(screen.getByText("Mana, sim's plan")).toBeDefined()
-        expect(screen.getByText('Out of mana 0:48')).toBeDefined()
-        expect(screen.getByText('Out of mana 0:52')).toBeDefined()
+        expect(screen.getByText('Worn: out of mana 0:48')).toBeDefined()
+        expect(screen.getByText('Plan: out of mana 0:52')).toBeDefined()
         expect(
-            screen.getByText("The sim's plan runs out at 0:52.")
+            screen.getByText(sentence("The sim's plan holds out to 0:52."))
         ).toBeDefined()
     })
 
     test('the one-plan sample says so, enables only Damage, and keeps Max damage when it moves', async () => {
         await openFile(firstRun)
 
-        expect(screen.getByText('This file has one plan.')).toBeDefined()
+        expect(
+            screen.getByText(`${NOTHING_RESIMMED} This file has one plan.`)
+        ).toBeDefined()
         expect(slider('Damage').disabled).toBe(false)
         for (const role of ['Survival', 'Healing', 'Utility'])
             expect(slider(role).disabled).toBe(true)
@@ -360,8 +449,6 @@ describe('the role sliders', () => {
         setSlider('Damage', 40)
 
         expect(slider('Damage').value).toBe('40')
-        expect(
-            screen.getByRole('heading', { name: "Sim's plan: Max damage" })
-        ).toBeDefined()
+        expect(paneStatus()).toBe("The sim's plan for your mix: max damage")
     })
 })

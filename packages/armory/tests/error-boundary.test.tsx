@@ -79,7 +79,7 @@ describe('the error boundary', () => {
             ))
             await user.click(
                 screen.getByRole('button', {
-                    name: 'Look at a sample character',
+                    name: 'Or look at a sample character',
                 })
             )
             await screen.findByRole('heading', { level: 1, name: 'Truncha' })

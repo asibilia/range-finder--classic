@@ -3,7 +3,15 @@
  * sections 6, 7 and 8). The DOM helper must be the first import.
  */
 import './dom'
-import { openFile, openSample, variant, type User } from './open-app'
+import {
+    openFile,
+    openSample,
+    pill,
+    pills,
+    readingValue,
+    variant,
+    type User,
+} from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, within } from '@testing-library/react'
@@ -12,7 +20,7 @@ const HANDS = 'Hands: Toughened Leather Gloves, +21.6 EP'
 const NECK = "Neck: Archmagister's Faceted Pendant, +1.7 EP"
 const LEGS = "Legs: Trapper's Leather Legguards, +23.6 EP"
 const FINGER_1 = 'Finger 1: Seal of Sylvanas, +19.2 EP'
-const FINGER_2 = 'Finger 2: Item 6748, +19.2 EP'
+const FINGER_2 = 'Finger 2: Unnamed ring (6748), +19.2 EP'
 
 /** Clicks the slot button named `name` and returns the picker it opens. */
 async function openPicker(
@@ -31,7 +39,7 @@ function alternativeRows(dialog: HTMLElement): HTMLElement[] {
         .filter(
             (row) =>
                 within(row).queryByRole('button', {
-                    name: /^(Add to wishlist|On your wishlist)$/,
+                    name: /^(Add to wishlist|On wishlist)$/,
                 }) !== null
         )
 }
@@ -49,12 +57,7 @@ function headerButton(name: string): HTMLElement {
 }
 
 function gainSize(slot: HTMLElement, gain: string): string | null {
-    return (
-        within(slot)
-            .getByText(gain)
-            .closest('[data-size]')
-            ?.getAttribute('data-size') ?? null
-    )
+    return pill(slot, gain).getAttribute('data-size')
 }
 
 async function closeDialog(user: User, dialog: HTMLElement) {
@@ -70,17 +73,17 @@ describe('gains on the slots', () => {
         await openSample()
         const legs = screen.getByRole('button', { name: LEGS })
 
-        expect(within(legs).getByText('+23.6 EP')).toBeDefined()
+        expect(pill(legs, '+23.6 EP')).toBeDefined()
         expect(within(legs).getByText('Best: Ferine Leggings')).toBeDefined()
     })
 
-    test('Main hand shows +6.0 DPS and Best: Corpsemaker', async () => {
+    test('Two-hand shows +6.0 DPS and Best: Corpsemaker', async () => {
         await openSample()
         const mainHand = screen.getByRole('button', {
-            name: "Main hand: Guardian's Dualblade, +6.0 DPS",
+            name: "Two-hand: Guardian's Dualblade, +6.0 DPS",
         })
 
-        expect(within(mainHand).getByText('+6.0 DPS')).toBeDefined()
+        expect(pill(mainHand, '+6.0 DPS')).toBeDefined()
         expect(within(mainHand).getByText('Best: Corpsemaker')).toBeDefined()
     })
 
@@ -112,15 +115,17 @@ describe('gains on the slots', () => {
         // one comes from the zero gain.
         await openSample()
         const before = screen.getByRole('button', {
-            name: 'Back: Item 279848, +6.2 EP',
+            name: 'Back: Unnamed cloak (279848), +6.2 EP',
         })
-        expect(within(before).getByText('+6.2 EP')).toBeDefined()
+        expect(pill(before, '+6.2 EP')).toBeDefined()
         cleanup()
 
         await openFile(changed)
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
 
-        expect(within(slot).queryByText(/EP$/)).toBeNull()
+        expect(pills(slot)).toEqual([])
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
@@ -139,9 +144,11 @@ describe('gains on the slots', () => {
                 first.gain_ep = 0.04
             })
         )
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
 
-        expect(within(slot).queryByText(/EP$/)).toBeNull()
+        expect(pills(slot)).toEqual([])
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
@@ -164,24 +171,31 @@ describe('gains on the slots', () => {
                 first.gain_dps = null
             })
         )
-        const slot = screen.getByRole('button', { name: 'Back: Item 279848' })
-        expect(within(slot).queryByText(/(EP|DPS)$/)).toBeNull()
+        const slot = screen.getByRole('button', {
+            name: 'Back: Unnamed cloak (279848)',
+        })
+        expect(pills(slot)).toEqual([])
         expect(within(slot).queryByText(/^Best: /)).toBeNull()
 
-        const dialog = await openPicker(user, 'Back: Item 279848', 'Back')
+        const dialog = await openPicker(
+            user,
+            'Back: Unnamed cloak (279848)',
+            'Back'
+        )
         const row = rowFor(dialog, "Sergeant Major's Cape")
-        expect(within(row).queryByText(/(EP|DPS)$/)).toBeNull()
+        expect(row.textContent).not.toMatch(/(EP|DPS)/)
         expect(
-            within(rowFor(dialog, 'Tattered Kirin Tor Cloak')).getByText(
-                '+6.0 EP'
-            )
-        ).toBeDefined()
+            rowFor(dialog, 'Tattered Kirin Tor Cloak').textContent
+        ).toContain('+6.0 EP')
     })
 
-    test('the bag upgrade shows under the left column', async () => {
+    test("the bag upgrade shows under the left column, in the mockup's words", async () => {
         await openSample()
         const note = screen.getByText(
-            'In your bags: Berylline Pads, +7.0 EP over what you wear.'
+            (_, element) =>
+                element?.tagName === 'P' &&
+                element.textContent ===
+                    'Berylline Pads are in your bags, +7.0 EP over the shoulders you wear. No dungeon needed.'
         )
         const wrist = screen.getByRole('button', { name: /^Wrist: / })
 
@@ -192,14 +206,83 @@ describe('gains on the slots', () => {
     })
 })
 
+describe('Wear them', () => {
+    test('puts the bag item on: the slot, the numbers and the card change; Undo puts it back', async () => {
+        const user = await openSample()
+        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.4')
+
+        await user.click(screen.getByRole('button', { name: 'Wear them' }))
+
+        expect(
+            screen.getByRole('button', { name: /^Shoulder: Berylline Pads, / })
+        ).toBeDefined()
+        expect(
+            screen.getByText(
+                (_, element) =>
+                    element?.tagName === 'P' &&
+                    element.textContent ===
+                        "You wear Berylline Pads now. Serpent's Shoulders went to your bags."
+            )
+        ).toBeDefined()
+        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.7')
+        expect(readingValue('Solo, 30 s vs level 31')).toBe('104.1')
+
+        await user.click(screen.getByRole('button', { name: 'Undo' }))
+        expect(
+            screen.getByRole('button', {
+                name: /^Shoulder: Serpent's Shoulders, /,
+            })
+        ).toBeDefined()
+        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.4')
+        expect(screen.getByRole('button', { name: 'Wear them' })).toBeDefined()
+    })
+
+    test('a bag upgrade without results (not simmed) has no Wear them button', async () => {
+        await openFile(
+            variant((file) => {
+                for (const upgrade of file.bag_upgrades as Record<
+                    string,
+                    unknown
+                >[])
+                    delete upgrade.results
+            })
+        )
+        expect(screen.queryByRole('button', { name: 'Wear them' })).toBeNull()
+        expect(
+            screen.getByText('are in your bags,', { exact: false })
+        ).toBeDefined()
+    })
+})
+
+describe('slot names', () => {
+    test('a name cut off with an ellipsis shows whole in a tooltip', async () => {
+        const user = await openSample()
+        const hands = screen.getByRole('button', { name: HANDS })
+        await user.hover(hands)
+        expect(
+            await screen.findByText('Toughened Leather Gloves', {
+                selector: '[data-slot="tooltip-content"]',
+            })
+        ).toBeDefined()
+    })
+})
+
 describe('the item picker', () => {
-    test('the Hands picker shows what you wear, then Gloves of the Greatfather first', async () => {
+    test('the Hands picker shows what is in the slot now, then Gloves of the Greatfather first', async () => {
         const user = await openSample()
         const dialog = await openPicker(user, HANDS, 'Hands')
 
-        const wearHeading = within(dialog).getByText('What you wear')
+        expect(
+            within(dialog).getByText(
+                'Comparing with what you wear. Scores are EP, attack power = 1.',
+                { exact: false }
+            )
+        ).toBeDefined()
+        const wearHeading = within(dialog).getByText('In this slot now')
         const worn = within(dialog).getByText('Toughened Leather Gloves')
-        const betterHeading = within(dialog).getByText('Better for you')
+        const betterHeading = within(dialog).getByRole('list', {
+            name: 'Better for you',
+        })
         expect(
             wearHeading.compareDocumentPosition(worn) &
                 Node.DOCUMENT_POSITION_FOLLOWING
@@ -211,16 +294,13 @@ describe('the item picker', () => {
 
         const [first] = alternativeRows(dialog)
         if (!first) throw new Error('no alternatives listed')
-        expect(
-            betterHeading.compareDocumentPosition(first) &
-                Node.DOCUMENT_POSITION_FOLLOWING
-        ).toBeTruthy()
+        expect(betterHeading.contains(first)).toBe(true)
         expect(
             within(first).getByText('Gloves of the Greatfather')
         ).toBeDefined()
-        expect(within(first).getByText('+21.6 EP')).toBeDefined()
+        expect(first.textContent).toContain('+21.6 EP')
         expect(within(first).getByText('Crafted: Leatherworking')).toBeDefined()
-        expect(within(first).getByText('Needs level 33')).toBeDefined()
+        expect(within(first).getByText('needs level 33')).toBeDefined()
         expect(within(first).getByText('Classic data')).toBeDefined()
     })
 
@@ -240,17 +320,17 @@ describe('the item picker', () => {
 
         expect(
             within(rowFor(dialog, "Violet Sorcerer's Wraps")).queryByText(
-                /^Needs level/
+                /^needs level/
             )
         ).toBeNull()
         expect(
             within(rowFor(dialog, 'Insignia Gloves')).queryByText(
-                /^Needs level/
+                /^needs level/
             )
         ).toBeNull()
         expect(
             within(rowFor(dialog, 'Dog Training Gloves')).getByText(
-                'Needs level 31'
+                'needs level 31'
             )
         ).toBeDefined()
     })
@@ -259,9 +339,9 @@ describe('the item picker', () => {
         const user = await openSample()
         const dialog = await openPicker(user, NECK, 'Neck')
 
-        expect(
-            within(rowFor(dialog, 'Mark of the Marsh')).getByText('-1.7 EP')
-        ).toBeDefined()
+        expect(rowFor(dialog, 'Mark of the Marsh').textContent).toContain(
+            '-1.7 EP'
+        )
         const rows = alternativeRows(dialog)
         expect(rows).toHaveLength(4)
         for (const row of rows) {
@@ -273,9 +353,9 @@ describe('the item picker', () => {
 })
 
 describe('the wishlist', () => {
-    test('Add to wishlist toggles to a pressed On your wishlist and back, and the header counts', async () => {
+    test('Add to wishlist toggles to a pressed On wishlist and back, and the header counts', async () => {
         const user = await openSample()
-        expect(headerButton('Wishlist (0)')).toBeDefined()
+        expect(headerButton('Wishlist 0')).toBeDefined()
         const dialog = await openPicker(user, HANDS, 'Hands')
         const row = rowFor(dialog, 'Gloves of the Greatfather')
 
@@ -283,19 +363,19 @@ describe('the wishlist', () => {
             within(row).getByRole('button', { name: 'Add to wishlist' })
         )
         const on = within(row).getByRole('button', {
-            name: 'On your wishlist',
+            name: 'On wishlist',
         })
         expect(on.getAttribute('aria-pressed')).toBe('true')
-        expect(headerButton('Wishlist (1)')).toBeDefined()
+        expect(headerButton('Wishlist 1')).toBeDefined()
 
         await user.click(on)
         expect(
             within(row).getByRole('button', { name: 'Add to wishlist' })
         ).toBeDefined()
-        expect(headerButton('Wishlist (0)')).toBeDefined()
+        expect(headerButton('Wishlist 0')).toBeDefined()
     })
 
-    test('an item added from Finger 1 is On your wishlist in the Finger 2 picker', async () => {
+    test('an item added from Finger 1 is On wishlist in the Finger 2 picker', async () => {
         const user = await openSample()
         const first = await openPicker(user, FINGER_1, 'Finger 1')
         await user.click(
@@ -308,11 +388,11 @@ describe('the wishlist', () => {
         const second = await openPicker(user, FINGER_2, 'Finger 2')
         expect(
             within(rowFor(second, 'Quick Strike Ring')).getByRole('button', {
-                name: 'On your wishlist',
+                name: 'On wishlist',
             })
         ).toBeDefined()
         await closeDialog(user, second)
-        expect(headerButton('Wishlist (1)')).toBeDefined()
+        expect(headerButton('Wishlist 1')).toBeDefined()
     })
 
     test('the wishlist dialog lists the item with its slot and source, and Remove empties it', async () => {
@@ -326,7 +406,7 @@ describe('the wishlist', () => {
         )
         await closeDialog(user, picker)
 
-        await user.click(screen.getByRole('button', { name: 'Wishlist (1)' }))
+        await user.click(screen.getByRole('button', { name: 'Wishlist 1' }))
         const dialog = screen.getByRole('dialog', { name: 'Wishlist' })
         expect(
             within(dialog).getByText('Gloves of the Greatfather')
@@ -357,7 +437,7 @@ describe('the wishlist', () => {
         const second = await openPicker(user, FINGER_2, 'Finger 2')
         await closeDialog(user, second)
 
-        await user.click(screen.getByRole('button', { name: 'Wishlist (1)' }))
+        await user.click(screen.getByRole('button', { name: 'Wishlist 1' }))
         const dialog = screen.getByRole('dialog', { name: 'Wishlist' })
         expect(within(dialog).getAllByText('Quick Strike Ring')).toHaveLength(1)
         expect(within(dialog).getByText('Finger 1')).toBeDefined()
@@ -372,7 +452,7 @@ describe('dialogs', () => {
         expect(picker.getAttribute('aria-modal')).toBe('true')
         await closeDialog(user, picker)
 
-        await user.click(screen.getByRole('button', { name: 'Wishlist (0)' }))
+        await user.click(screen.getByRole('button', { name: 'Wishlist 0' }))
         const wishlist = screen.getByRole('dialog', { name: 'Wishlist' })
         expect(wishlist.getAttribute('aria-modal')).toBe('true')
     })
@@ -401,7 +481,7 @@ describe('dialogs', () => {
 
     test('the wishlist takes focus, keeps Tab inside, closes on Escape and gives focus back to its button', async () => {
         const user = await openSample()
-        const opener = screen.getByRole('button', { name: 'Wishlist (0)' })
+        const opener = screen.getByRole('button', { name: 'Wishlist 0' })
         await user.click(opener)
         const dialog = screen.getByRole('dialog', { name: 'Wishlist' })
 
@@ -429,7 +509,7 @@ describe('dialogs', () => {
         )
         await closeDialog(user, picker)
 
-        const opener = screen.getByRole('button', { name: 'Wishlist (1)' })
+        const opener = screen.getByRole('button', { name: 'Wishlist 1' })
         await user.click(opener)
         const dialog = screen.getByRole('dialog', { name: 'Wishlist' })
         within(dialog).getByRole('button', { name: 'Remove' }).focus()
@@ -441,7 +521,7 @@ describe('dialogs', () => {
         await user.keyboard('{Escape}')
         expect(screen.queryByRole('dialog')).toBeNull()
         expect(document.activeElement).toBe(
-            screen.getByRole('button', { name: 'Wishlist (0)' })
+            screen.getByRole('button', { name: 'Wishlist 0' })
         )
     })
 })

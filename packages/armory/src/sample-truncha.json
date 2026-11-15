@@ -98,15 +98,21 @@
     "melee_crit_pct": 11.95,
     "spell_crit_pct": 7.32,
     "dodge_pct": 11.75,
-    "melee_hit_pct": 0
+    "melee_hit_pct": 0,
+    "weapon_skill": {
+      "weapon_type": "Axe",
+      "current": 148,
+      "max": 150
+    }
   },
   "fights": [
     {
       "fight_id": "solo-hit-short",
-      "label": "Solo, 30 s, level 31",
+      "label": "Solo, 30 s vs level 31",
       "kind": "single",
       "target_level": 31,
       "duration_s": 30,
+      "melee_miss_pct": 5.5,
       "setup": {
         "starting_mana_pct": 100,
         "being_hit": true,
@@ -118,10 +124,11 @@
     },
     {
       "fight_id": "dungeon-short",
-      "label": "Dungeon, 30 s, level 32",
+      "label": "Dungeon, 30 s vs level 32",
       "kind": "single",
       "target_level": 32,
       "duration_s": 30,
+      "melee_miss_pct": 6,
       "setup": {
         "starting_mana_pct": 100,
         "being_hit": false,
@@ -133,25 +140,27 @@
     },
     {
       "fight_id": "dungeon-long",
-      "label": "Dungeon, 2 min, level 33",
+      "label": "Dungeon, 2 min vs level 33",
       "kind": "single",
       "target_level": 33,
       "duration_s": 120,
+      "melee_miss_pct": 8,
       "setup": {
         "starting_mana_pct": 100,
         "being_hit": false,
         "pulls": 1,
-        "gap_s": 0,
+        "gap_s": 10,
         "drinks": false,
         "target_armor": 1200
       }
     },
     {
       "fight_id": "chain-4",
-      "label": "Chain, 4 pulls 20 s apart, level 33",
+      "label": "Chain, 4 pulls 20 s apart vs level 33",
       "kind": "chain",
       "target_level": 33,
       "duration_s": 30,
+      "melee_miss_pct": 8,
       "setup": {
         "starting_mana_pct": 100,
         "being_hit": false,
@@ -162,7 +171,7 @@
       }
     }
   ],
-  "default_fight_id": "chain-4",
+  "default_fight_id": "dungeon-long",
   "slots": [
     {
       "slot": "head",
@@ -1352,6 +1361,7 @@
         },
         "data": "forever"
       },
+      "imbue": "Windfury Weapon",
       "alternatives": [
         {
           "item": {
@@ -1418,7 +1428,7 @@
         "required_level": 30,
         "source": {
           "kind": "unknown",
-          "text": "Source unknown"
+          "text": "Not in the sim data"
         },
         "data": "forever"
       },
@@ -1440,7 +1450,328 @@
         },
         "data": "classic"
       },
-      "gain_ep": 7
+      "gain_ep": 7,
+      "results": [
+        {
+          "fight_id": "solo-hit-short",
+          "dps": 104.1,
+          "health": 1375,
+          "armor": 952,
+          "out_of_mana_s": "never",
+          "time_to_die_s": 34,
+          "timeline": null,
+          "pulls": null,
+          "damage_split": [
+            {
+              "name": "Melee",
+              "share_pct": 33,
+              "school": "physical"
+            },
+            {
+              "name": "Windfury",
+              "share_pct": 17,
+              "school": "physical"
+            },
+            {
+              "name": "Flame Shock",
+              "share_pct": 15,
+              "school": "fire"
+            },
+            {
+              "name": "Stormstrike",
+              "share_pct": 15,
+              "school": "nature"
+            },
+            {
+              "name": "Earth Shock",
+              "share_pct": 11,
+              "school": "nature"
+            },
+            {
+              "name": "Lightning Shield",
+              "share_pct": 9,
+              "school": "nature"
+            }
+          ]
+        },
+        {
+          "fight_id": "dungeon-short",
+          "dps": 97.7,
+          "health": 1375,
+          "armor": 952,
+          "out_of_mana_s": "never",
+          "time_to_die_s": 34,
+          "timeline": null,
+          "pulls": null,
+          "damage_split": [
+            {
+              "name": "Melee",
+              "share_pct": 33,
+              "school": "physical"
+            },
+            {
+              "name": "Windfury",
+              "share_pct": 17,
+              "school": "physical"
+            },
+            {
+              "name": "Flame Shock",
+              "share_pct": 15,
+              "school": "fire"
+            },
+            {
+              "name": "Stormstrike",
+              "share_pct": 15,
+              "school": "nature"
+            },
+            {
+              "name": "Earth Shock",
+              "share_pct": 11,
+              "school": "nature"
+            },
+            {
+              "name": "Lightning Shield",
+              "share_pct": 9,
+              "school": "nature"
+            }
+          ]
+        },
+        {
+          "fight_id": "dungeon-long",
+          "dps": 75.7,
+          "health": 1375,
+          "armor": 952,
+          "out_of_mana_s": 48,
+          "time_to_die_s": 34,
+          "timeline": [
+            {
+              "t_s": 0,
+              "dps": 100.8,
+              "mana": 1660
+            },
+            {
+              "t_s": 5,
+              "dps": 108.8,
+              "mana": 1487
+            },
+            {
+              "t_s": 10,
+              "dps": 102.5,
+              "mana": 1314
+            },
+            {
+              "t_s": 15,
+              "dps": 98.6,
+              "mana": 1141
+            },
+            {
+              "t_s": 20,
+              "dps": 106.2,
+              "mana": 968
+            },
+            {
+              "t_s": 25,
+              "dps": 106.1,
+              "mana": 795
+            },
+            {
+              "t_s": 30,
+              "dps": 95,
+              "mana": 623
+            },
+            {
+              "t_s": 35,
+              "dps": 94,
+              "mana": 450
+            },
+            {
+              "t_s": 40,
+              "dps": 102.5,
+              "mana": 277
+            },
+            {
+              "t_s": 45,
+              "dps": 100.5,
+              "mana": 104
+            },
+            {
+              "t_s": 50,
+              "dps": 58.3,
+              "mana": 52
+            },
+            {
+              "t_s": 55,
+              "dps": 63.8,
+              "mana": 7
+            },
+            {
+              "t_s": 60,
+              "dps": 59.6,
+              "mana": 32
+            },
+            {
+              "t_s": 65,
+              "dps": 52.9,
+              "mana": 52
+            },
+            {
+              "t_s": 70,
+              "dps": 57.8,
+              "mana": 7
+            },
+            {
+              "t_s": 75,
+              "dps": 61,
+              "mana": 32
+            },
+            {
+              "t_s": 80,
+              "dps": 60.7,
+              "mana": 51
+            },
+            {
+              "t_s": 85,
+              "dps": 60.1,
+              "mana": 6
+            },
+            {
+              "t_s": 90,
+              "dps": 54,
+              "mana": 33
+            },
+            {
+              "t_s": 95,
+              "dps": 55.7,
+              "mana": 51
+            },
+            {
+              "t_s": 100,
+              "dps": 63.7,
+              "mana": 6
+            },
+            {
+              "t_s": 105,
+              "dps": 60.7,
+              "mana": 33
+            },
+            {
+              "t_s": 110,
+              "dps": 56.7,
+              "mana": 51
+            },
+            {
+              "t_s": 115,
+              "dps": 56.5,
+              "mana": 6
+            },
+            {
+              "t_s": 120,
+              "dps": 56.1,
+              "mana": 33
+            }
+          ],
+          "pulls": null,
+          "damage_split": [
+            {
+              "name": "Melee",
+              "share_pct": 33,
+              "school": "physical"
+            },
+            {
+              "name": "Windfury",
+              "share_pct": 17,
+              "school": "physical"
+            },
+            {
+              "name": "Flame Shock",
+              "share_pct": 15,
+              "school": "fire"
+            },
+            {
+              "name": "Stormstrike",
+              "share_pct": 15,
+              "school": "nature"
+            },
+            {
+              "name": "Earth Shock",
+              "share_pct": 11,
+              "school": "nature"
+            },
+            {
+              "name": "Lightning Shield",
+              "share_pct": 9,
+              "school": "nature"
+            }
+          ]
+        },
+        {
+          "fight_id": "chain-4",
+          "dps": 82.3,
+          "health": 1375,
+          "armor": 952,
+          "out_of_mana_s": 118,
+          "time_to_die_s": 34,
+          "timeline": null,
+          "pulls": [
+            {
+              "pull": 1,
+              "dps": 101.3,
+              "mana_start": 1660,
+              "mana_end": 980
+            },
+            {
+              "pull": 2,
+              "dps": 97.3,
+              "mana_start": 1010,
+              "mana_end": 330
+            },
+            {
+              "pull": 3,
+              "dps": 72.3,
+              "mana_start": 360,
+              "mana_end": 0
+            },
+            {
+              "pull": 4,
+              "dps": 58.3,
+              "mana_start": 30,
+              "mana_end": 0
+            }
+          ],
+          "damage_split": [
+            {
+              "name": "Melee",
+              "share_pct": 33,
+              "school": "physical"
+            },
+            {
+              "name": "Windfury",
+              "share_pct": 17,
+              "school": "physical"
+            },
+            {
+              "name": "Flame Shock",
+              "share_pct": 15,
+              "school": "fire"
+            },
+            {
+              "name": "Stormstrike",
+              "share_pct": 15,
+              "school": "nature"
+            },
+            {
+              "name": "Earth Shock",
+              "share_pct": 11,
+              "school": "nature"
+            },
+            {
+              "name": "Lightning Shield",
+              "share_pct": 9,
+              "school": "nature"
+            }
+          ]
+        }
+      ]
     }
   ],
   "plans": [
@@ -1458,8 +1789,8 @@
         "neck": 288926,
         "shoulder": 6697,
         "back": 16315,
-        "chest": 7054,
-        "wrist": 7386,
+        "chest": 252451,
+        "wrist": 273036,
         "hands": 17721,
         "waist": 252461,
         "legs": 6690,
@@ -1471,6 +1802,12 @@
         "main_hand": 6687,
         "off_hand": null,
         "relic": 263412
+      },
+      "reach": {
+        "damage": 100,
+        "survival": 35,
+        "healing": 20,
+        "utility": 40
       }
     },
     {
@@ -1487,8 +1824,8 @@
         "neck": 288926,
         "shoulder": 6697,
         "back": 282658,
-        "chest": 7054,
-        "wrist": 7386,
+        "chest": 252451,
+        "wrist": 273036,
         "hands": 17721,
         "waist": 20191,
         "legs": 285338,
@@ -1500,6 +1837,12 @@
         "main_hand": 286983,
         "off_hand": null,
         "relic": 263412
+      },
+      "reach": {
+        "damage": 84,
+        "survival": 88,
+        "healing": 36,
+        "utility": 52
       }
     },
     {
@@ -1516,8 +1859,8 @@
         "neck": 288926,
         "shoulder": 6685,
         "back": 282658,
-        "chest": 7054,
-        "wrist": 7386,
+        "chest": 252451,
+        "wrist": 13106,
         "hands": 7756,
         "waist": 20191,
         "legs": 285338,
@@ -1529,6 +1872,12 @@
         "main_hand": 273046,
         "off_hand": null,
         "relic": 263412
+      },
+      "reach": {
+        "damage": 45,
+        "survival": 100,
+        "healing": 48,
+        "utility": 61
       }
     }
   ],
@@ -1546,27 +1895,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -1583,27 +1938,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -1618,155 +1979,161 @@
       "timeline": [
         {
           "t_s": 0,
-          "dps": 94.3,
+          "dps": 100.5,
           "mana": 1660
         },
         {
           "t_s": 5,
-          "dps": 94.3,
+          "dps": 108.5,
           "mana": 1487
         },
         {
           "t_s": 10,
-          "dps": 94.3,
+          "dps": 102.2,
           "mana": 1314
         },
         {
           "t_s": 15,
-          "dps": 94.3,
+          "dps": 98.3,
           "mana": 1141
         },
         {
           "t_s": 20,
-          "dps": 94.3,
+          "dps": 105.9,
           "mana": 968
         },
         {
           "t_s": 25,
-          "dps": 94.3,
+          "dps": 105.8,
           "mana": 795
         },
         {
           "t_s": 30,
-          "dps": 94.3,
+          "dps": 94.7,
           "mana": 623
         },
         {
           "t_s": 35,
-          "dps": 94.3,
+          "dps": 93.7,
           "mana": 450
         },
         {
           "t_s": 40,
-          "dps": 94.3,
+          "dps": 102.2,
           "mana": 277
         },
         {
           "t_s": 45,
-          "dps": 94.3,
+          "dps": 100.2,
           "mana": 104
         },
         {
           "t_s": 50,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 58,
+          "mana": 52
         },
         {
           "t_s": 55,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 63.5,
+          "mana": 7
         },
         {
           "t_s": 60,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 59.3,
+          "mana": 32
         },
         {
           "t_s": 65,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 52.6,
+          "mana": 52
         },
         {
           "t_s": 70,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 57.5,
+          "mana": 7
         },
         {
           "t_s": 75,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 60.7,
+          "mana": 32
         },
         {
           "t_s": 80,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 60.4,
+          "mana": 51
         },
         {
           "t_s": 85,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 59.8,
+          "mana": 6
         },
         {
           "t_s": 90,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 53.7,
+          "mana": 33
         },
         {
           "t_s": 95,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 55.4,
+          "mana": 51
         },
         {
           "t_s": 100,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 63.4,
+          "mana": 6
         },
         {
           "t_s": 105,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 60.4,
+          "mana": 33
         },
         {
           "t_s": 110,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 56.4,
+          "mana": 51
         },
         {
           "t_s": 115,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 56.2,
+          "mana": 6
         },
         {
           "t_s": 120,
-          "dps": 56.6,
-          "mana": 0
+          "dps": 55.8,
+          "mana": 33
         }
       ],
       "pulls": null,
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -1783,27 +2150,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -1820,27 +2193,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -1855,155 +2234,161 @@
       "timeline": [
         {
           "t_s": 0,
-          "dps": 105.1,
-          "mana": 1745
+          "dps": 116.3,
+          "mana": 1660
         },
         {
           "t_s": 5,
-          "dps": 105.1,
-          "mana": 1592
+          "dps": 110.8,
+          "mana": 1514
         },
         {
           "t_s": 10,
-          "dps": 105.1,
-          "mana": 1439
+          "dps": 105.3,
+          "mana": 1369
         },
         {
           "t_s": 15,
-          "dps": 105.1,
-          "mana": 1286
+          "dps": 112.8,
+          "mana": 1223
         },
         {
           "t_s": 20,
-          "dps": 105.1,
-          "mana": 1133
+          "dps": 114.4,
+          "mana": 1078
         },
         {
           "t_s": 25,
-          "dps": 105.1,
-          "mana": 980
+          "dps": 102.8,
+          "mana": 932
         },
         {
           "t_s": 30,
-          "dps": 105.1,
-          "mana": 827
+          "dps": 99.9,
+          "mana": 786
         },
         {
           "t_s": 35,
-          "dps": 105.1,
-          "mana": 674
+          "dps": 109.1,
+          "mana": 641
         },
         {
           "t_s": 40,
-          "dps": 105.1,
-          "mana": 520
+          "dps": 108.4,
+          "mana": 495
         },
         {
           "t_s": 45,
-          "dps": 105.1,
-          "mana": 367
+          "dps": 100.8,
+          "mana": 349
         },
         {
           "t_s": 50,
-          "dps": 105.1,
-          "mana": 214
+          "dps": 106.8,
+          "mana": 204
         },
         {
           "t_s": 55,
-          "dps": 105.1,
-          "mana": 61
+          "dps": 117.1,
+          "mana": 58
         },
         {
           "t_s": 60,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 56.7,
+          "mana": 51
         },
         {
           "t_s": 65,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 61,
+          "mana": 32
         },
         {
           "t_s": 70,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 65.2,
+          "mana": 7
         },
         {
           "t_s": 75,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 64.8,
+          "mana": 52
         },
         {
           "t_s": 80,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 64.6,
+          "mana": 31
         },
         {
           "t_s": 85,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 58.2,
+          "mana": 7
         },
         {
           "t_s": 90,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 58.7,
+          "mana": 52
         },
         {
           "t_s": 95,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 67.6,
+          "mana": 31
         },
         {
           "t_s": 100,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 65.6,
+          "mana": 7
         },
         {
           "t_s": 105,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 60.7,
+          "mana": 52
         },
         {
           "t_s": 110,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 60.4,
+          "mana": 31
         },
         {
           "t_s": 115,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 59.7,
+          "mana": 7
         },
         {
           "t_s": 120,
-          "dps": 63.1,
-          "mana": 0
+          "dps": 65.7,
+          "mana": 52
         }
       ],
       "pulls": null,
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2020,27 +2405,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2057,27 +2448,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2092,155 +2489,161 @@
       "timeline": [
         {
           "t_s": 0,
-          "dps": 100.3,
-          "mana": 1700
+          "dps": 113.1,
+          "mana": 1660
         },
         {
           "t_s": 5,
-          "dps": 100.3,
-          "mana": 1537
+          "dps": 107.7,
+          "mana": 1500
         },
         {
           "t_s": 10,
-          "dps": 100.3,
-          "mana": 1373
+          "dps": 102.4,
+          "mana": 1341
         },
         {
           "t_s": 15,
-          "dps": 100.3,
-          "mana": 1210
+          "dps": 109.7,
+          "mana": 1181
         },
         {
           "t_s": 20,
-          "dps": 100.3,
-          "mana": 1046
+          "dps": 111.2,
+          "mana": 1022
         },
         {
           "t_s": 25,
-          "dps": 100.3,
-          "mana": 883
+          "dps": 99.9,
+          "mana": 862
         },
         {
           "t_s": 30,
-          "dps": 100.3,
-          "mana": 719
+          "dps": 97.1,
+          "mana": 702
         },
         {
           "t_s": 35,
-          "dps": 100.3,
-          "mana": 556
+          "dps": 106,
+          "mana": 543
         },
         {
           "t_s": 40,
-          "dps": 100.3,
-          "mana": 392
+          "dps": 105.4,
+          "mana": 383
         },
         {
           "t_s": 45,
-          "dps": 100.3,
-          "mana": 229
+          "dps": 98,
+          "mana": 223
         },
         {
           "t_s": 50,
-          "dps": 100.3,
-          "mana": 65
+          "dps": 103.9,
+          "mana": 64
         },
         {
           "t_s": 55,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 62.9,
+          "mana": 6
         },
         {
           "t_s": 60,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 55.1,
+          "mana": 51
         },
         {
           "t_s": 65,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 59.3,
+          "mana": 32
         },
         {
           "t_s": 70,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 63.4,
+          "mana": 7
         },
         {
           "t_s": 75,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 63,
+          "mana": 52
         },
         {
           "t_s": 80,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 62.8,
+          "mana": 31
         },
         {
           "t_s": 85,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 56.6,
+          "mana": 7
         },
         {
           "t_s": 90,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 57.1,
+          "mana": 52
         },
         {
           "t_s": 95,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 65.7,
+          "mana": 31
         },
         {
           "t_s": 100,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 63.7,
+          "mana": 7
         },
         {
           "t_s": 105,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 59,
+          "mana": 52
         },
         {
           "t_s": 110,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 58.7,
+          "mana": 31
         },
         {
           "t_s": 115,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 58,
+          "mana": 7
         },
         {
           "t_s": 120,
-          "dps": 60.2,
-          "mana": 0
+          "dps": 63.9,
+          "mana": 52
         }
       ],
       "pulls": null,
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2257,27 +2660,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2294,27 +2703,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2329,155 +2744,161 @@
       "timeline": [
         {
           "t_s": 0,
-          "dps": 90.6,
-          "mana": 1640
+          "dps": 106.6,
+          "mana": 1660
         },
         {
           "t_s": 5,
-          "dps": 90.6,
-          "mana": 1458
+          "dps": 101.6,
+          "mana": 1476
         },
         {
           "t_s": 10,
-          "dps": 90.6,
-          "mana": 1276
+          "dps": 96.5,
+          "mana": 1291
         },
         {
           "t_s": 15,
-          "dps": 90.6,
-          "mana": 1093
+          "dps": 103.4,
+          "mana": 1107
         },
         {
           "t_s": 20,
-          "dps": 90.6,
-          "mana": 911
+          "dps": 104.9,
+          "mana": 922
         },
         {
           "t_s": 25,
-          "dps": 90.6,
-          "mana": 729
+          "dps": 94.2,
+          "mana": 738
         },
         {
           "t_s": 30,
-          "dps": 90.6,
-          "mana": 547
+          "dps": 91.6,
+          "mana": 553
         },
         {
           "t_s": 35,
-          "dps": 90.6,
-          "mana": 364
+          "dps": 100,
+          "mana": 369
         },
         {
           "t_s": 40,
-          "dps": 90.6,
-          "mana": 182
+          "dps": 99.4,
+          "mana": 184
         },
         {
           "t_s": 45,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 56.6,
+          "mana": 51
         },
         {
           "t_s": 50,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 62.1,
+          "mana": 32
         },
         {
           "t_s": 55,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 59.3,
+          "mana": 6
         },
         {
           "t_s": 60,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 52,
+          "mana": 51
         },
         {
           "t_s": 65,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 55.9,
+          "mana": 32
         },
         {
           "t_s": 70,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 59.8,
+          "mana": 7
         },
         {
           "t_s": 75,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 59.4,
+          "mana": 52
         },
         {
           "t_s": 80,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 59.2,
+          "mana": 31
         },
         {
           "t_s": 85,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 53.4,
+          "mana": 7
         },
         {
           "t_s": 90,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 53.8,
+          "mana": 52
         },
         {
           "t_s": 95,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 62,
+          "mana": 31
         },
         {
           "t_s": 100,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 60.1,
+          "mana": 7
         },
         {
           "t_s": 105,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 55.6,
+          "mana": 52
         },
         {
           "t_s": 110,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 55.4,
+          "mana": 31
         },
         {
           "t_s": 115,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 54.7,
+          "mana": 7
         },
         {
           "t_s": 120,
-          "dps": 54.4,
-          "mana": 0
+          "dps": 60.2,
+          "mana": 52
         }
       ],
       "pulls": null,
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2519,27 +2940,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     },
@@ -2581,27 +3008,33 @@
       "damage_split": [
         {
           "name": "Melee",
-          "share_pct": 33
+          "share_pct": 33,
+          "school": "physical"
         },
         {
           "name": "Windfury",
-          "share_pct": 17
+          "share_pct": 17,
+          "school": "physical"
         },
         {
           "name": "Flame Shock",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "fire"
         },
         {
           "name": "Stormstrike",
-          "share_pct": 15
+          "share_pct": 15,
+          "school": "nature"
         },
         {
           "name": "Earth Shock",
-          "share_pct": 11
+          "share_pct": 11,
+          "school": "nature"
         },
         {
           "name": "Lightning Shield",
-          "share_pct": 9
+          "share_pct": 9,
+          "school": "nature"
         }
       ]
     }
@@ -2706,7 +3139,7 @@
         },
         {
           "stat": "agility",
-          "ep": 1.02
+          "ep": 0.94
         },
         {
           "stat": "intellect",
@@ -2714,7 +3147,7 @@
         },
         {
           "stat": "spirit",
-          "ep": 0.94
+          "ep": 0
         },
         {
           "stat": "attack_power",
@@ -2722,15 +3155,60 @@
         },
         {
           "stat": "hit_rating",
-          "ep": 1.69
+          "ep": 1.39
         },
         {
           "stat": "crit_rating",
-          "ep": 0.98
+          "ep": 0.8
         },
         {
           "stat": "spell_damage",
+          "ep": 1.41
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 3.89
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.19
+        }
+      ]
+    },
+    {
+      "fight_id": "chain-4",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2
+        },
+        {
+          "stat": "agility",
+          "ep": 0.94
+        },
+        {
+          "stat": "intellect",
+          "ep": 4.04
+        },
+        {
+          "stat": "spirit",
+          "ep": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.39
+        },
+        {
+          "stat": "crit_rating",
           "ep": 0.8
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 1.41
         },
         {
           "stat": "mana_per_5",
@@ -2973,11 +3451,11 @@
   },
   "pawn": [
     {
-      "label": "Enh solo L30 (provisional)",
+      "label": "Solo, level 30",
       "text": "( Pawn: v1: \"Enh solo L30 (provisional)\": Strength=2.00, Agility=0.94, Intellect=1.15, Ap=1.00, HitRating=1.39, CritRating=0.80, SpellDamage=1.41, MeleeDps=14.19 )"
     },
     {
-      "label": "Enh dungeon L30 (provisional)",
+      "label": "Dungeon, level 30",
       "text": "( Pawn: v1: \"Enh dungeon L30 (provisional)\": Strength=2.00, Agility=0.88, Intellect=1.16, Ap=1.00, HitRating=1.31, CritRating=0.85, SpellDamage=0.89, MeleeDps=14.18 )"
     }
   ]

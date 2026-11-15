@@ -93,7 +93,7 @@ describe('the Truncha sample', () => {
         expect(file.plans).toHaveLength(3)
         expect(file.results).toHaveLength(14)
         expect(file.talents.yours).toHaveLength(18)
-        expect(file.default_fight_id).toBe('chain-4')
+        expect(file.default_fight_id).toBe('dungeon-long')
 
         const ranks = file.talents.best.ranks as {
             talent_id: number
@@ -114,7 +114,7 @@ describe('the small first-run sample', () => {
         expect(outcome.ok).toBe(true)
         const file = outcome.file
         expect(file.sample).toBe(true)
-        expect(file.default_fight_id).toBe('chain-4')
+        expect(file.default_fight_id).toBe('dungeon-long')
         expect(file.plans.map((p: any) => p.plan_id)).toEqual(['max-damage'])
         expect(file.talents.best).toBeNull()
         expect(file.results.length).toBeGreaterThan(0)
@@ -524,5 +524,113 @@ describe('duplicates', () => {
             fingers[1].alternatives[0].item.item_id
         )
         expect((readResultsFile(f) as any).problems).toBeUndefined()
+    })
+})
+
+describe('the optional mockup fields (schema version 1)', () => {
+    test('the full sample has all six; the first-run sample has none of them', () => {
+        const full = sample()
+        expect(full.plans.map((p: any) => p.reach)).toEqual([
+            { damage: 100, survival: 35, healing: 20, utility: 40 },
+            { damage: 84, survival: 88, healing: 36, utility: 52 },
+            { damage: 45, survival: 100, healing: 48, utility: 61 },
+        ])
+        expect(full.sheet.weapon_skill).toEqual({
+            weapon_type: 'Axe',
+            current: 148,
+            max: 150,
+        })
+        expect(full.slots.find((s: any) => s.slot === 'main_hand').imbue).toBe(
+            'Windfury Weapon'
+        )
+        expect(full.fights.map((f: any) => f.melee_miss_pct)).toEqual([
+            5.5, 6, 8, 8,
+        ])
+        expect(full.results[0].damage_split.map((p: any) => p.school)).toEqual([
+            'physical',
+            'physical',
+            'fire',
+            'nature',
+            'nature',
+            'nature',
+        ])
+        expect(full.bag_upgrades[0].results).toHaveLength(4)
+
+        const keys = allKeys(sample('sample-truncha-first-run.json'))
+        for (const key of [
+            'reach',
+            'weapon_skill',
+            'imbue',
+            'melee_miss_pct',
+            'school',
+        ])
+            expect(keys.has(key)).toBe(false)
+        expect(
+            sample('sample-truncha-first-run.json').bag_upgrades.every(
+                (u: any) => !('results' in u)
+            )
+        ).toBe(true)
+    })
+
+    test('each may be null (not simmed)', () => {
+        const f = sample()
+        for (const plan of f.plans) plan.reach = null
+        f.sheet.weapon_skill = null
+        for (const entry of f.slots) entry.imbue = null
+        for (const fight of f.fights) fight.melee_miss_pct = null
+        for (const result of f.results)
+            for (const part of result.damage_split) part.school = null
+        for (const upgrade of f.bag_upgrades) upgrade.results = null
+        expect((readResultsFile(f) as any).problems).toBeUndefined()
+    })
+
+    test('they are checked: a school outside the list, a reach above 100, a skill above its max', () => {
+        const school = sample()
+        school.results[0].damage_split[0].school = 'lightning'
+        expect(problemsOf(school)[0]).toStartWith(
+            'results.0.damage_split.0.school:'
+        )
+        const reach = sample()
+        reach.plans[0].reach.survival = 101
+        expect(problemsOf(reach)[0]).toStartWith('plans.0.reach.survival:')
+        const skill = sample()
+        skill.sheet.weapon_skill.current = 151
+        expect(problemsOf(skill)).toContain(
+            "sheet.weapon_skill.current: A weapon skill can't be above its max."
+        )
+    })
+
+    test("a bag upgrade's results name the file's fights, once each, with the timeline and pulls rules", () => {
+        expect(
+            unmet([
+                {
+                    rule: 'bag result fight_id',
+                    message: 'This names no fight in this file.',
+                    breakIt: (f) => {
+                        f.bag_upgrades[0].results[0].fight_id = 'nowhere'
+                    },
+                },
+                {
+                    rule: 'one bag result per fight',
+                    message:
+                        'Each fight needs at most one result per bag item.',
+                    breakIt: (f) => {
+                        f.bag_upgrades[0].results.push(
+                            structuredClone(f.bag_upgrades[0].results[0])
+                        )
+                    },
+                },
+                {
+                    rule: 'bag result pulls only on a chain fight',
+                    message: 'Only a chain fight has pulls.',
+                    breakIt: (f) => {
+                        const single = f.bag_upgrades[0].results.find(
+                            (r: any) => r.fight_id === 'solo-hit-short'
+                        )
+                        single.pulls = []
+                    },
+                },
+            ])
+        ).toEqual([])
     })
 })

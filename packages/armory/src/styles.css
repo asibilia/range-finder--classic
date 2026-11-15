@@ -1,489 +1,254 @@
 /*
- * Tailwind 4's theme and utilities, without its preflight (base reset), so
- * the page looks as it did before Tailwind. Both sit in cascade layers, so
- * the plain rules below (unlayered) still win over them.
+ * The armory planner's styles: Tailwind 4 with its preflight (base reset),
+ * shadcn/ui's theme tokens (base-nova, neutral) and the few tokens of our
+ * own. Every colour, radius and font is a CSS variable below, so restyling
+ * the page later is a change to this file, not to the components.
  *
- * `source(none)`: Tailwind scans no files for class names. The page uses no
- * Tailwind classes yet, and scanning took words in the source ("static",
- * "grid", "table") for classes. When components use Tailwind, add an
- * `@source` line for each of their folders.
+ * `source(none)`: Tailwind scans only the folders named by `@source`, the
+ * ones holding components. Scanning everything took words in the samples
+ * and the schema ("static", "table") for classes.
  */
-@import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@import 'tailwindcss' source(none);
+@import 'tw-animate-css';
 
-/* Plain on purpose: a few tokens so the page can be restyled later. */
+@source './components';
+@source './app.tsx';
+@source './error-boundary.tsx';
+
+/*
+ * Light and dark follow the system (`prefers-color-scheme`); there is no
+ * toggle. shadcn's components use `dark:`, so it means the same.
+ */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/*
+ * Base UI marks state with data attributes. These variants are copied from
+ * shadcn's `shadcn/tailwind.css` (MIT), which the CLI imports from the shadcn
+ * package; copied so the page doesn't depend on the CLI.
+ */
+@custom-variant data-open {
+    &:where([data-state='open']),
+    &:where([data-open]:not([data-open='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-closed {
+    &:where([data-state='closed']),
+    &:where([data-closed]:not([data-closed='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-checked {
+    &:where([data-state='checked']),
+    &:where([data-checked]:not([data-checked='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-unchecked {
+    &:where([data-state='unchecked']),
+    &:where([data-unchecked]:not([data-unchecked='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-selected {
+    &:where([data-selected='true']) {
+        @slot;
+    }
+}
+@custom-variant data-disabled {
+    &:where([data-disabled='true']),
+    &:where([data-disabled]:not([data-disabled='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-active {
+    &:where([data-state='active']),
+    &:where([data-active]:not([data-active='false'])) {
+        @slot;
+    }
+}
+@custom-variant data-horizontal {
+    &:where([data-orientation='horizontal']) {
+        @slot;
+    }
+}
+@custom-variant data-vertical {
+    &:where([data-orientation='vertical']) {
+        @slot;
+    }
+}
+
+@theme inline {
+    --font-sans:
+        system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+        sans-serif;
+    --font-heading: var(--font-sans);
+    --font-mono:
+        ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    /* Ours: the chart colours as text (labels, deltas, coloured times). */
+    --color-chart-1-text: var(--chart-1-text);
+    --color-chart-2-text: var(--chart-2-text);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    /* Ours: the gain pills, and item quality on the slot tiles. */
+    --color-gain: var(--gain);
+    --color-gain-foreground: var(--gain-foreground);
+    --color-gain-text: var(--gain-text);
+    /* Ours: a change that is good for you (more health, mana for longer). */
+    --color-good-text: var(--good-text);
+    --color-quality-poor: var(--quality-poor);
+    --color-quality-common: var(--quality-common);
+    --color-quality-uncommon: var(--quality-uncommon);
+    --color-quality-rare: var(--quality-rare);
+    --color-quality-epic: var(--quality-epic);
+    --color-quality-legendary: var(--quality-legendary);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* shadcn's neutral theme (light), then our tokens. */
 :root {
-    --color-text: #1d1d1f;
-    --color-muted: #5a5a60;
-    --color-background: #ffffff;
-    --color-surface: #f4f4f6;
-    --color-border: #c8c8cf;
-    --color-error: #a4161a;
-    --color-chart-worn: #1f5fbf;
-    --color-chart-plan: #b85c00;
-    --color-gain: #1e7b2e;
-    --color-overlay: rgb(0 0 0 / 40%);
-    --color-quality-poor: #8a8a8a;
-    --color-quality-common: #4a4a4a;
-    --color-quality-uncommon: #1e7b2e;
-    --color-quality-rare: #1f5fbf;
-    --color-quality-epic: #7a35b5;
-    --color-quality-legendary: #b85c00;
-    --font-body: system-ui, sans-serif;
-    --font-size-small: 0.85rem;
-    --font-size-body: 1rem;
-    --space-1: 0.25rem;
-    --space-2: 0.5rem;
-    --space-3: 1rem;
-    --space-4: 2rem;
-    --radius: 4px;
-}
-
-body {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: var(--font-size-body);
-    color: var(--color-text);
-    background: var(--color-background);
-}
-
-.planner {
-    max-width: 90rem;
-    margin: 0 auto;
-    padding: var(--space-3);
-}
-
-.sample-note,
-.read-error {
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-}
-
-.read-error {
-    color: var(--color-error);
-}
-
-.drop-target {
-    margin: var(--space-2) 0;
-    padding: var(--space-3);
-    border: 2px dashed var(--color-border);
-    border-radius: var(--radius);
-}
-
-.gear-pane {
-    display: grid;
-    grid-template-columns: 14rem 1fr 14rem;
-    grid-template-areas:
-        'top top top'
-        'left middle right'
-        'bottom bottom bottom';
-    gap: var(--space-3);
-    margin-top: var(--space-4);
-}
-
-.gear-top {
-    grid-area: top;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-3);
-}
-
-.gear-top h2 {
-    margin: 0;
-}
-
-.role-slider {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.role-slider label {
-    min-width: 6rem;
-}
-
-.gear-left {
-    grid-area: left;
-}
-
-.gear-middle {
-    grid-area: middle;
-}
-
-.gear-right {
-    grid-area: right;
-}
-
-.gear-bottom {
-    grid-area: bottom;
-    display: flex;
-    justify-content: center;
-    gap: var(--space-3);
-}
-
-.gear-left,
-.gear-right {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.slot {
-    display: grid;
-    grid-template-columns: 1.5rem 1fr;
-    gap: 0 var(--space-2);
-    min-width: 12rem;
-    padding: var(--space-2);
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-left: 4px solid var(--slot-color, var(--color-border));
-    border-radius: var(--radius);
-    cursor: pointer;
-}
-
-.slot-empty {
-    background: transparent;
-    border-style: dashed;
-}
-
-.slot-glyph {
-    grid-row: span 3;
-    color: var(--slot-color);
-}
-
-.slot-label,
-.slot-note {
-    grid-column: 2;
-    font-size: var(--font-size-small);
-    color: var(--color-muted);
-}
-
-.slot-item {
-    grid-column: 2;
-    color: var(--slot-color, inherit);
-}
-
-.slot[data-quality='poor'] {
-    --slot-color: var(--color-quality-poor);
-}
-
-.slot[data-quality='common'] {
-    --slot-color: var(--color-quality-common);
-}
-
-.slot[data-quality='uncommon'] {
-    --slot-color: var(--color-quality-uncommon);
-}
-
-.slot[data-quality='rare'] {
-    --slot-color: var(--color-quality-rare);
-}
-
-.slot[data-quality='epic'] {
-    --slot-color: var(--color-quality-epic);
-}
-
-.slot[data-quality='legendary'] {
-    --slot-color: var(--color-quality-legendary);
-}
-
-.slot-gain {
-    grid-column: 2;
-    justify-self: start;
-    padding: 0 var(--space-1);
-    font-size: var(--font-size-small);
-    border: 1px solid var(--color-gain);
-    border-radius: var(--radius);
-}
-
-.slot-gain[data-size='small'] {
-    color: var(--color-gain);
-}
-
-.slot-gain[data-size='big'] {
-    color: var(--color-background);
-    background: var(--color-gain);
-}
-
-.bag-upgrades {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--font-size-small);
-}
-
-.dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-overlay);
-}
-
-.dialog {
-    max-width: 32rem;
-    max-height: 90vh;
-    overflow: auto;
-    padding: var(--space-3);
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-}
-
-.dialog-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.talent-builds {
-    display: flex;
-    gap: var(--space-3);
-}
-
-.talent-grid {
-    border-collapse: separate;
-    border-spacing: var(--space-1);
-}
-
-.talent-grid td {
-    width: 6rem;
-    vertical-align: top;
-    font-size: var(--font-size-small);
-}
-
-.talent {
-    padding: var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-}
-
-.talent[data-changed='true'] {
-    border: 2px solid var(--color-gain);
-}
-
-.pawn-list {
-    padding: 0;
-    list-style: none;
-}
-
-.pawn-row {
-    display: grid;
-    gap: var(--space-1);
-    margin-bottom: var(--space-3);
-}
-
-.pawn-row button {
-    justify-self: start;
-}
-
-.picker-list,
-.wishlist {
-    padding-left: var(--space-3);
-}
-
-.picker-row p,
-.wishlist p,
-.picker-worn p {
-    margin: 0;
-}
-
-.picker-row,
-.wishlist li {
-    margin-bottom: var(--space-2);
-}
-
-.note {
-    font-size: var(--font-size-small);
-    color: var(--color-muted);
-}
-
-.model {
-    margin: 0 0 var(--space-3);
-    text-align: center;
-}
-
-.model-figure {
-    height: 12rem;
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius);
-}
-
-.sheet {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-1) var(--space-3);
-    margin: 0;
-}
-
-.sheet-row {
-    display: flex;
-    justify-content: space-between;
-}
-
-.sheet-row dd {
-    margin: 0;
-}
-
-.sheet-note {
-    font-size: var(--font-size-small);
-    color: var(--color-muted);
-}
-
-.card {
-    margin-top: var(--space-4);
-    padding: var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-}
-
-.fight-settings,
-.damage-split,
-.chart-legend {
-    padding-left: var(--space-3);
-    font-size: var(--font-size-small);
-}
-
-.readings-heading {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-}
-
-.provisional {
-    position: relative;
-}
-
-.provisional-marker {
-    padding: 0 var(--space-1);
-    font-size: var(--font-size-small);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-}
-
-.provisional-text {
-    position: absolute;
-    left: 0;
-    top: 100%;
-    z-index: 1;
-    width: 14rem;
-    padding: var(--space-2);
-    font-size: var(--font-size-small);
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    visibility: hidden;
-}
-
-.provisional:hover .provisional-text,
-.provisional:focus-within .provisional-text {
-    visibility: visible;
-}
-
-.chart {
-    width: 100%;
-    height: auto;
-}
-
-.chart .line {
-    stroke-width: 2;
-}
-
-.chart .dps-worn,
-.chart .mana-worn,
-.chart .marker-worn {
-    stroke: var(--color-chart-worn);
-}
-
-.chart .dps-plan,
-.chart .mana-plan,
-.chart .marker-plan {
-    stroke: var(--color-chart-plan);
-}
-
-.chart .mana-worn,
-.chart .mana-plan {
-    stroke-dasharray: 2 2;
-}
-
-/* DPS bars are filled; mana bars are outlined with a dotted edge, like the mana lines. */
-.chart .bar.dps-worn {
-    fill: var(--color-chart-worn);
-}
-
-.chart .bar.dps-plan {
-    fill: var(--color-chart-plan);
-}
-
-.chart .bar.mana-worn,
-.chart .bar.mana-plan {
-    fill: var(--color-surface);
-    stroke-width: 1.5;
-}
-
-.chart .bar.end {
-    opacity: 0.5;
-}
-
-/* Each legend entry gets a swatch drawn like its line or bar. */
-.chart-legend {
-    list-style: none;
-}
-
-.chart-legend [data-line]::before {
-    content: '';
-    display: inline-block;
-    width: 1.5em;
-    height: 0.6em;
-    margin-right: var(--space-1);
-    vertical-align: middle;
-    box-sizing: border-box;
-}
-
-.chart-legend [data-line='dps-worn']::before {
-    background: var(--color-chart-worn);
-}
-
-.chart-legend [data-line='dps-plan']::before {
-    background: var(--color-chart-plan);
-}
-
-.chart-legend [data-line='mana-worn']::before {
-    border: 2px dotted var(--color-chart-worn);
-}
-
-.chart-legend [data-line='mana-plan']::before {
-    border: 2px dotted var(--color-chart-plan);
-}
-
-.chart-note {
-    font-size: var(--font-size-small);
-}
-
-.chart text {
-    font-size: 9px;
-    fill: var(--color-text);
-    stroke: none;
-}
-
-/* The approved layout (C2): gear on the left, the card on the right. */
-.planner-body {
-    display: grid;
-    gap: var(--space-4);
-}
-
-@media (min-width: 64rem) {
-    .planner-body {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 26rem;
-        align-items: start;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --radius: 0.625rem;
+    /*
+     * Chart colours. 1 is DPS and the sim's plan (the accent), 2 is mana,
+     * 3 to 5 (and 1, 2 again) colour the damage split by part order. What
+     * you wear is drawn in --muted-foreground.
+     */
+    --chart-1: oklch(0.68 0.17 45);
+    --chart-2: oklch(0.6 0.13 240);
+    --chart-3: oklch(0.58 0.13 295);
+    --chart-4: oklch(0.65 0.12 165);
+    --chart-5: oklch(0.45 0.09 250);
+    /*
+     * The chart and gain colours as text on --background and --card: darker
+     * in light mode so text reads at 4.5:1 or more (chart-1 and gain are
+     * 3:1, enough for lines and fills only). tests/contrast.test.ts checks.
+     */
+    --chart-1-text: oklch(0.55 0.15 45);
+    --chart-2-text: oklch(0.54 0.13 240);
+    --gain: oklch(0.72 0.16 50);
+    --gain-foreground: oklch(0.25 0.06 45);
+    --gain-text: oklch(0.55 0.15 50);
+    --good-text: oklch(0.5 0.11 165);
+    /*
+     * The spell schools the damage split is coloured by (a further part of
+     * the same school is drawn darker).
+     */
+    --school-physical: oklch(0.72 0.03 290);
+    --school-fire: oklch(0.7 0.16 50);
+    --school-nature: oklch(0.72 0.11 230);
+    --school-frost: oklch(0.8 0.08 210);
+    --school-arcane: oklch(0.65 0.15 320);
+    --school-shadow: oklch(0.45 0.12 300);
+    --school-holy: oklch(0.85 0.12 95);
+    --quality-poor: oklch(0.6 0 0);
+    --quality-common: oklch(0.45 0 0);
+    --quality-uncommon: oklch(0.58 0.16 145);
+    --quality-rare: oklch(0.55 0.17 255);
+    --quality-epic: oklch(0.55 0.2 305);
+    --quality-legendary: oklch(0.65 0.18 55);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.205 0 0);
+        --card-foreground: oklch(0.985 0 0);
+        --popover: oklch(0.205 0 0);
+        --popover-foreground: oklch(0.985 0 0);
+        --primary: oklch(0.922 0 0);
+        --primary-foreground: oklch(0.205 0 0);
+        --secondary: oklch(0.269 0 0);
+        --secondary-foreground: oklch(0.985 0 0);
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --accent: oklch(0.269 0 0);
+        --accent-foreground: oklch(0.985 0 0);
+        --destructive: oklch(0.704 0.191 22.216);
+        --border: oklch(1 0 0 / 10%);
+        --input: oklch(1 0 0 / 15%);
+        --ring: oklch(0.556 0 0);
+        --chart-1: oklch(0.76 0.15 50);
+        --chart-2: oklch(0.72 0.12 235);
+        --chart-3: oklch(0.7 0.12 295);
+        --chart-4: oklch(0.75 0.11 165);
+        --chart-5: oklch(0.58 0.09 250);
+        --chart-1-text: var(--chart-1);
+        --chart-2-text: var(--chart-2);
+        --gain: oklch(0.78 0.14 55);
+        --gain-foreground: oklch(0.22 0.05 45);
+        --gain-text: var(--gain);
+        --good-text: oklch(0.85 0.1 165);
+        --school-physical: oklch(0.88 0.04 290);
+        --school-fire: oklch(0.78 0.15 50);
+        --school-nature: oklch(0.82 0.1 230);
+        --school-frost: oklch(0.88 0.07 210);
+        --school-arcane: oklch(0.75 0.14 320);
+        --school-shadow: oklch(0.6 0.13 300);
+        --school-holy: oklch(0.9 0.11 95);
+        --quality-poor: oklch(0.65 0 0);
+        --quality-common: oklch(0.85 0 0);
+        --quality-uncommon: oklch(0.75 0.17 145);
+        --quality-rare: oklch(0.7 0.15 255);
+        --quality-epic: oklch(0.72 0.17 305);
+        --quality-legendary: oklch(0.78 0.16 60);
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html {
+        color-scheme: light dark;
+        @apply font-sans;
+    }
+    body {
+        @apply bg-background text-foreground;
     }
 }

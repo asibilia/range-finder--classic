@@ -17,6 +17,10 @@
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
 		"strict": true,
-		"noEmit": true
+		"noEmit": true,
+		// shadcn's import alias (components.json): `@/` is `src/`. Vite
+		// resolves it with `resolve.alias` (vite.config.ts); Bun's test
+		// runner reads it from here.
+		"paths": { "@/*": ["./src/*"] }
 	}
 }

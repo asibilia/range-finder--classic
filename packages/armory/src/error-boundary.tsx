@@ -11,6 +11,9 @@
  */
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router'
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+
 /** The words for whatever was thrown. */
 function describe(error: unknown): string {
     if (isRouteErrorResponse(error))
@@ -30,17 +33,14 @@ export function WentWrong() {
     const error = useRouteError()
     const navigate = useNavigate()
     return (
-        <main className="planner">
-            <div role="alert" className="read-error">
-                <p>Something went wrong showing this file.</p>
-                <p>{describe(error)}</p>
-            </div>
-            <button
-                type="button"
-                onClick={() => void navigate('/', { replace: true })}
-            >
+        <main className="mx-auto flex max-w-2xl flex-col items-start gap-4 px-4 py-10">
+            <Alert variant="destructive">
+                <AlertTitle>Something went wrong showing this file.</AlertTitle>
+                <AlertDescription>{describe(error)}</AlertDescription>
+            </Alert>
+            <Button onClick={() => void navigate('/', { replace: true })}>
                 Start over
-            </button>
+            </Button>
         </main>
     )
 }

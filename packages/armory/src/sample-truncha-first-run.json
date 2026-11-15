@@ -103,7 +103,7 @@
   "fights": [
     {
       "fight_id": "solo-hit-short",
-      "label": "Solo, 30 s, level 31",
+      "label": "Solo, 30 s vs level 31",
       "kind": "single",
       "target_level": 31,
       "duration_s": 30,
@@ -118,7 +118,7 @@
     },
     {
       "fight_id": "dungeon-short",
-      "label": "Dungeon, 30 s, level 32",
+      "label": "Dungeon, 30 s vs level 32",
       "kind": "single",
       "target_level": 32,
       "duration_s": 30,
@@ -133,7 +133,7 @@
     },
     {
       "fight_id": "dungeon-long",
-      "label": "Dungeon, 2 min, level 33",
+      "label": "Dungeon, 2 min vs level 33",
       "kind": "single",
       "target_level": 33,
       "duration_s": 120,
@@ -141,14 +141,14 @@
         "starting_mana_pct": 100,
         "being_hit": false,
         "pulls": 1,
-        "gap_s": 0,
+        "gap_s": 10,
         "drinks": false,
         "target_armor": 1200
       }
     },
     {
       "fight_id": "chain-4",
-      "label": "Chain, 4 pulls 20 s apart, level 33",
+      "label": "Chain, 4 pulls 20 s apart vs level 33",
       "kind": "chain",
       "target_level": 33,
       "duration_s": 30,
@@ -162,7 +162,7 @@
       }
     }
   ],
-  "default_fight_id": "chain-4",
+  "default_fight_id": "dungeon-long",
   "slots": [
     {
       "slot": "head",
@@ -2062,11 +2062,11 @@
   },
   "pawn": [
     {
-      "label": "Enh solo L30 (provisional)",
+      "label": "Solo, level 30",
       "text": "( Pawn: v1: \"Enh solo L30 (provisional)\": Strength=2.00, Agility=0.94, Intellect=1.15, Ap=1.00, HitRating=1.39, CritRating=0.80, SpellDamage=1.41, MeleeDps=14.19 )"
     },
     {
-      "label": "Enh dungeon L30 (provisional)",
+      "label": "Dungeon, level 30",
       "text": "( Pawn: v1: \"Enh dungeon L30 (provisional)\": Strength=2.00, Agility=0.88, Intellect=1.16, Ap=1.00, HitRating=1.31, CritRating=0.85, SpellDamage=0.89, MeleeDps=14.18 )"
     }
   ]
