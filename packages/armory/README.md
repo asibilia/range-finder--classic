@@ -40,11 +40,55 @@ would, in a local Worker) and `bun run armory:schema` (below).
 - **A Worker with nothing in it** (`workers/app.ts`, `wrangler.jsonc`): no
   bindings, no storage, no outbound requests, no public hostname yet.
   `tests/worker.test.ts` checks that.
-- **Tailwind 4**, its theme and utilities only, with no preflight (base
-  reset), so the page looks as it did. The plain rules in `src/styles.css`
-  are unlayered and win over Tailwind's layers. Tailwind scans no files
-  (`source(none)`), so it makes no utilities until a component's folder is
-  added with `@source`.
+- **UI: shadcn/ui on Base UI** (`components.json`: style `base-nova`,
+  neutral, icons from `lucide-react`). shadcn's components are copied into
+  `src/components/ui/` as our own source; the page's components are in
+  `src/components/`. Dialogs (focus moves to Close, Tab stays inside,
+  Escape closes, focus goes back), the fight Select, the role Sliders, the
+  talents RadioGroup and the Provisional Tooltip are Base UI's.
+- **Charts: Recharts 3** inside shadcn's `chart` (`ChartContainer`,
+  `ChartTooltip`, `ChartLegend`): the fight chart (DPS and mana on two axes,
+  out-of-mana lines) and the pull chart. The damage split and the stat
+  weights are plain bars. What each chart is given is worked out first, in
+  `src/chart-data.ts`, and tested on its own (`tests/chart-data.test.ts`);
+  `tests/charts.test.tsx` draws each chart at a fixed size and checks its
+  series.
+- **State as plain actions.** What the page shows for a loaded file (the
+  fight, the sliders and so the plan, worn or plan view) is
+  `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
+  `pick-fight`, `show-plan`, `show-worn`) that anything outside the
+  components can apply with `applyPlannerAction`, which checks the action
+  with Zod first.
+- **Tailwind 4** with its preflight, scanning only the folders
+  `src/styles.css` names with `@source` (the components, `app.tsx` and
+  `error-boundary.tsx`), never the samples or the schema.
+
+### Theme tokens
+
+Every colour, radius and font is a CSS variable in `src/styles.css`:
+shadcn's neutral tokens (`--background`, `--primary`, `--chart-1` to
+`--chart-5`...) and ours (`--gain` for the gain pills, `--quality-*` for item
+quality). Light and dark follow the system (`prefers-color-scheme`); there is
+no toggle. A redesign is a change to those variables. In the charts,
+`--chart-1` is DPS and the sim's plan, `--chart-2` is mana, and what you wear
+is drawn in `--muted-foreground`. Fonts are the system's; nothing is
+downloaded.
+
+### Adding a shadcn component
+
+From `packages/armory`: `bunx --bun shadcn@latest add <component>` (pin the
+CLI to a release older than a week, like the dependencies). Then:
+
+1. Move any new dependency it added to the root `workspaces.catalog` and
+   reference it as `"catalog:"` here (`syncpack lint` fails otherwise).
+2. Drop its `"use client"` line (this page has no server components) and run
+   `bun run lint:fix` from the root, which formats it our way.
+3. Read the file: it is ours now. Keep shadcn's code; mark any change with a
+   comment starting `Ours:`.
+
+Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
+`paths` in `tsconfig.json`, `resolve.alias` in `vite.config.ts`.
+
 - **Errors**: a render error shows "Something went wrong showing this file."
   and Start over, from the home route's `ErrorBoundary`
   (`src/error-boundary.tsx`).
