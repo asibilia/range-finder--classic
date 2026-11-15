@@ -1,0 +1,27 @@
+{
+	"extends": "./tsconfig.json",
+	// The page (src/), its tests (tests/) and dev scripts (scripts/, which
+	// import the page's schema), with React Router's generated route types.
+	"include": [
+		".react-router/types/**/*",
+		"src/**/*",
+		"tests/**/*",
+		"scripts/**/*",
+		// Read by tests/repo-setup.test.ts.
+		"../../commit.config.ts"
+	],
+	"exclude": [".react-router/types/+server-build.d.ts"],
+	"compilerOptions": {
+		"composite": true,
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		// "bun" is for the tests (`bun:test`) and the scripts.
+		"types": ["vite/client", "bun"],
+		"target": "ES2022",
+		"module": "ES2022",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"rootDirs": [".", "./.react-router/types"],
+		"esModuleInterop": true,
+		"resolveJsonModule": true
+	}
+}

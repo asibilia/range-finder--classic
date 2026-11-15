@@ -1,0 +1,14 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    // The armory planner's Worker. It only renders the page: no bindings, no
+    // storage, no outbound requests. Results files are read in the browser
+    // and never sent anywhere (tests/worker.test.ts checks this file).
+    "name": "armory-planner",
+    "main": "./workers/app.ts",
+    // Must not be newer than the workerd bundled with the installed wrangler
+    // and @cloudflare/vite-plugin.
+    "compatibility_date": "2026-11-01",
+    // No public hostnames until the owner decides where it lives.
+    "workers_dev": false,
+    "preview_urls": false
+}

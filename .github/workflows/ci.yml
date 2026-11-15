@@ -12,12 +12,28 @@ concurrency:
 jobs:
     check:
         runs-on: ubuntu-latest
+        # Wrangler (`wrangler types` in the armory's type-check) sends usage
+        # metrics unless told not to, and checks npm for a newer version to
+        # print in its banner; hiding the banner skips that check.
+        env:
+            WRANGLER_SEND_METRICS: 'false'
+            WRANGLER_HIDE_BANNER: 'true'
         steps:
             - uses: actions/checkout@v4
 
             - uses: oven-sh/setup-bun@v2
               with:
                   bun-version: latest
+
+            # `bunx react-router` and `bunx wrangler` (the armory planner's
+            # build and type-check) run under Node (their bins start with
+            # `#!/usr/bin/env node`), and React Router 8 requires Node >= 22.22,
+            # newer than some runner images ship. v7 (as jre-web) runs on the
+            # node24 Actions runtime; no npm cache, Bun installs here.
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
 
             - run: bun install --frozen-lockfile
 

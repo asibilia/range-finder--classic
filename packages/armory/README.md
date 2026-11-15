@@ -10,14 +10,46 @@ From the repo root:
 
 1. `bun install`
 2. `bun run dev:armory`
-3. Open the local address it prints.
+3. Open the local address it prints (http://localhost:5173 unless that port
+   is taken).
 4. Press `Look at a sample character`, or open a results file of your own.
 
 Files are read in the browser only; nothing is sent anywhere.
 
+It is not deployed anywhere, and `tests/deploy-guard.test.ts` fails if a script or workflow deploys it.
+
 Other scripts, all from the repo root: `bun run test:armory`,
 `bun run type-check:armory`, `bun run build:armory` (writes the gitignored
-`packages/armory/dist/`) and `bun run armory:schema` (below).
+`packages/armory/build/`; the page is `build/client/index.html`),
+`bun run preview:armory` (builds, then serves the build the way Cloudflare
+would, in a local Worker) and `bun run armory:schema` (below).
+
+## The stack
+
+- **React Router 8, framework mode**, on **Vite**, with
+  **`@cloudflare/vite-plugin`** and **Wrangler**: the same stack as the
+  owner's other sites. Version 8, not 7: it is the current major, the one
+  those sites run, so the two stay on one set of versions. Its command-line
+  tools run under Node, and need Node 22.22 or newer.
+- **One page, prerendered.** `/` is the only route (`src/routes.ts`,
+  `src/routes/home.tsx`). The build renders it to a static file;
+  `react-router.config.ts` keeps `ssr: true` because SPA mode does not work
+  with the Cloudflare plugin. The page has no loaders or actions and lists
+  every route up front (`routeDiscovery: 'initial'`), so it never asks the
+  Worker for data.
+- **A Worker with nothing in it** (`workers/app.ts`, `wrangler.jsonc`): no
+  bindings, no storage, no outbound requests, no public hostname yet.
+  `tests/worker.test.ts` checks that.
+- **Tailwind 4**, its theme and utilities only, with no preflight (base
+  reset), so the page looks as it did. The plain rules in `src/styles.css`
+  are unlayered and win over Tailwind's layers. Tailwind scans no files
+  (`source(none)`), so it makes no utilities until a component's folder is
+  added with `@source`.
+- **Errors**: a render error shows "Something went wrong showing this file."
+  and Start over, from the home route's `ErrorBoundary`
+  (`src/error-boundary.tsx`).
+- **Tests** stay on `bun test --isolate` with happy-dom (`tests/dom.js`);
+  `tests/build-output.test.ts` builds the page and checks it.
 
 ## The results file contract
 
