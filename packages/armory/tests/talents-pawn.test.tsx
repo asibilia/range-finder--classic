@@ -101,8 +101,8 @@ describe('the talents dialog', () => {
         const group = within(dialog).getByRole('radiogroup', { name: 'Build' })
         const best = within(group).getByRole('radio', { name: 'Best simmed' })
         const yours = within(group).getByRole('radio', { name: 'Your build' })
-        expect((best as HTMLInputElement).checked).toBe(true)
-        expect((yours as HTMLInputElement).checked).toBe(false)
+        expect(best.getAttribute('aria-checked')).toBe('true')
+        expect(yours.getAttribute('aria-checked')).toBe('false')
     })
 
     test('Best simmed marks Flurry 5/5 changed from 4/5 and Anticipation 0/3 changed', async () => {
@@ -174,8 +174,8 @@ describe('the talents dialog', () => {
 
         const best = within(dialog).getByRole('radio', { name: 'Best simmed' })
         const yours = within(dialog).getByRole('radio', { name: 'Your build' })
-        expect((best as HTMLInputElement).disabled).toBe(true)
-        expect((yours as HTMLInputElement).checked).toBe(true)
+        expect(best.getAttribute('aria-disabled')).toBe('true')
+        expect(yours.getAttribute('aria-checked')).toBe('true')
         expect(
             within(dialog).getByText('No best build in this file.')
         ).toBeDefined()

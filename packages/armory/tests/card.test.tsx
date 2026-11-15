@@ -5,10 +5,19 @@
  * marker. The DOM helper must be the first import.
  */
 import './dom'
-import { openFile, readingRow, variant, type Json, type User } from './open-app'
+import {
+    chooseFight,
+    fightOptions,
+    fightSelect,
+    openFile,
+    readingRow,
+    shownFight,
+    variant,
+    type Json,
+} from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
 
 import firstRun from '../src/sample-truncha-first-run.json'
 import sample from '../src/sample-truncha.json'
@@ -30,17 +39,6 @@ function resultsOf(file: Json, gear: string, fightId: string): Result[] {
     )
 }
 
-function fightSelect(): HTMLSelectElement {
-    return screen.getByRole('combobox', { name: 'Fight' }) as HTMLSelectElement
-}
-
-async function chooseFight(user: User, label: string) {
-    await user.selectOptions(
-        fightSelect(),
-        screen.getByRole('option', { name: label })
-    )
-}
-
 function chart(name: string): Element | null {
     const found = screen.queryByLabelText(name)
     if (found && found.tagName.toLowerCase() !== 'svg')
@@ -54,15 +52,16 @@ afterEach(() => {
 
 describe('the fight picker', () => {
     test('lists the four fights and starts on the chain fight', async () => {
-        await openFile(sample)
+        const user = await openFile(sample)
 
-        const select = fightSelect()
-        expect(
-            within(select)
-                .getAllByRole('option')
-                .map((option) => option.textContent)
-        ).toEqual([SOLO, DUNGEON_SHORT, DUNGEON_LONG, CHAIN])
-        expect(select.options[select.selectedIndex]?.textContent).toBe(CHAIN)
+        expect(shownFight()).toBe(CHAIN)
+        expect(await fightOptions(user)).toEqual([
+            SOLO,
+            DUNGEON_SHORT,
+            DUNGEON_LONG,
+            CHAIN,
+        ])
+        expect(fightSelect().getAttribute('aria-expanded')).not.toBe('true')
     })
 
     test('the 2-minute fight shows its settings as read-only text', async () => {
@@ -306,8 +305,8 @@ describe('the fight chart', () => {
             "Mana, sim's plan",
         ])
             expect(screen.getByText(entry)).toBeDefined()
-        expect(screen.getByText('Out of mana 0:48')).toBeDefined()
-        expect(screen.getByText('Out of mana 0:57')).toBeDefined()
+        expect(screen.getByText('Worn: out of mana 0:48')).toBeDefined()
+        expect(screen.getByText('Plan: out of mana 0:57')).toBeDefined()
     })
 
     test('the 2-minute fight says when each runs out of mana', async () => {
@@ -345,7 +344,7 @@ describe('the fight chart', () => {
         expect(
             screen.getByText('In what you wear you keep mana to the end.')
         ).toBeDefined()
-        expect(screen.queryByText('Out of mana 0:48')).toBeNull()
+        expect(screen.queryByText('Worn: out of mana 0:48')).toBeNull()
     })
 
     test('a plan that never runs dry keeps mana to the end', async () => {
@@ -386,7 +385,7 @@ describe('the fight chart', () => {
                 "The sim's plan wasn't checked for running out of mana."
             )
         ).toBeDefined()
-        expect(screen.queryByText(/^Out of mana \d/)).toBeNull()
+        expect(screen.queryByText(/: out of mana \d/)).toBeNull()
         expect(screen.queryByText(/keep mana|keeps mana/)).toBeNull()
     })
 })

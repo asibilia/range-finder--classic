@@ -42,3 +42,10 @@ export const RIGHT_SLOTS: Slot[] = [
 ]
 
 export const BOTTOM_SLOTS: Slot[] = ['main_hand', 'off_hand', 'relic']
+
+/** Every slot, in the order the page reads them: left, right, bottom. */
+export const SLOTS_IN_ORDER: Slot[] = [
+    ...LEFT_SLOTS,
+    ...RIGHT_SLOTS,
+    ...BOTTOM_SLOTS,
+]

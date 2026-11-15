@@ -1,26 +1,35 @@
 /**
  * The armory planner's page. It opens with nothing loaded, reads a results
- * file picked, dropped or bundled as the sample, and shows the character.
+ * file picked, dropped or bundled as the sample, and shows the character:
+ * the gear pane, and the card on the right. What it shows for a loaded file
+ * is `PlannerState`, changed only by the pure actions in `planner-state.ts`.
  */
 import { useEffect, useState } from 'react'
 
-import { BringIn, type ReadError } from './bring-in'
-import { Card } from './card'
-import type { Item } from './gains'
-import { GearPane } from './gear-pane'
-import { ItemPicker, type Wishlist, WishlistDialog } from './item-picker'
-import { PawnDialog } from './pawn'
+import { BringIn, type ReadError } from '@/components/bring-in'
+import { FightCard } from '@/components/fight-card'
+import { GearPane } from '@/components/gear-pane'
 import {
-    closestPlan,
-    defaultPlan,
-    type Mix,
-    type Plan,
-    type Role,
-} from './plans'
+    ItemPicker,
+    type Wishlist,
+    WishlistDialog,
+} from '@/components/item-picker'
+import { PawnDialog } from '@/components/pawn-dialog'
+import { RoleSliders } from '@/components/role-sliders'
+import { TalentsDialog } from '@/components/talents-dialog'
+import { Button } from '@/components/ui/button'
+import { TooltipProvider } from '@/components/ui/tooltip'
+
+import type { Item } from './gains'
+import {
+    initialPlannerState,
+    pickedPlan,
+    type PlannerAction,
+    plannerReducer,
+    type PlannerState,
+} from './planner-state'
 import { readResultsFile, type ResultsFile, type Slot } from './results-file'
-import { RoleSliders } from './role-sliders'
 import sample from './sample-truncha.json'
-import { TalentsDialog } from './talents'
 
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
 
@@ -63,73 +72,56 @@ function Header({
     onOpenTalents,
     onOpenPawn,
 }: {
-    file: ResultsFile
+    file: ResultsFile | null
     wishlistCount: number
     onOpenWishlist: () => void
     onOpenTalents: () => void
     onOpenPawn: () => void
 }) {
+    if (!file)
+        return (
+            <header className="flex flex-col gap-1">
+                <h1 className="text-4xl font-semibold tracking-tight">
+                    Armory planner
+                </h1>
+                <p className="text-muted-foreground">
+                    See your gear, what the sim would change, and how a fight
+                    plays out.
+                </p>
+            </header>
+        )
     const { character } = file
     const exportDate = new Date(file.export_saved_at).toISOString().slice(0, 10)
     return (
-        <header className="page-header">
+        <header className="flex flex-col gap-3">
             {file.sample && (
-                <p className="sample-note">
+                <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
                     Sample file: some numbers here are made up to try the page.
                 </p>
             )}
-            <h1>{character.name}</h1>
-            <p>
-                {`Level ${character.level} ${character.race} ${character.spec} ${character.class}`}
-            </p>
-            <p>{`From your export of ${exportDate}`}</p>
-            <div className="header-actions">
-                <button type="button" onClick={onOpenWishlist}>
-                    {`Wishlist (${wishlistCount})`}
-                </button>
-                <button type="button" onClick={onOpenTalents}>
-                    Talents
-                </button>
-                <button type="button" onClick={onOpenPawn}>
-                    Export Pawn string
-                </button>
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-4xl font-semibold tracking-tight">
+                        {character.name}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {`Level ${character.level} ${character.race} ${character.spec} ${character.class}`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{`From your export of ${exportDate}`}</p>
+                </div>
+                <div className="ml-auto flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={onOpenWishlist}>
+                        {`Wishlist (${wishlistCount})`}
+                    </Button>
+                    <Button variant="outline" onClick={onOpenTalents}>
+                        Talents
+                    </Button>
+                    <Button variant="outline" onClick={onOpenPawn}>
+                        Export Pawn string
+                    </Button>
+                </div>
             </div>
         </header>
-    )
-}
-
-/** The gear heading, the switch between views, and why the view switched. */
-function GearTop({
-    plan,
-    showPlan,
-    switched,
-    onShowPlan,
-    onShowWorn,
-}: {
-    plan: Plan | null
-    showPlan: boolean
-    switched: boolean
-    onShowPlan: () => void
-    onShowWorn: () => void
-}) {
-    const planShown = showPlan && plan !== null
-    return (
-        <>
-            <h2>{planShown ? `Sim's plan: ${plan.label}` : 'What you wear'}</h2>
-            {plan &&
-                (planShown ? (
-                    <button type="button" onClick={onShowWorn}>
-                        Show what I wear
-                    </button>
-                ) : (
-                    <button type="button" onClick={onShowPlan}>
-                        Show the sim&apos;s plan
-                    </button>
-                ))}
-            {planShown && switched && (
-                <p>Switched to the sim&apos;s plan for this mix.</p>
-            )}
-        </>
     )
 }
 
@@ -146,18 +138,13 @@ type OpenDialog =
  */
 export function App() {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
+    const [planner, setPlanner] = useState<PlannerState | null>(null)
     const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
     const [dialog, setDialog] = useState<OpenDialog>(null)
 
-    const [mix, setMix] = useState<Mix | null>(null)
-    const [showPlan, setShowPlan] = useState(false)
-    const [switched, setSwitched] = useState(false)
-
     const open = (next: Loaded) => {
         setLoaded(next)
-        setMix(next.file ? (defaultPlan(next.file.plans)?.mix ?? null) : null)
-        setShowPlan(false)
-        setSwitched(false)
+        setPlanner(next.file ? initialPlannerState(next.file) : null)
     }
 
     const onFile = (picked: File) => {
@@ -182,12 +169,12 @@ export function App() {
         }
     }, [waiting])
 
-    const moveSlider = (role: Role, value: number) => {
-        setMix((current) => (current ? { ...current, [role]: value } : current))
-        if (!showPlan) {
-            setShowPlan(true)
-            setSwitched(true)
-        }
+    const { file, error } = loaded
+    const dispatch = (action: PlannerAction) => {
+        if (file)
+            setPlanner((current) =>
+                current ? plannerReducer(file, current, action) : current
+            )
     }
 
     const toggleWishlist = (item: Item, slot: Slot) => {
@@ -208,12 +195,12 @@ export function App() {
     }
 
     const closeDialog = () => setDialog(null)
+    const plan = file && planner ? pickedPlan(file, planner) : null
+    const planShown = planner?.view === 'plan'
 
-    const { file, error } = loaded
-    const plan = file && mix ? closestPlan(file.plans, mix) : null
     return (
-        <main className="planner">
-            {file ? (
+        <TooltipProvider>
+            <main className="mx-auto flex max-w-360 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
                 <Header
                     file={file}
                     wishlistCount={wishlist.size}
@@ -221,89 +208,92 @@ export function App() {
                     onOpenTalents={() => setDialog({ kind: 'talents' })}
                     onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
-            ) : (
-                <header className="page-header">
-                    <h1>Armory planner</h1>
-                </header>
-            )}
-            {!file && (
-                <BringIn
-                    error={error}
-                    onFile={onFile}
-                    onSample={() => open(load(sample))}
-                />
-            )}
-            <div className="planner-body">
-                <div className="gear-column">
+                <div
+                    data-slot="planner-body"
+                    className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_28rem]"
+                >
                     <GearPane
                         file={file}
-                        plan={showPlan ? plan : null}
-                        top={
-                            file && (
-                                <GearTop
-                                    plan={plan}
-                                    showPlan={showPlan}
-                                    switched={switched}
-                                    onShowPlan={() => setShowPlan(true)}
-                                    onShowWorn={() => {
-                                        setShowPlan(false)
-                                        setSwitched(false)
-                                    }}
-                                />
-                            )
+                        plan={plan}
+                        planShown={planShown}
+                        switched={planner?.switched ?? false}
+                        middle={
+                            <BringIn
+                                error={error}
+                                onFile={onFile}
+                                onSample={() => open(load(sample))}
+                            />
                         }
+                        onShowPlan={() => dispatch({ type: 'show-plan' })}
+                        onShowWorn={() => dispatch({ type: 'show-worn' })}
                         onOpenSlot={(slot) =>
                             setDialog({ kind: 'picker', slot })
                         }
                     />
+                    {file && planner && (
+                        <FightCard
+                            file={file}
+                            plan={plan}
+                            fightId={planner.fightId}
+                            planShown={planShown}
+                            onPickFight={(fightId) =>
+                                dispatch({
+                                    type: 'pick-fight',
+                                    fight_id: fightId,
+                                })
+                            }
+                            sliders={
+                                planner.mix && (
+                                    <RoleSliders
+                                        plans={file.plans}
+                                        mix={planner.mix}
+                                        plan={plan}
+                                        inWornView={!planShown}
+                                        onChange={(role, value) =>
+                                            dispatch({
+                                                type: 'set-sliders',
+                                                mix: { [role]: value },
+                                            })
+                                        }
+                                    />
+                                )
+                            }
+                        />
+                    )}
                 </div>
-                {file && (
-                    <Card
-                        file={file}
-                        plan={plan}
-                        sliders={
-                            file.plans.length > 0 &&
-                            mix && (
-                                <RoleSliders
-                                    plans={file.plans}
-                                    mix={mix}
-                                    plan={plan}
-                                    onChange={moveSlider}
-                                />
-                            )
-                        }
+                {file && dialog?.kind === 'picker' && (
+                    <ItemPicker
+                        entry={file.slots.find(
+                            (entry) => entry.slot === dialog.slot
+                        )}
+                        slot={dialog.slot}
+                        level={file.character.level}
+                        bagItemIds={file.bag_upgrades
+                            .filter((upgrade) => upgrade.slot === dialog.slot)
+                            .map((upgrade) => upgrade.item.item_id)}
+                        wishlist={wishlist}
+                        onToggle={toggleWishlist}
+                        onClose={closeDialog}
                     />
                 )}
-            </div>
-            {file && dialog?.kind === 'picker' && (
-                <ItemPicker
-                    entry={file.slots.find(
-                        (entry) => entry.slot === dialog.slot
-                    )}
-                    slot={dialog.slot}
-                    level={file.character.level}
-                    wishlist={wishlist}
-                    onToggle={toggleWishlist}
-                    onClose={closeDialog}
-                />
-            )}
-            {file && dialog?.kind === 'wishlist' && (
-                <WishlistDialog
-                    wishlist={wishlist}
-                    onRemove={removeFromWishlist}
-                    onClose={closeDialog}
-                />
-            )}
-            {file && dialog?.kind === 'talents' && (
-                <TalentsDialog
-                    talents={file.talents}
-                    fights={file.fights}
-                    onClose={closeDialog}
-                />
-            )}
-            {file && dialog?.kind === 'pawn' && (
-                <PawnDialog pawn={file.pawn} onClose={closeDialog} />
-            )}
-        </main>
+                {file && dialog?.kind === 'wishlist' && (
+                    <WishlistDialog
+                        wishlist={wishlist}
+                        onRemove={removeFromWishlist}
+                        onClose={closeDialog}
+                    />
+                )}
+                {file && dialog?.kind === 'talents' && (
+                    <TalentsDialog
+                        talents={file.talents}
+                        fights={file.fights}
+                        onClose={closeDialog}
+                    />
+                )}
+                {file && dialog?.kind === 'pawn' && (
+                    <PawnDialog pawn={file.pawn} onClose={closeDialog} />
+                )}
+            </main>
+        </TooltipProvider>
     )
 }

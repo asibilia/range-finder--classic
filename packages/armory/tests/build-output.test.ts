@@ -18,8 +18,9 @@ const INDEX_HTML = join(CLIENT_DIR, 'index.html')
 
 /**
  * Hosts that appear in the built JavaScript as names, never as requests:
- * XML namespaces, JSON Schema ids (zod), links in React's and React Router's
- * error messages, and React Router's placeholder origin for parsing paths.
+ * XML namespaces, JSON Schema ids (zod), links in React's, React Router's,
+ * Base UI's and Recharts' (Redux Toolkit, Immer) error messages, and React
+ * Router's placeholder origin for parsing paths.
  */
 const NAME_ONLY_HOSTS = new Set([
     'www.w3.org',
@@ -27,6 +28,10 @@ const NAME_ONLY_HOSTS = new Set([
     'react.dev',
     'reactrouter.com',
     'localhost',
+    'base-ui.com',
+    'redux.js.org',
+    'redux-toolkit.js.org',
+    'bit.ly',
 ])
 
 /** Browser storage APIs the page's own code must not use. */
@@ -82,7 +87,7 @@ describe('the build', () => {
     test('the prerendered page has the title and the Armory planner h1', () => {
         const html = readFileSync(INDEX_HTML, 'utf8')
         expect(html).toContain('<title>Armory planner</title>')
-        expect(html).toMatch(/<h1>Armory planner<\/h1>/)
+        expect(html).toMatch(/<h1[^>]*>Armory planner<\/h1>/)
     })
 
     test('the page loads only its own files', () => {
@@ -100,19 +105,51 @@ describe('the build', () => {
     })
 
     test('the CSS has no Tailwind utilities the page does not use', () => {
-        // The page uses no Tailwind classes yet. Scanning the source, Tailwind
-        // took words like "static" and "grid" for classes and emitted them;
-        // src/styles.css now scans nothing (`source(none)`).
+        // Tailwind scans only the folders src/styles.css names with
+        // `@source` (the components), never the samples or the schema, whose
+        // words ("static", "table") it took for classes. Every class in the
+        // built CSS must be written in one of those files.
         const css = filesUnder(CLIENT_DIR, '.css')
             .map((file) => readFileSync(file, 'utf8'))
             .join('\n')
         expect(css.length).toBeGreaterThan(0)
-        const found = ['static', 'grid', 'hidden', 'table', 'rounded', 'ring']
-            .map((name) => `.${name}`)
-            .filter((selector) =>
-                new RegExp(`\\${selector}(?![\\w-])`).test(css)
+        const styles = readFileSync(join(PACKAGE_DIR, 'src/styles.css'), 'utf8')
+        const scanned = [...styles.matchAll(/@source '([^']+)';/g)].map((m) =>
+            join(PACKAGE_DIR, 'src', m[1]!)
+        )
+        expect(scanned.length).toBeGreaterThan(0)
+        const sources = scanned
+            .flatMap((path) =>
+                path.endsWith('.tsx') ? [path] : filesUnder(path, '.tsx')
             )
-        expect(found).toEqual([])
+            .map((file) => readFileSync(file, 'utf8'))
+            .join('\n')
+        const classes = new Set(
+            [...css.matchAll(/\.((?:\\.|[\w-])+)/g)]
+                .map((m) => m[1]!.replace(/\\(.)/g, '$1'))
+                // Numbers in values (`0.5rem`), not classes.
+                .filter((name) => /^-?[a-z@*]/i.test(name))
+        )
+        expect(classes.size).toBeGreaterThan(0)
+        // `group-has-[...]/field-label:...` names the group `group/field-label`.
+        const written = (name: string) =>
+            sources.includes(name) ||
+            (/^(group|peer)\//.test(name) &&
+                sources.includes(name.slice(name.indexOf('/'))))
+        expect([...classes].filter((name) => !written(name))).toEqual([])
+    })
+
+    test('at desktop width the CSS puts the gear and the card side by side', () => {
+        const css = filesUnder(CLIENT_DIR, '.css')
+            .map((file) => readFileSync(file, 'utf8'))
+            .join('\n')
+        const desktop = css.match(
+            /@media\s*\(min-width:\s*64rem\)\s*\{([^@]*)\}/
+        )
+        expect(desktop).not.toBeNull()
+        expect(desktop![1]).toContain(
+            '.lg\\:grid-cols-\\[minmax\\(0\\,1fr\\)_28rem\\]{grid-template-columns:minmax(0,1fr) 28rem}'
+        )
     })
 
     test('no URL in the built JavaScript points at a server', () => {

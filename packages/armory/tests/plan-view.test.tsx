@@ -3,7 +3,13 @@
  * must be the first import.
  */
 import './dom'
-import { openFile, openSample, readingRow, variant } from './open-app'
+import {
+    chooseFight,
+    openFile,
+    openSample,
+    readingRow,
+    variant,
+} from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
@@ -331,10 +337,7 @@ describe('the role sliders', () => {
         ).toBeDefined()
         expect(screen.queryByText(/^The sim's plan/)).toBeNull()
 
-        await user.selectOptions(
-            screen.getByRole('combobox', { name: 'Fight' }),
-            screen.getByRole('option', { name: 'Dungeon, 2 min, level 33' })
-        )
+        await chooseFight(user, 'Dungeon, 2 min, level 33')
 
         expect(readingRow('DPS')).toEqual(['75.4', '80.2'])
         expect(
@@ -342,8 +345,8 @@ describe('the role sliders', () => {
         ).toBeDefined()
         expect(screen.getByText("DPS, sim's plan")).toBeDefined()
         expect(screen.getByText("Mana, sim's plan")).toBeDefined()
-        expect(screen.getByText('Out of mana 0:48')).toBeDefined()
-        expect(screen.getByText('Out of mana 0:52')).toBeDefined()
+        expect(screen.getByText('Worn: out of mana 0:48')).toBeDefined()
+        expect(screen.getByText('Plan: out of mana 0:52')).toBeDefined()
         expect(
             screen.getByText("The sim's plan runs out at 0:52.")
         ).toBeDefined()
