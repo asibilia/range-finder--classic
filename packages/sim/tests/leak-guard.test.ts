@@ -92,6 +92,18 @@ describe('the repo', () => {
         expect(readdirSync(browserSim).length).toBeGreaterThan(0)
         expect(scanForLeaks([browserSim])).toEqual([])
     }, 120_000)
+
+    test("finds nothing in the owner's buffed export fixture or the armory's export writer helper", () => {
+        const fixture = join(PACKAGE_DIR, 'fixtures/truncha-export-buffed.lua')
+        const helpers = join(REPO_ROOT, 'packages/armory/tests/helpers')
+        expect(existsSync(fixture)).toBe(true)
+        expect(existsSync(join(helpers, 'export-from-character.ts'))).toBe(
+            true
+        )
+        expect(scanForLeaks([join(PACKAGE_DIR, 'fixtures'), helpers])).toEqual(
+            []
+        )
+    }, 120_000)
 })
 
 describe('scanForLeaks on planted files', () => {
