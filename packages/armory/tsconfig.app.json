@@ -9,6 +9,8 @@
 		"scripts/**/*",
 		// @goturbo/sim's TypeScript API, taken as source (no build step).
 		"../sim/src",
+		// Testchar as a character, for the browser sim's tests.
+		"../sim/tests/helpers",
 		// Read by tests/repo-setup.test.ts.
 		"../../commit.config.ts"
 	],

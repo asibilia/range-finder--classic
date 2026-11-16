@@ -625,6 +625,8 @@ export const resultsFileSchema = baseSchema
 export type ResultsFile = z.infer<typeof resultsFileSchema>
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
+/** One accuracy check: a gate, or a note that never blocks. */
+export type Check = { name: string; passed: boolean; detail: string }
 
 export type ReadOutcome =
     | { ok: true; file: ResultsFile }

@@ -22,6 +22,14 @@ export {
     type SimStats,
 } from './pool'
 export {
+    BONUS_STAT_COUNT,
+    PSEUDO_STAT,
+    PSEUDO_STAT_COUNT,
+    sheetFromSim,
+    STAT,
+    type Sheet,
+} from './sheet'
+export {
     scanForLeaks,
     type Leak,
     type Owner,

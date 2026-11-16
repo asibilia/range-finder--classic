@@ -7,6 +7,8 @@
  *   module is over Cloudflare's 25 MiB limit per static asset.
  * - `wasm_exec.js`, copied from the same Go toolchain (it must match).
  * - The item data the TypeScript side reads, from `upstream/assets/database/`.
+ * - `buffs.json`, the stats of the buffs in the vendored spell data
+ *   (`write-buffs.ts`).
  * - `worker.js`, the pool's worker (from `src/`), `talents/<class>.json`
  *   (upstream's talent trees), `l60-test.in.json` (the level-60 gate's
  *   request) and `weights/` (from `packages/sim/weights/`, when it exists).
@@ -26,6 +28,8 @@ import {
     writeFileSync,
 } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+
+import { writeBuffs } from './write-buffs'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const UPSTREAM = join(PACKAGE_DIR, 'upstream')
@@ -118,6 +122,9 @@ for (const name of ITEM_DATA)
 // The pool's worker, a plain script beside the module, so no bundler
 // rewrites its URL.
 copyFileSync(join(PACKAGE_DIR, 'src/worker.js'), join(BUILD, 'worker.js'))
+
+// The buffs the sheet check can model, from the vendored spell data.
+writeBuffs(BUILD)
 
 // The talent trees and the level-60 gate's request, for pool.data().
 cpSync(join(UPSTREAM, 'ui/sim/talents/trees'), join(BUILD, 'talents'), {
