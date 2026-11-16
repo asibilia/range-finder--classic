@@ -3,7 +3,7 @@
  * each pull starts with the mana the last one left, plus what the gap
  * between them gives back (no drinking).
  */
-import type { Sheet, SimPool } from '@goturbo/sim'
+import type { Sheet, SimPool } from '@goturbo/sim/browser'
 
 import type { ResultsFile } from '../results-file'
 import type { Character, Gear } from './character'

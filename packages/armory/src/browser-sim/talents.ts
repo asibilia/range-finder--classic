@@ -3,7 +3,7 @@
  * (`pool.data('talents/<class>.json')`): which spec a build is, and the
  * results file's talents section.
  */
-import type { SimPool } from '@goturbo/sim'
+import type { SimPool } from '@goturbo/sim/browser'
 
 import type { ResultsFile } from '../results-file'
 

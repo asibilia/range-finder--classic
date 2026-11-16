@@ -6,7 +6,10 @@
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
+import { exportStopMessage, type SimStop } from '../browser-sim'
+import { withArticle } from '../format'
 import { SCHEMA_VERSION } from '../results-file'
+import { PHONE_NOTE } from './sim-progress'
 
 /** Why the last file couldn't be opened. */
 export type ReadError =
@@ -14,6 +17,49 @@ export type ReadError =
     | { kind: 'not-json' }
     | { kind: 'version'; version: number }
     | { kind: 'invalid'; problems: string[] }
+    /** An export the browser sim couldn't sim. */
+    | { kind: 'sim'; message: string }
+
+/** Said under failed `sheet …` gates: a new export would fix them. */
+export const EXPORT_AGAIN =
+    'Export again with no buffs up, out of combat, and drop the new file.'
+
+/**
+ * What the page says for a run that stopped before it made a file, one
+ * line each.
+ *
+ * @param stop - The stop.
+ * @returns The lines.
+ */
+export function stopLines(stop: SimStop): string[] {
+    if (stop.kind === 'unsupported')
+        return [
+            `The sim covers Enhancement Shaman only for now. Your character is ${withArticle(`${stop.spec} ${stop.class}`)}.`,
+        ]
+    if (stop.kind === 'gates') {
+        const lines = stop.failed.map(
+            (check) => `Failed: ${check.name}. ${check.detail}`
+        )
+        if (stop.failed.some((check) => check.name.startsWith('sheet ')))
+            lines.push(EXPORT_AGAIN)
+        return lines
+    }
+    return [exportStopMessage(stop) ?? '']
+}
+
+function StopMessage({ stop }: { stop: SimStop }) {
+    return (
+        <Alert variant="destructive">
+            <AlertDescription>
+                {stopLines(stop).map((line, index) => (
+                    <p key={index} className="break-words">
+                        {line}
+                    </p>
+                ))}
+            </AlertDescription>
+        </Alert>
+    )
+}
 
 function ErrorMessage({ error }: { error: ReadError }) {
     const title =
@@ -23,10 +69,17 @@ function ErrorMessage({ error }: { error: ReadError }) {
               ? "This file isn't a results file: it isn't JSON."
               : error.kind === 'version'
                 ? `This results file is version ${error.version}. The planner reads version ${SCHEMA_VERSION}.`
-                : "This file isn't a results file the planner can read."
+                : error.kind === 'sim'
+                  ? "This export couldn't be simmed."
+                  : "This file isn't a results file the planner can read."
     return (
         <Alert variant="destructive">
             <AlertTitle>{title}</AlertTitle>
+            {error.kind === 'sim' && (
+                <AlertDescription>
+                    <p className="break-words">{error.message}</p>
+                </AlertDescription>
+            )}
             {error.kind === 'invalid' && (
                 <AlertDescription>
                     <ul className="list-disc pl-4 break-words">
@@ -46,17 +99,23 @@ function ErrorMessage({ error }: { error: ReadError }) {
  * @param error - Why the last file failed, or null.
  * @param notice - A short note to show above the steps (the kept file was
  * forgotten), or null.
+ * @param stop - Why the last export stopped before any numbers, or null.
+ * @param phone - Whether to say it works best on a computer.
  * @param onFile - Called with a picked or dropped file.
  * @param onSample - Loads the bundled sample.
  */
 export function BringIn({
     error,
     notice,
+    stop = null,
+    phone = false,
     onFile,
     onSample,
 }: {
     error: ReadError | null
     notice: string | null
+    stop?: SimStop | null
+    phone?: boolean
     onFile: (file: File) => void
     onSample: () => void
 }) {
@@ -84,12 +143,32 @@ export function BringIn({
                     </code>{' '}
                     in the game.
                 </li>
-                <li>Run the gear sim on that export to get a results file.</li>
-                <li>Open the results file here, or drop it on this page.</li>
+                <li>
+                    Type{' '}
+                    <code className="font-mono text-[0.8125rem] text-chart-2-text">
+                        /reload
+                    </code>{' '}
+                    so the game writes the file.
+                </li>
+                <li>
+                    Drop TurboCharExport.lua here. It&apos;s in your game
+                    folder, inside WTF, then Account, in your character&apos;s
+                    SavedVariables folder.
+                </li>
             </ol>
+            {phone && (
+                <p className="mb-2 text-[0.8125rem] text-muted-foreground">
+                    {PHONE_NOTE}
+                </p>
+            )}
             {error && (
                 <div className="mb-2">
                     <ErrorMessage error={error} />
+                </div>
+            )}
+            {stop && (
+                <div className="mb-2">
+                    <StopMessage stop={stop} />
                 </div>
             )}
             {/* The drop box is the file picker too: select it to open a
@@ -106,7 +185,7 @@ export function BringIn({
                 <input
                     type="file"
                     aria-label="Open a results file"
-                    accept=".json,application/json"
+                    accept=".json,application/json,.lua"
                     className="sr-only"
                     onChange={(event) => {
                         const file = event.target.files?.[0]
@@ -116,7 +195,8 @@ export function BringIn({
                 />
             </label>
             <p className="mt-1.5 mb-1 text-[0.78125rem] text-muted-foreground">
-                Simming your own export right here is coming later.
+                Drop your TurboCharExport.lua here to sim your character on this
+                computer. It never leaves your computer.
             </p>
             <button
                 type="button"

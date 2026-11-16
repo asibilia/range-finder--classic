@@ -5,6 +5,8 @@
  * side (`1.15 4.04`). Stats worth far more (Weapon DPS) are said in words,
  * off the scale.
  */
+import type { ReactNode } from 'react'
+
 import { statWeightsData } from '../chart-data'
 import { withArticle } from '../format'
 import type { ResultsFile } from '../results-file'
@@ -40,15 +42,18 @@ function sourceWords(file: ResultsFile, fightId: string): string | null {
  * @param file - The loaded results file.
  * @param fightId - The solid fight.
  * @param compareId - The dashed fight, or null.
+ * @param action - Shown under the weights (Refine), or nothing.
  */
 export function StatWeights({
     file,
     fightId,
     compareId = null,
+    action,
 }: {
     file: ResultsFile
     fightId: string
     compareId?: string | null
+    action?: ReactNode
 }) {
     const data = statWeightsData(file, fightId, compareId)
     const sourceLine = sourceWords(file, fightId)
@@ -127,6 +132,7 @@ export function StatWeights({
                     {sourceLine}
                 </p>
             )}
+            {action && <div className="mt-2">{action}</div>}
         </section>
     )
 }

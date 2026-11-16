@@ -3,7 +3,7 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import type { RaidSimRequest } from '@goturbo/sim'
+import type { RaidSimRequest } from '@goturbo/sim/browser'
 
 import { SLOTS } from '../results-file'
 import type { Character, Gear } from './character'

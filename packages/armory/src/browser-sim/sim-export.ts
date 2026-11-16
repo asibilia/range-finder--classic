@@ -6,7 +6,11 @@
  * plan. `refine` sims the weights for the player's own gear and re-sims
  * the plan with them.
  */
-import { readWeightsFile, SimCancelled, type SimPool } from '@goturbo/sim'
+import {
+    readWeightsFile,
+    SimCancelled,
+    type SimPool,
+} from '@goturbo/sim/browser'
 
 import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'

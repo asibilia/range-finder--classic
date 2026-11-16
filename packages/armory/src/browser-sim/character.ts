@@ -2,7 +2,7 @@
  * The character the browser sim starts from: the runner's `Character`. The
  * export reader (#77) makes one from an export; tests make Testchar's.
  */
-import type { LevelProfile } from '@goturbo/sim'
+import type { LevelProfile } from '@goturbo/sim/browser'
 
 import type { Check, ResultsFile, Slot } from '../results-file'
 

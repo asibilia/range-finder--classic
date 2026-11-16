@@ -91,7 +91,8 @@ export async function recordSim(): Promise<number> {
         pool.close()
     }
     mkdirSync(OUT_DIR, { recursive: true })
-    writeFileSync(OUT, JSON.stringify(outputs, null, 2) + '\n')
+    // One line: the outputs are large, and only the fake pool reads them.
+    writeFileSync(OUT, JSON.stringify(outputs) + '\n')
     return Object.keys(outputs).length
 }
 

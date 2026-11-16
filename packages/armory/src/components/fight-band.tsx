@@ -12,7 +12,7 @@
  * combination.` and lists the fights it has; the chart and the readings
  * stay on the last fight picked.
  */
-import { useEffect, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId, useState } from 'react'
 
 import {
     Select,
@@ -274,6 +274,7 @@ export function FightSettingsForm({
  * @param wornOf - What you wear's result on a fight (with a bag item put
  * on, its results); the file's worn results by default.
  * @param onPickFight - Another fight was picked.
+ * @param weightsAction - Shown under the stat weights (Refine), or nothing.
  */
 export function FightBand({
     file,
@@ -281,12 +282,14 @@ export function FightBand({
     fightId,
     wornOf,
     onPickFight,
+    weightsAction,
 }: {
     file: ResultsFile
     plan: Plan | null
     fightId: string
     wornOf?: (fightId: string) => Result | null
     onPickFight: (fightId: string) => void
+    weightsAction?: ReactNode
 }) {
     const headingId = useId()
     const fight =
@@ -365,6 +368,7 @@ export function FightBand({
                     file={file}
                     fightId={reference.fight_id}
                     compareId={fight.fight_id}
+                    action={weightsAction}
                 />
             </div>
             <FightSettingsForm

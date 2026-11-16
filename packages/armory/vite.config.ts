@@ -56,7 +56,7 @@ export default defineConfig({
             '@base-ui/react/slider',
             '@base-ui/react/tooltip',
             '@base-ui/react/use-render',
-            '@goturbo/sim',
+            '@goturbo/sim/browser',
             'class-variance-authority',
             'cn',
             'lucide-react',

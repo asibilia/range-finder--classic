@@ -9,7 +9,7 @@ import {
     type RaidSimRequest,
     type Sheet,
     type SimPool,
-} from '@goturbo/sim'
+} from '@goturbo/sim/browser'
 
 import {
     readResultsFile,

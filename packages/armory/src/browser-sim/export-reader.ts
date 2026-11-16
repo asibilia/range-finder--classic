@@ -10,7 +10,7 @@ import {
     STAT,
     type LevelProfile,
     type SimPool,
-} from '@goturbo/sim'
+} from '@goturbo/sim/browser'
 
 import type { ResultsFile, Slot } from '../results-file'
 import type { Character, Gear, GearPiece, SimStop } from './character'

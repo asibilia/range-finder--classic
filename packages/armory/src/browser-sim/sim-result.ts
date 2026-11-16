@@ -2,7 +2,7 @@
  * Reading a `RaidSimResult`: the character's DPS, what its damage came
  * from, when it ran out of mana, and its mana at the end of a fight.
  */
-import type { RaidSimResult } from '@goturbo/sim'
+import type { RaidSimResult } from '@goturbo/sim/browser'
 
 import { SCHOOLS, type ResultsFile } from '../results-file'
 import { SPELL_NAMES } from './rotation'

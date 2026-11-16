@@ -10,7 +10,7 @@ import {
     PSEUDO_STAT_COUNT,
     STAT,
     type SimPool,
-} from '@goturbo/sim'
+} from '@goturbo/sim/browser'
 
 import type { ResultsFile, Stat } from '../results-file'
 import type { Character, Gear } from './character'
