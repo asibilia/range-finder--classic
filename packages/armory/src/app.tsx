@@ -6,6 +6,8 @@
  * and stat weights, the fight settings), as the approved mockup lays them
  * out. What it shows for a loaded file
  * is `PlannerState`, changed only by the pure actions in `planner-state.ts`.
+ * The last file picked or dropped is kept in this browser and comes back on
+ * reload (`remembered-file.ts`); the sample is never kept.
  */
 import { useEffect, useState } from 'react'
 
@@ -35,6 +37,7 @@ import {
     type PlannerState,
     wornResult,
 } from './planner-state'
+import { forgetFile, recallFile, rememberFile } from './remembered-file'
 import { readResultsFile, type ResultsFile, type Slot } from './results-file'
 import { slotLabel } from './slot-labels'
 import { slotEntry } from './slot-view'
@@ -56,23 +59,40 @@ function load(input: unknown): Loaded {
     }
 }
 
-/** Reads a picked or dropped file's text as a results file. */
-async function readFile(file: File): Promise<Loaded> {
+/**
+ * Reads a picked or dropped file's text as a results file. A file that
+ * reads OK is kept in this browser in place of the last one; `remembered`
+ * says whether it was (storage can be unavailable or full).
+ */
+async function readFile(
+    file: File
+): Promise<{ loaded: Loaded; remembered: boolean }> {
     let text: string
     try {
         text = await file.text()
     } catch {
         // A folder, or a file the browser can't read.
-        return { file: null, error: { kind: 'unreadable' } }
+        return {
+            loaded: { file: null, error: { kind: 'unreadable' } },
+            remembered: false,
+        }
     }
     let input: unknown
     try {
         input = JSON.parse(text)
     } catch {
-        return { file: null, error: { kind: 'not-json' } }
+        return {
+            loaded: { file: null, error: { kind: 'not-json' } },
+            remembered: false,
+        }
     }
-    return load(input)
+    const loaded = load(input)
+    return { loaded, remembered: loaded.file ? rememberFile(text) : false }
 }
+
+/** The note shown when the kept file no longer reads and was forgotten. */
+export const FORGOTTEN_NOTE =
+    'The results file this browser kept no longer reads, so it was forgotten.'
 
 /**
  * The header line under the name, as the mockup writes it: `Orc
@@ -154,9 +174,29 @@ function Header({
  * has made-up numbers), how sure the sim is (its checks), and the line on
  * the art.
  */
-function Footer({ file }: { file: ResultsFile | null }) {
+function Footer({
+    file,
+    remembered,
+    onForget,
+}: {
+    file: ResultsFile | null
+    remembered: boolean
+    onForget: () => void
+}) {
     return (
         <footer className="mt-7 flex flex-col gap-2 text-[0.78125rem] text-muted-foreground">
+            {file && remembered && (
+                <p>
+                    This file is kept in this browser only.{' '}
+                    <Button
+                        variant="link"
+                        className="h-auto p-0 text-[0.78125rem] font-normal"
+                        onClick={onForget}
+                    >
+                        Forget this file
+                    </Button>
+                </p>
+            )}
             <p>
                 {file?.sample && (
                     <>
@@ -199,15 +239,41 @@ export function App() {
     const [planner, setPlanner] = useState<PlannerState | null>(null)
     const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
     const [dialog, setDialog] = useState<OpenDialog>(null)
+    // Whether the file shown is the one kept in this browser.
+    const [remembered, setRemembered] = useState(false)
+    // Whether the kept file no longer read and was forgotten on load.
+    const [forgotten, setForgotten] = useState(false)
 
-    const open = (next: Loaded) => {
+    const open = (next: Loaded, keptHere = false) => {
         setLoaded(next)
         setPlanner(next.file ? initialPlannerState(next.file) : null)
+        setRemembered(keptHere)
+        setForgotten(false)
     }
 
-    const onFile = (picked: File) => {
-        void readFile(picked).then(open)
+    const openPicked = (picked: File) => {
+        void readFile(picked).then(({ loaded: next, remembered: kept }) =>
+            open(next, kept)
+        )
     }
+
+    const forget = () => {
+        forgetFile()
+        open({ file: null, error: null })
+        setWishlist(new Map())
+        setDialog(null)
+    }
+
+    // The kept file comes back after the page loads: in an effect, so the
+    // prerendered page (and hydration) is always the new-visitor state.
+    useEffect(() => {
+        const recalled = recallFile()
+        if (recalled.kind === 'file') {
+            setLoaded({ file: recalled.file, error: null })
+            setPlanner(initialPlannerState(recalled.file))
+            setRemembered(true)
+        } else if (recalled.kind === 'forgotten') setForgotten(true)
+    }, [])
 
     // A file dropped anywhere on the page must not make the browser open it.
     // With nothing loaded yet, the drop loads it, as the drop box does.
@@ -217,7 +283,7 @@ export function App() {
         const onDrop = (event: DragEvent) => {
             event.preventDefault()
             const dropped = event.dataTransfer?.files?.[0]
-            if (waiting && dropped) void readFile(dropped).then(open)
+            if (waiting && dropped) openPicked(dropped)
         }
         window.addEventListener('dragover', onDragOver)
         window.addEventListener('drop', onDrop)
@@ -284,7 +350,8 @@ export function App() {
                         middle={
                             <BringIn
                                 error={error}
-                                onFile={onFile}
+                                notice={forgotten ? FORGOTTEN_NOTE : null}
+                                onFile={openPicked}
                                 onSample={() => open(load(sample))}
                             />
                         }
@@ -338,7 +405,7 @@ export function App() {
                         }
                     />
                 )}
-                <Footer file={file} />
+                <Footer file={file} remembered={remembered} onForget={forget} />
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
                         entry={slotEntry(file, dialog.slot, bagWorn)}

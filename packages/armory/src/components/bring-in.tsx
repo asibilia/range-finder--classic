@@ -44,15 +44,19 @@ function ErrorMessage({ error }: { error: ReadError }) {
  * The card.
  *
  * @param error - Why the last file failed, or null.
+ * @param notice - A short note to show above the steps (the kept file was
+ * forgotten), or null.
  * @param onFile - Called with a picked or dropped file.
  * @param onSample - Loads the bundled sample.
  */
 export function BringIn({
     error,
+    notice,
     onFile,
     onSample,
 }: {
     error: ReadError | null
+    notice: string | null
     onFile: (file: File) => void
     onSample: () => void
 }) {
@@ -64,6 +68,14 @@ export function BringIn({
             <h2 id="bring-in-heading" className="mb-2 text-xl leading-tight">
                 Bring your character in
             </h2>
+            {notice && (
+                <p
+                    role="status"
+                    className="mb-2 text-[0.8125rem] text-muted-foreground"
+                >
+                    {notice}
+                </p>
+            )}
             <ol className="mb-3 list-decimal pl-5 text-sm marker:text-muted-foreground [&>li]:my-0.75">
                 <li>
                     Install the Turbo addon and type{' '}

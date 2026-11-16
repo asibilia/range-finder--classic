@@ -688,6 +688,8 @@ describe('how sure the sim is', () => {
                 screen.queryByRole('list', { name: 'Left out of the plan:' })
             ).toBeNull()
             cleanup()
+            // A new visit: the page would bring back the file it kept.
+            localStorage.clear()
         }
     })
 

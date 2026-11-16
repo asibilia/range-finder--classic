@@ -16,6 +16,30 @@ From the repo root:
 
 Files are read in the browser only; nothing is sent anywhere.
 
+### What the page keeps in your browser
+
+One thing: the text of the last results file you opened (picked or
+dropped) that read OK, in `localStorage` under the key
+`armory:last-results-file`, so a reload brings your character back. Opening
+another file replaces it; the bundled sample (`Or look at a sample
+character`) is never kept. While a kept file is shown the footer says
+`This file is kept in this browser only.` with a `Forget this file` button,
+which clears the key and goes back to the new-visitor state.
+
+- On load the kept text goes through the same checks as a file you open
+  (`readResultsFile`), in the browser only, after the page has drawn: the
+  prerendered page is always the new-visitor state. A kept file that is no
+  longer JSON or no longer validates (a newer page, say) is removed, and the
+  new-visitor card says `The results file this browser kept no longer reads,
+  so it was forgotten.`
+- When storage is unavailable (reading it throws, as in some privacy modes)
+  or full (`QuotaExceededError`), the page works as before and just doesn't
+  remember; it doesn't show the "kept" line then.
+- `src/remembered-file.ts` is the only code that touches storage.
+  `tests/build-output.test.ts` fails if any other file uses `localStorage`,
+  or if any file uses `sessionStorage`, `indexedDB`, cookies, `caches` or
+  another `localStorage` key.
+
 It is not deployed anywhere, and `tests/deploy-guard.test.ts` fails if a script or workflow deploys it.
 
 Other scripts, all from the repo root: `bun run test:armory`,
