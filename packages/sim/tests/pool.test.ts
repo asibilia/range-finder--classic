@@ -119,6 +119,42 @@ describe('createSimPool under Bun', () => {
         expect(dpsOf(await one.sim(after, profile))).toBe(expected)
     }, 600_000)
 
+    test('cancel() stops a running call: it and the calls queued behind it reject with SimCancelled, and the replaced worker runs a new batch', async () => {
+        const after = request('solo-hit-short', 9, 200)
+        const expected = dpsOf(
+            await (await loadSim({ base: BASE })).sim(after, profile)
+        )
+
+        const one = pool({ size: 1 })
+        // The worker is up and idle, so the next call starts running at once.
+        await one.version()
+        one.batch(3)
+        const long = one.sim(request('dungeon-long', 1, 100_000), profile)
+        const behind = [2, 3].map((seed) =>
+            one.sim(request('dungeon-long', seed, 2000), profile)
+        )
+        const settled = Promise.allSettled([long, ...behind])
+        await Bun.sleep(200)
+        one.cancel()
+        for (const outcome of await settled) {
+            expect(outcome.status).toBe('rejected')
+            const reason = (outcome as PromiseRejectedResult).reason as Error
+            expect(reason).toBeInstanceOf(SimCancelled)
+            expect(reason.name).toBe('SimCancelled')
+        }
+
+        // A worker left to finish 100,000 iterations would hold this call up
+        // far longer than the bound: the running worker was really stopped.
+        one.batch(1)
+        const started = performance.now()
+        const next = await Promise.race([
+            one.sim(after, profile).then(dpsOf),
+            Bun.sleep(30_000).then(() => 'timed out' as const),
+        ])
+        expect(next).toBe(expected)
+        expect(performance.now() - started).toBeLessThan(30_000)
+    }, 600_000)
+
     test('progress counts sim calls only, (1, 3) to (3, 3), and starts again from (1, 2) after cancel()', async () => {
         const two = pool({ size: 2 })
         const seen: [number, number][] = []
