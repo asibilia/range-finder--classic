@@ -127,6 +127,52 @@ describe('sim:add-fixture', () => {
         expect(owner).toEqual({ name: 'Truncha', guid: OWNER_GUID })
     })
 
+    test('drops mobs entries keyed by a name, keeps those keyed by a creature id, and logs the count', () => {
+        const folder = tempDir('add-fixture-mobs-')
+        const source = join(folder, 'TurboCharExport.lua')
+        // Built from parts: the leak guard scans this file for name-keyed units.
+        const named = ['\t\t["name', 'Cat"] = {'].join(':')
+        writeFileSync(
+            source,
+            testExport().replace(
+                /\n\}\n$/,
+                [
+                    '',
+                    '\t["mobs"] = {',
+                    '\t\t["4722"] = {',
+                    '\t\t\t["name"] = "Rau Cliffrunner",',
+                    '\t\t\t["creatureId"] = 4722,',
+                    '\t\t},',
+                    named,
+                    '\t\t\t["name"] = "Cat",',
+                    '\t\t\t["level"] = 30,',
+                    '\t\t},',
+                    '\t},',
+                    '}',
+                    '',
+                ].join('\n')
+            )
+        )
+        const out = tempDir('add-fixture-mobs-out-')
+        const { exitCode, output } = run([
+            process.execPath,
+            SCRIPT,
+            source,
+            'truncha-mobs.lua',
+            '--out',
+            out,
+        ])
+        if (exitCode !== 0) console.error(output)
+        expect(exitCode).toBe(0)
+        expect(output).toContain('Dropped 1 name-keyed mobs entries.')
+
+        const written = readFileSync(join(out, 'truncha-mobs.lua'), 'utf8')
+        expect(written).not.toContain('"Cat"')
+        expect(written).not.toContain(['["name', 'Cat"]'].join(':'))
+        expect(written).toContain('["4722"] = {')
+        expect(written).toContain('"Rau Cliffrunner"')
+    })
+
     test('writes nothing that holds the source path', () => {
         const { source, folder } = handoff()
         const out = tempDir('add-fixture-out-')

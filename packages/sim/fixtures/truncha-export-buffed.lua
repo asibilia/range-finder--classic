@@ -3059,13 +3059,6 @@ nil,
 ["level"] = 50,
 ["seenAt"] = 1794688136,
 },
-["name:Cat"] = {
-["classification"] = "normal",
-["name"] = "Cat",
-["playerLevel"] = 32,
-["level"] = 30,
-["seenAt"] = 1794769454,
-},
 ["4722"] = {
 ["classification"] = "normal",
 ["name"] = "Rau Cliffrunner",

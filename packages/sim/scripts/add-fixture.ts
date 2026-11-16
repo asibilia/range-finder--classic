@@ -62,6 +62,39 @@ function otherNames(
     return names
 }
 
+/**
+ * Drops every `mobs` entry not keyed by a creature id. The export addon keys
+ * a unit by `name:<name>` when it has no creature GUID, which is how another
+ * player's pet (a "Cat") got in. Returns the text and how many it dropped.
+ */
+function dropNameKeyedMobs(text: string): {
+    text: string
+    dropped: number
+} {
+    const start = /\["mobs"\]\s*=\s*\{/.exec(text)
+    if (!start) return { text, dropped: 0 }
+    let depth = 0
+    let end = start.index + start[0].length - 1
+    for (; end < text.length; end++) {
+        if (text[end] === '{') depth++
+        else if (text[end] === '}' && --depth === 0) break
+    }
+    let dropped = 0
+    const mobs = text
+        .slice(start.index, end)
+        .replace(
+            /\["(?!\d+")[^"]*"\]\s*=\s*\{[^{}]*\},?[ \t]*\r?\n?[ \t]*/g,
+            () => {
+                dropped++
+                return ''
+            }
+        )
+    return {
+        text: text.slice(0, start.index) + mobs + text.slice(end),
+        dropped,
+    }
+}
+
 const args = process.argv.slice(2)
 const outFlag = args.indexOf('--out')
 const out = outFlag >= 0 ? args[outFlag + 1] : FIXTURES
@@ -79,6 +112,10 @@ try {
 } catch {
     fail('Could not read the export.')
 }
+
+const mobs = dropNameKeyedMobs(text)
+text = mobs.text
+console.log(`Dropped ${mobs.dropped} name-keyed mobs entries.`)
 
 const owner = readOwner(text)
 const ownGuid = owner.guid.toLowerCase()

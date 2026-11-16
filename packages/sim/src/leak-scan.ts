@@ -53,6 +53,9 @@ const PATTERNS: { kind: string; pattern: RegExp }[] = [
             /[\\/]tmp[\\/]|[\\/]private[\\/]var[\\/]|[\\/]var[\\/]folders[\\/]|AppData[\\/]Local[\\/]Temp/,
     },
     { kind: 'Config.wtf', pattern: /^SET \w+ "/m },
+    // The export addon keys a unit with no creature GUID by its name, which
+    // can be another player's pet: those entries must not be committed.
+    { kind: 'named unit', pattern: /\["name:[^"]*"\]\s*=/ },
 ]
 
 const PLAYER_GUID = /Player-(\d+)-[0-9A-Fa-f]{8}/g

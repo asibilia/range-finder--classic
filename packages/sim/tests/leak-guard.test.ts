@@ -31,6 +31,7 @@ const KINDS = [
     'machine name',
     'machine word',
     'other player',
+    'named unit',
 ]
 /** Names the guard skips: CI's user name and other everyday words. */
 const COMMON_NAMES = ['runner', 'root', 'user', 'admin', 'ubuntu', 'localhost']
@@ -129,6 +130,7 @@ describe('scanForLeaks on planted files', () => {
             'machine-name.txt': ['machine name', `built on ${name} today`],
             'machine-word.txt': ['machine word', 'the zorblaxian account'],
             'other-player.txt': ['other player', 'guid Player-1-0000000B'],
+            'named-unit.lua': ['named unit', '["name:Cat"] = {'],
         }
         const root = plant(
             Object.fromEntries(
