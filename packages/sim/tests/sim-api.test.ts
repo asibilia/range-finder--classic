@@ -188,6 +188,22 @@ describe('loadSim under Bun', () => {
             request.simOptions.iterations
         )
     }, 120_000)
+
+    test('the timeline only records: DPS is the same with timelineBucketMs set or unset', async () => {
+        const off = fight('dungeon-long').request
+        const on = fight('dungeon-long').request
+        on.simOptions.timelineBucketMs = 1000
+        const testcharOff = dpsOf(await sim.sim(asRequest(off), profileA))
+        const testcharOn = dpsOf(await sim.sim(asRequest(on), profileA))
+        expect(testcharOn).toBe(testcharOff)
+
+        const l60Off = dpsOf(await sim.sim(l60Request()))
+        const l60On = l60Request() as unknown as { simOptions: Json }
+        l60On.simOptions.timelineBucketMs = 1000
+        const l60OnDps = dpsOf(await sim.sim(asRequest(l60On)))
+        expect(l60OnDps).toBe(l60Off)
+        expect(relative(l60OnDps, L60_DPS)).toBeLessThanOrEqual(1e-9)
+    }, 300_000)
 })
 
 describe('sheet() under Bun', () => {

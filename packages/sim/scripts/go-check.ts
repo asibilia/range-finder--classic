@@ -36,6 +36,7 @@ const ours = [
     'sim/core/level_profile.go',
     'sim/shaman/level_ranks.go',
     'sim/shaman/level_aware_test.go',
+    'sim/shaman/level_60_test.go',
 ]
 const unformatted = run(['gofmt', '-l', ...ours]).trim()
 if (unformatted !== '') {
