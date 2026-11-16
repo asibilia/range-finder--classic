@@ -7,6 +7,8 @@
 		"src/**/*",
 		"tests/**/*",
 		"scripts/**/*",
+		// @goturbo/sim's TypeScript API, taken as source (no build step).
+		"../sim/src",
 		// Read by tests/repo-setup.test.ts.
 		"../../commit.config.ts"
 	],

@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
+import { simPlugin } from './vite-plugin-sim'
+
 /**
  * The armory planner's build: React Router on a Cloudflare Worker, with
  * Tailwind 4 and shadcn/ui on Base UI (see `src/styles.css` and
@@ -65,5 +67,7 @@ export default defineConfig({
         cloudflare({ viteEnvironment: { name: 'ssr' } }),
         tailwindcss(),
         reactRouter(),
+        // The browser sim's files at /sim/ (packages/sim/build/).
+        simPlugin(),
     ],
 })

@@ -34,6 +34,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "catalog:",
+        "@goturbo/sim": "workspace:*",
         "class-variance-authority": "catalog:",
         "cn": "catalog:",
         "lucide-react": "catalog:",

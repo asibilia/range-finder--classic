@@ -5,7 +5,7 @@
  * `SimError`. The level profile travels with each call, so calls never leak
  * into each other.
  */
-import { defaultBase, loadSimFiles } from './loader'
+import { loadSimFiles, toBase, type Base } from './loader'
 
 /**
  * The level-dependent data of one race and class at one level: the level
@@ -91,7 +91,8 @@ type Export = (input?: string) => unknown
 const EXPORTS = ['turboSim', 'turboSheet', 'turboVersion'] as const
 type Exports = Record<(typeof EXPORTS)[number], Export>
 
-function answer<T>(reply: unknown): T {
+/** A reply of one of our exports, parsed; `{ error }` throws a `SimError`. */
+export function answer<T>(reply: unknown): T {
     if (typeof reply !== 'string') {
         throw new SimError('The sim gave no answer.')
     }
@@ -108,12 +109,9 @@ export async function loadSim({
     base,
 }: {
     /** A URL (the DOM's or `node:url`'s) or its text. */
-    base?: string | { readonly href: string }
+    base?: Base
 } = {}): Promise<Sim> {
-    const href = typeof base === 'string' ? base : base?.href
-    const { Go, module } = await loadSimFiles(
-        href === undefined ? defaultBase() : new URL(href)
-    )
+    const { Go, module } = await loadSimFiles(toBase(base))
     const go = new Go()
     const instance = await WebAssembly.instantiate(module, go.importObject)
     // Go's main registers the exports on globalThis and then waits, so they

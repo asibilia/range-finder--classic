@@ -1,0 +1,317 @@
+/**
+ * The browser engine: a pool of Web Workers, each running the sim. The
+ * module is fetched and compiled once, and the compiled module is posted to
+ * every worker (where a runtime can't post one, each worker compiles its own
+ * from the bytes). Jobs queue; `cancel()` drops the queue and replaces the
+ * busy workers. `batch()` starts a progress count and the call timing.
+ */
+import {
+    loadJson,
+    loadModule,
+    loadModuleBytes,
+    toBase,
+    type Base,
+} from './loader'
+import {
+    answer,
+    type LevelProfile,
+    type RaidSimRequest,
+    type RaidSimResult,
+    type SimSheet,
+    type SimVersion,
+} from './sim'
+
+/** A call the pool dropped: `cancel()` or `close()` came first. */
+export class SimCancelled extends Error {
+    constructor(message = 'The sim was cancelled.') {
+        super(message)
+        this.name = 'SimCancelled'
+    }
+}
+
+/** Calls, iterations and time of the `sim` calls since the last `batch()`. */
+export type SimStats = { calls: number; iterations: number; ms: number }
+
+export type SimPool = {
+    /** How many workers the pool runs at most. */
+    readonly size: number
+    sim(request: RaidSimRequest, profile?: LevelProfile): Promise<RaidSimResult>
+    sheet(request: RaidSimRequest, profile?: LevelProfile): Promise<SimSheet>
+    version(): Promise<SimVersion>
+    /** The precomputed weights file for a class, spec and level, or `null`. */
+    weights(className: string, spec: string, level: number): Promise<unknown>
+    /** The parsed JSON of a file `sim:build` wrote, e.g. `db.json`. */
+    data(name: string): Promise<unknown>
+    stats(): SimStats
+    /** Starts a count of `planned` calls, from 0, and the call timing. */
+    batch(planned: number): void
+    /** Called with `(done, planned)` after each `sim` or `sheet` call. */
+    onProgress(callback: (done: number, planned: number) => void): () => void
+    /** Drops queued calls and stops running ones: they reject. */
+    cancel(): void
+    close(): void
+}
+
+type ExportName = 'turboSim' | 'turboSheet' | 'turboVersion'
+
+type Job = {
+    name: ExportName
+    input?: string
+    iterations: number
+    resolve: (reply: unknown) => void
+    reject: (error: unknown) => void
+}
+
+type Slot = { worker: Worker; ready: boolean; job?: Job; started?: number }
+
+type FromWorker =
+    | { type: 'ready' }
+    | { type: 'need-bytes' }
+    | { type: 'failed'; message: string }
+    | { type: 'reply'; id: number; reply?: unknown; crash?: string }
+
+/** Each worker holds about 92 MB, so the pool stays at 8 or fewer. */
+const MAX_SIZE = 8
+
+/** `navigator.hardwareConcurrency - 1` (4 when unknown), from 1 to 8. */
+function defaultSize(): number {
+    const cores = (
+        globalThis as { navigator?: { hardwareConcurrency?: unknown } }
+    ).navigator?.hardwareConcurrency
+    const size = typeof cores === 'number' ? cores - 1 : 4
+    return Math.min(MAX_SIZE, Math.max(1, size))
+}
+
+/** The precomputed weights' level band: 5 levels wide from 10, 60 alone. */
+function band(level: number): [number, number] | null {
+    if (!Number.isInteger(level) || level < 10) return null
+    if (level >= 60) return [60, 60]
+    const min = Math.floor(level / 5) * 5
+    return [min, min + 4]
+}
+
+function iterationsOf(request: RaidSimRequest): number {
+    const options = request.simOptions as { iterations?: unknown } | undefined
+    return typeof options?.iterations === 'number' ? options.iterations : 0
+}
+
+/**
+ * Starts a pool of workers running the sim from `base` (the folder
+ * `sim:build` writes; `/sim/` on the page by default). Workers start when
+ * the first call needs them.
+ */
+export function createSimPool({
+    base,
+    size,
+}: { base?: Base; size?: number } = {}): SimPool {
+    const root = toBase(base)
+    const poolSize = Math.min(
+        MAX_SIZE,
+        Math.max(1, Math.floor(size ?? defaultSize()))
+    )
+    const queue: Job[] = []
+    const slots: Slot[] = []
+    const listeners = new Set<(done: number, planned: number) => void>()
+    const files = new Map<string, Promise<unknown>>()
+    let module: Promise<WebAssembly.Module> | undefined
+    let closed = false
+    let done = 0
+    let planned = 0
+    let stats: SimStats = { calls: 0, iterations: 0, ms: 0 }
+    let nextId = 0
+    const running = new Map<number, Slot>()
+
+    const sharedModule = () => (module ??= loadModule(root))
+
+    function drop(slot: Slot) {
+        slot.worker.terminate()
+        const at = slots.indexOf(slot)
+        if (at >= 0) slots.splice(at, 1)
+        for (const [id, held] of running) if (held === slot) running.delete(id)
+    }
+
+    /** A worker that failed to start: it and every queued call fail. */
+    function startFailed(slot: Slot, message: string) {
+        drop(slot)
+        const error = new Error(`The sim's worker didn't start: ${message}`)
+        for (const job of queue.splice(0)) job.reject(error)
+    }
+
+    function finish(slot: Slot, id: number, reply: unknown, crash?: string) {
+        const job = slot.job
+        if (!job || running.get(id) !== slot) return
+        running.delete(id)
+        const ms = performance.now() - (slot.started ?? performance.now())
+        slot.job = undefined
+        slot.started = undefined
+        if (crash !== undefined) {
+            // Go's runtime is gone once an export throws: replace the worker.
+            drop(slot)
+            job.reject(new Error(`The sim stopped: ${crash}`))
+        } else {
+            if (job.name === 'turboSim') {
+                stats = {
+                    calls: stats.calls + 1,
+                    iterations: stats.iterations + job.iterations,
+                    ms: stats.ms + ms,
+                }
+            }
+            try {
+                job.resolve(answer(reply))
+            } catch (error) {
+                job.reject(error)
+            }
+        }
+        if (job.name !== 'turboVersion') {
+            done += 1
+            for (const listener of listeners) listener(done, planned)
+        }
+        pump()
+    }
+
+    function spawn() {
+        const worker = new Worker(new URL('worker.js', root))
+        const slot: Slot = { worker, ready: false }
+        slots.push(slot)
+        worker.addEventListener('message', (event: MessageEvent) => {
+            const message = event.data as FromWorker
+            if (message.type === 'ready') {
+                slot.ready = true
+                pump()
+            } else if (message.type === 'need-bytes') {
+                loadModuleBytes(root).then(
+                    (bytes) =>
+                        worker.postMessage({ type: 'bytes', bytes }, [bytes]),
+                    (error: unknown) => startFailed(slot, String(error))
+                )
+            } else if (message.type === 'failed') {
+                startFailed(slot, message.message)
+            } else if (message.type === 'reply') {
+                finish(slot, message.id, message.reply, message.crash)
+            }
+        })
+        worker.addEventListener('error', (event: Event) => {
+            const message = (event as ErrorEvent).message ?? 'unknown error'
+            const job = slot.job
+            if (!slot.ready) return startFailed(slot, message)
+            drop(slot)
+            job?.reject(new Error(`The sim stopped: ${message}`))
+            pump()
+        })
+        sharedModule().then(
+            (compiled) => {
+                const init = { type: 'init', base: root.href }
+                try {
+                    worker.postMessage({ ...init, module: compiled })
+                } catch {
+                    // This runtime can't post a module: the worker asks
+                    // for the bytes and compiles its own.
+                    worker.postMessage({ ...init, module: null })
+                }
+            },
+            (error: unknown) => startFailed(slot, String(error))
+        )
+    }
+
+    function pump() {
+        if (closed) return
+        for (const slot of slots) {
+            if (queue.length === 0) return
+            if (!slot.ready || slot.job) continue
+            const job = queue.shift()!
+            const id = nextId++
+            slot.job = job
+            slot.started = performance.now()
+            running.set(id, slot)
+            slot.worker.postMessage({
+                type: 'call',
+                id,
+                name: job.name,
+                input: job.input,
+            })
+        }
+        const starting = slots.filter((slot) => !slot.ready).length
+        let wanted = Math.min(queue.length - starting, poolSize - slots.length)
+        while (wanted-- > 0) spawn()
+    }
+
+    function run(
+        name: ExportName,
+        input?: string,
+        iterations = 0
+    ): Promise<unknown> {
+        if (closed)
+            return Promise.reject(new SimCancelled('The sim pool is closed.'))
+        return new Promise((resolve, reject) => {
+            queue.push({ name, input, iterations, resolve, reject })
+            pump()
+        })
+    }
+
+    /** Drops queued calls and terminates busy workers; their calls reject. */
+    function stopAll(error: () => Error, every: boolean) {
+        for (const job of queue.splice(0)) job.reject(error())
+        for (const slot of [...slots]) {
+            const job = slot.job
+            if (!every && !job) continue
+            drop(slot)
+            job?.reject(error())
+        }
+    }
+
+    const call = (
+        name: 'turboSim' | 'turboSheet',
+        request: RaidSimRequest,
+        profile?: LevelProfile
+    ) =>
+        run(
+            name,
+            JSON.stringify({ request, level_profile: profile }),
+            iterationsOf(request)
+        )
+
+    return {
+        size: poolSize,
+        sim: (request, profile) =>
+            call('turboSim', request, profile) as Promise<RaidSimResult>,
+        sheet: (request, profile) =>
+            call('turboSheet', request, profile) as Promise<SimSheet>,
+        version: () => run('turboVersion') as Promise<SimVersion>,
+        async weights(className, spec, level) {
+            const levels = band(level)
+            if (!levels) return null
+            const name = [className, spec, ...levels].join('-').toLowerCase()
+            return loadJson(root, `weights/${name}.json`, { optional: true })
+        },
+        data(name) {
+            let file = files.get(name)
+            if (!file) {
+                file = loadJson(root, name)
+                files.set(name, file)
+                file.catch(() => files.delete(name))
+            }
+            return file
+        },
+        stats: () => ({ ...stats }),
+        batch(count) {
+            done = 0
+            planned = count
+            stats = { calls: 0, iterations: 0, ms: 0 }
+        },
+        onProgress(callback) {
+            listeners.add(callback)
+            return () => listeners.delete(callback)
+        },
+        cancel() {
+            stopAll(() => new SimCancelled(), false)
+            done = 0
+            planned = 0
+            stats = { calls: 0, iterations: 0, ms: 0 }
+        },
+        close() {
+            closed = true
+            stopAll(() => new SimCancelled('The sim pool is closed.'), true)
+            listeners.clear()
+        },
+    }
+}

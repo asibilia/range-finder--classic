@@ -7,6 +7,9 @@
  *   module is over Cloudflare's 25 MiB limit per static asset.
  * - `wasm_exec.js`, copied from the same Go toolchain (it must match).
  * - The item data the TypeScript side reads, from `upstream/assets/database/`.
+ * - `worker.js`, the pool's worker (from `src/`), `talents/<class>.json`
+ *   (upstream's talent trees), `l60-test.in.json` (the level-60 gate's
+ *   request) and `weights/` (from `packages/sim/weights/`, when it exists).
  * - `version.json`: `{ upstream_commit, patch_id, go_version, l60_expected_dps }`.
  *   `patch_id` is also compiled in (`-X main.patchID`), so `turboVersion()`
  *   names the Go the module was built from.
@@ -14,6 +17,7 @@
 import { createHash } from 'node:crypto'
 import {
     copyFileSync,
+    cpSync,
     existsSync,
     mkdirSync,
     readdirSync,
@@ -110,6 +114,26 @@ writeFileSync(join(BUILD, 'wasm_exec.js'), readFileSync(wasmExec))
 
 for (const name of ITEM_DATA)
     copyFileSync(join(UPSTREAM, 'assets/database', name), join(BUILD, name))
+
+// The pool's worker, a plain script beside the module, so no bundler
+// rewrites its URL.
+copyFileSync(join(PACKAGE_DIR, 'src/worker.js'), join(BUILD, 'worker.js'))
+
+// The talent trees and the level-60 gate's request, for pool.data().
+cpSync(join(UPSTREAM, 'ui/sim/talents/trees'), join(BUILD, 'talents'), {
+    recursive: true,
+})
+copyFileSync(
+    join(PACKAGE_DIR, 'fixtures/l60-test.in.json'),
+    join(BUILD, 'l60-test.in.json')
+)
+
+// The precomputed stat weights, when there are any.
+rmSync(join(BUILD, 'weights'), { recursive: true, force: true })
+if (existsSync(join(PACKAGE_DIR, 'weights')))
+    cpSync(join(PACKAGE_DIR, 'weights'), join(BUILD, 'weights'), {
+        recursive: true,
+    })
 
 const expected = JSON.parse(
     readFileSync(join(PACKAGE_DIR, 'fixtures/l60-test.expected.json'), 'utf8')

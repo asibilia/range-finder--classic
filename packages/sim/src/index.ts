@@ -1,6 +1,7 @@
 /**
  * `@goturbo/sim`: the browser sim, WoWSims Forever built to WASM. `loadSim`
- * loads it and runs requests on the calling thread; the leak guard keeps
+ * loads it and runs requests on the calling thread, `createSimPool` runs
+ * them in a pool of Web Workers; the leak guard keeps
  * machine details out of the package.
  */
 export {
@@ -14,6 +15,12 @@ export {
     type SimSheet,
     type SimVersion,
 } from './sim'
+export {
+    createSimPool,
+    SimCancelled,
+    type SimPool,
+    type SimStats,
+} from './pool'
 export {
     scanForLeaks,
     type Leak,

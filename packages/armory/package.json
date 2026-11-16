@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@base-ui/react": "catalog:",
+    "@goturbo/sim": "workspace:*",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "lucide-react": "catalog:",

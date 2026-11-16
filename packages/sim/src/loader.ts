@@ -1,9 +1,9 @@
 /**
  * The only module of `@goturbo/sim` that fetches. It reads only the files
  * `sim:build` writes, each as `new URL(name, base)`: the gzipped WASM module
- * (fetched) and Go's `wasm_exec.js` (imported). `base` is `/sim/` in the
- * browser and a `file://` URL of `packages/sim/build/` under Bun (Bun's
- * `fetch` reads those).
+ * and the data files (fetched), and Go's `wasm_exec.js` (imported). `base`
+ * is `/sim/` in the browser and a `file://` URL of `packages/sim/build/`
+ * under Bun (Bun's `fetch` reads those).
  */
 
 /** Go's runtime for a WASM module, from the toolchain's `wasm_exec.js`. */
@@ -21,8 +21,17 @@ export function defaultBase(): URL {
     return new URL('/sim/', globalThis.location?.href)
 }
 
-/** Fetches `lib.wasm.gz`, unpacks it and compiles the module. */
-export async function loadModule(base: URL): Promise<WebAssembly.Module> {
+/** A base given as a URL (the DOM's or `node:url`'s) or its text. */
+export type Base = string | { readonly href: string }
+
+/** `base` as a URL, or the default when none is given. */
+export function toBase(base?: Base): URL {
+    const href = typeof base === 'string' ? base : base?.href
+    return href === undefined ? defaultBase() : new URL(href)
+}
+
+/** Fetches `lib.wasm.gz` and unpacks it: the module's raw bytes. */
+export async function loadModuleBytes(base: URL): Promise<ArrayBuffer> {
     const response = await fetch(new URL('lib.wasm.gz', base))
     if (!response.ok || !response.body) {
         throw new Error(
@@ -30,8 +39,39 @@ export async function loadModule(base: URL): Promise<WebAssembly.Module> {
         )
     }
     const unpacked = response.body.pipeThrough(new DecompressionStream('gzip'))
-    const bytes = await new Response(unpacked).arrayBuffer()
-    return WebAssembly.compile(bytes)
+    return new Response(unpacked).arrayBuffer()
+}
+
+/** Fetches `lib.wasm.gz`, unpacks it and compiles the module. */
+export async function loadModule(base: URL): Promise<WebAssembly.Module> {
+    return WebAssembly.compile(await loadModuleBytes(base))
+}
+
+/**
+ * Fetches one of the files `sim:build` writes (`name` relative to `base`)
+ * and parses it as JSON. With `optional`, a file that isn't there answers
+ * `null` instead of failing.
+ */
+export async function loadJson(
+    base: URL,
+    name: string,
+    { optional = false }: { optional?: boolean } = {}
+): Promise<unknown> {
+    let body: string
+    try {
+        const response = await fetch(new URL(name, base))
+        if (!response.ok) {
+            throw new Error(
+                `Couldn't load the sim's ${name} (${response.status} ${response.statusText}).`
+            )
+        }
+        // Bun's file:// responses fail here, not above, when there's no file.
+        body = await response.text()
+    } catch (error) {
+        if (optional) return null
+        throw error
+    }
+    return JSON.parse(body) as unknown
 }
 
 /**
