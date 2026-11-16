@@ -282,11 +282,7 @@ describe('simCharacter stops and leaves out', () => {
                 return data
             },
         }
-        const outcome = await run(
-            character,
-            await sampleWeights(),
-            withMadeUp
-        )
+        const outcome = await run(character, await sampleWeights(), withMadeUp)
         const file = fileOf(outcome)
         expect((file.left_out_items ?? []).map((i) => i.item_id)).toContain(
             MADE_UP_ID
