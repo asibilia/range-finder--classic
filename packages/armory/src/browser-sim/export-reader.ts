@@ -393,7 +393,13 @@ async function calibrate(
     }
 }
 
-/** True when the sim can model a buff that was up at export. */
+/**
+ * True when the sim can model a buff that was up at export. Any other buff
+ * stops the run (spec #73, sections 4 and 6). The native runner instead
+ * goes on and marks health and mana `not_checked`
+ * (`packages/sim/fixtures/buff-filter-nov15-format7.md`); the browser
+ * keeps the stop unless the owner decides otherwise.
+ */
 function canModel(buff: Table, known: Record<string, unknown>): boolean {
     const spell = num(buff.spellID)
     return (

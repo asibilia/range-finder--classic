@@ -32,24 +32,36 @@ afterAll(() => {
     for (const made of pools.splice(0)) made.close()
 })
 
+const BROWSER_SIM = '../src/browser-sim'
+const TESTCHAR_HELPER = '../../sim/tests/helpers/testchar'
+
+type BrowserSim = {
+    parseSavedVariables: (text: string) => Json
+    readExport: (text: string, pool: SimPool) => Promise<Read>
+}
+
+async function browserSim(): Promise<BrowserSim> {
+    return (await import(BROWSER_SIM)) as BrowserSim
+}
+
 async function parse(text: string): Promise<Json> {
-    const browserSim = (await import('../src/browser-sim')) as unknown as {
-        parseSavedVariables: (text: string) => Json
-    }
-    return browserSim.parseSavedVariables(text)
+    return (await browserSim()).parseSavedVariables(text)
 }
 
 async function read(text: string, on: SimPool): Promise<Read> {
-    const { readExport } = (await import('../src/browser-sim')) as unknown as {
-        readExport: (text: string, pool: SimPool) => Promise<Read>
-    }
-    return readExport(text, on)
+    return (await browserSim()).readExport(text, on)
 }
 
+type TestcharHelper = { testcharCharacter: (pool: SimPool) => Promise<Json> }
+
 async function testchar(on: SimPool): Promise<Json> {
-    const { testcharCharacter } =
-        await import('../../sim/tests/helpers/testchar')
-    return (await testcharCharacter(on)) as unknown as Json
+    const helper = (await import(TESTCHAR_HELPER)) as TestcharHelper
+    return helper.testcharCharacter(on)
+}
+
+/** Text with CRLF line endings, as the game writes SavedVariables. */
+function crlf(text: string): string {
+    return text.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
 }
 
 async function exportOf(character: Json): Promise<string> {
@@ -124,28 +136,36 @@ EmptyVars = {
 }
 `
 
+const MADE_UP_OBJECTS = {
+    MadeUpVars: {
+        name: 'Line one\nSays "hi" and \\ back ABC',
+        count: -12,
+        ratio: 1500,
+        tiny: -0.025,
+        whole: 7,
+        flag: true,
+        off: false,
+        big: null,
+        odd: null,
+        list: { '1': 'first', '2': 'second' },
+        holes: { '1': 'a', '3': 'c' },
+        gaps: { '1': 'x', '3': 'z' },
+        nested: { deep: { '1': { id: 252504, enchant: -1 } } },
+        bare: 'plain key',
+    },
+    OtherVars: 42,
+    EmptyVars: {},
+}
+
 describe('parseSavedVariables', () => {
     test('reads a made-up SavedVariables file into the objects spelled out by hand: nil left out, inf and nan as null, arrays keep their numbering', async () => {
-        expect(await parse(MADE_UP)).toEqual({
-            MadeUpVars: {
-                name: 'Line one\nSays "hi" and \\ back ABC',
-                count: -12,
-                ratio: 1500,
-                tiny: -0.025,
-                whole: 7,
-                flag: true,
-                off: false,
-                big: null,
-                odd: null,
-                list: { '1': 'first', '2': 'second' },
-                holes: { '1': 'a', '3': 'c' },
-                gaps: { '1': 'x', '3': 'z' },
-                nested: { deep: { '1': { id: 252504, enchant: -1 } } },
-                bare: 'plain key',
-            },
-            OtherVars: 42,
-            EmptyVars: {},
-        })
+        expect(await parse(MADE_UP)).toEqual(MADE_UP_OBJECTS)
+    })
+
+    test('reads the made-up file with CRLF line endings, and a backslash-CRLF escape, into the same objects', async () => {
+        expect(await parse(crlf(MADE_UP))).toEqual(MADE_UP_OBJECTS)
+        const wrapped = 'Wrapped = "one\\\r\ntwo"\r\n'
+        expect(await parse(wrapped)).toEqual({ Wrapped: 'one\ntwo' })
     })
 
     test('reads fixtures/truncha-export-buffed.lua without error', async () => {
@@ -154,19 +174,29 @@ describe('parseSavedVariables', () => {
         expect(Object.keys(vars).length).toBeGreaterThan(0)
         for (const value of Object.values(vars))
             expect(typeof value).toBe('object')
+        expect(await parse(crlf(text))).toEqual(vars)
     })
 })
 
 describe('readExport', () => {
     test("exportFromCharacter(Testchar, its sheet) read back gives Testchar's character: same level, gear, known spells and profile after calibration", async () => {
         const on = pool()
-        const character = await testchar(on)
+        const plain = await testchar(on)
+        // Testchar knows no spells; give it a few active ones (Lightning
+        // Bolt, Earth Shock, Stormstrike), so the sheet stays the same.
+        const spells = [403, 8042, 17364]
+        const character: Json = {
+            ...plain,
+            known_spells: spells,
+            profile: { ...(plain.profile as Json), knownSpells: spells },
+        }
         const outcome = await read(await exportOf(character), on)
         expect(outcome.kind).toBe('character')
         const back = outcome.character!
         expect(back.level).toBe(character.level)
         expect(worn(back.gear)).toEqual(worn(character.gear))
-        expect(back.known_spells).toEqual(character.known_spells)
+        expect(back.known_spells).toEqual(spells)
+        expect((back.profile as Json).knownSpells).toEqual(spells)
 
         const expected = character.profile as Json
         const got = back.profile as Json
@@ -177,6 +207,25 @@ describe('readExport', () => {
                 expect([key, got[key]]).toEqual([key, expect.closeTo(want, 6)])
             else expect([key, got[key]]).toEqual([key, want])
         }
+    }, 600_000)
+
+    test("the owner's real format-7 export with its buff taken out calibrates as the runner did: base health 670, base mana 733, spell crit per Intellect 0.0333, and no character_key for its all-zero key", async () => {
+        const text = await Bun.file(BUFFED).text()
+        const buffs = /\["buffs"\] = \{\s*\{[^{}]*\},\s*\},/
+        expect(text).toMatch(buffs)
+        const outcome = await read(
+            text.replace(buffs, '["buffs"] = {\n},'),
+            pool()
+        )
+        expect(outcome.kind).toBe('character')
+        const character = outcome.character!
+        expect(character.level).toBe(32)
+        expect(character).not.toHaveProperty('character_key')
+        expect(character.calibrated_spell_crit).toBe(true)
+        const profile = character.profile as Json
+        expect(profile.baseHealth).toBeCloseTo(670, 0)
+        expect(profile.baseMana).toBeCloseTo(733, 0)
+        expect(profile.spellCritPerInt).toBeCloseTo(0.0333, 3)
     }, 600_000)
 
     test("fixtures/truncha-export-buffed.lua returns a buffed stop naming Warchief's Blessing, and no sim or sheet runs", async () => {

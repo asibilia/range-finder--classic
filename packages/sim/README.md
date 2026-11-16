@@ -30,6 +30,18 @@ the armory planner can sim a character on the player's own computer.
   `add-fixture.ts` (`sim:add-fixture`).
 - `fixtures/`: test inputs under neutral names, such as upstream's level-60
   test request and its expected DPS.
+- `fixtures/buff-filter-nov15-format7.json` and `.md`: what the gear sim's
+  native runner does with the buffed 15 November export, as its session
+  posted it on #77. It is a record, not the browser's rule. The runner
+  marks an unknown buff's health and mana lines `not_checked` and goes on.
+  The browser follows spec #73 (sections 4 and 6, and #77's acceptance
+  criteria) instead: a buff it can't model stops the run with
+  `{ kind: 'buffed' }` before any sheet runs, and the page asks for a new
+  export with no buffs up. Where the two don't conflict, the browser
+  matches the record: with the buff taken out of that export, calibration
+  gives the same base health (670) and base mana (733). Changing the
+  browser to the runner's non-blocking rule is the owner's call, not a
+  port.
 
 ## Scripts
 
