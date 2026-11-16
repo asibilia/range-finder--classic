@@ -10,6 +10,7 @@ import {
     existsSync,
     mkdirSync,
     mkdtempSync,
+    readdirSync,
     rmSync,
     writeFileSync,
 } from 'node:fs'
@@ -83,6 +84,13 @@ describe('the repo', () => {
         ].filter((root) => existsSync(root))
         expect(existsSync(join(PACKAGE_DIR, 'fixtures'))).toBe(true)
         expect(scanForLeaks(roots)).toEqual([])
+    }, 120_000)
+
+    test('scans the ported runner in packages/armory/src/browser-sim/ and finds nothing', () => {
+        const browserSim = join(REPO_ROOT, 'packages/armory/src/browser-sim')
+        expect(existsSync(browserSim)).toBe(true)
+        expect(readdirSync(browserSim).length).toBeGreaterThan(0)
+        expect(scanForLeaks([browserSim])).toEqual([])
     }, 120_000)
 })
 
