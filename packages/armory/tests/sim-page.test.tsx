@@ -379,6 +379,8 @@ describe('simming an export', () => {
         await waitFor(() => expect(screen.queryByText(SIMMING)).toBeNull())
         expectNoNumbers()
 
+        // Cancel already rejected the held calls; the second run goes on.
+        pool.holding = false
         dropFile(luaFile(text))
         await characterLoaded()
     }, 60_000)
