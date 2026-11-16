@@ -75,7 +75,8 @@ export type SimOutcome =
       }
     | SimStop
 
-const SUPPORTED = { class: 'Shaman', spec: 'Enhancement' }
+/** The one class and spec the sim covers for now. */
+export const SUPPORTED = { class: 'Shaman', spec: 'Enhancement' }
 /** Stormstrike's cooldown, in seconds. */
 const STORMSTRIKE_COOLDOWN_S = 8
 /** The sanity gate weighs stats with at least this EP on the long fight. */

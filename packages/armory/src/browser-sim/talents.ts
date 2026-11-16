@@ -14,6 +14,8 @@ export type TalentTree = {
         fancyName: string
         location: { rowIdx: number; colIdx: number }
         spellId: number
+        /** The game's trait definition, as an export names it. */
+        definitionId?: number
         maxPoints: number
     }[]
 }
