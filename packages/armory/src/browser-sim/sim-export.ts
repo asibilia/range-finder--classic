@@ -81,6 +81,7 @@ function settings(options: WeightsOptions) {
  */
 function startRun(pool: SimPool, onProgress: Progress) {
     let cancelled = false
+    let started = false
     let offset = 0
     let lastDone = 0
     const totals = { iterations: 0, ms: 0 }
@@ -109,9 +110,14 @@ function startRun(pool: SimPool, onProgress: Progress) {
                 ? Promise.reject(new SimCancelled())
                 : pool.sheet(request, profile).then(guard),
         batch(planned) {
-            const stats = pool.stats()
-            totals.iterations += stats.iterations
-            totals.ms += stats.ms
+            // Before the run's first batch, the pool's stats are an earlier
+            // run's: only the run's own batches count.
+            if (started) {
+                const stats = pool.stats()
+                totals.iterations += stats.iterations
+                totals.ms += stats.ms
+            }
+            started = true
             offset += lastDone
             lastDone = 0
             pool.batch(planned)
@@ -123,7 +129,9 @@ function startRun(pool: SimPool, onProgress: Progress) {
         pool: guarded,
         check: () => guard(undefined),
         totals() {
-            const stats = pool.stats()
+            const stats = started
+                ? pool.stats()
+                : { calls: 0, iterations: 0, ms: 0 }
             const iterations = totals.iterations + stats.iterations
             const ms = totals.ms + stats.ms
             return {
