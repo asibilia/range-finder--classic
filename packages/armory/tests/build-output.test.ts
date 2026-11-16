@@ -2,13 +2,16 @@
  * The armory planner's production build (`bun run build:armory`): React
  * Router prerenders the page to `build/client/index.html`, which git
  * ignores. The built page asks no other server for anything (every file it
- * loads is its own) and the page's code keeps nothing in the browser. This
- * runs the build once and reads what it wrote.
+ * loads is its own) and the page's code keeps one thing in the browser: the
+ * last results file, under one localStorage key, from one module
+ * (`src/remembered-file.ts`). This runs the build once and reads what it
+ * wrote.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
 import { nodeVersionProblem, readNodeVersion } from './node-version'
 
 const REPO_ROOT = join(import.meta.dir, '../../..')
@@ -34,13 +37,60 @@ const NAME_ONLY_HOSTS = new Set([
     'bit.ly',
 ])
 
-/** Browser storage APIs the page's own code must not use. */
-const STORAGE = /\b(localStorage|sessionStorage|indexedDB|document\.cookie)\b/
+/** Browser storage APIs the page's own code must never use. */
+const STORAGE =
+    /\b(sessionStorage|indexedDB|document\.cookie|cookieStore|caches|openDatabase)\b/
+/** The one module allowed to touch localStorage, from the package root. */
+const REMEMBERED_FILE = 'src/remembered-file.ts'
 /** Ways of asking a server for something. */
 const NETWORK = /\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/
 
 let buildExitCode: number | null = null
 let buildOutput = ''
+
+/** `source` without its comments. */
+function withoutComments(source: string): string {
+    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+}
+
+/**
+ * How `code` (a source file without comments, at `path` from the package
+ * root) breaks the storage rule: no storage API but localStorage, and
+ * localStorage only in `src/remembered-file.ts`, reached once, and only
+ * read, written and removed under `REMEMBERED_FILE_KEY`.
+ */
+function storageProblems(path: string, code: string): string[] {
+    const problems: string[] = []
+    const other = code.match(STORAGE)
+    if (other) problems.push(`${path} uses ${other[1]}`)
+    const local = code.match(/\blocalStorage\b/g) ?? []
+    const calls = [
+        ...code.matchAll(/\.(getItem|setItem|removeItem|key|clear)\(([^,)]*)/g),
+    ]
+    if (path !== REMEMBERED_FILE) {
+        if (local.length > 0) problems.push(`${path} uses localStorage`)
+        for (const [, method] of calls)
+            if (method !== 'key' && method !== 'clear')
+                problems.push(`${path} calls ${method}`)
+        return problems
+    }
+    if (local.length !== 1)
+        problems.push(
+            `${path} names localStorage ${local.length} times, not once`
+        )
+    if (/\blocalStorage\s*\[/.test(code))
+        problems.push(`${path} indexes localStorage`)
+    for (const [, method, key] of calls) {
+        if (method === 'key' || method === 'clear')
+            problems.push(`${path} calls ${method}`)
+        else if (key!.trim() !== 'REMEMBERED_FILE_KEY')
+            problems.push(`${path} uses the key ${key!.trim()}`)
+    }
+    const keys = code.match(/(['"`])armory:[^'"`]*\1/g) ?? []
+    if (keys.length !== 1 || keys[0]!.slice(1, -1) !== REMEMBERED_FILE_KEY)
+        problems.push(`${path} names a key other than ${REMEMBERED_FILE_KEY}`)
+    return problems
+}
 
 function filesUnder(dir: string, extension: string): string[] {
     return readdirSync(dir, { recursive: true, encoding: 'utf8' })
@@ -167,23 +217,62 @@ describe("the page's own code", () => {
     // React Router's client code has fetch and sessionStorage in it; with
     // no loaders, no actions and every route in the first page
     // (`routeDiscovery: 'initial'`), it asks the server for nothing. Our
-    // code must not use them either.
+    // code must not use them either. It keeps one thing in the browser:
+    // the last results file, in `src/remembered-file.ts`.
     const sources = [
         ...filesUnder(join(PACKAGE_DIR, 'src'), '.ts'),
         ...filesUnder(join(PACKAGE_DIR, 'src'), '.tsx'),
         ...filesUnder(join(PACKAGE_DIR, 'workers'), '.ts'),
     ]
+    const code = (file: string) => withoutComments(readFileSync(file, 'utf8'))
+    const fromPackage = (file: string) =>
+        file
+            .slice(PACKAGE_DIR.length + 1)
+            .split('\\')
+            .join('/')
 
-    test('keeps nothing in the browser and asks no server for anything', () => {
+    test('asks no server for anything', () => {
         expect(sources.length).toBeGreaterThan(0)
-        const offenders = sources.filter((file) => {
-            const source = readFileSync(file, 'utf8')
-                .replace(/\/\*[\s\S]*?\*\//g, '')
-                .replace(/\/\/.*$/gm, '')
+        const offenders = sources.filter((file) =>
             // The Worker's own `fetch(request)` handler is not a request.
-            const code = source.replace(/^\s*fetch\(request\)\s*\{/m, '')
-            return STORAGE.test(code) || NETWORK.test(code)
-        })
+            NETWORK.test(code(file).replace(/^\s*fetch\(request\)\s*\{/m, ''))
+        )
         expect(offenders).toEqual([])
+    })
+
+    test('keeps only the last results file in the browser, under one localStorage key, from one module', () => {
+        expect(sources.map(fromPackage)).toContain(REMEMBERED_FILE)
+        expect(REMEMBERED_FILE_KEY).toBe('armory:last-results-file')
+        expect(
+            sources.flatMap((file) =>
+                storageProblems(fromPackage(file), code(file))
+            )
+        ).toEqual([])
+    })
+
+    test('the storage rule fails any other storage, key or module', () => {
+        const ok = `const KEY = '${REMEMBERED_FILE_KEY}'
+            const store = () => globalThis.localStorage
+            store().getItem(REMEMBERED_FILE_KEY)
+            store().setItem(REMEMBERED_FILE_KEY, text)
+            store().removeItem(REMEMBERED_FILE_KEY)`
+        expect(storageProblems(REMEMBERED_FILE, ok)).toEqual([])
+        const bad: [string, string][] = [
+            ['src/app.tsx', 'localStorage.getItem(REMEMBERED_FILE_KEY)'],
+            ['src/app.tsx', 'store().setItem(REMEMBERED_FILE_KEY, text)'],
+            [REMEMBERED_FILE, ok + "\nstore().setItem('armory:other', text)"],
+            [REMEMBERED_FILE, ok + '\nstore().setItem(OTHER_KEY, text)'],
+            [REMEMBERED_FILE, ok + '\nstore().clear()'],
+            [REMEMBERED_FILE, ok + '\nconst again = localStorage'],
+            [
+                REMEMBERED_FILE,
+                ok + '\nsessionStorage.setItem(REMEMBERED_FILE_KEY, text)',
+            ],
+            [REMEMBERED_FILE, ok + '\nindexedDB.open("x")'],
+            ['src/app.tsx', 'document.cookie = "a=b"'],
+            ['src/app.tsx', 'caches.open("x")'],
+        ]
+        for (const [path, source] of bad)
+            expect(storageProblems(path, source)).not.toEqual([])
     })
 })
