@@ -47,6 +47,7 @@
     "sim:build": "bun packages/sim/scripts/build.ts",
     "sim:go": "bun packages/sim/scripts/go-check.ts",
     "sim:test": "bun test --isolate packages/sim",
+    "sim:weights": "bun run sim:build && bun packages/armory/scripts/write-weights.ts",
     "syncpack:check": "bunx syncpack lint",
     "syncpack:fix": "bunx syncpack fix-mismatches",
     "test": "bun test --isolate",

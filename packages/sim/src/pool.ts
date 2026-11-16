@@ -20,6 +20,7 @@ import {
     type SimSheet,
     type SimVersion,
 } from './sim'
+import { weightsFileName } from './weights-file'
 
 /** A call the pool dropped: `cancel()` or `close()` came first. */
 export class SimCancelled extends Error {
@@ -83,7 +84,7 @@ function defaultSize(): number {
 }
 
 /** The precomputed weights' level band: 5 levels wide from 10, 60 alone. */
-function band(level: number): [number, number] | null {
+export function weightsBand(level: number): [number, number] | null {
     if (!Number.isInteger(level) || level < 10) return null
     if (level >= 60) return [60, 60]
     const min = Math.floor(level / 5) * 5
@@ -278,10 +279,10 @@ export function createSimPool({
             call('turboSheet', request, profile) as Promise<SimSheet>,
         version: () => run('turboVersion') as Promise<SimVersion>,
         async weights(className, spec, level) {
-            const levels = band(level)
+            const levels = weightsBand(level)
             if (!levels) return null
-            const name = [className, spec, ...levels].join('-').toLowerCase()
-            return loadJson(root, `weights/${name}.json`, { optional: true })
+            const name = weightsFileName(className, spec, ...levels)
+            return loadJson(root, `weights/${name}`, { optional: true })
         },
         data(name) {
             let file = files.get(name)

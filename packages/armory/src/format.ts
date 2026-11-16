@@ -72,3 +72,16 @@ export function lengthWords(seconds: number): string {
     const minutes = seconds / 60
     return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
 }
+
+/**
+ * Words with `a` or `an` before them: `an` before a vowel.
+ *
+ * @param words - The words, e.g. `Enhancement Shaman`.
+ * @returns The words with their article.
+ *
+ * @example
+ * withArticle('Enhancement Shaman') // 'an Enhancement Shaman'
+ */
+export function withArticle(words: string): string {
+    return `${/^[aeiou]/i.test(words) ? 'an' : 'a'} ${words}`
+}

@@ -18,9 +18,21 @@ export {
 export {
     createSimPool,
     SimCancelled,
+    weightsBand,
     type SimPool,
     type SimStats,
 } from './pool'
+export {
+    readWeightsFile,
+    WEIGHT_FIGHTS,
+    WEIGHT_STATS,
+    weightsFileName,
+    weightsFileSchema,
+    WEIGHTS_SCHEMA_VERSION,
+    type WeightsFile,
+    type WeightsOutcome,
+    type WeightStat,
+} from './weights-file'
 export {
     BONUS_STAT_COUNT,
     PSEUDO_STAT,

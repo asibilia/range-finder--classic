@@ -7,6 +7,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@types/bun": "catalog:",
     "typescript": "catalog:"
@@ -16,6 +19,7 @@
     "sim:build": "bun scripts/build.ts",
     "sim:go": "bun scripts/go-check.ts",
     "sim:test": "bun test --isolate",
+    "sim:weights": "cd ../.. && bun run sim:weights",
     "type-check": "bunx tsc -b"
   }
 }

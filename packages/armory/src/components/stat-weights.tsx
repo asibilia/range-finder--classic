@@ -6,6 +6,7 @@
  * off the scale.
  */
 import { statWeightsData } from '../chart-data'
+import { withArticle } from '../format'
 import type { ResultsFile } from '../results-file'
 
 /** The bars' accessible name. */
@@ -16,6 +17,21 @@ const HEADROOM = 1.04
 
 function width(value: number, max: number): string {
     return `${max > 0 ? (Math.max(value, 0) / (max * HEADROOM)) * 100 : 0}%`
+}
+
+/**
+ * Where the weights came from (`stat_weights[].source`), said under them:
+ * the shown fight's, else the first entry's that has one. Null when no
+ * entry says (simmed for the character, and the page says nothing new).
+ */
+function sourceWords(file: ResultsFile, fightId: string): string | null {
+    const source =
+        file.stat_weights.find((w) => w.fight_id === fightId)?.source ??
+        file.stat_weights.find((w) => w.source)?.source
+    if (!source) return null
+    if (source.kind === 'yours') return 'Stat weights: simmed for your gear.'
+    const { spec, class: className } = file.character
+    return `Stat weights: precomputed for ${withArticle(`${spec} ${className}`)} at level ${source.level_min}–${source.level_max}, not your gear.`
 }
 
 /**
@@ -35,6 +51,7 @@ export function StatWeights({
     compareId?: string | null
 }) {
     const data = statWeightsData(file, fightId, compareId)
+    const sourceLine = sourceWords(file, fightId)
     return (
         <section className="mt-5.5">
             <h2 className="mb-1.5 text-xl leading-tight">
@@ -104,6 +121,11 @@ export function StatWeights({
                         </p>
                     ))}
                 </>
+            )}
+            {sourceLine && (
+                <p className="mt-1.5 text-[0.78125rem] text-muted-foreground">
+                    {sourceLine}
+                </p>
             )}
         </section>
     )

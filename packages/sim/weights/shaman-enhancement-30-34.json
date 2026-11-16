@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "class": "Shaman",
+  "spec": "Enhancement",
+  "level_min": 30,
+  "level_max": 34,
+  "sim": {
+    "upstream_commit": "47205c966132ef52b5d12cef97dac6ebe017190c",
+    "patch_id": "f3f73564efb2"
+  },
+  "made_at": "2026-11-16T07:34:51.794Z",
+  "reference": "testchar-l30.json",
+  "fights": [
+    {
+      "fight_id": "solo-hit-short",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2,
+          "half": 0
+        },
+        {
+          "stat": "agility",
+          "ep": 0.69,
+          "half": 0
+        },
+        {
+          "stat": "intellect",
+          "ep": 2.51,
+          "half": 0
+        },
+        {
+          "stat": "spirit",
+          "ep": 0.06,
+          "half": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1,
+          "half": 0
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.13,
+          "half": 0
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.68,
+          "half": 0
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 1.27,
+          "half": 0
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 1.63,
+          "half": 0
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.17,
+          "half": 0
+        }
+      ]
+    },
+    {
+      "fight_id": "dungeon-short",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2,
+          "half": 0
+        },
+        {
+          "stat": "agility",
+          "ep": 0.75,
+          "half": 0
+        },
+        {
+          "stat": "intellect",
+          "ep": 1.12,
+          "half": 0
+        },
+        {
+          "stat": "spirit",
+          "ep": 0,
+          "half": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1,
+          "half": 0
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.12,
+          "half": 0
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.78,
+          "half": 0
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 0.75,
+          "half": 0
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 0,
+          "half": 0
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.17,
+          "half": 0
+        }
+      ]
+    },
+    {
+      "fight_id": "dungeon-long",
+      "weights": [
+        {
+          "stat": "strength",
+          "ep": 2,
+          "half": 0
+        },
+        {
+          "stat": "agility",
+          "ep": 0.78,
+          "half": 0
+        },
+        {
+          "stat": "intellect",
+          "ep": 2.08,
+          "half": 0
+        },
+        {
+          "stat": "spirit",
+          "ep": 0.62,
+          "half": 0
+        },
+        {
+          "stat": "attack_power",
+          "ep": 1,
+          "half": 0
+        },
+        {
+          "stat": "hit_rating",
+          "ep": 1.13,
+          "half": 0
+        },
+        {
+          "stat": "crit_rating",
+          "ep": 0.73,
+          "half": 0
+        },
+        {
+          "stat": "spell_damage",
+          "ep": 0.29,
+          "half": 0
+        },
+        {
+          "stat": "mana_per_5",
+          "ep": 4.65,
+          "half": 0
+        },
+        {
+          "stat": "weapon_dps",
+          "ep": 14.16,
+          "half": 0
+        }
+      ]
+    }
+  ]
+}
