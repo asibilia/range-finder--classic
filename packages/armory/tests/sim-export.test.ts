@@ -14,6 +14,7 @@ import {
     createSimPool,
     sheetFromSim,
     type RaidSimRequest,
+    type Sheet,
     type SimPool,
 } from '@goturbo/sim'
 
@@ -37,6 +38,9 @@ const SMALL_SEEDS = [101, 102, 103]
 type Json = Record<string, unknown>
 type Progress = (done: number, planned: number) => void
 type WeightsOptions = { iterations?: number; seeds?: number }
+type SimExportOptions = WeightsOptions & {
+    onWeightsFirst?: (minutes: number) => void
+}
 type FileWeights = {
     fight_id: string
     weights: { stat: string; ep: number }[]
@@ -59,7 +63,7 @@ type BrowserSim = {
         text: string,
         pool: SimPool,
         onProgress: Progress,
-        options?: WeightsOptions
+        options?: SimExportOptions
     ) => Promise<Outcome>
     refine: (
         file: SimFile,
@@ -195,6 +199,86 @@ function refined(): Promise<SimFile> {
     return refinedMemo
 }
 
+/** What a run did, in order: the sims it sent and the estimates it heard. */
+type RunEvent =
+    | { kind: 'sim'; seed?: number; iterations?: number }
+    | { kind: 'estimate'; minutes: number }
+
+/** A pool that logs every sim call, when it's made, to `events`. */
+function logging(real: SimPool, events: RunEvent[]): SimPool {
+    return {
+        ...real,
+        size: real.size,
+        sim: (request, profile) => {
+            const options = request.simOptions as
+                { randomSeed?: number; iterations?: number } | undefined
+            events.push({
+                kind: 'sim',
+                seed: options?.randomSeed,
+                iterations: options?.iterations,
+            })
+            return real.sim(request, profile)
+        },
+    }
+}
+
+/** True for a sim of the weights method at the small settings. */
+function isWeightsSim(event: RunEvent): boolean {
+    return (
+        event.kind === 'sim' &&
+        SMALL_SEEDS.includes(event.seed ?? 0) &&
+        event.iterations === SMALL.iterations
+    )
+}
+
+let level45Memo: Promise<{ character: Json; sheet: Sheet }> | undefined
+/** Testchar at level 45 (no weights file for 45–49), and its sheet. */
+function level45() {
+    level45Memo ??= (async () => {
+        const { buildRequest } = await browserSim()
+        const plain = await testchar(shared)
+        const character: Json = {
+            ...plain,
+            level: 45,
+            profile: { ...(plain.profile as Json), level: 45 },
+        }
+        const sheet = sheetFromSim(
+            await shared.sheet(
+                buildRequest(character, 'dungeon-long', {
+                    seed: 23,
+                    iterations: 4000,
+                }),
+                character.profile as never
+            )
+        )
+        return { character, sheet }
+    })()
+    return level45Memo
+}
+
+/** `simExport` on the level-45 export, its sims and estimates logged. */
+async function level45Export(sheet?: (sheet: Sheet) => Sheet) {
+    const { simExport } = await browserSim()
+    const level = await level45()
+    const events: RunEvent[] = []
+    const text = await exportOf(
+        level.character,
+        sheet ? sheet(level.sheet) : level.sheet
+    )
+    const outcome = await simExport(text, logging(shared, events), () => {}, {
+        ...SMALL,
+        onWeightsFirst: (minutes) => events.push({ kind: 'estimate', minutes }),
+    })
+    return { outcome, events }
+}
+
+let level45RunMemo: ReturnType<typeof level45Export> | undefined
+/** The level-45 export's run with its own sheet, run once to the end. */
+function level45Run() {
+    level45RunMemo ??= level45Export()
+    return level45RunMemo
+}
+
 describe('simExport', () => {
     test('cancel() during simExport rejects with SimCancelled, and the next simExport returns a file', async () => {
         const { simExport } = await browserSim()
@@ -222,25 +306,8 @@ describe('simExport', () => {
     }, 600_000)
 
     test('the same export at level 45 (no weights file for 45–49) sims weights on the device first and gives a file with weights of source yours', async () => {
-        const { buildRequest, simExport } = await browserSim()
-        const plain = await testchar(shared)
-        const character: Json = {
-            ...plain,
-            level: 45,
-            profile: { ...(plain.profile as Json), level: 45 },
-        }
         expect(await shared.weights('Shaman', 'Enhancement', 45)).toBeNull()
-        const sheet = sheetFromSim(
-            await shared.sheet(
-                buildRequest(character, 'dungeon-long', {
-                    seed: 23,
-                    iterations: 4000,
-                }),
-                character.profile as never
-            )
-        )
-        const text = await exportOf(character, sheet)
-        const outcome = await simExport(text, shared, () => {}, SMALL)
+        const { outcome } = await level45Run()
         expect(outcome.kind).toBe('file')
         const file = outcome.file!
         expect(readResultsFile(file).ok).toBe(true)
@@ -248,6 +315,36 @@ describe('simExport', () => {
         expect(file.stat_weights.length).toBeGreaterThan(0)
         for (const fight of file.stat_weights)
             expect(fight.source).toEqual({ kind: 'yours' })
+    }, 600_000)
+
+    test('a level-45 export whose sheet Strength is off by 10 returns a gates stop naming sheet strength, and no weights sim runs and no estimate is given', async () => {
+        const { outcome, events } = await level45Export((sheet) => ({
+            ...sheet,
+            strength: sheet.strength + 10,
+        }))
+        expect(outcome.kind).toBe('gates')
+        const failed = outcome.failed as { name: string; passed: boolean }[]
+        expect(failed.map((check) => check.name)).toContain('sheet strength')
+        // The gates did sim (the level-60 regression), and nothing after.
+        expect(events.some((event) => event.kind === 'sim')).toBe(true)
+        expect(events.filter(isWeightsSim)).toEqual([])
+        expect(events.filter((event) => event.kind === 'estimate')).toEqual([])
+    }, 600_000)
+
+    test('a passing level-45 run calls onWeightsFirst once, with a whole number of minutes of at least 1, before the first weights sim', async () => {
+        const { outcome, events } = await level45Run()
+        expect(outcome.kind).toBe('file')
+        const estimates = events.filter(
+            (event): event is Extract<RunEvent, { kind: 'estimate' }> =>
+                event.kind === 'estimate'
+        )
+        expect(estimates).toHaveLength(1)
+        const estimate = estimates[0]!
+        expect(Number.isInteger(estimate.minutes)).toBe(true)
+        expect(estimate.minutes).toBeGreaterThanOrEqual(1)
+        const firstWeightsSim = events.findIndex(isWeightsSim)
+        expect(firstWeightsSim).toBeGreaterThan(-1)
+        expect(events.indexOf(estimate)).toBeLessThan(firstWeightsSim)
     }, 600_000)
 })
 

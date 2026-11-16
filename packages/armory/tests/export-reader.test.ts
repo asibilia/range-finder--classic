@@ -10,7 +10,12 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { createSimPool, type SimPool } from '@goturbo/sim'
+import {
+    createSimPool,
+    sheetFromSim,
+    type RaidSimRequest,
+    type SimPool,
+} from '@goturbo/sim'
 
 const ARMORY = join(import.meta.dir, '..')
 const SIM_DIR = join(ARMORY, '../sim')
@@ -18,8 +23,17 @@ const BASE = pathToFileURL(join(SIM_DIR, 'build') + '/')
 const BUFFED = join(SIM_DIR, 'fixtures/truncha-export-buffed.lua')
 const EXPORT_HELPER = './helpers/export-from-character'
 
+/** Buffs the sim can model: one from `buffs.json`, and Kings (the sim's own). */
+const MARK_OF_THE_WILD = { name: 'Mark of the Wild', spellID: 5232 }
+const BLESSING_OF_KINGS = { name: 'Blessing of Kings', spellID: 20217 }
+
 type Json = Record<string, unknown>
 type Read = Json & { kind: string; character?: Json }
+type Buff = { name: string; spellID: number }
+type SimExportRun = Json & {
+    kind: string
+    file?: Json & { sheet_buffed?: boolean; checks: Json[] }
+}
 
 const pools: SimPool[] = []
 function pool(): SimPool {
@@ -38,6 +52,20 @@ const TESTCHAR_HELPER = '../../sim/tests/helpers/testchar'
 type BrowserSim = {
     parseSavedVariables: (text: string) => Json
     readExport: (text: string, pool: SimPool) => Promise<Read>
+    simExport: (
+        text: string,
+        pool: SimPool,
+        onProgress: (done: number, planned: number) => void
+    ) => Promise<SimExportRun>
+    buildRequest: (
+        character: unknown,
+        fight: string,
+        options: {
+            seed: number
+            iterations: number
+            sheetBuffs?: { stats: number[]; kings: boolean }
+        }
+    ) => RaidSimRequest
 }
 
 async function browserSim(): Promise<BrowserSim> {
@@ -64,11 +92,112 @@ function crlf(text: string): string {
     return text.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
 }
 
-async function exportOf(character: Json): Promise<string> {
+async function exportOf(
+    character: Json,
+    sheet: unknown = character.sheet
+): Promise<string> {
     const helper = (await import(EXPORT_HELPER)) as unknown as {
         exportFromCharacter: (character: unknown, sheet: unknown) => string
     }
-    return helper.exportFromCharacter(character, character.sheet)
+    return helper.exportFromCharacter(character, sheet)
+}
+
+/**
+ * The export with `buffs` up, listed as the export addon writes them (as in
+ * `fixtures/truncha-export-buffed.lua`): `exportFromCharacter` writes none.
+ */
+function withBuffs(text: string, buffs: Buff[]): string {
+    const none = '["buffs"] = {\n}'
+    expect(text.split(none)).toHaveLength(2)
+    const entries = buffs.map(
+        (buff) =>
+            `{\n["name"] = "${buff.name}",\n["spellID"] = ${buff.spellID},\n},`
+    )
+    return text.replace(none, `["buffs"] = {\n${entries.join('\n')}\n}`)
+}
+
+type CallLog = {
+    sims: RaidSimRequest[]
+    sheets: RaidSimRequest[]
+    batches: number[]
+}
+
+/** A pool that keeps every sim and sheet request, and every batch planned. */
+function logging(real: SimPool, log: CallLog): SimPool {
+    return {
+        ...real,
+        size: real.size,
+        sim: (request, profile) => {
+            log.sims.push(request)
+            return real.sim(request, profile)
+        },
+        sheet: (request, profile) => {
+            log.sheets.push(request)
+            return real.sheet(request, profile)
+        },
+        batch: (planned) => {
+            log.batches.push(planned)
+            real.batch(planned)
+        },
+    }
+}
+
+/** The one player a request sims. */
+function playerOf(request: RaidSimRequest): Json {
+    const raid = (request as unknown as Json).raid as {
+        parties: { players: Json[] }[]
+    }
+    return raid.parties[0]!.players[0]!
+}
+
+let buffedMemo:
+    | Promise<{
+          on: SimPool
+          character: Json
+          markStats: number[]
+          sheet: { strength: number }
+          plain: string
+          buffed: string
+      }>
+    | undefined
+/**
+ * Testchar's export with no buffs, and the same export saved with Mark of
+ * the Wild and Blessing of Kings up: its sheet is the sim's sheet with those
+ * buffs (`pool.sheet` with `sheetBuffs`), as the game would show it.
+ */
+function buffedExports() {
+    buffedMemo ??= (async () => {
+        const on = pool()
+        const { buildRequest } = await browserSim()
+        const character = await testchar(on)
+        const known = (await on.data('buffs.json')) as Record<
+            string,
+            { stats: number[] }
+        >
+        const markStats = known[String(MARK_OF_THE_WILD.spellID)]!.stats
+        const sheet = sheetFromSim(
+            await on.sheet(
+                buildRequest(character, 'dungeon-long', {
+                    seed: 23,
+                    iterations: 4000,
+                    sheetBuffs: { stats: markStats, kings: true },
+                }),
+                character.profile as never
+            )
+        )
+        return {
+            on,
+            character,
+            markStats,
+            sheet,
+            plain: await exportOf(character),
+            buffed: withBuffs(await exportOf(character, sheet), [
+                MARK_OF_THE_WILD,
+                BLESSING_OF_KINGS,
+            ]),
+        }
+    })()
+    return buffedMemo
 }
 
 /** A pool that records every sim and sheet call it passes on. */
@@ -278,5 +407,95 @@ describe('readExport', () => {
         )
         expect(real.kind).toBe('character')
         expect(real.character!.character_key).toBe(key)
+    }, 600_000)
+})
+
+describe('an export saved with buffs the sim can model', () => {
+    test("an export saved with Mark of the Wild and Blessing of Kings up reads into a character whose sheet_buffs hold Mark of the Wild's stats and Kings, with the same base health and mana as the export with no buffs", async () => {
+        const { on, character, markStats, sheet, plain, buffed } =
+            await buffedExports()
+        // The buffs changed the sheet the export carries.
+        expect(sheet.strength).toBeGreaterThan(
+            (character.sheet as { strength: number }).strength
+        )
+
+        const withThem = await read(buffed, on)
+        const without = await read(plain, on)
+        expect(withThem.kind).toBe('character')
+        expect(without.kind).toBe('character')
+        expect(without.character).not.toHaveProperty('sheet_buffs')
+        const buffs = withThem.character!.sheet_buffs as {
+            stats: number[]
+            kings: boolean
+        }
+        expect(buffs.kings).toBe(true)
+        expect(buffs.stats.slice(0, markStats.length)).toEqual(markStats)
+        expect(buffs.stats.slice(markStats.length).every((v) => v === 0)).toBe(
+            true
+        )
+
+        // Calibration ran with the buffs, so they didn't land in the bases
+        // (each sheet is rounded to whole points, hence within 1).
+        const got = withThem.character!.profile as Json
+        const want = without.character!.profile as Json
+        for (const field of ['baseHealth', 'baseMana']) {
+            const gap = Math.abs(
+                (got[field] as number) - (want[field] as number)
+            )
+            expect([field, gap <= 1]).toEqual([field, true])
+        }
+    }, 600_000)
+
+    test('with the real WASM, that export passes every sheet gate, gives a file with sheet_buffed true, plans the extra unbuffed sheet in pool.batch, and sends the same fight requests as the export with no buffs', async () => {
+        const { simExport } = await browserSim()
+        const { on, markStats, plain, buffed } = await buffedExports()
+        const plainLog: CallLog = { sims: [], sheets: [], batches: [] }
+        const buffedLog: CallLog = { sims: [], sheets: [], batches: [] }
+        const plainRun = await simExport(plain, logging(on, plainLog), () => {})
+        const buffedRun = await simExport(
+            buffed,
+            logging(on, buffedLog),
+            () => {}
+        )
+        expect(plainRun.kind).toBe('file')
+        expect(buffedRun.kind).toBe('file')
+
+        const file = buffedRun.file!
+        expect(file.sheet_buffed).toBe(true)
+        expect(plainRun.file!.sheet_buffed).toBe(false)
+        const sheetGates = file.checks.filter((check) =>
+            String(check.name).startsWith('sheet ')
+        )
+        expect(sheetGates.map((check) => check.name)).toContain(
+            'sheet strength'
+        )
+        expect(sheetGates.filter((check) => check.passed !== true)).toEqual([])
+
+        // The buffed sheets went to the sim with Kings and Mark of the
+        // Wild's stats, and the strict parse took them.
+        const kingsSheets = buffedLog.sheets.filter(
+            (request) =>
+                (playerOf(request).buffs as Json | undefined)
+                    ?.greaterBlessingOfKings === true
+        )
+        expect(kingsSheets.length).toBeGreaterThan(0)
+        for (const request of kingsSheets) {
+            const bonus = playerOf(request).bonusStats as { stats: number[] }
+            expect(bonus.stats.slice(0, markStats.length)).toEqual(markStats)
+        }
+
+        // The gates' extra sheet (with no buffs) is planned and run.
+        expect(plainLog.batches).toHaveLength(2)
+        expect(buffedLog.batches).toEqual([
+            plainLog.batches[0],
+            plainLog.batches[1]! + 1,
+        ])
+        expect(buffedLog.sheets).toHaveLength(plainLog.sheets.length + 1)
+
+        // The fights sim the character with no buffs: the same requests.
+        const sorted = (requests: RaidSimRequest[]) =>
+            requests.map((request) => JSON.stringify(request)).sort()
+        expect(buffedLog.sims.length).toBeGreaterThan(1)
+        expect(sorted(buffedLog.sims)).toEqual(sorted(plainLog.sims))
     }, 600_000)
 })

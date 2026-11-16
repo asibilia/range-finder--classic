@@ -2,7 +2,9 @@
  * `simCharacter`: one character into a results file, or a stop. The order
  * of a run: the class and spec check (before any sim), the gates (the
  * level 60 regression, the sheet, no spell above the level), worn gear on
- * every fight with the sanity gates, then the max damage plan.
+ * every fight with the sanity gates, then the max damage plan. The plan's
+ * sims start once worn gear's single fights and the weapons are in, beside
+ * the sanity sims, and the plan is kept only when the sanity gates pass.
  */
 import {
     sheetFromSim,
@@ -279,39 +281,88 @@ export async function simCharacter(
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
 
-        // Worn gear, the sanity sims and the weapons, all at once.
+        // Worn gear, the weapons, the sanity sims and the plan. The plan
+        // needs only worn gear's single fights and the weapons, so those go
+        // first and the plan's sims start while the worn chain and the
+        // sanity sims run: the pool's workers stay busy. The plan's numbers
+        // are kept only when every sanity gate passes.
         const names = (id: number) => db.items.get(id)?.name
         const ep = epTable(weights)
         const weaponIds = weaponsToSim(character, db, ep)
-        const [worn, raised, weaponDps] = await Promise.all([
-            simAll(pool, character, character.gear, sheet, names),
-            Promise.all(
-                sanity.map((stat) => {
-                    const step = STAT_STEPS.find((s) => s.stat === stat)!
-                    const amount = step.amount * SANITY_SCALE
-                    return sim(
-                        buildRequest(character, longFight, {
-                            ...settings,
-                            bonusStats: bonusFor(stat, amount),
-                        })
-                    ).then((dps) => ({ stat, amount, dps }))
-                })
-            ),
-            Promise.all(
-                weaponIds.map((id) =>
-                    sim(
-                        buildRequest(character, longFight, {
-                            ...settings,
-                            gear: withMainHand(character.gear, db, id),
-                        })
-                    ).then((dps) => [id, dps] as const)
+        const longDps = (singles: SimmedFight[]) =>
+            singles.find((f) => f.result.fight_id === DEFAULT_FIGHT)!.player.dps
+                ?.avg ?? 0
+        const wornSingles = Promise.all(
+            fights.map((fight) =>
+                simSingle(pool, character, fight, character.gear, sheet, names)
+            )
+        )
+        const weapons = Promise.all(
+            weaponIds.map((id) =>
+                sim(
+                    buildRequest(character, longFight, {
+                        ...settings,
+                        gear: withMainHand(character.gear, db, id),
+                    })
+                ).then((dps) => [id, dps] as const)
+            )
+        )
+        const wornChain = simSession(
+            pool,
+            character,
+            chain,
+            character.gear,
+            sheet,
+            names
+        )
+        const raising = Promise.all(
+            sanity.map((stat) => {
+                const step = STAT_STEPS.find((s) => s.stat === stat)!
+                const amount = step.amount * SANITY_SCALE
+                return sim(
+                    buildRequest(character, longFight, {
+                        ...settings,
+                        bonusStats: bonusFor(stat, amount),
+                    })
+                ).then((dps) => ({ stat, amount, dps }))
+            })
+        )
+        // The max damage plan, then its sims (none when it's worn gear).
+        const planning = Promise.all([wornSingles, weapons]).then(
+            async ([singles, weaponDps]) => {
+                const wornLong = longDps(singles)
+                const gains = new Map(
+                    weaponDps.map(([id, dps]) => [id, dps - wornLong])
                 )
-            ),
-        ])
+                const planned = planMaxDamage(character, db, ep, gains)
+                if (sameGear(planned.gear, character.gear))
+                    return { planned, planSims: undefined }
+                const planSheet = sheetFromSim(
+                    await pool.sheet(
+                        buildRequest(character, DEFAULT_FIGHT, {
+                            ...settings,
+                            gear: planned.gear,
+                        }),
+                        character.profile
+                    )
+                )
+                const planSims = await simAll(
+                    pool,
+                    character,
+                    planned.gear,
+                    planSheet,
+                    names
+                )
+                return { planned, planSims }
+            }
+        )
+        const [singles, wornChainResult, raised, { planned, planSims }] =
+            await Promise.all([wornSingles, wornChain, raising, planning])
+        const worn = { singles, chain: wornChainResult }
 
         const single = (id: string) =>
-            worn.singles.find((f) => f.result.fight_id === id)!
-        const wornLong = single(DEFAULT_FIGHT).player.dps?.avg ?? 0
+            singles.find((f) => f.result.fight_id === id)!
+        const wornLong = longDps(singles)
         const hit = fights.find((f) => f.being_hit)!
         const calm = fights.find((f) => !f.being_hit)!
         const sanityChecks: Check[] = [
@@ -340,24 +391,8 @@ export async function simCharacter(
         if (failedSanity.length > 0)
             return { kind: 'gates', failed: failedSanity }
 
-        // The max damage plan, then its sims (the worn ones when it's the same gear).
-        const gains = new Map(
-            weaponDps.map(([id, dps]) => [id, dps - wornLong])
-        )
-        const planned = planMaxDamage(character, db, ep, gains)
-        let plan = worn
-        if (!sameGear(planned.gear, character.gear)) {
-            const planSheet = sheetFromSim(
-                await pool.sheet(
-                    buildRequest(character, DEFAULT_FIGHT, {
-                        ...settings,
-                        gear: planned.gear,
-                    }),
-                    character.profile
-                )
-            )
-            plan = await simAll(pool, character, planned.gear, planSheet, names)
-        }
+        // The plan's sims, or the worn ones when it's the same gear.
+        const plan = planSims ?? worn
 
         const results: ResultsFile['results'] = []
         for (const [gear, simmed] of [

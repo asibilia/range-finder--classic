@@ -42,9 +42,23 @@ export async function loadModuleBytes(base: URL): Promise<ArrayBuffer> {
     return new Response(unpacked).arrayBuffer()
 }
 
-/** Fetches `lib.wasm.gz`, unpacks it and compiles the module. */
-export async function loadModule(base: URL): Promise<WebAssembly.Module> {
-    return WebAssembly.compile(await loadModuleBytes(base))
+/** Compiled modules by base: each is fetched and compiled once on the page. */
+const modules = new Map<string, Promise<WebAssembly.Module>>()
+
+/**
+ * Fetches `lib.wasm.gz`, unpacks it and compiles the module, once per base:
+ * every pool and `loadSim` on the page shares the compiled module.
+ */
+export function loadModule(base: URL): Promise<WebAssembly.Module> {
+    let module = modules.get(base.href)
+    if (!module) {
+        module = loadModuleBytes(base).then((bytes) =>
+            WebAssembly.compile(bytes)
+        )
+        modules.set(base.href, module)
+        module.catch(() => modules.delete(base.href))
+    }
+    return module
 }
 
 /**

@@ -61,7 +61,10 @@ const YOURS = 'Stat weights: simmed for your gear.'
 const EXPORT_AGAIN =
     'Export again with no buffs up, out of combat, and drop the new file.'
 const REFINE = 'Refine for your gear (about 3 min)'
+const WEIGHTS_FIRST = 'Simming stat weights for your gear first (about 3 min).'
 const REMEMBERED_KEY = 'armory:last-results-file'
+/** The sim that times the device before weights are simmed (spec section 5). */
+const WARM_UP_ITERATIONS = 500
 
 /** The fake pool's time per iteration: Refine's estimate comes to 3 min. */
 const MS_PER_ITERATION = 0.93
@@ -522,6 +525,56 @@ describe('stops', () => {
         )
         expect(found).toHaveLength(1)
         expect(screen.getByText(EXPORT_AGAIN)).toBeDefined()
+        expectNoNumbers()
+    }, 60_000)
+})
+
+describe('no weights file for the band', () => {
+    test('the simming card says Simming stat weights for your gear first (about 3 min). once the warm-up has timed the device, and Cancel clears it', async () => {
+        const text = await testcharExport()
+        const l60 = (await Bun.file(
+            join(BUILD, 'l60-test.in.json')
+        ).json()) as unknown
+        const standIn = (await recorded())[callKey('sim', l60)]
+        expect(standIn).toBeDefined()
+
+        const fake = fakePool()
+        let warmedUp = false
+        const pool: SimPool = {
+            ...fake,
+            size: fake.size,
+            weights: () => Promise.resolve(null),
+            sim(request, profile) {
+                const options = request.simOptions as
+                    { iterations?: number } | undefined
+                if (options?.iterations !== WARM_UP_ITERATIONS)
+                    return fake.sim(request, profile)
+                // The warm-up isn't recorded: it answers like a recorded
+                // sim, and the weights sims after it wait.
+                fake.overrides.set(callKey('sim', request, profile), standIn)
+                const answered = fake.sim(request, profile)
+                fake.holding = true
+                warmedUp = true
+                return answered
+            },
+        }
+        render(<App createPool={() => pool} />)
+        const user = userEvent.setup()
+        await pickFile(user, luaFile(text))
+
+        const line = await screen.findByText(WEIGHTS_FIRST, undefined, LOADS)
+        expect(warmedUp).toBe(true)
+        const card = line.closest('section')
+        expect(card).not.toBeNull()
+        expect(card!.textContent).toContain(SIMMING)
+        expect(card!.contains(progressBar())).toBe(true)
+        await waitFor(() => expect(fake.pending()).toBeGreaterThan(0), LOADS)
+
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+        await waitFor(() =>
+            expect(screen.queryByText(WEIGHTS_FIRST)).toBeNull()
+        )
+        expect(screen.queryByText(SIMMING)).toBeNull()
         expectNoNumbers()
     }, 60_000)
 })
