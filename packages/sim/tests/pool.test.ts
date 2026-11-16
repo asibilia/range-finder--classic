@@ -199,6 +199,78 @@ describe('createSimPool under Bun', () => {
         expect(stats.iterations).toBe(400)
         expect(stats.ms).toBeGreaterThan(0)
     }, 600_000)
+
+    test('the same sim call twice gives an equal answer, counted like a call: progress (1, 2) then (2, 2), and stats() twice the first call', async () => {
+        const two = pool({ size: 2 })
+        const seen: [number, number][] = []
+        two.onProgress((done, planned) => seen.push([done, planned]))
+        const call = request('dungeon-short', 5, 300)
+
+        two.batch(2)
+        const first = await two.sim(call, profile)
+        const once = two.stats()
+        expect(once.calls).toBe(1)
+        expect(once.iterations).toBe(300)
+        expect(once.ms).toBeGreaterThan(0)
+
+        const second = await two.sim(call, profile)
+        expect(second).toEqual(first)
+        expect(seen).toEqual([
+            [1, 2],
+            [2, 2],
+        ])
+        const twice = two.stats()
+        expect(twice.calls).toBe(2)
+        expect(twice.iterations).toBe(600)
+        // Answered from memory: it adds the time the first call took.
+        expect(twice.ms).toBe(2 * once.ms)
+    }, 600_000)
+
+    test('a remembered call made just before cancel() rejects with SimCancelled, and adds no progress', async () => {
+        const one = pool({ size: 1 })
+        const seen: [number, number][] = []
+        one.onProgress((done, planned) => seen.push([done, planned]))
+        const call = request('solo-hit-short', 11, 200)
+
+        one.batch(2)
+        const first = await one.sim(call, profile)
+        const again = one.sim(call, profile).then(
+            () => 'resolved' as const,
+            (error: unknown) => error
+        )
+        one.cancel()
+        const reason = await again
+        expect(reason).toBeInstanceOf(SimCancelled)
+        expect((reason as Error).name).toBe('SimCancelled')
+        expect(seen).toEqual([
+            [1, 2],
+            [0, 0],
+        ])
+
+        // The pool still answers the same call after the cancel.
+        one.batch(1)
+        expect(dpsOf(await one.sim(call, profile))).toBe(dpsOf(first))
+    }, 600_000)
+
+    test('after the pool sits idle for more than 2 s, a new call still answers', async () => {
+        const fresh = request('dungeon-long', 13, 200)
+        const expected = dpsOf(
+            await (await loadSim({ base: BASE })).sim(fresh, profile)
+        )
+
+        const one = pool({ size: 1 })
+        one.batch(1)
+        await one.sim(request('solo-hit-short', 13, 100), profile)
+        // Longer than the pool keeps an idle worker.
+        await Bun.sleep(2600)
+
+        one.batch(1)
+        const next = await Promise.race([
+            one.sim(fresh, profile).then(dpsOf),
+            Bun.sleep(60_000).then(() => 'timed out' as const),
+        ])
+        expect(next).toBe(expected)
+    }, 600_000)
 })
 
 describe('the pool size with no size given', () => {
