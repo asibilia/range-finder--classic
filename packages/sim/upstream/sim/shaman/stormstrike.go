@@ -5,7 +5,7 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var stormstrikeRank = spellData.Stormstrike.Highest()
+var stormstrikeRank *spelldata.Spell // set by setLevelRanks
 
 // The slots on the shaman's attack table against a target that the debuffs parsed with
 // spelldata.FromCaster hold.

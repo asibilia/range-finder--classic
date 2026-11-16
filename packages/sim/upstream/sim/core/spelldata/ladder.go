@@ -102,10 +102,21 @@ func (l Ladder) Highest() *Spell {
 	return lowest
 }
 
-// unreachedRanks holds the spells Highest answered although the character has no rank of them.
-// Sims build characters concurrently, so the set is written under a lock.
+// unreachedRanks holds the spells Highest answered although the character has no rank of them, since
+// the last change of level or profile. Sims build characters concurrently, so the set is written
+// under a lock.
 var unreachedRanks = map[int32]bool{}
 var unreachedMu sync.Mutex
+
+// The set starts empty at each change of level or profile, before any class hook asks for its ranks
+// again (spelldata registers its hook before any class package can).
+func init() {
+	core.OnLevelChange(func() {
+		unreachedMu.Lock()
+		clear(unreachedRanks)
+		unreachedMu.Unlock()
+	})
+}
 
 // UnreachedRanks lists the spells Highest answered with a rank the character has not reached.
 func UnreachedRanks() []int32 {

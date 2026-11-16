@@ -75,7 +75,7 @@ func (shaman *Shaman) applyCallOfFlame() {
 	spelldata.ParseStatic(&shaman.Character, spellData.CallOfFlame.Rank(shaman.Talents.CallOfFlame))
 }
 
-var elementalDevastationBuff = spellData.ElementalDevastationTriggered.Highest()
+var elementalDevastationBuff *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyElementalDevastation() {
 	if shaman.Talents.ElementalDevastation == 0 {
@@ -103,7 +103,7 @@ func (shaman *Shaman) ElementalDevastationCritPercent() float64 {
 	return spellData.ElementalDevastation.ValueAt(shaman.Talents.ElementalDevastation)
 }
 
-var clearcastingBuff = spellData.ElementalFocusTriggered.Highest()
+var clearcastingBuff *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyElementalFocus() {
 	if !shaman.Talents.ElementalFocus {
@@ -185,7 +185,7 @@ func (shaman *Shaman) applyCallOfThunder() {
 	spelldata.ParseStatic(&shaman.Character, spellData.CallOfThunder.Highest())
 }
 
-var lightningMasteryRank = spellData.LightningMastery.Highest()
+var lightningMasteryRank *spelldata.Spell // set by setLevelRanks
 
 // The row states one charge and casts that would spend it, but the tooltip reads "Lasts $d", so the
 // buff lasts its full 15 s and no cast spends it.

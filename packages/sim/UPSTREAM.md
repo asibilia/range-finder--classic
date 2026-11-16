@@ -20,9 +20,17 @@ verbatim.
   build and CI need no `protoc`.
 - **Added, ours:** `sim/wasm/turbo_*.go`, new files beside upstream's WASM
   entry point (`turbo_ready.go` gives hosts other than upstream's site a
-  do-nothing `wasmready`). Upstream's own files are never edited.
+  do-nothing `wasmready`; `turbo_exports.go` registers `turboSim`,
+  `turboSheet` and `turboVersion`). Upstream's `main.go` is never edited.
 
-The level-aware patch comes on top, as its own commits.
+The level-aware patch comes on top, as its own commits (`47205c9..62129e9`
+of the owner's sim branch, `sim/` and `proto/` only). On top of it, ours:
+the level profile travels with each call instead of being read once at
+start-up. `core.SetLevelProfile` applies one and puts the level-60 tables
+back with `nil`; hooks (`core.OnLevelChange`) re-pick the shaman's ranks
+(`sim/shaman/level_ranks.go`) and restart the unreached-ranks list at each
+change. Only the shaman's ranks follow the profile: other classes keep their
+level-60 ranks.
 
 Check that nothing else is needed with:
 

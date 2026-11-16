@@ -93,7 +93,7 @@ func (shaman *Shaman) applyTidalMastery() {
 	spelldata.ParseStatic(&shaman.Character, spellData.TidalMastery.Rank(shaman.Talents.TidalMastery))
 }
 
-var manaTideTotemRank = spellData.ManaTideTotem.Highest()
+var manaTideTotemRank *spelldata.Spell // set by setLevelRanks
 
 // The talent teaches Mana Tide Totem, a water totem, so it takes down Mana Spring.
 func (shaman *Shaman) applyManaTideTotem() {
@@ -117,7 +117,7 @@ func (shaman *Shaman) applyHealingWay() {
 	spelldata.ParseStatic(&shaman.Character, spellData.HealingWay.Rank(shaman.Talents.HealingWay))
 }
 
-var naturesSwiftnessRank = spellData.NaturesSwiftness.Highest()
+var naturesSwiftnessRank *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyNaturesSwiftness() {
 	if !shaman.Talents.NaturesSwiftness {

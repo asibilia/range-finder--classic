@@ -5,9 +5,7 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var earthShockRanks = castableRanks(spellData.EarthShock)
-var flameShockRanks = castableRanks(spellData.FlameShock)
-var frostShockRanks = castableRanks(spellData.FrostShock)
+var earthShockRanks, flameShockRanks, frostShockRanks spelldata.Ladder // set by setLevelRanks
 
 // The three shocks share category 19, so the row's category cooldown is one timer for all of them.
 func (shaman *Shaman) newShockSpellConfig(rank *spelldata.Spell) core.SpellConfig {

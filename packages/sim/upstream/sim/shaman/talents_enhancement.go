@@ -112,7 +112,7 @@ func (shaman *Shaman) applyToughness() {
 	spelldata.ParseStatic(&shaman.Character, spellData.Toughness.Rank(shaman.Talents.Toughness))
 }
 
-var flurryBuff = spellData.FlurryTriggered.Highest()
+var flurryBuff *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyFlurry() {
 	if shaman.Talents.Flurry == 0 {
@@ -195,7 +195,7 @@ func (shaman *Shaman) applyMentalQuickness() {
 	spelldata.ParseStatic(&shaman.Character, spellData.MentalQuickness.Rank(shaman.Talents.MentalQuickness))
 }
 
-var improvedStormstrikeBuff = spellData.ImprovedStormstrikeTriggered.Highest()
+var improvedStormstrikeBuff *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyImprovedStormstrike() {
 	if shaman.Talents.ImprovedStormstrike == 0 {
@@ -237,7 +237,7 @@ func (shaman *Shaman) applyImprovedStormstrike() {
 	shaman.MakeProcTriggerAura(trigger)
 }
 
-var maelstromWeaponBuff = spellData.MaelstromWeaponTriggered.Highest()
+var maelstromWeaponBuff *spelldata.Spell // set by setLevelRanks
 
 // The talent's effect 2, the tooltip's $s2, is the rate per minute: 6 at one point up to 10 at five.
 func maelstromWeaponPPM(rank *spelldata.Spell) float64 {
@@ -301,7 +301,7 @@ func (shaman *Shaman) applyMaelstromWeapon() {
 	shaman.MakeProcTriggerAura(trigger)
 }
 
-var rageOfTheFarseerRank = spellData.RageOfTheFarseer.Highest()
+var rageOfTheFarseerRank *spelldata.Spell // set by setLevelRanks
 
 func (shaman *Shaman) applyRageOfTheFarseer() {
 	if !shaman.Talents.RageOfTheFarseer {

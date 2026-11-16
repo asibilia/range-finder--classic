@@ -8,12 +8,13 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var windfuryTotemRank = spellData.WindfuryTotem.Highest()
+var windfuryTotemRank *spelldata.Spell // set by setLevelRanks
 
 // Strength of Earth's rank 4 and Grace of Air's rank 2 are the last ranks the trainer teaches; the Tablet of
 // Strength of Earth Totem V and Tablet of Grace of Air Totem III books teach the ranks above them.
-var strengthOfEarthTotemRanks = levelTotemRanks(spellData.StrengthOfEarthTotem, 10442, 25361)
-var graceOfAirTotemRanks = levelTotemRanks(spellData.GraceOfAirTotem, 10627, 25359)
+// setLevelRanks sets both: levelTotemRanks(spellData.StrengthOfEarthTotem, 10442, 25361) and
+// levelTotemRanks(spellData.GraceOfAirTotem, 10627, 25359).
+var strengthOfEarthTotemRanks, graceOfAirTotemRanks []*spelldata.Spell
 
 // levelTotemRanks is the two level 60 ranks (the trained top rank and the book rank) at level 60
 // with no level profile. Local level-aware patch: otherwise it is the one rank the character has.
@@ -24,9 +25,7 @@ func levelTotemRanks(ladder spelldata.Ladder, trained int32, book int32) []*spel
 	return []*spelldata.Spell{ladder.Highest()}
 }
 
-var manaSpringTotemRank = spellData.ManaSpringTotem.Highest()
-var flametongueTotemRank = spellData.FlametongueTotem.Highest()
-var frostResistanceTotemRank = spellData.FrostResistanceTotem.Highest()
+var manaSpringTotemRank, flametongueTotemRank, frostResistanceTotemRank *spelldata.Spell // set by setLevelRanks
 
 // A totem's cast: the row's cost, GCD and cooldown, and nothing it hits.
 func (shaman *Shaman) newTotemSpellConfig(rank *spelldata.Spell) core.SpellConfig {
@@ -46,7 +45,7 @@ func (shaman *Shaman) dropTotem(sim *core.Simulation, slot int, totem *core.Spel
 	aura.Activate(sim)
 }
 
-var totemicRecallRank = spellData.TotemicRecall.Highest()
+var totemicRecallRank *spelldata.Spell // set by setLevelRanks
 
 // Takes down every totem the shaman has standing and returns the row's share of their base mana
 // costs, the costs before any talent lowers them.

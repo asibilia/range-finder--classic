@@ -258,5 +258,4 @@ func init() {
 			AddBaseStatsCombo(race, class)
 		}
 	}
-	applyLevelProfile()
 }

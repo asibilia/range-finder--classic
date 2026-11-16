@@ -7,16 +7,14 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var searingTotemRank = spellData.SearingTotem.Highest()
-var searingAttackRank = spellData.SearingTotemTriggered.Highest()
+var searingTotemRank, searingAttackRank *spelldata.Spell // set by setLevelRanks
 
 // 10587's tooltip names the pulse, 10581, and the passive that casts it, 10584.
-var magmaTotemRank = spellData.MagmaTotem.Highest()
+var magmaTotemRank *spelldata.Spell // set by setLevelRanks
 var magmaPulseRank = spellData.MagmaTotemTriggered.ByID(10581)
 var magmaPassiveRank = spellData.MagmaTotemTriggered.ByID(10584)
 
-var fireNovaRank = spellData.FireNova.Highest()
-var fireNovaDamageRank = spellData.FireNovaTriggered.Highest()
+var fireNovaRank, fireNovaDamageRank *spelldata.Spell // set by setLevelRanks
 
 // A fire totem's own attack: the totem's, not the caster's, so it lands no proc of the caster's.
 // It reports as the totem's spell tagged 1, so the results show the totem and its hits as one row.
@@ -56,7 +54,11 @@ func (shaman *Shaman) registerFireTotem(rank *spelldata.Spell, mask int64, perio
 // The totem casts its attack, 10436, at its target. The first lands at the end of the first 2.2 s
 // cast, and in the combat log the totem waits 0.225 s after each cast ends before it starts the next
 // while it keeps its target: one attack every 2.425 s.
-var searingTotemPeriod = searingAttackRank.CastTime() + 225*time.Millisecond
+var searingTotemPeriod time.Duration // set by setLevelRanks
+
+func searingTotemPeriodOf(attack *spelldata.Spell) time.Duration {
+	return attack.CastTime() + 225*time.Millisecond
+}
 
 func (shaman *Shaman) registerSearingTotemSpell() {
 	damage := searingAttackRank.DamageEffect()

@@ -5,7 +5,7 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var chainLightningRanks = castableRanks(spellData.ChainLightning)
+var chainLightningRanks spelldata.Ladder // set by setLevelRanks
 
 func (shaman *Shaman) registerChainLightningSpell() {
 	shaman.registerWithOverloads(chainLightningRanks, chainLightningOverloadRanks, shaman.newChainLightningSpellConfig)

@@ -30,8 +30,7 @@ func (shaman *Shaman) startShieldProcPeriodicAction(sim *core.Simulation) {
 	}
 }
 
-var waterShieldRank = spellData.WaterShield.Highest()
-var waterShieldMana = spellData.WaterShieldTriggered.Highest()
+var waterShieldRank, waterShieldMana *spelldata.Spell // set by setLevelRanks
 
 // The talent teaches Water Shield: three globes for 10 minutes, one of which a hit taken or one of the
 // shaman's spell crits spends, at most once every 3.5 s, to restore 408511's 2% of maximum mana. The
@@ -93,10 +92,10 @@ func (shaman *Shaman) registerWaterShieldSpell() func(sim *core.Simulation) {
 	return spendGlobe
 }
 
-var lightningShieldRank = spellData.LightningShield.Highest()
+var lightningShieldRank *spelldata.Spell // set by setLevelRanks
 
 // The shield's effect 1 fires 26545, a dummy, and the orb its tooltip names deals the damage.
-var lightningShieldOrb = lightningShieldRank.Refs()[0]
+var lightningShieldOrb *spelldata.Spell // set by setLevelRanks: lightningShieldRank.Refs()[0]
 
 // 10432 holds three charges for 10 minutes, and a hit taken spends one, at most once every 3.5 s, to
 // strike the attacker with the orb.

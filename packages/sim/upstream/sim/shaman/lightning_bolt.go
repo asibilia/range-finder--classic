@@ -5,7 +5,7 @@ import (
 	"github.com/wowsims/forever/sim/core/spelldata"
 )
 
-var lightningBoltRanks = castableRanks(spellData.LightningBolt)
+var lightningBoltRanks spelldata.Ladder // set by setLevelRanks
 
 func (shaman *Shaman) registerLightningBoltSpell() {
 	shaman.registerWithOverloads(lightningBoltRanks, lightningBoltOverloadRanks, shaman.newLightningBoltSpellConfig)

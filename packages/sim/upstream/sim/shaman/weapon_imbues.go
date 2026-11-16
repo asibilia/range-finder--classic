@@ -11,14 +11,13 @@ import (
 // rank decides only which spells the passive fires, so they are read off the top rank's refs.
 var (
 	windfuryWeaponPassive    = spelldata.MustFind(439431)
-	windfuryWeaponAttack     = spellData.WindfuryWeapon.Highest().Refs()[0]
 	windfuryWeaponStrike     = spelldata.MustFind(439440)
 	flametongueWeaponPassive = spelldata.MustFind(436519)
-	flametongueWeaponProc    = spellData.FlametongueWeapon.Highest().Refs()[0]
-	flametongueWeaponAttack  = spellData.FlametongueWeapon.Highest().Refs()[1]
-	frostbrandWeaponAttack   = spellData.FrostbrandWeapon.Highest().Refs()[0]
-	rockbiterWeaponPassive   = spellData.RockbiterWeapon.Highest().Refs()[0]
 	rockbiterWeaponProc      = spelldata.MustFind(20871)
+
+	// Set by setLevelRanks from the top rank the character has.
+	windfuryWeaponAttack, flametongueWeaponProc, flametongueWeaponAttack *spelldata.Spell
+	frostbrandWeaponAttack, rockbiterWeaponPassive                       *spelldata.Spell
 )
 
 // Every imbue has its top rank's cast and an aura, so a rotation can put any of them on the main hand.

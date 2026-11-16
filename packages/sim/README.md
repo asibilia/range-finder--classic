@@ -9,9 +9,23 @@ the armory planner can sim a character on the player's own computer.
   https://github.com/wowsims/forever at commit
   `47205c966132ef52b5d12cef97dac6ebe017190c`. `UPSTREAM.md` lists the parts,
   what differs from upstream (the generated protobuf Go, our own
-  `sim/wasm/turbo_*.go`) and how to move the pin. No level-aware patch yet:
-  it comes on top as its own commits.
-- `src/`: the TypeScript side. For now, the leak guard (`scanForLeaks`).
+  `sim/wasm/turbo_*.go`) and how to move the pin. The level-aware patch
+  sits on top as its own commits: level as a setting, spell ranks by level,
+  a level profile (base stats, health, mana and attack power, crit and dodge
+  per point, known spells), `starting_mana_percent`, level gaps up to +10
+  and a per-second timeline. The profile travels with each call
+  (`core.SetLevelProfile`), and the level-60 tables come back after it.
+- `upstream/sim/wasm/turbo_*.go`: our three WASM exports, each one JSON
+  string in and one out: `turboSim({ request, level_profile? })` (a
+  `RaidSimRequest`, parsed strictly), `turboSheet({ request,
+  level_profile? })` (`{ level, unreached_ranks, player }`) and
+  `turboVersion()` (`{ upstream_commit, patch_id, go_version }`). A failure
+  answers `{ "error": "<message>" }`.
+- `src/`: the TypeScript side. `loadSim({ base })` loads the sim from
+  `base` (`/sim/` on the page, a `file://` URL of `build/` under Bun) and
+  offers `sim(request, profile?)`, `sheet(request, profile?)` and
+  `version()`; an `{ error }` answer throws a `SimError`. `loader.ts` is the
+  only module that fetches. And the leak guard (`scanForLeaks`).
 - `scripts/`: `build.ts` (`sim:build`), `go-check.ts` (`sim:go`) and
   `add-fixture.ts` (`sim:add-fixture`).
 - `fixtures/`: test inputs under neutral names, such as upstream's level-60
@@ -24,8 +38,8 @@ must be installed.
 
 | Script | What it does |
 | --- | --- |
-| `bun run sim:build` | Builds `upstream/sim/wasm` to WASM with `-tags with_db`, gzipped, into the git-ignored `build/` (`lib.wasm.gz`), with Go's own `wasm_exec.js` and the item data JSON |
-| `bun run sim:go` | `gofmt -l` over our own Go, and `go vet ./sim/wasm/...` |
+| `bun run sim:build` | Builds `upstream/sim/wasm` to WASM with `-tags with_db`, gzipped, into the git-ignored `build/` (`lib.wasm.gz`), with Go's own `wasm_exec.js`, the item data JSON and `version.json` (its `patch_id` is also compiled in) |
+| `bun run sim:go` | `gofmt -l` over our own Go, `go vet ./sim/wasm/...`, and `go test -tags with_db` of the patched packages (`sim/core/spelldata`, `sim/shaman`) |
 | `bun run sim:test` | The package's tests (they build the sim when they need it) |
 | `bun run type-check:sim` | `tsc -b` on this package's composite `tsconfig.json` |
 | `bun run sim:add-fixture <export> <name>` | Adds an export as a fixture (see below) |
