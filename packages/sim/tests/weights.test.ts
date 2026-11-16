@@ -62,9 +62,12 @@ function committed(name = BAND_FILE): Json {
     return JSON.parse(readFileSync(join(WEIGHTS_DIR, name), 'utf8')) as Json
 }
 
-/** The committed weights files whose `sim` isn't `version`'s. */
-function staleFiles(files: [string, Json][], version: SimStamp): string[] {
-    return files
+/**
+ * Throws the staleness message, naming the files, when any weights file's
+ * `sim` isn't `version`'s `upstream_commit` and `patch_id`.
+ */
+function assertFresh(files: [string, Json][], version: SimStamp): void {
+    const stale = files
         .filter(([, file]) => {
             const sim = file.sim as SimStamp | undefined
             return (
@@ -73,6 +76,7 @@ function staleFiles(files: [string, Json][], version: SimStamp): string[] {
             )
         })
         .map(([name]) => name)
+    if (stale.length > 0) throw new Error(`${STALE} (${stale.join(', ')})`)
 }
 
 let pool: SimPool | undefined
@@ -155,20 +159,21 @@ describe('staleness', () => {
             .filter((name) => name.endsWith('.json'))
             .map((name): [string, Json] => [name, committed(name)])
         expect(files.map(([name]) => name)).toContain(BAND_FILE)
+
+        // What changing the patch without re-running the script looks like:
+        // the same check fails, with the staleness message.
+        const otherPatch = structuredClone(committed())
+        ;(otherPatch.sim as SimStamp).patch_id = 'ffffffffffff'
+        expect(() => assertFresh([[BAND_FILE, otherPatch]], version)).toThrow(
+            STALE
+        )
+
+        // A stale committed file fails here with the message, before any diff.
+        assertFresh(files, version)
         expect(committed().sim).toEqual({
             upstream_commit: version.upstream_commit,
             patch_id: version.patch_id,
         })
-
-        // What changing the patch without re-running the script looks like.
-        const otherPatch = structuredClone(committed())
-        ;(otherPatch.sim as SimStamp).patch_id = 'ffffffffffff'
-        expect(staleFiles([[BAND_FILE, otherPatch]], version)).toEqual([
-            BAND_FILE,
-        ])
-
-        const stale = staleFiles(files, version)
-        if (stale.length > 0) throw new Error(`${STALE} (${stale.join(', ')})`)
     }, 600_000)
 })
 
