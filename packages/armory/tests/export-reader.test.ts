@@ -16,6 +16,7 @@ const ARMORY = join(import.meta.dir, '..')
 const SIM_DIR = join(ARMORY, '../sim')
 const BASE = pathToFileURL(join(SIM_DIR, 'build') + '/')
 const BUFFED = join(SIM_DIR, 'fixtures/truncha-export-buffed.lua')
+const EXPORT_HELPER = './helpers/export-from-character'
 
 type Json = Record<string, unknown>
 type Read = Json & { kind: string; character?: Json }
@@ -32,10 +33,10 @@ afterAll(() => {
 })
 
 async function parse(text: string): Promise<Json> {
-    const { parseSavedVariables } = (await import(
-        '../src/browser-sim'
-    )) as unknown as { parseSavedVariables: (text: string) => Json }
-    return parseSavedVariables(text)
+    const browserSim = (await import('../src/browser-sim')) as unknown as {
+        parseSavedVariables: (text: string) => Json
+    }
+    return browserSim.parseSavedVariables(text)
 }
 
 async function read(text: string, on: SimPool): Promise<Read> {
@@ -52,12 +53,10 @@ async function testchar(on: SimPool): Promise<Json> {
 }
 
 async function exportOf(character: Json): Promise<string> {
-    const { exportFromCharacter } = (await import(
-        './helpers/export-from-character'
-    )) as unknown as {
+    const helper = (await import(EXPORT_HELPER)) as unknown as {
         exportFromCharacter: (character: unknown, sheet: unknown) => string
     }
-    return exportFromCharacter(character, character.sheet)
+    return helper.exportFromCharacter(character, character.sheet)
 }
 
 /** A pool that records every sim and sheet call it passes on. */
@@ -175,10 +174,7 @@ describe('readExport', () => {
         for (const key of fields) {
             const want = expected[key]
             if (typeof want === 'number')
-                expect([key, got[key]]).toEqual([
-                    key,
-                    expect.closeTo(want, 6),
-                ])
+                expect([key, got[key]]).toEqual([key, expect.closeTo(want, 6)])
             else expect([key, got[key]]).toEqual([key, want])
         }
     }, 600_000)
@@ -199,8 +195,7 @@ describe('readExport', () => {
     test('an export of format 99 returns a format stop naming 99 and the formats the reader takes, before any sim or sheet call', async () => {
         const real = pool()
         const text = await exportOf(await testchar(real))
-        const formatField =
-            /((?:\b\w*format\w*|\["\w*format\w*"\])\s*=\s*)7\b/i
+        const formatField = /((?:\b\w*format\w*|\["\w*format\w*"\])\s*=\s*)7\b/i
         expect(text).toMatch(formatField)
         const calls: string[] = []
         const outcome = await read(

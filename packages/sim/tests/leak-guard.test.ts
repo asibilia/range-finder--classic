@@ -97,9 +97,7 @@ describe('the repo', () => {
         const fixture = join(PACKAGE_DIR, 'fixtures/truncha-export-buffed.lua')
         const helpers = join(REPO_ROOT, 'packages/armory/tests/helpers')
         expect(existsSync(fixture)).toBe(true)
-        expect(existsSync(join(helpers, 'export-from-character.ts'))).toBe(
-            true
-        )
+        expect(existsSync(join(helpers, 'export-from-character.ts'))).toBe(true)
         expect(scanForLeaks([join(PACKAGE_DIR, 'fixtures'), helpers])).toEqual(
             []
         )
