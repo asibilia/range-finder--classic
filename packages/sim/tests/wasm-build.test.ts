@@ -98,7 +98,8 @@ describe('the WASM module under Bun', () => {
         const reply = sims.raidSimJson(readFileSync(L60_REQUEST, 'utf8'))
         expect(typeof reply).toBe('string')
         const result = JSON.parse(reply) as RaidSimResult
-        expect(result.error).toBeUndefined()
+        // protojson with EmitUnpopulated writes an unset error as null.
+        expect(result.error ?? null).toBeNull()
         const dps = result.raidMetrics.parties[0]!.players[0]!.dps.avg
         expect(Math.abs(dps - L60_DPS) / L60_DPS).toBeLessThanOrEqual(1e-9)
     }, 120_000)
