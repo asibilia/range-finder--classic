@@ -6,14 +6,21 @@
  * and mana, and spell crit per Intellect when the game answered 0.
  */
 import {
+    BONUS_STAT_COUNT,
     PSEUDO_STAT,
     STAT,
     type LevelProfile,
     type SimPool,
-} from '@goturbo/sim/browser'
+} from '@goturbo/sim'
 
 import type { ResultsFile, Slot } from '../results-file'
-import type { Character, Gear, GearPiece, SimStop } from './character'
+import type {
+    Character,
+    Gear,
+    GearPiece,
+    SheetBuffs,
+    SimStop,
+} from './character'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT } from './scenarios'
 import { FIGHT_ITERATIONS, FIGHT_SEED } from './session'
@@ -359,10 +366,12 @@ async function calibrate(
         baseMana: Math.max(1, game.mana - 15 * game.intellect),
         spellCritPerInt: askCrit ? 0 : character.profile.spellCritPerInt,
     }
+    // With the buffs the game's sheet had, so they don't land in the bases.
     const simmed = await pool.sheet(
         buildRequest({ ...character, profile: trial }, DEFAULT_FIGHT, {
             seed: FIGHT_SEED,
             iterations: FIGHT_ITERATIONS,
+            sheetBuffs: character.sheet_buffs,
         }),
         trial
     )
@@ -394,19 +403,45 @@ async function calibrate(
 }
 
 /**
- * True when the sim can model a buff that was up at export. Any other buff
+ * True when the sim can model a buff that was up at export: the sheet
+ * check and calibration sim with it (`sheetBuffs`), so the game's buffed
+ * sheet is compared with a sheet buffed the same way. Any other buff
  * stops the run (spec #73, sections 4 and 6). The native runner instead
  * goes on and marks health and mana `not_checked`
  * (`packages/sim/fixtures/buff-filter-nov15-format7.md`); the browser
  * keeps the stop unless the owner decides otherwise.
  */
-function canModel(buff: Table, known: Record<string, unknown>): boolean {
+function canModel(buff: Table, known: KnownBuffs): boolean {
     const spell = num(buff.spellID)
     return (
         NO_EFFECT_BUFFS.includes(str(buff.name)) ||
         KINGS.includes(spell) ||
         (spell > 0 && String(spell) in known)
     )
+}
+
+/** `buffs.json`: the stats each buff gives, by spell id. */
+type KnownBuffs = Record<string, { stats: number[] }>
+
+/**
+ * What the modelled buffs added to the game's sheet: `buffs.json`'s stats
+ * and Kings. None when they changed nothing the sheet check reads.
+ */
+function sheetBuffs(buffs: Table[], known: KnownBuffs): SheetBuffs | null {
+    const stats = new Array<number>(BONUS_STAT_COUNT).fill(0)
+    let kings = false
+    for (const buff of buffs) {
+        const spell = num(buff.spellID)
+        if (NO_EFFECT_BUFFS.includes(str(buff.name))) continue
+        if (KINGS.includes(spell)) kings = true
+        else
+            known[String(spell)]?.stats.forEach(
+                (amount, i) => (stats[i] = (stats[i] ?? 0) + amount)
+            )
+    }
+    return kings || stats.some((amount) => amount !== 0)
+        ? { stats, kings }
+        : null
 }
 
 export type ExportRead = { kind: 'character'; character: Character } | SimStop
@@ -441,12 +476,14 @@ export async function readExport(
         return { kind: 'unsupported', class: cls, spec }
 
     const buffs = list(db.buffs).map(table)
+    let modelled: SheetBuffs | null = null
     if (buffs.length > 0) {
-        const known = (await pool.data('buffs.json')) as Record<string, unknown>
+        const known = (await pool.data('buffs.json')) as KnownBuffs
         const unmodelled = buffs
             .filter((buff) => !canModel(buff, known))
             .map((buff) => str(buff.name))
         if (unmodelled.length > 0) return { kind: 'buffed', buffs: unmodelled }
+        modelled = sheetBuffs(buffs, known)
     }
 
     const level = num(identity.level)
@@ -475,6 +512,7 @@ export async function readExport(
         weapon_skills: readWeaponSkills(list(db.skills)),
         profile: readProfile(db, level, cls, knownSpells),
         sheet: weaponSkill ? { ...sheet, weapon_skill: weaponSkill } : sheet,
+        ...(modelled ? { sheet_buffs: modelled } : {}),
         export_saved_at: new Date(savedAt * 1000).toISOString(),
         game_build: str(identity.gameBuild),
     }

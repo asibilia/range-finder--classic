@@ -3,10 +3,10 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import type { RaidSimRequest } from '@goturbo/sim/browser'
+import type { RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
-import type { Character, Gear } from './character'
+import type { Character, Gear, SheetBuffs } from './character'
 import { rotationFor } from './rotation'
 import { allScenarios, mobArmor, type Scenario } from './scenarios'
 
@@ -27,6 +27,8 @@ export type RequestOptions = {
     startingManaPct?: number
     /** Stats added on top, as the sim's `UnitStats`. */
     bonusStats?: { stats?: number[]; pseudoStats?: number[] }
+    /** The buffs up at export, for a sheet compared with the game's. */
+    sheetBuffs?: SheetBuffs
     /** Records damage and mana per bucket of this many ms. */
     timelineBucketMs?: number
 }
@@ -92,6 +94,15 @@ export function buildRequest(
     if (options.startingManaPct !== undefined)
         player.startingManaPercent = options.startingManaPct
     if (options.bonusStats) player.bonusStats = options.bonusStats
+    if (options.sheetBuffs) {
+        const bonus = [...(options.bonusStats?.stats ?? [])]
+        options.sheetBuffs.stats.forEach(
+            (amount, i) => (bonus[i] = (bonus[i] ?? 0) + amount)
+        )
+        player.bonusStats = { ...options.bonusStats, stats: bonus }
+        if (options.sheetBuffs.kings)
+            player.buffs = { greaterBlessingOfKings: true }
+    }
 
     const stats = new Array<number>(MOB_STATS).fill(0)
     stats[MOB_ARMOR] = mobArmor(scenario.target_level)

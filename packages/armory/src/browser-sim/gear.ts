@@ -3,7 +3,7 @@
  * from the sim's build, through `pool.data()`): what each item is, where it
  * comes from, whether the character can wear it, and the "left out" rule.
  */
-import type { SimPool } from '@goturbo/sim/browser'
+import type { SimPool } from '@goturbo/sim'
 
 import type { ResultsFile, Slot, Stat } from '../results-file'
 import type { Character } from './character'

@@ -11,7 +11,7 @@
  */
 import { type RefObject, useEffect, useRef, useState } from 'react'
 
-import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim/browser'
+import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { BringIn, type ReadError } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
@@ -287,6 +287,8 @@ export function App({
     const [forgotten, setForgotten] = useState(false)
     // The export's run before any file: its progress, or why it stopped.
     const [simming, setSimming] = useState<SimCount | null>(null)
+    // The estimate while the run sims weights first (no file for the band).
+    const [weightsFirst, setWeightsFirst] = useState<number | null>(null)
     const [stop, setStop] = useState<SimStop | null>(null)
     // The character behind the file shown, when this visit simmed it.
     const [simmed, setSimmed] = useState<Simmed | null>(null)
@@ -347,17 +349,29 @@ export function App({
         if (run.current !== id) return
         const simPool = getPool()
         setSimming({ done: 0, planned: 0 })
+        setWeightsFirst(null)
         try {
-            const outcome = await simExport(text, simPool, (done, planned) => {
-                if (run.current === id) setSimming({ done, planned })
-            })
+            const outcome = await simExport(
+                text,
+                simPool,
+                (done, planned) => {
+                    if (run.current === id) setSimming({ done, planned })
+                },
+                {
+                    onWeightsFirst: (minutes) => {
+                        if (run.current === id) setWeightsFirst(minutes)
+                    },
+                }
+            )
             if (run.current !== id) return
             setSimming(null)
+            setWeightsFirst(null)
             if (outcome.kind === 'file') openSimmed(outcome, simPool.size, true)
             else setStop(outcome)
         } catch (error) {
             if (run.current !== id || error instanceof SimCancelled) return
             setSimming(null)
+            setWeightsFirst(null)
             simFailed(error)
         }
     }
@@ -378,6 +392,7 @@ export function App({
         run.current += 1
         pool.current?.cancel()
         setSimming(null)
+        setWeightsFirst(null)
         setRefining(null)
     }
 
@@ -556,6 +571,7 @@ export function App({
                                 <Simming
                                     count={simming}
                                     phone={phone}
+                                    weightsFirst={weightsFirst}
                                     onCancel={cancel}
                                 />
                             ) : (

@@ -14,6 +14,10 @@ that opens a results file the gear sim made offline and shows a character's
 gear, the sim's plan and its numbers. It is separate from the addon and from
 the Turbo site, and nothing in it ships with the addon.
 
+The page also sims a dropped `TurboCharExport.lua` (the export addon's
+file) on the player's own computer, with the **browser sim**
+(`packages/sim`): the gear sim built to WASM by `bun run sim:build`.
+
 ## Ground rules
 
 - **Bun only.** `bun install`, `bun run`, `bun test`, `bunx`. Never
@@ -28,6 +32,9 @@ the Turbo site, and nothing in it ships with the addon.
 - **A fresh checkout needs `bun run tools:fetch`** (LuaLS, the WoW API
   annotations and Forever's API docs, pinned, into the gitignored `.tools/`).
   `lua:all` runs it first; `bun test` alone needs it for the guard's tests.
+  The armory's `dev:armory`, `build:armory` and `preview:armory` also need
+  `bun run sim:build` first (the browser sim, into the gitignored
+  `packages/sim/build/`).
 - **Add dependencies to the root `workspaces.catalog`**, then reference
   `"catalog:"` from the package. A bare version in a package's `package.json`
   fails `syncpack lint`.
@@ -53,7 +60,7 @@ the Turbo site, and nothing in it ships with the addon.
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |
 | The armory planner (a web page; not the Turbo site). How to run it and the samples: its README | `packages/armory/`, `packages/armory/README.md` |
-| The browser sim: WoWSims vendored verbatim (`upstream/`, never linted or edited), its WASM build, the leak guard. What's vendored and how to move the pin: its README and `UPSTREAM.md` | `packages/sim/` |
+| The browser sim: WoWSims vendored in `upstream/` (upstream verbatim at the pin, plus the level-aware patch and our own Go on top, listed in `UPSTREAM.md`; ESLint, Prettier, tsc and `bun test` skip it, `sim:go` checks our Go), its WASM build, the leak guard. What's vendored and how to move the pin: its README and `UPSTREAM.md` | `packages/sim/` |
 | The probe (dev tool, never released; raw results gitignored) | `tools/probe/` |
 | Glossary | `CONTEXT.md` |
 | Research (Forever's native UI vs the retired HUD) | `docs/research/` |

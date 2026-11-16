@@ -20,7 +20,11 @@ import {
     type SimSheet,
     type SimVersion,
 } from './sim'
-import { weightsFileName } from './weights-file'
+import {
+    readWeightsFile,
+    weightsFileName,
+    type WeightsFile,
+} from './weights-file'
 
 /** A call the pool dropped: `cancel()` or `close()` came first. */
 export class SimCancelled extends Error {
@@ -39,8 +43,17 @@ export type SimPool = {
     sim(request: RaidSimRequest, profile?: LevelProfile): Promise<RaidSimResult>
     sheet(request: RaidSimRequest, profile?: LevelProfile): Promise<SimSheet>
     version(): Promise<SimVersion>
-    /** The precomputed weights file for a class, spec and level, or `null`. */
-    weights(className: string, spec: string, level: number): Promise<unknown>
+    /**
+     * The precomputed weights file for a class, spec and level, read and
+     * checked; `null` when there's no file for the band. A file that's
+     * there but doesn't read is a broken build: the call rejects, naming
+     * the problems.
+     */
+    weights(
+        className: string,
+        spec: string,
+        level: number
+    ): Promise<WeightsFile | null>
     /** The parsed JSON of a file `sim:build` wrote, e.g. `db.json`. */
     data(name: string): Promise<unknown>
     stats(): SimStats
@@ -284,8 +297,15 @@ export function createSimPool({
         async weights(className, spec, level) {
             const levels = weightsBand(level)
             if (!levels) return null
-            const name = weightsFileName(className, spec, ...levels)
-            return loadJson(root, `weights/${name}`, { optional: true })
+            const name = `weights/${weightsFileName(className, spec, ...levels)}`
+            const raw = await loadJson(root, name, { optional: true })
+            if (raw === null) return null
+            const read = readWeightsFile(raw)
+            if (!read.ok)
+                throw new Error(
+                    `The sim's ${name} doesn't read: ${read.problems.join('; ')}`
+                )
+            return read.file
         },
         data(name) {
             let file = files.get(name)

@@ -6,30 +6,38 @@
  * plan. `refine` sims the weights for the player's own gear and re-sims
  * the plan with them.
  */
-import {
-    readWeightsFile,
-    SimCancelled,
-    type SimPool,
-} from '@goturbo/sim/browser'
+import { SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'
 import { readExport } from './export-reader'
-import { scenariosFor } from './scenarios'
-import { simCharacter, SUPPORTED } from './sim-character'
-import { STAT_STEPS, simStatWeights, type StatWeights } from './weights'
+import { buildRequest } from './request'
+import { DEFAULT_FIGHT, scenariosFor } from './scenarios'
+import { FIGHT_SEED } from './session'
+import { gateCalls, runGates, simCharacter, SUPPORTED } from './sim-character'
+import {
+    simStatWeights,
+    weightSeeds,
+    WEIGHTS_DEFAULTS,
+    weightsSims,
+    type StatWeights,
+} from './weights'
 
 type Progress = (done: number, planned: number) => void
 
 /** How stat weights are simmed: seeds (101, 102 …) × iterations each. */
 export type WeightsOptions = { iterations?: number; seeds?: number }
 
-/** The page's weights settings (spec section 5): 5 seeds × 8000 iterations. */
-export const WEIGHTS_DEFAULTS: Readonly<{ seeds: number; iterations: number }> =
-    Object.freeze({ seeds: 5, iterations: 8000 })
+export type SimExportOptions = WeightsOptions & {
+    /**
+     * Called when there's no weights file for the band and the run sims
+     * the weights first, with its estimate in whole minutes.
+     */
+    onWeightsFirst?: (minutes: number) => void
+}
 
-/** The weights method's first seed. */
-const FIRST_SEED = 101
+/** The warm-up sim that times the device before weights are simmed. */
+const WARM_UP_ITERATIONS = 500
 
 export type SimExportOutcome =
     | {
@@ -65,15 +73,12 @@ export function weightsIterations(
     options: WeightsOptions = {}
 ): number {
     const { seeds, iterations } = settings(options)
-    const sims =
-        scenariosFor(level).length * seeds.length * (STAT_STEPS.length + 1)
-    return sims * iterations
+    return weightsSims(scenariosFor(level).length, seeds.length) * iterations
 }
 
 function settings(options: WeightsOptions) {
-    const count = options.seeds ?? WEIGHTS_DEFAULTS.seeds
     return {
-        seeds: Array.from({ length: count }, (_, i) => FIRST_SEED + i),
+        seeds: weightSeeds(options.seeds ?? WEIGHTS_DEFAULTS.seeds),
         iterations: options.iterations ?? WEIGHTS_DEFAULTS.iterations,
     }
 }
@@ -157,12 +162,43 @@ async function simYourWeights(
 ): Promise<StatWeights> {
     const { seeds, iterations } = settings(options)
     const fights = scenariosFor(character.level)
-    run.pool.batch(fights.length * seeds.length * (STAT_STEPS.length + 1))
+    run.pool.batch(weightsSims(fights.length, seeds.length))
     const simmed = await simStatWeights(character, run.pool, fights, {
         seeds,
         iterations,
     })
     return withSource(simmed, { kind: 'yours' })
+}
+
+/**
+ * Before weights are simmed on the device: the gates (a character they
+ * stop gets no weights simmed), then a warm-up sim that times the device.
+ */
+async function beforeYourWeights(
+    run: Run,
+    character: Character
+): Promise<SimStop | { kind: 'passed'; msPerIteration: number }> {
+    run.pool.batch(gateCalls(character) + 1)
+    const { checks } = await runGates(character, run.pool)
+    run.check()
+    const failed = checks.filter((c) => !c.passed)
+    if (failed.length > 0) return { kind: 'gates', failed }
+    const before = run.pool.stats()
+    await run.pool.sim(
+        buildRequest(character, DEFAULT_FIGHT, {
+            seed: FIGHT_SEED,
+            iterations: WARM_UP_ITERATIONS,
+        }),
+        character.profile
+    )
+    run.check()
+    const after = run.pool.stats()
+    const iterations = after.iterations - before.iterations
+    return {
+        kind: 'passed',
+        msPerIteration:
+            iterations > 0 ? (after.ms - before.ms) / iterations : 0,
+    }
 }
 
 /** Weights without their half-widths, stamped with where they came from. */
@@ -180,21 +216,23 @@ function withSource(
     }))
 }
 
-/** The precomputed weights for the character's band, or null. */
+/**
+ * The precomputed weights for the character's band, or null when there's
+ * no file for it. A file that doesn't read fails the run (the pool says
+ * why).
+ */
 async function precomputed(
     pool: SimPool,
     character: Character
 ): Promise<StatWeights | null> {
-    const raw = await pool.weights(
+    const file = await pool.weights(
         character.class,
         SUPPORTED.spec,
         character.level
     )
-    if (raw === null || raw === undefined) return null
-    const read = readWeightsFile(raw)
-    if (!read.ok) return null
-    const { level_min, level_max } = read.file
-    return withSource(read.file.fights, {
+    if (!file) return null
+    const { level_min, level_max } = file
+    return withSource(file.fights, {
         kind: 'precomputed',
         level_min,
         level_max,
@@ -227,14 +265,15 @@ async function simWithWeights(
 /**
  * Sims a dropped export: the export read (its stops come before any sim),
  * then worn gear and the max damage plan, ranked by the precomputed
- * weights for the band, or by weights simmed on the device first when
- * there's none (`options` sets those weights' seeds and iterations).
+ * weights for the band. With none, the gates run first, then the weights
+ * are simmed on the device (`options` sets their seeds and iterations, and
+ * `options.onWeightsFirst` hears the estimate).
  */
 export async function simExport(
     text: string,
     pool: SimPool,
     onProgress: Progress,
-    options: WeightsOptions = {}
+    options: SimExportOptions = {}
 ): Promise<SimExportOutcome> {
     const run = startRun(pool, onProgress)
     try {
@@ -244,10 +283,21 @@ export async function simExport(
         run.check()
         if (read.kind !== 'character') return read
         const character = read.character
-        const weights =
-            (await precomputed(pool, character)) ??
-            (await simYourWeights(run, character, options))
+        let weights = await precomputed(run.pool, character)
         run.check()
+        if (!weights) {
+            const ready = await beforeYourWeights(run, character)
+            if (ready.kind !== 'passed') return ready
+            options.onWeightsFirst?.(
+                estimateMinutes(
+                    weightsIterations(character.level, options),
+                    ready.msPerIteration,
+                    pool.size
+                )
+            )
+            weights = await simYourWeights(run, character, options)
+            run.check()
+        }
         return await simWithWeights(run, character, weights)
     } finally {
         run.end()

@@ -2,7 +2,7 @@
  * The character the browser sim starts from: the runner's `Character`. The
  * export reader (#77) makes one from an export; tests make Testchar's.
  */
-import type { LevelProfile } from '@goturbo/sim/browser'
+import type { LevelProfile } from '@goturbo/sim'
 
 import type { Check, ResultsFile, Slot } from '../results-file'
 
@@ -11,6 +11,13 @@ export type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
 
 /** Gear by slot; a slot that's absent or null is empty. */
 export type Gear = Partial<Record<Slot, GearPiece | null>>
+
+/**
+ * What the buffs up at export added to the game's sheet, as the sim
+ * models them: their stats (indexed by the proto `Stat` enum, from
+ * `buffs.json`) and Blessing of Kings.
+ */
+export type SheetBuffs = { stats: number[]; kings: boolean }
 
 export type Character = {
     /** For display only. */
@@ -36,6 +43,11 @@ export type Character = {
     profile: LevelProfile
     /** The game's sheet at export. */
     sheet: ResultsFile['sheet']
+    /**
+     * The buffs in `sheet`, when any changed it. The sheet check and
+     * calibration sim with them; the fights don't.
+     */
+    sheet_buffs?: SheetBuffs
     /** True when spell crit came from calibration, not the game's sheet. */
     calibrated_spell_crit?: boolean
     export_saved_at: string

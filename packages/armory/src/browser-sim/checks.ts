@@ -2,7 +2,7 @@
  * The gates, which run before any numbers (any failing means no results),
  * and the notes, which never block and always ship as failed checks.
  */
-import type { Sheet } from '@goturbo/sim/browser'
+import type { Sheet } from '@goturbo/sim'
 
 import type { Check } from '../results-file'
 

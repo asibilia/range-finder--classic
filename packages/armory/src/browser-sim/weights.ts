@@ -10,7 +10,7 @@ import {
     PSEUDO_STAT_COUNT,
     STAT,
     type SimPool,
-} from '@goturbo/sim/browser'
+} from '@goturbo/sim'
 
 import type { ResultsFile, Stat } from '../results-file'
 import type { Character, Gear } from './character'
@@ -35,8 +35,29 @@ export const STAT_STEPS: { stat: Stat; amount: number; index: number }[] = [
     { stat: 'weapon_dps', amount: 2, index: -1 },
 ]
 
-export const WEIGHT_SEEDS = [101, 102, 103, 104, 105]
-export const WEIGHT_ITERATIONS = 8000
+/**
+ * The weights method's settings (spec section 5): 5 seeds × 8000
+ * iterations. `bun run sim:weights`, Refine and the no-weights-file path
+ * all use them.
+ */
+export const WEIGHTS_DEFAULTS: Readonly<{ seeds: number; iterations: number }> =
+    Object.freeze({ seeds: 5, iterations: 8000 })
+
+/** The weights method's first seed: `count` seeds run 101, 102 … */
+const FIRST_SEED = 101
+
+/** The seeds of a weights run with `count` seeds. */
+export function weightSeeds(count: number = WEIGHTS_DEFAULTS.seeds): number[] {
+    return Array.from({ length: count }, (_, i) => FIRST_SEED + i)
+}
+
+/**
+ * The sims the weights method runs on `fights` fights with `seeds` seeds:
+ * per fight and seed, a baseline and one sim per weighed stat.
+ */
+export function weightsSims(fights: number, seeds: number): number {
+    return fights * seeds * (STAT_STEPS.length + 1)
+}
 
 /** The sim's bonus stats for `amount` of one weighed stat. */
 export function bonusFor(stat: Stat, amount: number) {
@@ -79,8 +100,8 @@ export async function simStatWeights(
 ): Promise<
     { fight_id: string; weights: { stat: Stat; ep: number; half: number }[] }[]
 > {
-    const seeds = options.seeds ?? WEIGHT_SEEDS
-    const iterations = options.iterations ?? WEIGHT_ITERATIONS
+    const seeds = options.seeds ?? weightSeeds()
+    const iterations = options.iterations ?? WEIGHTS_DEFAULTS.iterations
     const run = (fight: Scenario, seed: number, stat?: Stat, amount = 0) =>
         pool
             .sim(

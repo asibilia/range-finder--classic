@@ -9,7 +9,7 @@ import {
     type RaidSimRequest,
     type Sheet,
     type SimPool,
-} from '@goturbo/sim/browser'
+} from '@goturbo/sim'
 
 import {
     readResultsFile,
@@ -162,6 +162,62 @@ async function simAll(
     return { singles, chain }
 }
 
+/**
+ * The calls the gates make: the sheet and the level 60 sim, and the
+ * unbuffed sheet when buffs were up at export.
+ */
+export function gateCalls(character: Character): number {
+    return character.sheet_buffs ? 3 : 2
+}
+
+/** The gates' checks, and the sims the run goes on with. */
+export type GateRun = {
+    checks: Check[]
+    /** Upstream's level 60 test request's DPS. */
+    l60Dps: number
+    /** The sim's sheet with no buffs, which the fights use. */
+    sheet: Sheet
+}
+
+/**
+ * The gates, before any numbers: the level 60 regression, the sim's sheet
+ * against the game's (with the buffs up at export), and no spell above the
+ * level. Any failing means no results.
+ */
+export async function runGates(
+    character: Character,
+    pool: SimPool
+): Promise<GateRun> {
+    const settings = { seed: FIGHT_SEED, iterations: FIGHT_ITERATIONS }
+    const buffs = character.sheet_buffs
+    const sheetOf = (sheetBuffs?: typeof buffs) =>
+        pool.sheet(
+            buildRequest(character, DEFAULT_FIGHT, { ...settings, sheetBuffs }),
+            character.profile
+        )
+    const [l60Request, version, simmedSheet, unbuffed] = await Promise.all([
+        pool.data('l60-test.in.json') as Promise<RaidSimRequest>,
+        pool.data('version.json') as Promise<{ l60_expected_dps: number }>,
+        sheetOf(buffs),
+        buffs ? sheetOf() : null,
+    ])
+    const l60Dps = await pool.sim(l60Request).then(dpsOf)
+    const checks: Check[] = [
+        level60Check(l60Dps, version.l60_expected_dps),
+        ...sheetChecks(
+            character.sheet,
+            sheetFromSim(simmedSheet),
+            character.calibrated_spell_crit ?? false
+        ),
+        noSpellAboveLevelCheck(
+            rotationSpells(character),
+            character.level,
+            simmedSheet.unreached_ranks
+        ),
+    ]
+    return { checks, l60Dps, sheet: sheetFromSim(unbuffed ?? simmedSheet) }
+}
+
 /** The stats the sanity gate weighs: those the long fight's EP counts. */
 function sanityStats(weights: StatWeights): Stat[] {
     const long = weights.find((w) => w.fight_id === DEFAULT_FIGHT)
@@ -190,10 +246,12 @@ export async function simCharacter(
     const chain = chainFor(level)
     const longFight = fights.find((f) => f.fight_id === DEFAULT_FIGHT)!
     const sanity = sanityStats(weights)
-    // The gates' sheet and sim, worn and the plan on every pull, the
+    // The gates' sheets and sim, worn and the plan on every pull, the
     // sanity sims, the weapons and the plan's sheet.
     const everyPull = fights.length + chain.pulls
-    pool.batch(2 + everyPull * 2 + sanity.length + WEAPON_SIMS + 1)
+    pool.batch(
+        gateCalls(character) + everyPull * 2 + sanity.length + WEAPON_SIMS + 1
+    )
     const unsubscribe = pool.onProgress(onProgress)
     try {
         return await run()
@@ -213,30 +271,10 @@ export async function simCharacter(
             pool.sim(request, character.profile).then(dpsOf)
 
         // The gates before any numbers.
-        const [l60Request, version, simmedSheet, db] = await Promise.all([
-            pool.data('l60-test.in.json') as Promise<RaidSimRequest>,
-            pool.data('version.json') as Promise<{ l60_expected_dps: number }>,
-            pool.sheet(
-                buildRequest(character, DEFAULT_FIGHT, settings),
-                character.profile
-            ),
+        const [{ checks: gates, l60Dps, sheet }, db] = await Promise.all([
+            runGates(character, pool),
             loadItemDb(pool),
         ])
-        const l60Dps = await pool.sim(l60Request).then(dpsOf)
-        const sheet = sheetFromSim(simmedSheet)
-        const gates: Check[] = [
-            level60Check(l60Dps, version.l60_expected_dps),
-            ...sheetChecks(
-                character.sheet,
-                sheet,
-                character.calibrated_spell_crit ?? false
-            ),
-            noSpellAboveLevelCheck(
-                rotationSpells(character),
-                level,
-                simmedSheet.unreached_ranks
-            ),
-        ]
         const failedGates = gates.filter((c) => !c.passed)
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
@@ -353,7 +391,7 @@ export async function simCharacter(
                 class: character.class,
                 spec,
             },
-            sheet_buffed: false,
+            sheet_buffed: character.sheet_buffs !== undefined,
             sheet: fileSheet(character.sheet),
             fights: scenarios.map(fightEntry),
             default_fight_id: DEFAULT_FIGHT,

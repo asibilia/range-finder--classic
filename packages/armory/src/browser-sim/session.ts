@@ -3,7 +3,7 @@
  * each pull starts with the mana the last one left, plus what the gap
  * between them gives back (no drinking).
  */
-import type { Sheet, SimPool } from '@goturbo/sim/browser'
+import type { Sheet, SimPool } from '@goturbo/sim'
 
 import type { ResultsFile } from '../results-file'
 import type { Character, Gear } from './character'
@@ -19,9 +19,14 @@ import {
     type UnitMetrics,
 } from './sim-result'
 
-/** The seed and iterations of every fight the browser sims. */
+/** The seed of every fight the browser sims, as in the runner. */
 export const FIGHT_SEED = 23
-export const FIGHT_ITERATIONS = 2000
+/**
+ * The runner's iterations: 4000 on a single fight (worn, the plan, the
+ * sanity and weapon sims), 2000 on each pull of the chain.
+ */
+export const FIGHT_ITERATIONS = 4000
+export const PULL_ITERATIONS = 2000
 /** The timeline's bucket on a pull, to read the mana it ends with. */
 const PULL_BUCKET_MS = 1000
 /** No spirit regen for 5 s after the last cast, then a tick every 2 s. */
@@ -93,7 +98,7 @@ export async function simSession(
         const result = await pool.sim(
             buildRequest(character, scenario, {
                 seed: FIGHT_SEED,
-                iterations: FIGHT_ITERATIONS,
+                iterations: PULL_ITERATIONS,
                 gear,
                 startingManaPct: pull === 1 ? undefined : pct,
                 timelineBucketMs: PULL_BUCKET_MS,

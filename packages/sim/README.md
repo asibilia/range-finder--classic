@@ -21,11 +21,16 @@ the armory planner can sim a character on the player's own computer.
   level_profile? })` (`{ level, unreached_ranks, player }`) and
   `turboVersion()` (`{ upstream_commit, patch_id, go_version }`). A failure
   answers `{ "error": "<message>" }`.
-- `src/`: the TypeScript side. `loadSim({ base })` loads the sim from
-  `base` (`/sim/` on the page, a `file://` URL of `build/` under Bun) and
-  offers `sim(request, profile?)`, `sheet(request, profile?)` and
-  `version()`; an `{ error }` answer throws a `SimError`. `loader.ts` is the
-  only module that fetches. And the leak guard (`scanForLeaks`).
+- `src/`: the TypeScript side, the package's one entry (`src/index.ts`),
+  which runs in the browser and under Bun. `loadSim({ base })` loads the
+  sim from `base` (`/sim/` on the page, a `file://` URL of `build/` under
+  Bun) and offers `sim(request, profile?)`, `sheet(request, profile?)` and
+  `version()`; an `{ error }` answer throws a `SimError`. `createSimPool`
+  runs the same calls in a pool of Web Workers, and its `weights()` answers
+  the band's precomputed weights file, read and checked, or `null`.
+  `loader.ts` is the only module that fetches. The leak guard
+  (`src/leak-scan.ts`, `scanForLeaks`) reads files with `node:fs`, so it
+  isn't in the entry: its Bun-only users import it directly.
 - `scripts/`: `build.ts` (`sim:build`), `go-check.ts` (`sim:go`) and
   `add-fixture.ts` (`sim:add-fixture`).
 - `fixtures/`: test inputs under neutral names, such as upstream's level-60

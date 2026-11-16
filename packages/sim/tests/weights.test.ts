@@ -6,12 +6,22 @@
  * format, and a file simmed on another sim build fails here.
  */
 import { afterAll, describe, expect, test } from 'bun:test'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import {
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import * as simApi from '../src'
-import { createSimPool, loadSim, scanForLeaks, type SimPool } from '../src'
+import { createSimPool, loadSim, type SimPool, type WeightsFile } from '../src'
+import { scanForLeaks } from '../src/leak-scan'
 
 /** Read through the namespace, so each test fails alone until it exists. */
 const readWeightsFile = (input: unknown): unknown =>
@@ -139,10 +149,44 @@ describe('the committed weights file', () => {
         ensureBuild()
         pool = createSimPool({ base: BASE, size: 1 })
         expect(await pool.weights('Shaman', 'Enhancement', 32)).toEqual(
-            committed()
+            committed() as unknown as WeightsFile
         )
         expect(await pool.weights('Shaman', 'Enhancement', 45)).toBeNull()
     }, 600_000)
+
+    test("the pool's weights() rejects, naming the problems, when the band's file is there but doesn't read", async () => {
+        const base = mkdtempSync(join(tmpdir(), 'sim-weights-'))
+        const broken = createSimPool({
+            base: pathToFileURL(base + '/'),
+            size: 1,
+        })
+        try {
+            const bad = validWeights()
+            bad.account = 'x'
+            mkdirSync(join(base, 'weights'))
+            writeFileSync(join(base, 'weights', BAND_FILE), JSON.stringify(bad))
+            const read = readWeightsFile(bad) as { problems?: string[] }
+            expect(read.problems?.length).toBeGreaterThan(0)
+
+            const error = await broken
+                .weights('Shaman', 'Enhancement', 32)
+                .then(
+                    () => undefined,
+                    (thrown: unknown) => thrown
+                )
+            expect(error).toBeInstanceOf(Error)
+            const message = (error as Error).message
+            expect(message).toContain(BAND_FILE)
+            for (const problem of read.problems!)
+                expect(message).toContain(problem)
+
+            // No file for the band is still no file, not an error.
+            expect(await broken.weights('Shaman', 'Enhancement', 45)).toBeNull()
+        } finally {
+            broken.close()
+            rmSync(base, { recursive: true, force: true })
+        }
+    })
 
     test('its reference is testchar-l30.json, and the leak guard scans packages/sim/weights/ and finds nothing', () => {
         expect(committed().reference).toBe('testchar-l30.json')

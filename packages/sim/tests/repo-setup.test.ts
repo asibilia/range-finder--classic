@@ -5,8 +5,9 @@
  * files as the contract.
  */
 import { describe, expect, test } from 'bun:test'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { builtinModules } from 'node:module'
+import { dirname, join, relative } from 'node:path'
 import { ESLint } from 'eslint'
 import ts from 'typescript'
 
@@ -134,6 +135,58 @@ describe('bun run check and CI', () => {
         expect(
             job.steps.some((s) => s.uses?.startsWith('actions/setup-go@'))
         ).toBe(true)
+    })
+})
+
+describe("the package's entry", () => {
+    test('@goturbo/sim points at src/index.ts, and nothing it reaches imports a Node or Bun built-in, so the page can import it', () => {
+        const sim = readJson<PackageJson>('packages/sim/package.json')
+        const exported = sim.exports as string | Record<string, string>
+        expect(typeof exported === 'string' ? exported : exported['.']).toBe(
+            './src/index.ts'
+        )
+
+        const builtins = new Set(builtinModules)
+        const isBuiltin = (specifier: string) =>
+            specifier.startsWith('node:') ||
+            specifier === 'bun' ||
+            specifier.startsWith('bun:') ||
+            builtins.has(specifier) ||
+            builtins.has(specifier.split('/')[0]!)
+        const isFile = (path: string) =>
+            existsSync(path) && statSync(path).isFile()
+
+        const reached = new Set<string>()
+        const serverOnly: string[] = []
+        const walk = (file: string) => {
+            if (reached.has(file)) return
+            reached.add(file)
+            const { importedFiles } = ts.preProcessFile(
+                readFileSync(file, 'utf8'),
+                true,
+                true
+            )
+            for (const { fileName } of importedFiles) {
+                if (fileName.startsWith('.')) {
+                    const base = join(dirname(file), fileName)
+                    const next = [
+                        `${base}.ts`,
+                        `${base}.tsx`,
+                        join(base, 'index.ts'),
+                        base,
+                    ].find(isFile)
+                    expect(next).toBeDefined()
+                    walk(next!)
+                } else if (isBuiltin(fileName)) {
+                    serverOnly.push(
+                        `${relative(PACKAGE_DIR, file)} imports ${fileName}`
+                    )
+                }
+            }
+        }
+        walk(join(PACKAGE_DIR, 'src/index.ts'))
+        expect(reached.size).toBeGreaterThan(1)
+        expect(serverOnly).toEqual([])
     })
 })
 

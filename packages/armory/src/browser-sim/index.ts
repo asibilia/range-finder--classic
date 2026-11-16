@@ -3,7 +3,13 @@
  * character, and a character into a results file, simmed by
  * `@goturbo/sim`'s pool.
  */
-export type { Character, Gear, GearPiece, SimStop } from './character'
+export type {
+    Character,
+    Gear,
+    GearPiece,
+    SheetBuffs,
+    SimStop,
+} from './character'
 export { L60_TOLERANCE, NOTES, level60Check, sheetChecks } from './checks'
 export {
     BASE_RATES,
@@ -31,14 +37,27 @@ export {
     SINGLE_FIGHTS,
     type Scenario,
 } from './scenarios'
-export { FIGHT_ITERATIONS, FIGHT_SEED, simSession, simSingle } from './session'
-export { simCharacter, SUPPORTED, type SimOutcome } from './sim-character'
+export {
+    FIGHT_ITERATIONS,
+    FIGHT_SEED,
+    PULL_ITERATIONS,
+    simSession,
+    simSingle,
+} from './session'
+export {
+    gateCalls,
+    runGates,
+    simCharacter,
+    SUPPORTED,
+    type GateRun,
+    type SimOutcome,
+} from './sim-character'
 export {
     estimateMinutes,
     refine,
     simExport,
-    WEIGHTS_DEFAULTS,
     weightsIterations,
+    type SimExportOptions,
     type SimExportOutcome,
     type WeightsOptions,
 } from './sim-export'
@@ -48,7 +67,6 @@ export {
     meanCI,
     simStatWeights,
     STAT_STEPS,
-    WEIGHT_ITERATIONS,
-    WEIGHT_SEEDS,
+    WEIGHTS_DEFAULTS,
     type StatWeights,
 } from './weights'

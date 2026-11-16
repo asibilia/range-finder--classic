@@ -2,7 +2,8 @@
  * The browser sim at work: the progress bar (`Sim progress`, `N of M sims`)
  * and `Cancel`, used while an export sims and while Refine runs; the
  * simming card that holds them in place of the new-visitor card; and the
- * lines the page says about the sim (the credit, the phone note).
+ * lines the page says about the sim (the credit, the phone note, the
+ * weights-first estimate).
  */
 import { Button } from '@/components/ui/button'
 
@@ -19,6 +20,14 @@ export const PHONE_QUERY = '(pointer: coarse) and (max-width: 768px)'
 
 /** How far a run is: `done` of `planned` sims. */
 export type SimCount = { done: number; planned: number }
+
+/**
+ * Said while an export's run sims stat weights first (no precomputed
+ * weights for the character's level band), with its estimate.
+ */
+export function weightsFirstLine(minutes: number): string {
+    return `Simming stat weights for your gear first (about ${minutes} min).`
+}
 
 /**
  * The progress bar and Cancel.
@@ -67,15 +76,19 @@ export function SimProgress({
  *
  * @param count - Sims done and planned.
  * @param phone - Whether to say it works best on a computer.
+ * @param weightsFirst - The weights-first estimate in minutes, while the
+ * run sims stat weights before gear and the plan; otherwise null.
  * @param onCancel - Stops the sim and goes back to the new-visitor card.
  */
 export function Simming({
     count,
     phone,
+    weightsFirst = null,
     onCancel,
 }: {
     count: SimCount
     phone: boolean
+    weightsFirst?: number | null
     onCancel: () => void
 }) {
     return (
@@ -89,6 +102,9 @@ export function Simming({
             <p role="status" className="mb-2 text-sm">
                 Simming your character on this computer.
             </p>
+            {weightsFirst !== null && (
+                <p className="mb-2 text-sm">{weightsFirstLine(weightsFirst)}</p>
+            )}
             {phone && (
                 <p className="mb-2 text-[0.8125rem] text-muted-foreground">
                     {PHONE_NOTE}

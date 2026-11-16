@@ -1,7 +1,10 @@
 # The vendored upstream
 
 `upstream/` holds the parts of WoWSims Forever the WASM build needs, copied
-verbatim.
+verbatim at the pin, with two layers on top: the level-aware patch and our
+own Go (both listed below). Bugs in those layers are ours to fix in place.
+ESLint, Prettier, tsc and `bun test` skip `upstream/`; `bun run sim:go`
+checks our Go (`gofmt`, `go vet`, the patched packages' tests).
 
 | | |
 | --- | --- |
@@ -32,6 +35,22 @@ back with `nil`; hooks (`core.OnLevelChange`) re-pick the shaman's ranks
 change. Only the shaman's ranks follow the profile: other classes keep their
 level-60 ranks.
 
+Our per-call profile changes, on top of the patch:
+
+- `sim/core/level_profile.go` (reworked: `SetLevelProfile`,
+  `OnLevelChange`, no environment variable or file read),
+  `sim/core/base_stats.go` and `sim/core/spelldata/ladder.go`
+- `sim/shaman/level_ranks.go` (new) and the shaman's rank hooks in
+  `chain_lightning.go`, `fire_totems.go`, `lightning_bolt.go`, `shields.go`,
+  `shocks.go`, `stormstrike.go`, `talents_elemental.go`,
+  `talents_enhancement.go`, `talents_restoration.go`, `totems.go` and
+  `weapon_imbues.go`
+- the tests `sim/shaman/level_60_test.go` (new) and
+  `sim/shaman/level_aware_test.go` (changed)
+- `sim/wasm/turbo_*.go` (above)
+
+`git log -- packages/sim/upstream` shows each layer's commits.
+
 Check that nothing else is needed with:
 
 ```sh
@@ -60,6 +79,10 @@ read would close the gap.
    `protoc` and `protoc-gen-go` (or pin newer ones, and update this file).
 3. Update the commit and date here, and the Go version in CI follows
    `upstream/go.mod`.
-4. Re-apply the level-aware patch, run `bun run sim:build`,
-   `bun run sim:go` and `bun run sim:test`, and add any innocent new leak
-   guard matches to `leak-allow.txt` with a reason.
+4. Re-apply the level-aware patch, then our per-call profile changes on top
+   of it (the files listed above: take them from
+   `git diff <the patch commit> HEAD -- packages/sim/upstream` before the
+   copy). Keeping only `sim/wasm/turbo_*.go` loses the per-call profile.
+5. Run `bun run sim:build`, `bun run sim:go` and `bun run sim:test`, and
+   add any innocent new leak guard matches to `leak-allow.txt` with a
+   reason.
