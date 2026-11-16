@@ -84,6 +84,10 @@ _Avoid_: loadout, build (a build is talents)
 TurboCharExport, the addon that writes a character to a SavedVariables file with `/tbexport`. It is not Turbo and does not ship with it.
 _Avoid_: Turbo export
 
+**Browser sim**:
+The gear sim built to WASM and run in the page's workers (`packages/sim`, `@goturbo/sim`): WoWSims Forever, vendored at a pinned commit.
+_Avoid_: web sim, online sim
+
 ### Retired
 
 Words for the Shaman HUD that Turbo no longer ships: HUD, Class kit, Class helper, Module, Engaged, Debug mode, Display-only, Self-timed, Resync, Reminder, Recall reminder, Range band, Totem slot, Clip, Safe window, Hard cast. Forever's own UI covers most of that HUD; `docs/research/forever-native-ui.md` compares the two, and git history (before the trim to attack macros) keeps the code and the old definitions.

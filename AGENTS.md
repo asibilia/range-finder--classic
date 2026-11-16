@@ -19,9 +19,12 @@ the Turbo site, and nothing in it ships with the addon.
 - **Bun only.** `bun install`, `bun run`, `bun test`, `bunx`. Never
   npm/yarn/pnpm; their lockfiles are gitignored on purpose.
 - **`bun run check` before any PR.** It is what CI runs: `check:all`
-  (type-check, ESLint + Prettier, syncpack, the armory tests) and then `lua:all` (StyLua format
+  (type-check, ESLint + Prettier, syncpack, the sim's WASM build, its Go
+  checks and tests, the armory tests) and then `lua:all` (StyLua format
   check, LuaLS, the secret-read guard, and `bun test`). ESLint is the
-  TypeScript formatter; `bun run lua:format` formats the Lua.
+  TypeScript formatter; `bun run lua:format` formats the Lua. **Go 1.27**
+  (the version in `packages/sim/upstream/go.mod`) must be installed: the
+  check builds the browser sim with it.
 - **A fresh checkout needs `bun run tools:fetch`** (LuaLS, the WoW API
   annotations and Forever's API docs, pinned, into the gitignored `.tools/`).
   `lua:all` runs it first; `bun test` alone needs it for the guard's tests.
@@ -50,6 +53,7 @@ the Turbo site, and nothing in it ships with the addon.
 | Dev scripts (tool fetch, LuaLS, secret-read guard) | `packages/addon/scripts/` |
 | The Turbo site | `packages/web/` |
 | The armory planner (a web page; not the Turbo site). How to run it and the samples: its README | `packages/armory/`, `packages/armory/README.md` |
+| The browser sim: WoWSims vendored verbatim (`upstream/`, never linted or edited), its WASM build, the leak guard. What's vendored and how to move the pin: its README and `UPSTREAM.md` | `packages/sim/` |
 | The probe (dev tool, never released; raw results gitignored) | `tools/probe/` |
 | Glossary | `CONTEXT.md` |
 | Research (Forever's native UI vs the retired HUD) | `docs/research/` |

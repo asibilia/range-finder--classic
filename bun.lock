@@ -62,6 +62,14 @@
         "wrangler": "catalog:",
       },
     },
+    "packages/sim": {
+      "name": "@goturbo/sim",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/web": {
       "name": "@goturbo/web",
       "version": "0.0.0",
@@ -284,6 +292,8 @@
     "@goturbo/addon": ["@goturbo/addon@workspace:packages/addon"],
 
     "@goturbo/armory": ["@goturbo/armory@workspace:packages/armory"],
+
+    "@goturbo/sim": ["@goturbo/sim@workspace:packages/sim"],
 
     "@goturbo/web": ["@goturbo/web@workspace:packages/web"],
 

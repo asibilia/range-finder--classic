@@ -1,0 +1,21 @@
+{
+  "name": "@goturbo/sim",
+  "description": "The browser sim: WoWSims Forever (MIT, Go), vendored at a pinned commit and built to WebAssembly, with a small TypeScript API.",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "sim:add-fixture": "bun scripts/add-fixture.ts",
+    "sim:build": "bun scripts/build.ts",
+    "sim:go": "bun scripts/go-check.ts",
+    "sim:test": "bun test --isolate",
+    "type-check": "bunx tsc -b"
+  }
+}

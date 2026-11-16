@@ -1,0 +1,22 @@
+{
+	// The sim package's own TypeScript: its API, scripts and tests. The
+	// vendored upstream (upstream/) is never type-checked here.
+	"include": ["src", "scripts", "tests"],
+	"compilerOptions": {
+		"composite": true,
+		// Kept out of the package folder, which the leak guard scans.
+		"tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		// DOM gives the WebAssembly types (the API runs in browsers too).
+		"lib": ["ES2022", "DOM"],
+		"types": ["bun"],
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"verbatimModuleSyntax": true,
+		"resolveJsonModule": true
+	}
+}

@@ -51,6 +51,8 @@ export default [
             '.changeset/**',
             '.claude/**',
             '.luca/**',
+            // WoWSims, vendored verbatim: never ours to lint or format.
+            'packages/sim/upstream/**',
         ],
     },
 ]

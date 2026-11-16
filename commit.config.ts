@@ -24,6 +24,7 @@ const config: CommitConfig = {
         { value: 'addon', label: 'The Turbo addon (Lua) and its tests' },
         { value: 'web', label: 'The Turbo site' },
         { value: 'armory', label: 'The armory planner' },
+        { value: 'sim', label: 'The sim (WoWSims, built to WASM)' },
         { value: 'probe', label: 'The probe (dev tool)' },
         { value: 'config', label: 'Configuration' },
         { value: 'repo', label: 'Repository & Tooling' },
