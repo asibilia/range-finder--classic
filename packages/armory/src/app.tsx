@@ -363,6 +363,7 @@ export function App({
     }
 
     const openPicked = (picked: File) => {
+        stopRefine()
         if (isExport(picked)) {
             void simPicked(picked)
             return
@@ -378,6 +379,11 @@ export function App({
         pool.current?.cancel()
         setSimming(null)
         setRefining(null)
+    }
+
+    /** A Refine still running is stopped when its file goes away. */
+    const stopRefine = () => {
+        if (refining) cancel()
     }
 
     const startRefine = async () => {
@@ -407,6 +413,7 @@ export function App({
     }
 
     const forget = () => {
+        stopRefine()
         forgetFile()
         open({ file: null, error: null })
         setWishlist(new Map())
