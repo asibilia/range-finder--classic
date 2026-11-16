@@ -20,13 +20,18 @@ export type TalentTree = {
     }[]
 }
 
+/** A class's talent trees: none for a class the sim has no trees for. */
 export async function talentTrees(
     pool: SimPool,
     className: string
 ): Promise<TalentTree[]> {
-    return (await pool.data(
-        `talents/${className.toLowerCase()}.json`
-    )) as TalentTree[]
+    try {
+        return (await pool.data(
+            `talents/${className.toLowerCase()}.json`
+        )) as TalentTree[]
+    } catch {
+        return []
+    }
 }
 
 /** The ranks in each tree of a talent string, in the trees' order. */

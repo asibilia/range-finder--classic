@@ -116,25 +116,21 @@ function fileSheet(sheet: ResultsFile['sheet']): ResultsFile['sheet'] {
     }
 }
 
-/** The class and spec, or why the sim can't run this character. */
-async function specCheck(
-    character: Character,
-    pool: SimPool
-): Promise<{ spec: string; trees: TalentTree[]; stop?: SimStop }> {
-    let trees: TalentTree[] = []
-    try {
-        trees = await talentTrees(pool, character.class)
-    } catch {
-        // A class the sim has no talent trees for.
-    }
-    const spec = specOf(character.talents, trees)
-    if (character.class !== SUPPORTED.class || spec !== SUPPORTED.spec)
-        return {
-            spec,
-            trees,
-            stop: { kind: 'unsupported', class: character.class, spec },
-        }
-    return { spec, trees }
+/**
+ * The spec of a build (its tree with the most points, in the class's
+ * `trees`), and the stop when the sim doesn't cover the class and spec.
+ * The export reader runs it before it builds a character, `simCharacter`
+ * before any sim.
+ */
+export function supportedSpec(
+    className: string,
+    talents: string,
+    trees: TalentTree[]
+): { spec: string; stop?: SimStop } {
+    const spec = specOf(talents, trees)
+    if (className !== SUPPORTED.class || spec !== SUPPORTED.spec)
+        return { spec, stop: { kind: 'unsupported', class: className, spec } }
+    return { spec }
 }
 
 /** Every fight in `gear`: the three single fights, then the chain. */
@@ -229,10 +225,40 @@ function sanityStats(weights: StatWeights): Stat[] {
         .filter((stat) => STAT_STEPS.some((step) => step.stat === stat))
 }
 
+/** The calls the max damage plan's sims make: its sheet, every pull. */
+function planCalls(level: number): number {
+    return 1 + scenariosFor(level).length + chainFor(level).pulls
+}
+
+/**
+ * The most calls `simCharacter` makes: the gates, worn gear on every pull,
+ * the sanity sims (one per stat the weights weigh; with no weights yet,
+ * every stat the method weighs), the most weapons it sims, and the plan's
+ * sims. It makes fewer when there are fewer weapons to sim, or when the
+ * plan is worn gear, and says so as it learns.
+ */
+export function characterCalls(
+    character: Character,
+    weights: StatWeights | null
+): number {
+    const level = character.level
+    const sanity = weights ? sanityStats(weights).length : STAT_STEPS.length
+    return (
+        gateCalls(character) +
+        scenariosFor(level).length +
+        chainFor(level).pulls +
+        sanity +
+        WEAPON_SIMS +
+        planCalls(level)
+    )
+}
+
 /**
  * Sims a character's worn gear and its max damage plan on every fight,
  * ranking the plan by `weights` (the results file's `stat_weights`), and
- * makes a results file, or stops. `onProgress` hears `(done, planned)`.
+ * makes a results file, or stops. `onProgress` hears `(done, planned)`:
+ * `planned` starts at `characterCalls` and only comes down, as the run
+ * learns it needs fewer calls, so the fraction done never goes back.
  */
 export async function simCharacter(
     character: Character,
@@ -240,7 +266,12 @@ export async function simCharacter(
     pool: SimPool,
     onProgress: (done: number, planned: number) => void
 ): Promise<SimOutcome> {
-    const { spec, trees, stop } = await specCheck(character, pool)
+    const trees = await talentTrees(pool, character.class)
+    const { spec, stop } = supportedSpec(
+        character.class,
+        character.talents,
+        trees
+    )
     if (stop) return stop
 
     const level = character.level
@@ -248,13 +279,24 @@ export async function simCharacter(
     const chain = chainFor(level)
     const longFight = fights.find((f) => f.fight_id === DEFAULT_FIGHT)!
     const sanity = sanityStats(weights)
-    // The gates' sheets and sim, worn and the plan on every pull, the
-    // sanity sims, the weapons and the plan's sheet.
-    const everyPull = fights.length + chain.pulls
-    pool.batch(
-        gateCalls(character) + everyPull * 2 + sanity.length + WEAPON_SIMS + 1
-    )
-    const unsubscribe = pool.onProgress(onProgress)
+    let callsPlanned = characterCalls(character, weights)
+    let callsDone = 0
+    const report = () =>
+        onProgress(callsDone, Math.max(callsDone, callsPlanned))
+    /** The run needs `fewer` calls than it planned. */
+    const plannedLess = (fewer: number) => {
+        if (fewer <= 0) return
+        callsPlanned -= fewer
+        report()
+    }
+    pool.batch(callsPlanned)
+    const unsubscribe = pool.onProgress((count, of) => {
+        // A cancel resets the count: pass it on as the pool says it.
+        if (count === 0 && of === 0) return onProgress(0, 0)
+        callsDone = count
+        report()
+    })
+    report()
     try {
         return await run()
     } finally {
@@ -272,11 +314,18 @@ export async function simCharacter(
         const sim = (request: RaidSimRequest) =>
             pool.sim(request, character.profile).then(dpsOf)
 
-        // The gates before any numbers.
-        const [{ checks: gates, l60Dps, sheet }, db] = await Promise.all([
-            runGates(character, pool),
-            loadItemDb(pool),
-        ])
+        // The gates before any numbers. The item data says how many
+        // weapons there are to sim.
+        const ep = epTable(weights)
+        const [{ checks: gates, l60Dps, sheet }, { db, weaponIds }] =
+            await Promise.all([
+                runGates(character, pool),
+                loadItemDb(pool).then((db) => {
+                    const ids = weaponsToSim(character, db, ep)
+                    plannedLess(WEAPON_SIMS - ids.length)
+                    return { db, weaponIds: ids }
+                }),
+            ])
         const failedGates = gates.filter((c) => !c.passed)
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
@@ -287,8 +336,6 @@ export async function simCharacter(
         // sanity sims run: the pool's workers stay busy. The plan's numbers
         // are kept only when every sanity gate passes.
         const names = (id: number) => db.items.get(id)?.name
-        const ep = epTable(weights)
-        const weaponIds = weaponsToSim(character, db, ep)
         const longDps = (singles: SimmedFight[]) =>
             singles.find((f) => f.result.fight_id === DEFAULT_FIGHT)!.player.dps
                 ?.avg ?? 0
@@ -335,8 +382,10 @@ export async function simCharacter(
                     weaponDps.map(([id, dps]) => [id, dps - wornLong])
                 )
                 const planned = planMaxDamage(character, db, ep, gains)
-                if (sameGear(planned.gear, character.gear))
+                if (sameGear(planned.gear, character.gear)) {
+                    plannedLess(planCalls(level))
                     return { planned, planSims: undefined }
+                }
                 const planSheet = sheetFromSim(
                     await pool.sheet(
                         buildRequest(character, DEFAULT_FIGHT, {

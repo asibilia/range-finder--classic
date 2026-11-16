@@ -6,9 +6,9 @@
   "level_max": 34,
   "sim": {
     "upstream_commit": "47205c966132ef52b5d12cef97dac6ebe017190c",
-    "patch_id": "f3f73564efb2"
+    "patch_id": "a43c1c3bae80"
   },
-  "made_at": "2026-11-16T07:34:51.794Z",
+  "made_at": "2026-11-16T20:50:53.994Z",
   "reference": "testchar-l30.json",
   "fights": [
     {

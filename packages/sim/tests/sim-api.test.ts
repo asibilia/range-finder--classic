@@ -10,12 +10,18 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { loadSim, SimError } from '../src'
+import { ensureSimBuild } from './helpers/sim-build'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
-const REPO_ROOT = join(PACKAGE_DIR, '../..')
 const BASE = pathToFileURL(join(PACKAGE_DIR, 'build') + '/')
 const L60_DPS = 819.0224561454966
 const UPSTREAM_COMMIT = '47205c966132ef52b5d12cef97dac6ebe017190c'
+
+/** The commit in `UPSTREAM.md`'s table: its `| Commit | `<hash>` |` row. */
+function upstreamDocCommit(): string | undefined {
+    const doc = readFileSync(join(PACKAGE_DIR, 'UPSTREAM.md'), 'utf8')
+    return /^\|\s*Commit\s*\|\s*`([0-9a-f]{40})`\s*\|/m.exec(doc)?.[1]
+}
 
 type Sim = Awaited<ReturnType<typeof loadSim>>
 type SimRequest = Parameters<Sim['sim']>[0]
@@ -93,15 +99,8 @@ const STAT = {
 let sim: Sim
 
 beforeAll(async () => {
-    const build = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
-    if (build.exitCode !== 0) {
-        console.error(build.stdout.toString() + build.stderr.toString())
-        throw new Error('bun run sim:build failed')
-    }
+    // Always built: these check what the current Go code does.
+    ensureSimBuild({ always: true })
     sim = await loadSim({ base: BASE })
 }, 600_000)
 
@@ -261,5 +260,16 @@ describe('version() under Bun', () => {
         expect(version.upstream_commit).toBe(UPSTREAM_COMMIT)
         expect(version.patch_id).toMatch(/^[0-9a-f]{12}$/)
         expect(version.go_version).toMatch(/^go\d+\.\d+/)
+    }, 60_000)
+
+    test("names the commit in UPSTREAM.md's table, as build/version.json does", async () => {
+        const commit = upstreamDocCommit()
+        expect(commit).toMatch(/^[0-9a-f]{40}$/)
+        const version = (await sim.version()) as unknown as Version
+        expect(version.upstream_commit).toBe(commit!)
+        const built = JSON.parse(
+            readFileSync(join(PACKAGE_DIR, 'build/version.json'), 'utf8')
+        ) as { upstream_commit: string }
+        expect(built.upstream_commit).toBe(commit!)
     }, 60_000)
 })

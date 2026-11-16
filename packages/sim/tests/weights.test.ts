@@ -22,6 +22,7 @@ import { pathToFileURL } from 'node:url'
 import * as simApi from '../src'
 import { createSimPool, loadSim, type SimPool, type WeightsFile } from '../src'
 import { scanForLeaks } from '../src/leak-scan'
+import { ensureSimBuild } from './helpers/sim-build'
 
 /** Read through the namespace, so each test fails alone until it exists. */
 const readWeightsFile = (input: unknown): unknown =>
@@ -91,23 +92,11 @@ function assertFresh(files: [string, Json][], version: SimStamp): void {
 
 let pool: SimPool | undefined
 
-/** Runs `sim:build` once if the build has no worker or no weights yet. */
-function ensureBuild(): void {
-    if (
-        existsSync(join(BUILD, 'worker.js')) &&
-        existsSync(join(BUILD, 'weights', BAND_FILE))
-    )
-        return
-    const build = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
+/** Runs `sim:build` if the build has no worker, version or weights yet. */
+const ensureBuild = () =>
+    ensureSimBuild({
+        needs: ['worker.js', 'version.json', `weights/${BAND_FILE}`],
     })
-    if (build.exitCode !== 0) {
-        console.error(build.stdout.toString() + build.stderr.toString())
-        throw new Error('bun run sim:build failed')
-    }
-}
 
 afterAll(() => {
     pool?.close()

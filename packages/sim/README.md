@@ -31,8 +31,10 @@ the armory planner can sim a character on the player's own computer.
   `loader.ts` is the only module that fetches. The leak guard
   (`src/leak-scan.ts`, `scanForLeaks`) reads files with `node:fs`, so it
   isn't in the entry: its Bun-only users import it directly.
-- `scripts/`: `build.ts` (`sim:build`), `go-check.ts` (`sim:go`) and
-  `add-fixture.ts` (`sim:add-fixture`).
+- `scripts/`: `build.ts` (`sim:build`), `go-check.ts` (`sim:go`),
+  `add-fixture.ts` (`sim:add-fixture`), and `pin.ts`, which reads what
+  names a build: the upstream commit from `UPSTREAM.md` and the patch id
+  of the Go.
 - `fixtures/`: test inputs under neutral names, such as upstream's level-60
   test request and its expected DPS.
 - `fixtures/buff-filter-nov15-format7.json` and `.md`: what the gear sim's
@@ -55,7 +57,7 @@ must be installed.
 
 | Script | What it does |
 | --- | --- |
-| `bun run sim:build` | Builds `upstream/sim/wasm` to WASM with `-tags with_db`, gzipped, into the git-ignored `build/` (`lib.wasm.gz`), with Go's own `wasm_exec.js`, the item data JSON and `version.json` (its `patch_id` is also compiled in) |
+| `bun run sim:build` | Builds `upstream/sim/wasm` to WASM with `-tags with_db` and `-trimpath` (no build machine paths in the module), gzipped, into the git-ignored `build/` (`lib.wasm.gz`), with Go's own `wasm_exec.js`, the item data JSON and `version.json` (its `upstream_commit`, read from `UPSTREAM.md`, and `patch_id` are also compiled in) |
 | `bun run sim:go` | `gofmt -l` over our own Go, `go vet ./sim/wasm/...`, and `go test -tags with_db` of the patched packages (`sim/core/spelldata`, `sim/shaman`) |
 | `bun run sim:test` | The package's tests (they build the sim when they need it) |
 | `bun run type-check:sim` | `tsc -b` on this package's composite `tsconfig.json` |

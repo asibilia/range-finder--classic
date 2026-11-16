@@ -3,7 +3,7 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import type { RaidSimRequest } from '@goturbo/sim'
+import { STAT, type RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
 import type { Character, Gear, SheetBuffs } from './character'
@@ -14,9 +14,7 @@ import { allScenarios, mobArmor, type Scenario } from './scenarios'
 const STORMSTRIKE_TALENT = { tree: 1, index: 11 }
 
 /** The sim's stats arrays run to health, the last a mob needs. */
-const MOB_STATS = 30
-const MOB_ARMOR = 27
-const MOB_HEALTH = 29
+const MOB_STATS = STAT.health + 1
 
 export type RequestOptions = {
     seed: number
@@ -105,8 +103,8 @@ export function buildRequest(
     }
 
     const stats = new Array<number>(MOB_STATS).fill(0)
-    stats[MOB_ARMOR] = mobArmor(scenario.target_level)
-    stats[MOB_HEALTH] = 10_000_000
+    stats[STAT.armor] = mobArmor(scenario.target_level)
+    stats[STAT.health] = 10_000_000
     const level = scenario.target_level
 
     const simOptions: Record<string, unknown> = {

@@ -28,8 +28,10 @@ import (
 // profile travels with each call: it's applied before the run and the level 60 tables are put back
 // after, so a call with no profile runs at level 60, exactly as upstream.
 
-// The WoWSims Forever commit vendored in packages/sim/upstream (UPSTREAM.md).
-const upstreamCommit = "47205c966132ef52b5d12cef97dac6ebe017190c"
+// upstreamCommit is the WoWSims Forever commit vendored in packages/sim/upstream: sim:build sets it
+// from UPSTREAM.md's table, the commit's one place, with -ldflags "-X main.upstreamCommit=<commit>".
+// A build without it reports unknown.
+var upstreamCommit = "unknown"
 
 // patchID names the Go this module was built from: sim:build sets it with
 // -ldflags "-X main.patchID=<id>". A build without it reports dev.

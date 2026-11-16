@@ -7,6 +7,7 @@ import type { SimPool } from '@goturbo/sim'
 
 import type { ResultsFile, Slot, Stat } from '../results-file'
 import type { Character } from './character'
+import { STAT_STEPS } from './weights'
 
 export type DbItem = {
     id: number
@@ -252,18 +253,13 @@ function weaponSlots(item: DbItem): Slot[] {
     return []
 }
 
-/** The proto `Stat` index each weighed stat reads on an item. */
-const ITEM_STAT: Partial<Record<Stat, number>> = {
-    strength: 0,
-    agility: 1,
-    intellect: 3,
-    spell_damage: 5,
-    spirit: 13,
-    attack_power: 14,
-    hit_rating: 17,
-    crit_rating: 18,
-    mana_per_5: 31,
-}
+/**
+ * The weighed stats an item carries, with the proto `Stat` index each
+ * reads, in that index's order. Weapon DPS is the item's own, below.
+ */
+const ITEM_STATS = STAT_STEPS.filter((step) => step.index >= 0).sort(
+    (a, b) => a.index - b.index
+)
 
 /** An item's EP: its stats (and weapon DPS) by the given EP per stat. */
 export function itemEp(
@@ -273,9 +269,8 @@ export function itemEp(
     if (!item) return 0
     const scaling = item.scalingOptions?.['0']
     let total = 0
-    for (const [stat, index] of Object.entries(ITEM_STAT))
-        total +=
-            (scaling?.stats?.[String(index)] ?? 0) * (ep.get(stat as Stat) ?? 0)
+    for (const { stat, index } of ITEM_STATS)
+        total += (scaling?.stats?.[String(index)] ?? 0) * (ep.get(stat) ?? 0)
     if (item.type === ITEM_TYPE.weapon)
         total += (scaling?.unroundedDps ?? 0) * (ep.get('weapon_dps') ?? 0)
     return total

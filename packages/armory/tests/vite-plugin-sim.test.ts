@@ -5,12 +5,14 @@
  * sends it one request.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer, type Plugin, type ViteDevServer } from 'vite'
+
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 
 const REPO_ROOT = join(import.meta.dir, '../../..')
 const SIM_BUILD = join(REPO_ROOT, 'packages/sim/build')
@@ -27,18 +29,7 @@ type Connect = (
 let server: ViteDevServer | undefined
 let root: string | undefined
 
-beforeAll(() => {
-    if (existsSync(join(SIM_BUILD, 'lib.wasm.gz'))) return
-    const build = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
-    if (build.exitCode !== 0) {
-        console.error(build.stdout.toString() + build.stderr.toString())
-        throw new Error('bun run sim:build failed')
-    }
-}, 600_000)
+beforeAll(() => ensureSimBuild(), 600_000)
 
 /** Starts a Vite dev server, in middleware mode, with only the plugin. */
 async function startServer(): Promise<ViteDevServer> {

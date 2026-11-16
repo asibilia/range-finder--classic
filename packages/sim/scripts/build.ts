@@ -2,9 +2,11 @@
  * `bun run sim:build`: builds the vendored WoWSims to WASM into the
  * git-ignored `packages/sim/build/`:
  *
- * - `lib.wasm.gz`: `GOOS=js GOARCH=wasm go build -tags with_db -ldflags
- *   "-w -s" ./sim/wasm`, gzipped at level 9. Only the gzip ships: the raw
- *   module is over Cloudflare's 25 MiB limit per static asset.
+ * - `lib.wasm.gz`: `GOOS=js GOARCH=wasm go build -trimpath -tags with_db
+ *   -ldflags "-w -s" ./sim/wasm`, gzipped at level 9. Only the gzip ships:
+ *   the raw module is over Cloudflare's 25 MiB limit per static asset.
+ *   `-trimpath` keeps the build machine's folders out of the module (Go
+ *   records every source file's path, even with `-w -s`).
  * - `wasm_exec.js`, copied from the same Go toolchain (it must match).
  * - The item data the TypeScript side reads, from `upstream/assets/database/`.
  * - `buffs.json`, the stats of the buffs in the vendored spell data
@@ -13,59 +15,27 @@
  *   (upstream's talent trees), `l60-test.in.json` (the level-60 gate's
  *   request) and `weights/` (from `packages/sim/weights/`, when it exists).
  * - `version.json`: `{ upstream_commit, patch_id, go_version, l60_expected_dps }`.
- *   `patch_id` is also compiled in (`-X main.patchID`), so `turboVersion()`
- *   names the Go the module was built from.
+ *   The commit (from `UPSTREAM.md`, its one place) and `patch_id` are also
+ *   compiled in (`-X main.upstreamCommit`, `-X main.patchID`), so
+ *   `turboVersion()` names the code the module was built from.
  */
-import { createHash } from 'node:crypto'
 import {
     copyFileSync,
     cpSync,
     existsSync,
     mkdirSync,
-    readdirSync,
     readFileSync,
     rmSync,
     writeFileSync,
 } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join } from 'node:path'
 
+import { patchId, UPSTREAM, upstreamCommit } from './pin'
 import { writeBuffs } from './write-buffs'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
-const UPSTREAM = join(PACKAGE_DIR, 'upstream')
 const BUILD = join(PACKAGE_DIR, 'build')
 const ITEM_DATA = ['db.json', 'leftover_db.json', 'item_first_seen.json']
-const UPSTREAM_COMMIT = '47205c966132ef52b5d12cef97dac6ebe017190c'
-
-/** Every file under `dir` whose name ends in one of `extensions`. */
-function filesUnder(dir: string, extensions: string[]): string[] {
-    return readdirSync(dir, { recursive: true, withFileTypes: true })
-        .filter(
-            (entry) =>
-                entry.isFile() &&
-                extensions.some((ext) => entry.name.endsWith(ext))
-        )
-        .map((entry) => join(entry.parentPath, entry.name))
-}
-
-/**
- * The first 12 hex digits of a SHA-256 over every `.go` and `.proto` file
- * under `upstream/sim` and `upstream/proto`, sorted by path: each file's
- * path (relative to `upstream/`, with `/`), a NUL byte, then its contents.
- */
-function patchId(): string {
-    const paths = ['sim', 'proto']
-        .flatMap((dir) => filesUnder(join(UPSTREAM, dir), ['.go', '.proto']))
-        .map((path) => relative(UPSTREAM, path).split(sep).join('/'))
-        .sort()
-    const hash = createHash('sha256')
-    for (const path of paths) {
-        hash.update(path)
-        hash.update('\0')
-        hash.update(readFileSync(join(UPSTREAM, path)))
-    }
-    return hash.digest('hex').slice(0, 12)
-}
 
 function go(args: string[], env: Record<string, string> = {}): string {
     const result = Bun.spawnSync(['go', ...args], {
@@ -84,15 +54,17 @@ function go(args: string[], env: Record<string, string> = {}): string {
 
 mkdirSync(BUILD, { recursive: true })
 
+const commit = upstreamCommit()
 const patch = patchId()
 const raw = join(BUILD, 'lib.wasm')
 go(
     [
         'build',
+        '-trimpath',
         '-tags',
         'with_db',
         '-ldflags',
-        `-w -s -X main.patchID=${patch}`,
+        `-w -s -X main.upstreamCommit=${commit} -X main.patchID=${patch}`,
         '-o',
         raw,
         './sim/wasm',
@@ -146,7 +118,7 @@ const expected = JSON.parse(
     readFileSync(join(PACKAGE_DIR, 'fixtures/l60-test.expected.json'), 'utf8')
 ) as { dps: number }
 const version = {
-    upstream_commit: UPSTREAM_COMMIT,
+    upstream_commit: commit,
     patch_id: patch,
     go_version: go(['env', 'GOVERSION']).trim(),
     l60_expected_dps: expected.dps,

@@ -4,14 +4,14 @@
  * jobs, cancels them, counts progress and times each call.
  */
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { createSimPool, loadSim, SimCancelled } from '../src'
+import { ensureSimBuild } from './helpers/sim-build'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
-const REPO_ROOT = join(PACKAGE_DIR, '../..')
 const BUILD = join(PACKAGE_DIR, 'build')
 const BASE = pathToFileURL(BUILD + '/')
 
@@ -57,18 +57,7 @@ function pool(options: { size?: number } = {}): Pool {
     return made
 }
 
-beforeAll(() => {
-    if (existsSync(join(BUILD, 'worker.js'))) return
-    const build = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
-    if (build.exitCode !== 0) {
-        console.error(build.stdout.toString() + build.stderr.toString())
-        throw new Error('bun run sim:build failed')
-    }
-}, 600_000)
+beforeAll(() => ensureSimBuild(), 600_000)
 
 afterEach(() => {
     for (const made of open.splice(0)) made.close()

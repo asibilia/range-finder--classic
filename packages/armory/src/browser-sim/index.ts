@@ -16,7 +16,6 @@ export {
     EXPORT_FORMATS,
     EXPORT_SLOTS,
     EXPORT_VARIABLE,
-    exportStopMessage,
     IMBUES,
     readExport,
     talentString,

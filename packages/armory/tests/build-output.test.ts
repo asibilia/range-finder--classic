@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
 import { nodeVersionProblem, readNodeVersion } from './node-version'
 
@@ -143,17 +144,7 @@ beforeAll(() => {
     if (nodeProblem) throw new Error(nodeProblem)
 
     // The armory build copies the sim's build; Luca's checks don't build it.
-    if (!existsSync(join(SIM_BUILD, 'worker.js'))) {
-        const sim = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-            cwd: REPO_ROOT,
-            stdout: 'pipe',
-            stderr: 'pipe',
-        })
-        if (sim.exitCode !== 0) {
-            console.error(sim.stdout.toString() + sim.stderr.toString())
-            throw new Error('bun run sim:build failed')
-        }
-    }
+    ensureSimBuild()
 
     const result = Bun.spawnSync([process.execPath, 'run', 'build:armory'], {
         cwd: REPO_ROOT,

@@ -77,7 +77,11 @@ read would close the gap.
    `sim/core/proto/.gitignore` again.
 2. Regenerate `sim/core/proto/*.pb.go` from `proto/` with the pinned
    `protoc` and `protoc-gen-go` (or pin newer ones, and update this file).
-3. Update the commit and date here, and the Go version in CI follows
+3. Update the commit and date in the table above, and the commit in
+   `README.md`. The table's Commit row is the commit's one place in the
+   code: `sim:build` reads it from there into `build/version.json` and
+   compiles it into the module (`-X main.upstreamCommit`), so
+   `turboVersion()` names it. The Go version in CI follows
    `upstream/go.mod`.
 4. Re-apply the level-aware patch, then our per-call profile changes on top
    of it (the files listed above: take them from
@@ -86,3 +90,7 @@ read would close the gap.
 5. Run `bun run sim:build`, `bun run sim:go` and `bun run sim:test`, and
    add any innocent new leak guard matches to `leak-allow.txt` with a
    reason.
+6. Run `bun run sim:weights`: each weights file names the commit and patch
+   id it was simmed on, and a test fails until they match the build. The
+   tests pinning upstream's commit (`tests/sim-api.test.ts`,
+   `tests/weights.test.ts`) name it too: update them with it.

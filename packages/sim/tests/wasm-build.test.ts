@@ -6,7 +6,10 @@
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { hostname, userInfo } from 'node:os'
 import { join } from 'node:path'
+
+import { ensureSimBuild } from './helpers/sim-build'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const REPO_ROOT = join(PACKAGE_DIR, '../..')
@@ -17,6 +20,16 @@ const L60_REQUEST = join(PACKAGE_DIR, 'fixtures/l60-test.in.json')
 const L60_DPS = 819.0224561454966
 /** Cloudflare's limit per static asset. */
 const MAX_ASSET_BYTES = 25 * 1024 * 1024
+/** The leak guard's home-path pattern (spec section 7). */
+const HOME_PATH = /(\/Users\/|\/home\/|[A-Za-z]:[\\/]Users[\\/])[^/\\\s]+/
+/** Everyday names the leak guard skips (CI's user is `runner`). */
+const COMMON_NAMES = ['runner', 'root', 'user', 'admin', 'ubuntu', 'localhost']
+
+/** `name` as a whole word, ignoring case, as the leak guard matches it. */
+function wholeWord(name: string): RegExp {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`, 'i')
+}
 
 type GoRuntime = {
     importObject: WebAssembly.Imports
@@ -31,23 +44,12 @@ type RaidSimResult = {
     raidMetrics: { parties: { players: { dps: { avg: number } }[] }[] }
 }
 
-let buildExitCode: number | null = null
-let buildOutput = ''
-
-beforeAll(() => {
-    const result = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
-        cwd: REPO_ROOT,
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
-    buildExitCode = result.exitCode
-    buildOutput = result.stdout.toString() + result.stderr.toString()
-}, 600_000)
+// This file is about the build itself: it always builds, and a failed
+// build fails every test here, with the build's output.
+beforeAll(() => ensureSimBuild({ always: true }), 600_000)
 
 describe('sim:build', () => {
     test('writes lib.wasm.gz under 25 MiB and wasm_exec.js, which git ignores', () => {
-        if (buildExitCode !== 0) console.error(buildOutput)
-        expect(buildExitCode).toBe(0)
         expect(existsSync(WASM_GZ)).toBe(true)
         expect(existsSync(WASM_EXEC)).toBe(true)
         expect(statSync(WASM_GZ).size).toBeLessThan(MAX_ASSET_BYTES)
@@ -78,6 +80,25 @@ describe('sim:build', () => {
         expect(readFileSync(WASM_EXEC, 'utf8')).toBe(
             readFileSync(original!, 'utf8')
         )
+    })
+
+    test('lib.wasm.gz holds no home path and no user or host name of the machine that built it', () => {
+        const wasm = Buffer.from(
+            Bun.gunzipSync(new Uint8Array(readFileSync(WASM_GZ)))
+        ).toString('latin1')
+        // Only the kind is reported, never the matched value.
+        const found: string[] = []
+        if (HOME_PATH.test(wasm)) found.push('home path')
+        const names: [string, string][] = [
+            ['user name', userInfo().username],
+            ['host name', hostname()],
+        ]
+        for (const [kind, name] of names) {
+            if (name.length < 4 || COMMON_NAMES.includes(name.toLowerCase()))
+                continue
+            if (wholeWord(name).test(wasm)) found.push(kind)
+        }
+        expect(found).toEqual([])
     })
 })
 

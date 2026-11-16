@@ -5,20 +5,28 @@
  * stop. The character is Testchar's (`testcharCharacter(pool)`, from
  * `packages/sim/tests/helpers/testchar.ts`) until #83.
  */
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { createSimPool, type SimPool } from '@goturbo/sim'
 
-import { readResultsFile } from '../src/results-file'
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import {
+    testcharCharacter,
+    type TestcharCharacter,
+} from '../../sim/tests/helpers/testchar'
+import {
+    buildRequest,
+    simCharacter,
+    type SimOutcome,
+    type StatWeights,
+} from '../src/browser-sim'
+import { readResultsFile, type ResultsFile } from '../src/results-file'
 
 const ARMORY = join(import.meta.dir, '..')
 const SIM_DIR = join(ARMORY, '../sim')
 const BASE = pathToFileURL(join(SIM_DIR, 'build') + '/')
-
-type Json = Record<string, unknown>
-type Outcome = Json & { kind: string }
 
 const SINGLE_FIGHTS = ['solo-hit-short', 'dungeon-short', 'dungeon-long']
 const ALL_FIGHTS = [...SINGLE_FIGHTS, 'chain-solo']
@@ -40,68 +48,45 @@ function pool(): SimPool {
     return made
 }
 
+beforeAll(() => ensureSimBuild(), 600_000)
+
 afterAll(() => {
     for (const made of pools.splice(0)) made.close()
 })
 
 /** The results file's stat_weights array from the first real file. */
-async function sampleWeights(): Promise<unknown[]> {
-    const sample = (await Bun.file(
+async function sampleWeights(): Promise<StatWeights> {
+    const sample: ResultsFile = await Bun.file(
         join(ARMORY, 'src/sample-truncha-first-run.json')
-    ).json()) as { stat_weights: unknown[] }
+    ).json()
     return sample.stat_weights
 }
 
-async function testchar(on: SimPool): Promise<Json> {
-    const { testcharCharacter } =
-        await import('../../sim/tests/helpers/testchar')
-    return (await testcharCharacter(on)) as unknown as Json
-}
-
-async function run(
-    character: Json,
-    weights: unknown[],
+function run(
+    character: TestcharCharacter,
+    weights: StatWeights,
     on: SimPool
-): Promise<Outcome> {
-    const { simCharacter } = await import('../src/browser-sim')
-    const outcome = await (
-        simCharacter as unknown as (
-            c: unknown,
-            w: unknown,
-            p: SimPool,
-            progress: (done: number, planned: number) => void
-        ) => Promise<unknown>
-    )(character, weights, on, () => {})
-    return outcome as Outcome
+): Promise<SimOutcome> {
+    return simCharacter(character, weights, on, () => {})
 }
 
 /** One passing run of Testchar, shared by the tests that read its file. */
-let passing: Promise<{ character: Json; outcome: Outcome }> | undefined
+let passing:
+    Promise<{ character: TestcharCharacter; outcome: SimOutcome }> | undefined
 function passingRun() {
     passing ??= (async () => {
         const on = pool()
-        const character = await testchar(on)
+        const character = await testcharCharacter(on)
         const outcome = await run(character, await sampleWeights(), on)
         return { character, outcome }
     })()
     return passing
 }
 
-type Check = { name: string; passed: boolean; detail: string }
-type File = {
-    made_at: string
-    provisional: boolean
-    checks: Check[]
-    fights: { fight_id: string }[]
-    results: { gear: string; fight_id: string }[]
-    plans: { plan_id: string; gear: Record<string, number | null> }[]
-    slots: { alternatives: { item: { item_id: number } }[] }[]
-    left_out_items?: { item_id: number }[]
-}
-
-function fileOf(outcome: Outcome): File {
+function fileOf(outcome: SimOutcome): ResultsFile {
     expect(outcome.kind).toBe('file')
-    return outcome.file as File
+    if (outcome.kind !== 'file') throw new Error(`a ${outcome.kind} stop`)
+    return outcome.file
 }
 
 describe('simCharacter on Testchar with the real WASM', () => {
@@ -131,8 +116,8 @@ describe('simCharacter on Testchar with the real WASM', () => {
             await sampleWeights(),
             pool()
         )
-        const withoutMadeAt = (file: File) => {
-            const copy: Partial<File> = structuredClone(file)
+        const withoutMadeAt = (file: ResultsFile) => {
+            const copy: Partial<ResultsFile> = structuredClone(file)
             delete copy.made_at
             return copy
         }
@@ -169,23 +154,16 @@ describe('simCharacter on Testchar with the real WASM', () => {
 
 describe('the ported request builder', () => {
     test("with Testchar, seed 23 and 2000 iterations, gives the fixture's recorded DPS on the three single fights within 1e-9 relative", async () => {
-        const { buildRequest } = await import('../src/browser-sim')
         const fixture = (await Bun.file(
             join(SIM_DIR, 'fixtures/testchar-l30.json')
         ).json()) as { fights: { fight_id: string; worn_dps: number }[] }
         const on = pool()
-        const character = await testchar(on)
-        const build = buildRequest as unknown as (
-            c: unknown,
-            fightId: string,
-            options: { seed: number; iterations: number }
-        ) => Parameters<SimPool['sim']>[0]
-        const profile = character.profile as Parameters<SimPool['sim']>[1]
+        const character = await testcharCharacter(on)
         for (const id of SINGLE_FIGHTS) {
             const expected = fixture.fights.find((f) => f.fight_id === id)!
             const result = (await on.sim(
-                build(character, id, { seed: 23, iterations: 2000 }),
-                profile
+                buildRequest(character, id, { seed: 23, iterations: 2000 }),
+                character.profile
             )) as {
                 raidMetrics: {
                     parties: { players: { dps: { avg: number } }[] }[]
@@ -202,27 +180,24 @@ describe('the ported request builder', () => {
 describe('simCharacter stops and leaves out', () => {
     test('a sheet with Strength 10 higher than the sim says returns a gates stop naming sheet strength, and no file', async () => {
         const on = pool()
-        const character = structuredClone(await testchar(on))
-        const sheet = character.sheet as Record<string, number>
-        sheet.strength = sheet.strength! + 10
+        const character = structuredClone(await testcharCharacter(on))
+        character.sheet.strength += 10
         const outcome = await run(character, await sampleWeights(), on)
         expect(outcome.kind).toBe('gates')
         expect(outcome).not.toHaveProperty('file')
-        const failed = outcome.failed as Check[]
-        const strength = failed.find((c) => c.name === 'sheet strength')
+        if (outcome.kind !== 'gates') throw new Error('not a gates stop')
+        const strength = outcome.failed.find((c) => c.name === 'sheet strength')
         expect(strength).toBeDefined()
         expect(strength!.passed).toBe(false)
     }, 1_200_000)
 
     test('a Warrior with every talent point in Arms returns an unsupported stop before any sim or sheet call', async () => {
         const real = pool()
-        const character = structuredClone(await testchar(real))
+        const character = structuredClone(await testcharCharacter(real))
         character.class = 'Warrior'
-        const profile = character.profile as Json | undefined
-        if (profile && typeof profile === 'object')
-            profile.class = 'ClassWarrior'
+        character.profile.class = 'ClassWarrior'
         // Every point moves into the first tree, Arms.
-        character.talents = String(character.talents).replace(/-/g, '')
+        character.talents = character.talents.replace(/-/g, '')
 
         const calls: string[] = []
         const counting: SimPool = {
@@ -249,7 +224,7 @@ describe('simCharacter stops and leaves out', () => {
 
     test('an unconfirmed item (no source, no level requirement) is in left_out_items, never in alternatives or the plan', async () => {
         const real = pool()
-        const character = await testchar(real)
+        const character = await testcharCharacter(real)
         // A leather helm far better than anything worn, that no source
         // confirms and that needs no level.
         const madeUp = {

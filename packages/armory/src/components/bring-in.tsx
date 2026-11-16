@@ -6,7 +6,7 @@
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
-import { exportStopMessage, type SimStop } from '../browser-sim'
+import type { SimStop } from '../browser-sim'
 import { withArticle } from '../format'
 import { SCHEMA_VERSION } from '../results-file'
 import { PHONE_NOTE } from './sim-progress'
@@ -26,25 +26,42 @@ export const EXPORT_AGAIN =
 
 /**
  * What the page says for a run that stopped before it made a file, one
- * line each.
+ * line each. The browser sim's stops carry data only: every word the
+ * player reads about one is here.
  *
  * @param stop - The stop.
  * @returns The lines.
  */
 export function stopLines(stop: SimStop): string[] {
-    if (stop.kind === 'unsupported')
-        return [
-            `The sim covers Enhancement Shaman only for now. Your character is ${withArticle(`${stop.spec} ${stop.class}`)}.`,
-        ]
-    if (stop.kind === 'gates') {
-        const lines = stop.failed.map(
-            (check) => `Failed: ${check.name}. ${check.detail}`
-        )
-        if (stop.failed.some((check) => check.name.startsWith('sheet ')))
-            lines.push(EXPORT_AGAIN)
-        return lines
+    switch (stop.kind) {
+        case 'unsupported':
+            return [
+                `The sim covers Enhancement Shaman only for now. Your character is ${withArticle(`${stop.spec} ${stop.class}`)}.`,
+            ]
+        case 'buffed':
+            return [
+                `Your export was saved with buffs up that the sim can't model: ${stop.buffs.join(', ')}. Remove them, type /tbexport in the game, then /reload, and drop the new file.`,
+            ]
+        case 'format':
+            return [
+                `This export is format ${stop.format}. The page reads formats ${stop.accepted.join(', ')}. Update the Turbo addon and export again.`,
+            ]
+        case 'gates': {
+            const lines = stop.failed.map(
+                (check) => `Failed: ${check.name}. ${check.detail}`
+            )
+            if (stop.failed.some((check) => check.name.startsWith('sheet ')))
+                lines.push(EXPORT_AGAIN)
+            return lines
+        }
+        default: {
+            // A new kind of stop fails the type-check until it has words.
+            const unworded: never = stop
+            throw new Error(
+                `No words for the stop ${JSON.stringify(unworded)}.`
+            )
+        }
     }
-    return [exportStopMessage(stop) ?? '']
 }
 
 function StopMessage({ stop }: { stop: SimStop }) {

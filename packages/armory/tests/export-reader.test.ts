@@ -6,7 +6,7 @@
  * with the real WASM. Exports are written by `exportFromCharacter` from
  * Testchar (`testcharCharacter(pool)`) until #83.
  */
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -17,23 +17,36 @@ import {
     type SimPool,
 } from '@goturbo/sim'
 
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import {
+    testcharCharacter,
+    type TestcharCharacter,
+} from '../../sim/tests/helpers/testchar'
+import {
+    buildRequest,
+    parseSavedVariables,
+    readExport,
+    simExport,
+    type Character,
+    type ExportRead,
+    type SimExportOutcome,
+} from '../src/browser-sim'
+import type { ResultsFile } from '../src/results-file'
+import { exportFromCharacter } from './helpers/export-from-character'
+
 const ARMORY = join(import.meta.dir, '..')
 const SIM_DIR = join(ARMORY, '../sim')
 const BASE = pathToFileURL(join(SIM_DIR, 'build') + '/')
 const BUFFED = join(SIM_DIR, 'fixtures/truncha-export-buffed.lua')
-const EXPORT_HELPER = './helpers/export-from-character'
 
 /** Buffs the sim can model: one from `buffs.json`, and Kings (the sim's own). */
 const MARK_OF_THE_WILD = { name: 'Mark of the Wild', spellID: 5232 }
 const BLESSING_OF_KINGS = { name: 'Blessing of Kings', spellID: 20217 }
 
 type Json = Record<string, unknown>
-type Read = Json & { kind: string; character?: Json }
 type Buff = { name: string; spellID: number }
-type SimExportRun = Json & {
-    kind: string
-    file?: Json & { sheet_buffed?: boolean; checks: Json[] }
-}
+
+beforeAll(() => ensureSimBuild(), 600_000)
 
 const pools: SimPool[] = []
 function pool(): SimPool {
@@ -46,60 +59,23 @@ afterAll(() => {
     for (const made of pools.splice(0)) made.close()
 })
 
-const BROWSER_SIM = '../src/browser-sim'
-const TESTCHAR_HELPER = '../../sim/tests/helpers/testchar'
-
-type BrowserSim = {
-    parseSavedVariables: (text: string) => Json
-    readExport: (text: string, pool: SimPool) => Promise<Read>
-    simExport: (
-        text: string,
-        pool: SimPool,
-        onProgress: (done: number, planned: number) => void
-    ) => Promise<SimExportRun>
-    buildRequest: (
-        character: unknown,
-        fight: string,
-        options: {
-            seed: number
-            iterations: number
-            sheetBuffs?: { stats: number[]; kings: boolean }
-        }
-    ) => RaidSimRequest
+/** The character an export read into; a stop fails the test. */
+function characterOf(read: ExportRead): Character {
+    expect(read.kind).toBe('character')
+    if (read.kind !== 'character') throw new Error(`a ${read.kind} stop`)
+    return read.character
 }
 
-async function browserSim(): Promise<BrowserSim> {
-    return (await import(BROWSER_SIM)) as BrowserSim
-}
-
-async function parse(text: string): Promise<Json> {
-    return (await browserSim()).parseSavedVariables(text)
-}
-
-async function read(text: string, on: SimPool): Promise<Read> {
-    return (await browserSim()).readExport(text, on)
-}
-
-type TestcharHelper = { testcharCharacter: (pool: SimPool) => Promise<Json> }
-
-async function testchar(on: SimPool): Promise<Json> {
-    const helper = (await import(TESTCHAR_HELPER)) as TestcharHelper
-    return helper.testcharCharacter(on)
+/** The file a run made; a stop fails the test. */
+function fileOf(run: SimExportOutcome): ResultsFile {
+    expect(run.kind).toBe('file')
+    if (run.kind !== 'file') throw new Error(`a ${run.kind} stop`)
+    return run.file
 }
 
 /** Text with CRLF line endings, as the game writes SavedVariables. */
 function crlf(text: string): string {
     return text.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-}
-
-async function exportOf(
-    character: Json,
-    sheet: unknown = character.sheet
-): Promise<string> {
-    const helper = (await import(EXPORT_HELPER)) as unknown as {
-        exportFromCharacter: (character: unknown, sheet: unknown) => string
-    }
-    return helper.exportFromCharacter(character, sheet)
 }
 
 /**
@@ -144,59 +120,49 @@ function logging(real: SimPool, log: CallLog): SimPool {
 
 /** The one player a request sims. */
 function playerOf(request: RaidSimRequest): Json {
-    const raid = (request as unknown as Json).raid as {
-        parties: { players: Json[] }[]
-    }
+    const raid = request.raid as { parties: { players: Json[] }[] }
     return raid.parties[0]!.players[0]!
 }
 
-let buffedMemo:
-    | Promise<{
-          on: SimPool
-          character: Json
-          markStats: number[]
-          sheet: { strength: number }
-          plain: string
-          buffed: string
-      }>
-    | undefined
 /**
  * Testchar's export with no buffs, and the same export saved with Mark of
  * the Wild and Blessing of Kings up: its sheet is the sim's sheet with those
  * buffs (`pool.sheet` with `sheetBuffs`), as the game would show it.
  */
-function buffedExports() {
-    buffedMemo ??= (async () => {
-        const on = pool()
-        const { buildRequest } = await browserSim()
-        const character = await testchar(on)
-        const known = (await on.data('buffs.json')) as Record<
-            string,
-            { stats: number[] }
-        >
-        const markStats = known[String(MARK_OF_THE_WILD.spellID)]!.stats
-        const sheet = sheetFromSim(
-            await on.sheet(
-                buildRequest(character, 'dungeon-long', {
-                    seed: 23,
-                    iterations: 4000,
-                    sheetBuffs: { stats: markStats, kings: true },
-                }),
-                character.profile as never
-            )
+async function makeBuffedExports() {
+    const on = pool()
+    const character = await testcharCharacter(on)
+    const known = (await on.data('buffs.json')) as Record<
+        string,
+        { stats: number[] }
+    >
+    const markStats = known[String(MARK_OF_THE_WILD.spellID)]!.stats
+    const sheet = sheetFromSim(
+        await on.sheet(
+            buildRequest(character, 'dungeon-long', {
+                seed: 23,
+                iterations: 4000,
+                sheetBuffs: { stats: markStats, kings: true },
+            }),
+            character.profile
         )
-        return {
-            on,
-            character,
-            markStats,
-            sheet,
-            plain: await exportOf(character),
-            buffed: withBuffs(await exportOf(character, sheet), [
-                MARK_OF_THE_WILD,
-                BLESSING_OF_KINGS,
-            ]),
-        }
-    })()
+    )
+    return {
+        on,
+        character,
+        markStats,
+        sheet,
+        plain: exportFromCharacter(character, character.sheet),
+        buffed: withBuffs(exportFromCharacter(character, sheet), [
+            MARK_OF_THE_WILD,
+            BLESSING_OF_KINGS,
+        ]),
+    }
+}
+
+let buffedMemo: ReturnType<typeof makeBuffedExports> | undefined
+function buffedExports() {
+    buffedMemo ??= makeBuffedExports()
     return buffedMemo
 }
 
@@ -218,9 +184,9 @@ function counting(real: SimPool, calls: string[]): SimPool {
 }
 
 /** Gear without its empty slots. */
-function worn(gear: unknown): Json {
+function worn(gear: object): Json {
     return Object.fromEntries(
-        Object.entries((gear ?? {}) as Json).filter(([, item]) => item != null)
+        Object.entries(gear).filter(([, item]) => item != null)
     )
 }
 
@@ -287,48 +253,51 @@ const MADE_UP_OBJECTS = {
 }
 
 describe('parseSavedVariables', () => {
-    test('reads a made-up SavedVariables file into the objects spelled out by hand: nil left out, inf and nan as null, arrays keep their numbering', async () => {
-        expect(await parse(MADE_UP)).toEqual(MADE_UP_OBJECTS)
+    test('reads a made-up SavedVariables file into the objects spelled out by hand: nil left out, inf and nan as null, arrays keep their numbering', () => {
+        expect(parseSavedVariables(MADE_UP)).toEqual(MADE_UP_OBJECTS)
     })
 
-    test('reads the made-up file with CRLF line endings, and a backslash-CRLF escape, into the same objects', async () => {
-        expect(await parse(crlf(MADE_UP))).toEqual(MADE_UP_OBJECTS)
+    test('reads the made-up file with CRLF line endings, and a backslash-CRLF escape, into the same objects', () => {
+        expect(parseSavedVariables(crlf(MADE_UP))).toEqual(MADE_UP_OBJECTS)
         const wrapped = 'Wrapped = "one\\\r\ntwo"\r\n'
-        expect(await parse(wrapped)).toEqual({ Wrapped: 'one\ntwo' })
+        expect(parseSavedVariables(wrapped)).toEqual({ Wrapped: 'one\ntwo' })
     })
 
     test('reads fixtures/truncha-export-buffed.lua without error', async () => {
         const text = await Bun.file(BUFFED).text()
-        const vars = await parse(text)
+        const vars = parseSavedVariables(text)
         expect(Object.keys(vars).length).toBeGreaterThan(0)
         for (const value of Object.values(vars))
             expect(typeof value).toBe('object')
-        expect(await parse(crlf(text))).toEqual(vars)
+        expect(parseSavedVariables(crlf(text))).toEqual(vars)
     })
 })
 
 describe('readExport', () => {
     test("exportFromCharacter(Testchar, its sheet) read back gives Testchar's character: same level, gear, known spells and profile after calibration", async () => {
         const on = pool()
-        const plain = await testchar(on)
+        const plain = await testcharCharacter(on)
         // Testchar knows no spells; give it a few active ones (Lightning
         // Bolt, Earth Shock, Stormstrike), so the sheet stays the same.
         const spells = [403, 8042, 17364]
-        const character: Json = {
+        const character: TestcharCharacter = {
             ...plain,
             known_spells: spells,
-            profile: { ...(plain.profile as Json), knownSpells: spells },
+            profile: { ...plain.profile, knownSpells: spells },
         }
-        const outcome = await read(await exportOf(character), on)
-        expect(outcome.kind).toBe('character')
-        const back = outcome.character!
+        const back = characterOf(
+            await readExport(
+                exportFromCharacter(character, character.sheet),
+                on
+            )
+        )
         expect(back.level).toBe(character.level)
         expect(worn(back.gear)).toEqual(worn(character.gear))
         expect(back.known_spells).toEqual(spells)
-        expect((back.profile as Json).knownSpells).toEqual(spells)
+        expect(back.profile.knownSpells).toEqual(spells)
 
-        const expected = character.profile as Json
-        const got = back.profile as Json
+        const expected: Json = character.profile
+        const got: Json = back.profile
         const fields = Object.keys(expected).filter((key) => key !== 'source')
         for (const key of fields) {
             const want = expected[key]
@@ -342,24 +311,20 @@ describe('readExport', () => {
         const text = await Bun.file(BUFFED).text()
         const buffs = /\["buffs"\] = \{\s*\{[^{}]*\},\s*\},/
         expect(text).toMatch(buffs)
-        const outcome = await read(
-            text.replace(buffs, '["buffs"] = {\n},'),
-            pool()
+        const character = characterOf(
+            await readExport(text.replace(buffs, '["buffs"] = {\n},'), pool())
         )
-        expect(outcome.kind).toBe('character')
-        const character = outcome.character!
         expect(character.level).toBe(32)
         expect(character).not.toHaveProperty('character_key')
         expect(character.calibrated_spell_crit).toBe(true)
-        const profile = character.profile as Json
-        expect(profile.baseHealth).toBeCloseTo(670, 0)
-        expect(profile.baseMana).toBeCloseTo(733, 0)
-        expect(profile.spellCritPerInt).toBeCloseTo(0.0333, 3)
+        expect(character.profile.baseHealth).toBeCloseTo(670, 0)
+        expect(character.profile.baseMana).toBeCloseTo(733, 0)
+        expect(character.profile.spellCritPerInt).toBeCloseTo(0.0333, 3)
     }, 600_000)
 
     test("fixtures/truncha-export-buffed.lua returns a buffed stop naming Warchief's Blessing, and no sim or sheet runs", async () => {
         const calls: string[] = []
-        const outcome = await read(
+        const outcome = await readExport(
             await Bun.file(BUFFED).text(),
             counting(pool(), calls)
         )
@@ -372,15 +337,17 @@ describe('readExport', () => {
 
     test('an export of format 99 returns a format stop naming 99 and the formats the reader takes, before any sim or sheet call', async () => {
         const real = pool()
-        const text = await exportOf(await testchar(real))
+        const character = await testcharCharacter(real)
+        const text = exportFromCharacter(character, character.sheet)
         const formatField = /((?:\b\w*format\w*|\["\w*format\w*"\])\s*=\s*)7\b/i
         expect(text).toMatch(formatField)
         const calls: string[] = []
-        const outcome = await read(
+        const outcome = await readExport(
             text.replace(formatField, '$199'),
             counting(real, calls)
         )
         expect(outcome.kind).toBe('format')
+        if (outcome.kind !== 'format') throw new Error('not a format stop')
         expect(outcome.format).toBe(99)
         expect(outcome.accepted).toContain(7)
         expect(outcome.accepted).not.toContain(99)
@@ -389,24 +356,20 @@ describe('readExport', () => {
 
     test('an all-zero characterKey gives a character with no character_key, while a real key is kept', async () => {
         const on = pool()
-        const character = await testchar(on)
-        const zero = await read(
-            await exportOf({
-                ...character,
-                character_key: '00000000000000000000000000000000',
-            }),
-            on
+        const character = await testcharCharacter(on)
+        const keyed = (key: string) =>
+            exportFromCharacter(
+                { ...character, character_key: key },
+                character.sheet
+            )
+        const zero = characterOf(
+            await readExport(keyed('00000000000000000000000000000000'), on)
         )
-        expect(zero.kind).toBe('character')
-        expect(zero.character).not.toHaveProperty('character_key')
+        expect(zero).not.toHaveProperty('character_key')
 
         const key = 'a1b2c3d4e5f60718293a4b5c6d7e8f90'
-        const real = await read(
-            await exportOf({ ...character, character_key: key }),
-            on
-        )
-        expect(real.kind).toBe('character')
-        expect(real.character!.character_key).toBe(key)
+        const real = characterOf(await readExport(keyed(key), on))
+        expect(real.character_key).toBe(key)
     }, 600_000)
 })
 
@@ -415,19 +378,13 @@ describe('an export saved with buffs the sim can model', () => {
         const { on, character, markStats, sheet, plain, buffed } =
             await buffedExports()
         // The buffs changed the sheet the export carries.
-        expect(sheet.strength).toBeGreaterThan(
-            (character.sheet as { strength: number }).strength
-        )
+        expect(sheet.strength).toBeGreaterThan(character.sheet.strength)
 
-        const withThem = await read(buffed, on)
-        const without = await read(plain, on)
-        expect(withThem.kind).toBe('character')
-        expect(without.kind).toBe('character')
-        expect(without.character).not.toHaveProperty('sheet_buffs')
-        const buffs = withThem.character!.sheet_buffs as {
-            stats: number[]
-            kings: boolean
-        }
+        const withThem = characterOf(await readExport(buffed, on))
+        const without = characterOf(await readExport(plain, on))
+        expect(without).not.toHaveProperty('sheet_buffs')
+        expect(withThem.sheet_buffs).toBeDefined()
+        const buffs = withThem.sheet_buffs!
         expect(buffs.kings).toBe(true)
         expect(buffs.stats.slice(0, markStats.length)).toEqual(markStats)
         expect(buffs.stats.slice(markStats.length).every((v) => v === 0)).toBe(
@@ -436,18 +393,15 @@ describe('an export saved with buffs the sim can model', () => {
 
         // Calibration ran with the buffs, so they didn't land in the bases
         // (each sheet is rounded to whole points, hence within 1).
-        const got = withThem.character!.profile as Json
-        const want = without.character!.profile as Json
-        for (const field of ['baseHealth', 'baseMana']) {
+        for (const field of ['baseHealth', 'baseMana'] as const) {
             const gap = Math.abs(
-                (got[field] as number) - (want[field] as number)
+                withThem.profile[field] - without.profile[field]
             )
             expect([field, gap <= 1]).toEqual([field, true])
         }
     }, 600_000)
 
     test('with the real WASM, that export passes every sheet gate, gives a file with sheet_buffed true, plans the extra unbuffed sheet in pool.batch, and sends the same fight requests as the export with no buffs', async () => {
-        const { simExport } = await browserSim()
         const { on, markStats, plain, buffed } = await buffedExports()
         const plainLog: CallLog = { sims: [], sheets: [], batches: [] }
         const buffedLog: CallLog = { sims: [], sheets: [], batches: [] }
@@ -457,14 +411,13 @@ describe('an export saved with buffs the sim can model', () => {
             logging(on, buffedLog),
             () => {}
         )
-        expect(plainRun.kind).toBe('file')
-        expect(buffedRun.kind).toBe('file')
+        const plainFile = fileOf(plainRun)
+        const file = fileOf(buffedRun)
 
-        const file = buffedRun.file!
         expect(file.sheet_buffed).toBe(true)
-        expect(plainRun.file!.sheet_buffed).toBe(false)
+        expect(plainFile.sheet_buffed).toBe(false)
         const sheetGates = file.checks.filter((check) =>
-            String(check.name).startsWith('sheet ')
+            check.name.startsWith('sheet ')
         )
         expect(sheetGates.map((check) => check.name)).toContain(
             'sheet strength'
@@ -484,12 +437,10 @@ describe('an export saved with buffs the sim can model', () => {
             expect(bonus.stats.slice(0, markStats.length)).toEqual(markStats)
         }
 
-        // The gates' extra sheet (with no buffs) is planned and run.
-        expect(plainLog.batches).toHaveLength(2)
-        expect(buffedLog.batches).toEqual([
-            plainLog.batches[0],
-            plainLog.batches[1]! + 1,
-        ])
+        // A run plans every call in its one batch: the gates' extra sheet
+        // (with no buffs) is planned up front and run.
+        expect(plainLog.batches).toHaveLength(1)
+        expect(buffedLog.batches).toEqual([plainLog.batches[0]! + 1])
         expect(buffedLog.sheets).toHaveLength(plainLog.sheets.length + 1)
 
         // The fights sim the character with no buffs: the same requests.

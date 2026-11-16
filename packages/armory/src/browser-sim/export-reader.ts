@@ -24,8 +24,8 @@ import type {
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT } from './scenarios'
 import { FIGHT_ITERATIONS, FIGHT_SEED } from './session'
-import { SUPPORTED } from './sim-character'
-import { specOf, talentTrees, type TalentTree } from './talents'
+import { SUPPORTED, supportedSpec } from './sim-character'
+import { talentTrees, type TalentTree } from './talents'
 import { parseSavedVariables, type SavedValue } from './saved-variables'
 
 /** The export formats this reader takes. */
@@ -33,6 +33,9 @@ export const EXPORT_FORMATS: readonly number[] = [7]
 
 /** The SavedVariables table the export addon writes. */
 export const EXPORT_VARIABLE = 'TurboCharExportDB'
+
+/** The calls `calibrate` makes: one sheet run. */
+export const CALIBRATION_CALLS = 1
 
 /** The worn slots, by the game's inventory slot and the export's name. */
 export const EXPORT_SLOTS: readonly {
@@ -353,8 +356,9 @@ function readProfile(
  * each moved by the gap to the game's sheet (both are linear in it). When
  * the game answered 0 for spell crit per Intellect, the run goes without it
  * and the gap to the game's spell crit is spread over the sim's Intellect.
+ * It makes `CALIBRATION_CALLS` calls.
  */
-async function calibrate(
+export async function calibrate(
     character: Character,
     pool: SimPool
 ): Promise<Character> {
@@ -447,10 +451,11 @@ function sheetBuffs(buffs: Table[], known: KnownBuffs): SheetBuffs | null {
 export type ExportRead = { kind: 'character'; character: Character } | SimStop
 
 /**
- * Reads a `TurboCharExport.lua` into a calibrated character, or a stop.
- * The format, class and spec, and buff stops come before any sim runs.
+ * Reads a `TurboCharExport.lua` into its character before calibration, or
+ * a stop: the format, class and spec, and buff stops. It runs no sim, so
+ * a run can plan its sims once it has the character.
  */
-export async function readExport(
+export async function exportCharacter(
     text: string,
     pool: SimPool
 ): Promise<ExportRead> {
@@ -464,16 +469,10 @@ export async function readExport(
 
     const identity = table(db.identity)
     const cls = className(str(identity.class))
-    let trees: TalentTree[] = []
-    try {
-        trees = await talentTrees(pool, cls)
-    } catch {
-        // A class the sim has no talent trees for.
-    }
+    const trees = await talentTrees(pool, cls)
     const talents = talentString(list(table(db.talents).traits), trees)
-    const spec = specOf(talents, trees)
-    if (cls !== SUPPORTED.class || spec !== SUPPORTED.spec)
-        return { kind: 'unsupported', class: cls, spec }
+    const { stop } = supportedSpec(cls, talents, trees)
+    if (stop) return stop
 
     const buffs = list(db.buffs).map(table)
     let modelled: SheetBuffs | null = null
@@ -516,14 +515,21 @@ export async function readExport(
         export_saved_at: new Date(savedAt * 1000).toISOString(),
         game_build: str(identity.gameBuild),
     }
-    return { kind: 'character', character: await calibrate(character, pool) }
+    return { kind: 'character', character }
 }
 
-/** What the page says for a stop the export reader makes. */
-export function exportStopMessage(stop: SimStop): string | null {
-    if (stop.kind === 'buffed')
-        return `Your export was saved with buffs up that the sim can't model: ${stop.buffs.join(', ')}. Remove them, type /tbexport in the game, then /reload, and drop the new file.`
-    if (stop.kind === 'format')
-        return `This export is format ${stop.format}. The page reads formats ${stop.accepted.join(', ')}. Update the Turbo addon and export again.`
-    return null
+/**
+ * Reads a `TurboCharExport.lua` into a calibrated character, or a stop.
+ * The format, class and spec, and buff stops come before any sim runs.
+ */
+export async function readExport(
+    text: string,
+    pool: SimPool
+): Promise<ExportRead> {
+    const read = await exportCharacter(text, pool)
+    if (read.kind !== 'character') return read
+    return {
+        kind: 'character',
+        character: await calibrate(read.character, pool),
+    }
 }

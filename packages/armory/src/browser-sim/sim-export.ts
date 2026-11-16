@@ -10,11 +10,17 @@ import { SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'
-import { readExport } from './export-reader'
+import { calibrate, CALIBRATION_CALLS, exportCharacter } from './export-reader'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT, scenariosFor } from './scenarios'
 import { FIGHT_SEED } from './session'
-import { gateCalls, runGates, simCharacter, SUPPORTED } from './sim-character'
+import {
+    characterCalls,
+    gateCalls,
+    runGates,
+    simCharacter,
+    SUPPORTED,
+} from './sim-character'
 import {
     simStatWeights,
     weightSeeds,
@@ -83,25 +89,48 @@ function settings(options: WeightsOptions) {
     }
 }
 
+/** The sims simming a character's weights makes with `options`. */
+function yourWeightsCalls(character: Character, options: WeightsOptions) {
+    const { seeds } = settings(options)
+    return weightsSims(scenariosFor(character.level).length, seeds.length)
+}
+
+/** The calls the gates and the warm-up make before weights are simmed. */
+function beforeYourWeightsCalls(character: Character): number {
+    return gateCalls(character) + 1
+}
+
 /**
- * One run on the pool: progress counted across the run's batches, its
- * iterations and time added up, and a `cancel()` on the pool (which
- * listeners hear as `(0, 0)`) turned into `SimCancelled` for the run.
+ * One run on the pool, its stages counted as one: `begin(total)` starts
+ * the pool's one batch for the whole run, with every stage's calls
+ * planned up front (the most each can make), so a stage's own `batch()`
+ * only marks where its count starts. `expect(remaining)` lowers the plan
+ * when a stage learns it needs fewer calls. The fraction done the run
+ * reports never goes back, and it ends at its planned count. A `cancel()`
+ * on the pool (heard as `(0, 0)`) becomes `SimCancelled` for the run.
  */
 function startRun(pool: SimPool, onProgress: Progress) {
     let cancelled = false
-    let started = false
-    let offset = 0
-    let lastDone = 0
-    const totals = { iterations: 0, ms: 0 }
-    const unsubscribe = pool.onProgress((done, planned) => {
+    let begun = false
+    /** The calls `begin` planned. */
+    let planned = 0
+    /** Calls the run planned and has since learned it won't make. */
+    let cut = 0
+    let done = 0
+    /** The planned count the pool's progress last said. */
+    let poolPlanned = 0
+    /** Where the current stage's count starts, and the calls it plans. */
+    let stage = { start: 0, planned: 0 }
+    const report = () => onProgress(done, Math.max(done, poolPlanned - cut))
+    const unsubscribe = pool.onProgress((count, of) => {
         if (cancelled) return
-        if (done === 0 && planned === 0) {
+        if (count === 0 && of === 0) {
             cancelled = true
             return
         }
-        lastDone = done
-        onProgress(offset + done, offset + planned)
+        done = count
+        poolPlanned = of
+        report()
     })
     const guard = <T>(value: T): T => {
         if (cancelled) throw new SimCancelled()
@@ -118,34 +147,53 @@ function startRun(pool: SimPool, onProgress: Progress) {
             cancelled
                 ? Promise.reject(new SimCancelled())
                 : pool.sheet(request, profile).then(guard),
-        batch(planned) {
-            // Before the run's first batch, the pool's stats are an earlier
-            // run's: only the run's own batches count.
-            if (started) {
-                const stats = pool.stats()
-                totals.iterations += stats.iterations
-                totals.ms += stats.ms
-            }
-            started = true
-            offset += lastDone
-            lastDone = 0
-            pool.batch(planned)
+        stats: () =>
+            begun ? pool.stats() : { calls: 0, iterations: 0, ms: 0 },
+        // The run's one batch counts and times every stage.
+        batch(count) {
+            stage = { start: done, planned: count }
         },
-        // The run forwards progress itself.
-        onProgress: () => () => {},
+        // A stage hears its own count, from where it started.
+        onProgress(callback) {
+            return pool.onProgress((count, of) =>
+                count === 0 && of === 0
+                    ? callback(0, 0)
+                    : callback(count - stage.start, stage.planned)
+            )
+        },
     }
     return {
         pool: guarded,
         check: () => guard(undefined),
+        /** Starts the run's count of `total` calls, from 0, and its timing. */
+        begin(total: number) {
+            guard(undefined)
+            begun = true
+            planned = total
+            poolPlanned = total
+            pool.batch(total)
+            report()
+        },
+        /** The run makes at most `remaining` calls more. */
+        expect(remaining: number) {
+            if (cancelled) return
+            const more = planned - done - remaining - cut
+            if (more <= 0) return
+            cut += more
+            report()
+        },
+        /** The run made its last call: the count ends at its plan. */
+        finish() {
+            if (cancelled) return
+            done = Math.max(done, poolPlanned - cut)
+            report()
+        },
         totals() {
-            const stats = started
-                ? pool.stats()
-                : { calls: 0, iterations: 0, ms: 0 }
-            const iterations = totals.iterations + stats.iterations
-            const ms = totals.ms + stats.ms
+            const stats = guarded.stats()
             return {
-                iterations,
-                msPerIteration: iterations > 0 ? ms / iterations : 0,
+                iterations: stats.iterations,
+                msPerIteration:
+                    stats.iterations > 0 ? stats.ms / stats.iterations : 0,
             }
         },
         end: unsubscribe,
@@ -162,7 +210,7 @@ async function simYourWeights(
 ): Promise<StatWeights> {
     const { seeds, iterations } = settings(options)
     const fights = scenariosFor(character.level)
-    run.pool.batch(weightsSims(fights.length, seeds.length))
+    run.pool.batch(yourWeightsCalls(character, options))
     const simmed = await simStatWeights(character, run.pool, fights, {
         seeds,
         iterations,
@@ -178,7 +226,7 @@ async function beforeYourWeights(
     run: Run,
     character: Character
 ): Promise<SimStop | { kind: 'passed'; msPerIteration: number }> {
-    run.pool.batch(gateCalls(character) + 1)
+    run.pool.batch(beforeYourWeightsCalls(character))
     const { checks } = await runGates(character, run.pool)
     run.check()
     const failed = checks.filter((c) => !c.passed)
@@ -239,13 +287,24 @@ async function precomputed(
     })
 }
 
-/** Worn gear and the plan ranked by `weights`, the weights stamped in. */
+/**
+ * Worn gear and the plan ranked by `weights`, the weights stamped in. It
+ * is a run's last stage: what `simCharacter` plans is all the run has
+ * left.
+ */
 async function simWithWeights(
     run: Run,
     character: Character,
     weights: StatWeights
 ): Promise<SimExportOutcome> {
-    const outcome = await simCharacter(character, weights, run.pool, () => {})
+    const outcome = await simCharacter(
+        character,
+        weights,
+        run.pool,
+        (done, planned) => {
+            if (planned > 0) run.expect(planned - done)
+        }
+    )
     run.check()
     if (outcome.kind !== 'file') return outcome
     const sources = new Map(weights.map((w) => [w.fight_id, w.source]))
@@ -259,6 +318,7 @@ async function simWithWeights(
     const read = readResultsFile(file)
     if (!read.ok)
         throw new Error("The browser sim made a file the page can't read.")
+    run.finish()
     return { kind: 'file', file: read.file, character, ...run.totals() }
 }
 
@@ -267,7 +327,9 @@ async function simWithWeights(
  * then worn gear and the max damage plan, ranked by the precomputed
  * weights for the band. With none, the gates run first, then the weights
  * are simmed on the device (`options` sets their seeds and iterations, and
- * `options.onWeightsFirst` hears the estimate).
+ * `options.onWeightsFirst` hears the estimate). Every call the run can
+ * make is planned once the export is read, so the progress counts the
+ * whole run.
  */
 export async function simExport(
     text: string,
@@ -277,13 +339,22 @@ export async function simExport(
 ): Promise<SimExportOutcome> {
     const run = startRun(pool, onProgress)
     try {
-        // The calibration sheet.
-        run.pool.batch(1)
-        const read = await readExport(text, run.pool)
+        const read = await exportCharacter(text, run.pool)
         run.check()
         if (read.kind !== 'character') return read
-        const character = read.character
-        let weights = await precomputed(run.pool, character)
+        let weights = await precomputed(run.pool, read.character)
+        run.check()
+        // Every call the run can make: calibration, the gates, warm-up and
+        // weights when there's no file for the band, then gear and the plan.
+        run.begin(
+            CALIBRATION_CALLS +
+                (weights
+                    ? 0
+                    : beforeYourWeightsCalls(read.character) +
+                      yourWeightsCalls(read.character, options)) +
+                characterCalls(read.character, weights)
+        )
+        const character = await calibrate(read.character, run.pool)
         run.check()
         if (!weights) {
             const ready = await beforeYourWeights(run, character)
@@ -320,6 +391,10 @@ export async function refine(
 ): Promise<SimExportOutcome> {
     const run = startRun(pool, onProgress)
     try {
+        run.begin(
+            yourWeightsCalls(character, options) +
+                characterCalls(character, null)
+        )
         const weights = await simYourWeights(run, character, options)
         run.check()
         return await simWithWeights(run, character, weights)

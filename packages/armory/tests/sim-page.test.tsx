@@ -11,7 +11,7 @@
 import './dom'
 import { readingLabels, sentence, variant } from './open-app'
 
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import {
@@ -35,6 +35,7 @@ import {
     type SimVersion,
 } from '@goturbo/sim'
 
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { App } from '../src/app'
 import { level60Check } from '../src/browser-sim'
@@ -340,6 +341,9 @@ function stubMatchMedia(phone: boolean): void {
             value: stub,
         })
 }
+
+// The fake pool reads the data files, version and weights from the build.
+beforeAll(() => ensureSimBuild(), 600_000)
 
 afterEach(() => {
     cleanup()
