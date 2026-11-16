@@ -16,6 +16,8 @@ export type Owner = { name: string; guid: string }
 export type ScanOptions = {
     /** The owner's identity. Defaults to `fixtures/owner.json` when it exists. */
     owner?: Owner
+    /** Where to read the owner from when `owner` isn't given. Defaults to `fixtures/owner.json`. */
+    ownerFile?: string
     /** The machine-words file. Defaults to `packages/sim/.machine-words`. */
     machineWordsFile?: string
     /** The computer's names. Defaults to its user name and host name. */
@@ -62,8 +64,9 @@ function escapeRegExp(text: string): RegExp {
 
 function readOwner(options: ScanOptions): Owner | undefined {
     if (options.owner) return options.owner
-    if (!existsSync(OWNER_JSON)) return undefined
-    return JSON.parse(readFileSync(OWNER_JSON, 'utf8')) as Owner
+    const file = options.ownerFile ?? OWNER_JSON
+    if (!existsSync(file)) return undefined
+    return JSON.parse(readFileSync(file, 'utf8')) as Owner
 }
 
 function readMachineWords(file: string): string[] | undefined {

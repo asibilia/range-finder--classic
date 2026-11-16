@@ -31,6 +31,18 @@ cd packages/sim/upstream
 GOOS=js GOARCH=wasm go list -deps -tags with_db ./sim/wasm
 ```
 
+## Upstream's Go tests
+
+Most of upstream's Go tests load gear sets, APLs and builds from
+`ui/specs/` (and a few read other `ui/` files or import `ui/worker`), which
+aren't vendored. CI's `sim-go-test` job therefore runs
+`go test -tags with_db` only on the packages whose tests read nothing but
+the vendored parts: `sim/shaman` (not its specs), `sim/common/...`,
+`sim/encounters/...` and `sim/core/{spelldata,stats,dbcenums,bulk,buffs}/...`.
+The class and spec packages (Enhancement included) and `sim/core` itself
+aren't tested there. Vendoring `ui/specs/` and the other `ui/` files they
+read would close the gap.
+
 ## Moving the pin
 
 1. Copy the parts above from the new upstream commit over `upstream/`,

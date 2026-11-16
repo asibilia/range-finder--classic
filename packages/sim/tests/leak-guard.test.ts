@@ -21,7 +21,6 @@ import { scanForLeaks } from '../src/leak-scan'
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const REPO_ROOT = join(PACKAGE_DIR, '../..')
 const LEAK_SCAN = join(PACKAGE_DIR, 'src/leak-scan.ts')
-const OWNER_JSON = join(PACKAGE_DIR, 'fixtures/owner.json')
 const OWNER = { name: 'Truncha', guid: 'Player-1-0000000A' }
 const KINDS = [
     'home path',
@@ -210,17 +209,15 @@ describe('what the guard says', () => {
         expect(output).toContain('RESULT ["home path"]')
     })
 
-    test.skipIf(existsSync(OWNER_JSON))(
-        'with no owner and no owner.json it skips the other player check and says so',
-        () => {
-            const root = plant({ 'other.txt': 'guid Player-1-0000000B' })
-            const output = runScan(
-                `const found = scanForLeaks([${JSON.stringify(root)}], { machineWordsFile: ${JSON.stringify(noWordsFile())} })\n` +
-                    `console.log('RESULT ' + JSON.stringify(found))`
-            )
-            expect(output).toContain('RESULT []')
-            expect(output).toMatch(/other player/i)
-            expect(output).toMatch(/skip/i)
-        }
-    )
+    test('with no owner and no owner.json it skips the other player check and says so', () => {
+        const root = plant({ 'other.txt': 'guid Player-1-0000000B' })
+        const noOwnerFile = join(root, 'no-owner.json')
+        const output = runScan(
+            `const found = scanForLeaks([${JSON.stringify(root)}], { machineWordsFile: ${JSON.stringify(noWordsFile())}, ownerFile: ${JSON.stringify(noOwnerFile)} })\n` +
+                `console.log('RESULT ' + JSON.stringify(found))`
+        )
+        expect(output).toContain('RESULT []')
+        expect(output).toMatch(/other player/i)
+        expect(output).toMatch(/skip/i)
+    })
 })

@@ -71,7 +71,10 @@ jobs:
                   go-version-file: packages/sim/upstream/go.mod
                   cache-dependency-path: packages/sim/upstream/go.sum
 
-            - run: go test -tags with_db ./sim/...
+            # Only the packages whose tests read nothing but the vendored
+            # parts: the rest load gear sets, APLs and builds from upstream's
+            # ui/specs/, which isn't vendored (see packages/sim/UPSTREAM.md).
+            - run: go test -tags with_db $(go list -tags with_db ./sim/... | grep -E '/sim/(shaman|(common|encounters|core/(spelldata|stats|dbcenums|bulk|buffs))(/.*)?)$')
 
     # Packages the addon the way release.yml does, uploading nothing, and
     # fails if anything outside the addon folder got into the zip.
