@@ -33,6 +33,15 @@ export {
 } from './scenarios'
 export { FIGHT_ITERATIONS, FIGHT_SEED, simSession, simSingle } from './session'
 export { simCharacter, SUPPORTED, type SimOutcome } from './sim-character'
+export {
+    estimateMinutes,
+    refine,
+    simExport,
+    WEIGHTS_DEFAULTS,
+    weightsIterations,
+    type SimExportOutcome,
+    type WeightsOptions,
+} from './sim-export'
 export { specOf, talentTrees } from './talents'
 export {
     epTable,

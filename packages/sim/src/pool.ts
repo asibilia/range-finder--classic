@@ -46,7 +46,10 @@ export type SimPool = {
     stats(): SimStats
     /** Starts a count of `planned` calls, from 0, and the call timing. */
     batch(planned: number): void
-    /** Called with `(done, planned)` after each `sim` or `sheet` call. */
+    /**
+     * Called with `(done, planned)` after each `sim` or `sheet` call, and
+     * with `(0, 0)` when `cancel()` resets the count.
+     */
     onProgress(callback: (done: number, planned: number) => void): () => void
     /** Drops queued calls and stops running ones: they reject. */
     cancel(): void
@@ -308,6 +311,9 @@ export function createSimPool({
             done = 0
             planned = 0
             stats = { calls: 0, iterations: 0, ms: 0 }
+            // The count is reset: listeners hear (0, 0), so a run with no
+            // call in flight still learns it was cancelled.
+            for (const listener of [...listeners]) listener(0, 0)
         },
         close() {
             closed = true

@@ -46,6 +46,7 @@
     "sim:add-fixture": "bun packages/sim/scripts/add-fixture.ts",
     "sim:build": "bun packages/sim/scripts/build.ts",
     "sim:go": "bun packages/sim/scripts/go-check.ts",
+    "sim:record": "bun run sim:build && bun packages/armory/scripts/record-sim.ts",
     "sim:test": "bun test --isolate packages/sim",
     "sim:weights": "bun run sim:build && bun packages/armory/scripts/write-weights.ts",
     "syncpack:check": "bunx syncpack lint",
