@@ -1,0 +1,656 @@
+package core
+
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"runtime"
+	"runtime/debug"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/wowsims/forever/sim/core/proto"
+	"github.com/wowsims/forever/sim/core/simsignals"
+)
+
+type Task interface {
+	RunTask(sim *Simulation) time.Duration
+}
+
+type Simulation struct {
+	*Environment
+
+	Options *proto.SimOptions
+
+	rand          Rand
+	deathRand     Rand // The kill rolls of target deaths, apart from the combat rolls, so gear does not move them.
+	addDebuffRand Rand // The rolls of the add debuff jitter, apart from the combat rolls, so gear does not move them.
+	rseed         int64
+	currentSeed   int64
+
+	aplActionExecuted APLActionHook // Set by RunSimWithAPLHook.
+
+	// Used for testing only, see RandomFloat().
+	isTest    bool
+	testRands map[string]Rand
+
+	// Current Simulation State
+	pendingActions    []*PendingAction
+	pendingActionPool *sync.Pool
+	CurrentTime       time.Duration // duration that has elapsed in the sim since starting
+	Duration          time.Duration // Duration of current iteration
+	NeedsInput        bool          // Sim is in interactive mode and needs input
+
+	ProgressReport func(*proto.ProgressMetrics)
+	Signals        simsignals.Signals
+
+	Log func(string, ...any)
+
+	nextExecuteDuration time.Duration // The earliest execute phase crossing of any target still to come.
+
+	endOfCombatDuration time.Duration
+
+	minTrackerTime time.Duration
+	trackers       []*auraTracker
+
+	minWeaponAttackTime time.Duration
+	weaponAttacks       []*WeaponAttack
+
+	minTaskTime time.Duration
+	tasks       []Task
+
+	movingUnits []*Unit // Units on a walk, whose position advance keeps current.
+
+	isInPrepull bool
+	isResetting bool // A target disabled now starts the iteration disabled, with the raid moved off it at the pull.
+}
+
+func (sim *Simulation) rescheduleTracker(trackerTime time.Duration) {
+	sim.minTrackerTime = min(sim.minTrackerTime, trackerTime)
+}
+
+func (sim *Simulation) addTracker(tracker *auraTracker) {
+	sim.trackers = append(sim.trackers, tracker)
+	sim.rescheduleTracker(tracker.minExpires)
+}
+
+func (sim *Simulation) removeTracker(tracker *auraTracker) {
+	if idx := slices.Index(sim.trackers, tracker); idx != -1 {
+		sim.trackers = removeBySwappingToBack(sim.trackers, idx)
+	}
+}
+
+func (sim *Simulation) rescheduleWeaponAttack(weaponAttackTime time.Duration) {
+	sim.minWeaponAttackTime = min(sim.minWeaponAttackTime, weaponAttackTime)
+}
+
+func (sim *Simulation) addWeaponAttack(weaponAttack *WeaponAttack) {
+	sim.weaponAttacks = append(sim.weaponAttacks, weaponAttack)
+}
+
+func (sim *Simulation) removeWeaponAttack(weaponAttack *WeaponAttack) {
+	if idx := slices.Index(sim.weaponAttacks, weaponAttack); idx != -1 {
+		sim.weaponAttacks = removeBySwappingToBack(sim.weaponAttacks, idx)
+	}
+}
+
+func (sim *Simulation) RescheduleTask(taskTime time.Duration) {
+	sim.minTaskTime = min(sim.minTaskTime, taskTime)
+}
+
+func (sim *Simulation) AddTask(task Task) {
+	sim.tasks = append(sim.tasks, task)
+}
+
+func (sim *Simulation) RemoveTask(task Task) {
+	if idx := slices.Index(sim.tasks, task); idx != -1 {
+		sim.tasks = removeBySwappingToBack(sim.tasks, idx)
+	}
+}
+
+func RunSim(rsr *proto.RaidSimRequest, progress chan *proto.ProgressMetrics, signals simsignals.Signals) *proto.RaidSimResult {
+	return runSim(rsr, progress, false, signals, nil)
+}
+
+// RunSim, calling executed with each action the sim's APLs execute (APLActionHook). The presims do not call it.
+func RunSimWithAPLHook(rsr *proto.RaidSimRequest, signals simsignals.Signals, executed APLActionHook) *proto.RaidSimResult {
+	return runSim(rsr, nil, false, signals, executed)
+}
+
+func runSim(rsr *proto.RaidSimRequest, progress chan *proto.ProgressMetrics, skipPresim bool, signals simsignals.Signals, executed APLActionHook) (result *proto.RaidSimResult) {
+	if !rsr.SimOptions.IsTest {
+		defer func() {
+			if err := recover(); err != nil {
+				errStr := ""
+				switch errt := err.(type) {
+				case string:
+					errStr = errt
+				case error:
+					errStr = errt.Error()
+				}
+
+				errStr += "\nStack Trace:\n" + string(debug.Stack())
+				result = &proto.RaidSimResult{
+					Error: &proto.ErrorOutcome{Message: errStr},
+				}
+				if progress != nil {
+					progress <- &proto.ProgressMetrics{
+						FinalRaidResult: result,
+					}
+				}
+			}
+			if progress != nil {
+				close(progress)
+			}
+		}()
+	}
+
+	sim := NewSim(rsr, signals)
+
+	if !skipPresim {
+		if progress != nil {
+			progress <- &proto.ProgressMetrics{
+				TotalIterations: sim.Options.Iterations,
+				PresimRunning:   true,
+			}
+			runtime.Gosched() // allow time for message to make it back out.
+		}
+		presimResult := sim.runPresims(rsr)
+		if presimResult != nil && presimResult.Error != nil {
+			if progress != nil {
+				progress <- &proto.ProgressMetrics{
+					TotalIterations: sim.Options.Iterations,
+					FinalRaidResult: presimResult,
+				}
+			}
+			return presimResult
+		}
+		if progress != nil {
+			progress <- &proto.ProgressMetrics{
+				TotalIterations: sim.Options.Iterations,
+				PresimRunning:   false,
+			}
+			sim.ProgressReport = func(progMetric *proto.ProgressMetrics) {
+				progress <- progMetric
+			}
+			runtime.Gosched() // allow time for message to make it back out.
+		}
+	}
+
+	sim.aplActionExecuted = executed
+	// using a variable here allows us to mutate it in the deferred recover, sending out error info
+	result = sim.run()
+
+	return result
+}
+
+func NewSim(rsr *proto.RaidSimRequest, signals simsignals.Signals) *Simulation {
+	env, _, _ := NewEnvironment(rsr.Raid, rsr.Encounter, false, false)
+	return newSimWithEnv(env, rsr.SimOptions, signals)
+}
+
+func newSimWithEnv(env *Environment, simOptions *proto.SimOptions, signals simsignals.Signals) *Simulation {
+	rseed := simOptions.RandomSeed
+	if rseed == 0 {
+		rseed = time.Now().UnixNano()
+		simOptions.RandomSeed = rseed
+	}
+
+	return &Simulation{
+		Environment: env,
+		Options:     simOptions,
+
+		rand:          NewSplitMix(uint64(rseed)),
+		deathRand:     NewSplitMix(uint64(deathRandSeed(rseed))),
+		addDebuffRand: NewSplitMix(uint64(addDebuffRandSeed(rseed))),
+		rseed:         rseed,
+		currentSeed:   rseed,
+
+		isTest:    simOptions.IsTest || simOptions.UseLabeledRands,
+		testRands: make(map[string]Rand),
+
+		Signals: signals,
+
+		pendingActionPool: &sync.Pool{
+			New: func() any {
+				return &PendingAction{
+					canPool: true,
+				}
+			},
+		},
+	}
+}
+
+// Returns a random float64 between 0.0 (inclusive) and 1.0 (exclusive).
+//
+// In tests, although we can set the initial seed, test results are still very
+// sensitive to the exact order of RandomFloat() calls. To mitigate this, when
+// testing we use a separate rand object for each RandomFloat callsite,
+// distinguished by the label string.
+func (sim *Simulation) RandomFloat(label string) float64 {
+	return sim.labelRand(label).NextFloat64()
+}
+
+func (sim *Simulation) labelRand(label string) Rand {
+	if !sim.isTest {
+		return sim.rand
+	}
+
+	labelRng, ok := sim.testRands[label]
+	if !ok {
+		// Add rseed to the label, so we still have run-run variance for stat weights.
+		labelRng = NewSplitMix(uint64(makeTestRandSeed(sim.rand.GetSeed(), label)))
+		sim.testRands[label] = labelRng
+	}
+	return labelRng
+}
+
+func (sim *Simulation) reseedRands(i int64) {
+	rseed := sim.Options.RandomSeed + i
+	sim.currentSeed = rseed
+	sim.rand.Seed(rseed)
+	sim.deathRand.Seed(deathRandSeed(rseed))
+	sim.addDebuffRand.Seed(addDebuffRandSeed(rseed))
+
+	if sim.isTest {
+		for label, rng := range sim.testRands {
+			rng.Seed(makeTestRandSeed(rseed, label))
+		}
+	}
+}
+
+func makeTestRandSeed(rseed int64, label string) int64 {
+	return int64(hash(label + strconv.FormatInt(rseed, 16)))
+}
+
+func deathRandSeed(rseed int64) int64 {
+	return makeTestRandSeed(rseed, "Target Death")
+}
+
+func addDebuffRandSeed(rseed int64) int64 {
+	return makeTestRandSeed(rseed, "Add Debuff Jitter")
+}
+
+func (sim *Simulation) RandomExpFloat(label string) float64 {
+	return rand.New(sim.labelRand(label)).ExpFloat64()
+}
+
+// Shorthand for commonly-used RNG behavior.
+// Returns a random number between min and max.
+func (sim *Simulation) Roll(min float64, max float64) float64 {
+	return sim.RollWithLabel(min, max, "Damage Roll")
+}
+func (sim *Simulation) RollWithLabel(min float64, max float64, label string) float64 {
+	return min + (max-min)*sim.RandomFloat(label)
+}
+
+func (sim *Simulation) Proc(p float64, label string) bool {
+	switch {
+	case p >= 1:
+		return true
+	case p <= 0:
+		return false
+	default:
+		return sim.RandomFloat(label) < p
+	}
+}
+
+func (sim *Simulation) Reset() {
+	sim.reset()
+}
+
+func (sim *Simulation) Reseed(seed int64) {
+	sim.reseedRands(seed)
+}
+
+// Run runs the simulation for the configured number of iterations, and
+// collects all the metrics together.
+func (sim *Simulation) run() *proto.RaidSimResult {
+	t0 := time.Now()
+
+	logsBuffer := &strings.Builder{}
+	if sim.Options.Debug || sim.Options.DebugFirstIteration {
+		sim.Log = func(message string, vals ...any) {
+			logsBuffer.WriteString(fmt.Sprintf("[%0.2f] "+message+"\n", append([]any{sim.CurrentTime.Seconds()}, vals...)...))
+		}
+	}
+
+	// Uncomment this to print logs directly to console.
+	// sim.Options.Debug = true
+	// sim.Log = func(message string, vals ...interface{}) {
+	// 	fmt.Printf(fmt.Sprintf("[%0.1f] "+message+"\n", append([]interface{}{sim.CurrentTime.Seconds()}, vals...)...))
+	// }
+
+	sim.runOnce()
+	firstIterationDuration := sim.Duration
+	totalDuration := firstIterationDuration
+
+	if !sim.Options.Debug {
+		sim.Log = nil
+	}
+
+	var st time.Time
+	for i := int32(1); i < sim.Options.Iterations; i++ {
+		if sim.Signals.Abort.IsTriggered() {
+			quitResult := &proto.RaidSimResult{Error: &proto.ErrorOutcome{Type: proto.ErrorOutcomeType_ErrorOutcomeAborted}}
+			if sim.ProgressReport != nil {
+				sim.ProgressReport(&proto.ProgressMetrics{FinalRaidResult: quitResult})
+			}
+			return quitResult
+		}
+
+		// fmt.Printf("Iteration: %d\n", i)
+		if sim.ProgressReport != nil && time.Since(st) > time.Millisecond*100 {
+			metrics := sim.Raid.GetMetrics()
+			sim.ProgressReport(&proto.ProgressMetrics{TotalIterations: sim.Options.Iterations, CompletedIterations: i, Dps: metrics.Dps.Avg, Hps: metrics.Hps.Avg})
+			if IsRunningInWasm() {
+				time.Sleep(time.Microsecond) // Need to sleep to escape the go scheduler in wasm to give the JS event loop a chance to process requests to the worker.
+			} else {
+				runtime.Gosched() // ensure that reporting threads are given time to report, mostly only important in wasm (only 1 thread)
+			}
+			st = time.Now()
+		}
+
+		// Before each iteration, reset state to seed+iterations
+		sim.reseedRands(int64(i))
+
+		sim.runOnce()
+		totalDuration += sim.Duration
+	}
+	result := &proto.RaidSimResult{
+		RaidMetrics:      sim.Raid.GetMetrics(),
+		EncounterMetrics: sim.Encounter.GetMetricsProto(),
+
+		Logs:                   logsBuffer.String(),
+		FirstIterationDuration: firstIterationDuration.Seconds(),
+		AvgIterationDuration:   totalDuration.Seconds() / float64(sim.Options.Iterations),
+		IterationsDone:         sim.Options.Iterations,
+	}
+
+	// Final progress report
+	if sim.ProgressReport != nil {
+		sim.ProgressReport(&proto.ProgressMetrics{TotalIterations: sim.Options.Iterations, CompletedIterations: sim.Options.Iterations, Dps: result.RaidMetrics.Dps.Avg, FinalRaidResult: result})
+	}
+
+	if d := sim.Options.Iterations; d > 3000 {
+		log.Printf("running %d iterations took %s", d, time.Since(t0))
+	}
+
+	return result
+}
+
+// RunOnce is the main event loop. It will run the simulation for number of seconds.
+func (sim *Simulation) runOnce() {
+	sim.isInPrepull = true
+	sim.reset()
+	sim.PrePull()
+	sim.isInPrepull = false
+	sim.runPendingActions()
+	sim.Cleanup()
+}
+
+var (
+	sentinelPendingAction = &PendingAction{
+		NextActionAt: NeverExpires,
+		OnAction: func(sim *Simulation) {
+			panic("running sentinel pending action")
+		},
+	}
+)
+
+// Reset will set sim back and erase all current state.
+// This is automatically called before every 'Run'.
+func (sim *Simulation) reset() {
+	sim.isResetting = true
+	defer func() { sim.isResetting = false }()
+
+	sim.Duration = sim.BaseDuration
+	if sim.DurationVariation != 0 {
+		variation := sim.DurationVariation * 2
+		sim.Duration += time.Duration(sim.RandomFloat("sim duration")*float64(variation)) - sim.DurationVariation
+	}
+
+	sim.pendingActions = sim.pendingActions[:0]
+	sim.pendingActions = append(sim.pendingActions, sentinelPendingAction)
+
+	sim.endOfCombatDuration = sim.Duration
+
+	sim.CurrentTime = 0
+
+	sim.Encounter.resetExecutePhases(sim)
+
+	sim.trackers = sim.trackers[:0]
+	sim.minTrackerTime = NeverExpires
+
+	sim.weaponAttacks = sim.weaponAttacks[:0]
+	sim.minWeaponAttackTime = NeverExpires
+
+	sim.tasks = sim.tasks[:0]
+	sim.minTaskTime = NeverExpires
+
+	sim.movingUnits = sim.movingUnits[:0]
+
+	sim.Environment.reset(sim)
+
+	sim.enableManaTicks()
+}
+
+func (sim *Simulation) PrePull() {
+	if len(sim.prepullActions) > 0 {
+		sim.CurrentTime = sim.prepullActions[0].DoAt
+
+		for i, ppa := range sim.prepullActions {
+			sim.AddPendingAction(&PendingAction{
+				NextActionAt: ppa.DoAt,
+				Priority:     ActionPriorityPrePull + ActionPriority(len(sim.prepullActions)-i),
+				OnAction:     ppa.Action,
+			})
+		}
+	}
+
+	sim.AddPendingAction(&PendingAction{
+		NextActionAt: 0,
+		Priority:     ActionPriorityPrePull + ActionPriority(len(sim.prepullActions)+1),
+		OnAction: func(sim *Simulation) {
+			for _, unit := range sim.Environment.AllUnits {
+				if unit.enabled {
+					unit.onEncounterStart(sim)
+				}
+			}
+
+			for _, unit := range sim.Environment.AllUnits {
+				if unit.enabled {
+					unit.startPull(sim)
+				}
+			}
+			sim.Encounter.moveRaidOffDisabledTargets(sim)
+		},
+	})
+}
+
+func (sim *Simulation) Cleanup() {
+	// The last event loop will leave CurrentTime at some value close to but not
+	// quite at the Duration. Explicitly set this so that accesses to CurrentTime
+	// during the doneIteration phase will return the Duration value, which is
+	// intuitive.
+	sim.CurrentTime = sim.Duration
+
+	for _, pa := range sim.pendingActions {
+		if pa.CleanUp != nil {
+			pa.CleanUp(sim)
+		}
+
+		pa.dispose(sim)
+	}
+
+	sim.Raid.doneIteration(sim)
+	sim.Encounter.doneIteration(sim)
+
+	for _, unit := range sim.Raid.AllUnits {
+		unit.Metrics.doneIteration(unit, sim)
+	}
+	for _, target := range sim.Encounter.AllTargetUnits {
+		target.Metrics.doneIteration(target, sim)
+	}
+}
+
+func (sim *Simulation) runPendingActions() {
+	for {
+		if finished := sim.Step(); finished {
+			return
+		}
+	}
+}
+
+func (sim *Simulation) Step() bool {
+	last := len(sim.pendingActions) - 1
+	pa := sim.pendingActions[last]
+
+	if pa.NextActionAt >= sim.minWeaponAttackTime && sim.minWeaponAttackTime <= sim.minTaskTime {
+		if sim.minWeaponAttackTime > sim.endOfCombatDuration {
+			return true
+		}
+		sim.advanceWeaponAttacks()
+		return false
+	}
+
+	if pa.NextActionAt >= sim.minTaskTime {
+		if sim.minTaskTime > sim.endOfCombatDuration {
+			return true
+		}
+		sim.advanceTasks()
+		return false
+	}
+
+	sim.pendingActions = sim.pendingActions[:last]
+	pa.consumed = true
+
+	if pa.cancelled {
+		pa.dispose(sim)
+		return false
+	}
+
+	if pa.NextActionAt > sim.endOfCombatDuration {
+		pa.dispose(sim)
+		return true
+	}
+
+	if pa.NextActionAt > sim.CurrentTime {
+		sim.advance(pa.NextActionAt)
+	}
+
+	if pa.cancelled {
+		pa.dispose(sim)
+		return false
+	}
+
+	pa.OnAction(sim)
+	pa.dispose(sim)
+	return false
+}
+
+func (sim *Simulation) advanceWeaponAttacks() {
+	if sim.minWeaponAttackTime > sim.CurrentTime {
+		sim.advance(sim.minWeaponAttackTime)
+	}
+
+	sim.minWeaponAttackTime = NeverExpires
+	for _, wa := range sim.weaponAttacks {
+		sim.minWeaponAttackTime = min(sim.minWeaponAttackTime, wa.trySwing(sim))
+	}
+}
+
+func (sim *Simulation) advanceTasks() {
+	if sim.minTaskTime > sim.CurrentTime {
+		sim.advance(sim.minTaskTime)
+	}
+
+	sim.minTaskTime = NeverExpires
+	for _, t := range sim.tasks {
+		sim.minTaskTime = min(sim.minTaskTime, t.RunTask(sim)) // RunTask() might alter sim.tasks
+	}
+}
+
+// Advance moves time forward counting down auras, CDs, mana regen, etc
+func (sim *Simulation) advance(nextTime time.Duration) {
+	sim.CurrentTime = nextTime
+
+	// Whatever happens next reads where a walking unit is now: a range check, a missile's travel time,
+	// whether an auto attack still reaches.
+	for i := 0; i < len(sim.movingUnits); i++ {
+		sim.movingUnits[i].UpdatePosition(sim, false)
+	}
+
+	if sim.CurrentTime >= sim.nextExecuteDuration {
+		sim.Encounter.advanceExecutePhases(sim)
+	}
+
+	if sim.CurrentTime >= sim.minTrackerTime {
+		sim.minTrackerTime = NeverExpires
+		for _, t := range sim.trackers {
+			sim.minTrackerTime = min(sim.minTrackerTime, t.tryAdvance(sim))
+		}
+	}
+}
+func (sim *Simulation) AddPendingAction(pa *PendingAction) {
+	//if pa.NextActionAt < sim.CurrentTime {
+	//	panic(fmt.Sprintf("Cant add action in the past: %s", pa.NextActionAt))
+	//}
+	pa.consumed = false
+	pa.cancelled = false
+	// The queue is sorted with the next action at the end, and most new actions
+	// are near-term, so scan from the end to find the insertion point.
+	pas := sim.pendingActions
+	k := len(pas)
+	for k > 1 {
+		v := pas[k-1]
+		if v.NextActionAt < pa.NextActionAt || (v.NextActionAt == pa.NextActionAt && v.Priority >= pa.Priority) {
+			k--
+			continue
+		}
+		break
+	}
+	pas = append(pas, pa)
+	if k < len(pas)-1 {
+		copy(pas[k+1:], pas[k:])
+		pas[k] = pa
+	}
+	sim.pendingActions = pas
+}
+
+// Use this for any "fire and forget" delayed actions where your code does not
+// require persistent access to the returned *PendingAction pointer. This helper
+// avoids unnecessary re-allocations of the PendingAction struct for improved
+// code performance, but offers no guarantees on the long-term state of the
+// underlying struct, which will be re-used once consumed.
+func (sim *Simulation) GetConsumedPendingActionFromPool() *PendingAction {
+	pa := sim.pendingActionPool.Get().(*PendingAction)
+	pa.NextActionAt = 0
+	pa.Priority = 0
+	pa.OnAction = nil
+	pa.CleanUp = nil
+	pa.cancelled = false
+	return pa
+}
+
+// Runs the action at the current time, once the event in progress and its callbacks are done. It
+// goes ahead of the rotation and regen due at this time, and after any swing or task due then.
+func (sim *Simulation) RunAfterCurrentEvent(action func(*Simulation)) {
+	pa := sim.GetConsumedPendingActionFromPool()
+	pa.NextActionAt = sim.CurrentTime
+	pa.Priority = ActionPriorityDOT
+	pa.OnAction = action
+	sim.AddPendingAction(pa)
+}
+
+func (sim *Simulation) GetRemainingDuration() time.Duration {
+	return sim.Duration - sim.CurrentTime
+}
+
+// Returns the percentage of time remaining in the current iteration, as a value from 0-1.
+func (sim *Simulation) GetRemainingDurationPercent() float64 {
+	return float64(sim.Duration-sim.CurrentTime) / float64(sim.Duration)
+}

@@ -1,0 +1,78 @@
+package protection
+
+import (
+	"github.com/wowsims/forever/sim/core"
+	"github.com/wowsims/forever/sim/core/buffs"
+	"github.com/wowsims/forever/sim/core/proto"
+	"github.com/wowsims/forever/sim/warrior"
+)
+
+func RegisterProtectionWarrior() {
+	core.RegisterAgentFactory(
+		proto.Player_ProtectionWarrior{},
+		proto.Spec_SpecProtectionWarrior,
+		func(character *core.Character, options *proto.Player, _ *proto.Raid) core.Agent {
+			return NewProtectionWarrior(character, options)
+		},
+		func(player *proto.Player, spec any) {
+			playerSpec, ok := spec.(*proto.Player_ProtectionWarrior)
+			if !ok {
+				panic("Invalid spec value for Protection Warrior!")
+			}
+			player.Spec = playerSpec
+		},
+	)
+}
+
+type ProtectionWarrior struct {
+	*warrior.Warrior
+
+	Options *proto.ProtectionWarrior_Options
+}
+
+func (war *ProtectionWarrior) ApplyTalents() {
+	war.Warrior.ApplyTalents()
+}
+
+func NewProtectionWarrior(character *core.Character, options *proto.Player) *ProtectionWarrior {
+	protOptions := options.GetProtectionWarrior().Options
+	classOptions := protOptions.ClassOptions
+
+	war := &ProtectionWarrior{
+		Warrior: warrior.NewWarrior(character, protOptions.ClassOptions, options.TalentsString, warrior.WarriorInputs{
+			UseBattleShout:      classOptions.UseBattleShout,
+			DefaultStance:       classOptions.DefaultStance,
+			StartingRage:        classOptions.StartingRage,
+			QueueDelay:          classOptions.QueueDelay,
+			StanceSnapshot:      classOptions.StanceSnapshot,
+			HasBsT2:             classOptions.HasBsT2,
+			HasBattleShoutRank7: classOptions.HasBattleShoutRank_7,
+		}),
+		Options: protOptions,
+	}
+
+	healingModel := options.HealingModel
+	if healingModel != nil {
+		if healingModel.InspirationUptime > 0.0 {
+			buffs.ApplyInspiration(war.GetCharacter(), healingModel.InspirationUptime)
+		}
+	}
+
+	return war
+}
+
+func (war *ProtectionWarrior) GetWarrior() *warrior.Warrior {
+	return war.Warrior
+}
+
+func (war *ProtectionWarrior) Initialize() {
+	war.Warrior.Initialize()
+}
+
+func (war *ProtectionWarrior) Reset(sim *core.Simulation) {
+	war.Warrior.Reset(sim)
+}
+
+func (war *ProtectionWarrior) OnEncounterStart(sim *core.Simulation) {
+	war.Warrior.OnEncounterStart(sim)
+}

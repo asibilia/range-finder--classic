@@ -1,0 +1,236 @@
+package core
+
+import (
+	"github.com/wowsims/forever/sim/core/proto"
+)
+
+type DynamicProcManager struct {
+	procMasks   []ProcMask
+	procChances []DynamicProc
+}
+
+type DynamicProc interface {
+	Reset()
+	Chance(sim *Simulation) float64
+	Proc(sim *Simulation, label string) bool
+}
+
+func (dpm *DynamicProcManager) Reset() {
+	for _, proc := range dpm.procChances {
+		proc.Reset()
+	}
+}
+
+// Returns whether the effect procced.
+func (dpm *DynamicProcManager) Proc(sim *Simulation, procMask ProcMask, label string) bool {
+	for i, m := range dpm.procMasks {
+		if m.Matches(procMask) {
+			return dpm.procChances[i].Proc(sim, label)
+		}
+	}
+
+	return false
+}
+
+func (dpm *DynamicProcManager) Chance(procMask ProcMask, sim *Simulation) float64 {
+	chance, _ := dpm.chanceFor(procMask, sim)
+	return chance
+}
+
+// The chance the manager states for a hit of this proc mask, and whether any of its masks hears it.
+func (dpm *DynamicProcManager) chanceFor(procMask ProcMask, sim *Simulation) (float64, bool) {
+	for i, m := range dpm.procMasks {
+		if m.Matches(procMask) {
+			return dpm.procChances[i].Chance(sim), true
+		}
+	}
+
+	return 0, false
+}
+
+// PPMManager for static ProcMasks
+func (character *Character) NewLegacyPPMManager(ppm float64, procMask ProcMask) *DynamicProcManager {
+	dpm := character.newDynamicWeaponProcManager(ppm, 0, procMask)
+
+	character.RegisterItemSwapCallback(AllWeaponSlots(), func(sim *Simulation, slot proto.ItemSlot) {
+		dpm = character.newDynamicWeaponProcManager(ppm, 0, procMask)
+	})
+
+	return &dpm
+}
+
+// A procs-per-minute rate that spell hits roll as well. The hits NewLegacyPPMManager measures on a
+// swing keep that swing's speed. Every other hit of the mask except a ranged auto attack rolls on the
+// main-hand weapon's own speed, read at the roll, whether or not the character swings it. Those are a
+// caster's spells, and a spell on the ranged hit table with no ranged swing behind it, such as Thunder
+// Clap or Hammer of Wrath. With no main-hand weapon it is the sim's unarmed weapon's speed.
+func (character *Character) NewLegacyPPMManagerWithSpells(ppm float64, procMask ProcMask) *DynamicProcManager {
+	build := func() DynamicProcManager {
+		dpm := character.newDynamicWeaponProcManager(ppm, 0, procMask)
+		dpm.procMasks = append(dpm.procMasks, procMask&^ProcMaskRangedAuto)
+		dpm.procChances = append(dpm.procChances, mainHandWeaponSpeedProc{character: character, ppm: ppm})
+		return dpm
+	}
+	dpm := build()
+
+	character.RegisterItemSwapCallback(AllWeaponSlots(), func(sim *Simulation, slot proto.ItemSlot) {
+		dpm = build()
+	})
+
+	return &dpm
+}
+
+type mainHandWeaponSpeedProc struct {
+	character *Character
+	ppm       float64
+}
+
+func (mp mainHandWeaponSpeedProc) Reset() {}
+func (mp mainHandWeaponSpeedProc) Chance(_ *Simulation) float64 {
+	return mp.ppm / 60 * mp.character.WeaponFromMainHand().SwingSpeed
+}
+func (mp mainHandWeaponSpeedProc) Proc(sim *Simulation, label string) bool {
+	return sim.Proc(mp.Chance(sim), label)
+}
+
+// PPMManager for static ProcMasks and no item swap callback
+func (character *Character) NewStaticLegacyPPMManager(ppm float64, procMask ProcMask) *DynamicProcManager {
+	dpm := character.newDynamicWeaponProcManager(ppm, 0, procMask)
+
+	return &dpm
+}
+
+// A procs-per-minute rate on the main hand's speed as WeaponSpeedMultiplier leaves it: Seal of the
+// Crusader's faster swings each carry 1/1.4 of the chance, so the swings' procs a minute hold, and
+// haste leaves the chance alone. Both are read at each roll, so a weapon swap needs no callback.
+func (character *Character) NewWeaponSpeedPPMManager(ppm float64, procMask ProcMask) *DynamicProcManager {
+	return &DynamicProcManager{
+		procMasks:   []ProcMask{procMask},
+		procChances: []DynamicProc{weaponSpeedProc{unit: &character.Unit, ppm: ppm}},
+	}
+}
+
+type weaponSpeedProc struct {
+	unit *Unit
+	ppm  float64
+}
+
+func (wp weaponSpeedProc) Reset() {}
+func (wp weaponSpeedProc) Chance(_ *Simulation) float64 {
+	return wp.ppm / 60 * wp.unit.AutoAttacks.MH().SwingSpeed / wp.unit.PseudoStats.WeaponSpeedMultiplier
+}
+func (wp weaponSpeedProc) Proc(sim *Simulation, label string) bool {
+	return sim.Proc(wp.Chance(sim), label)
+}
+
+// Dynamic Proc Manager for static ProcMasks and no item swap callback
+func (character *Character) NewFixedProcChanceManager(fixedProcChance float64, procMask ProcMask) *DynamicProcManager {
+	dpm := character.newDynamicWeaponProcManager(0, fixedProcChance, procMask)
+
+	return &dpm
+}
+
+// Dynamic Proc Manager for dynamic ProcMasks on weapon enchants
+func (character *Character) NewDynamicLegacyProcForEnchant(effectID int32, ppm float64, fixedProcChance float64) *DynamicProcManager {
+	return character.newDynamicProcManagerWithDynamicProcMask(ppm, fixedProcChance, func() ProcMask {
+		return character.getCurrentProcMaskForWeaponEnchant(effectID)
+	})
+}
+
+// Dynamic Proc Manager for a weapon enchant heard on its own ProcMask: the mask's weapon hits roll
+// on the hands carrying the enchant at their own speeds, and nothing else rolls.
+func (character *Character) NewDynamicLegacyProcForEnchantWithMask(effectID int32, ppm float64, procMask ProcMask) *DynamicProcManager {
+	return character.newDynamicProcManagerWithDynamicProcMask(ppm, 0, func() ProcMask {
+		return procMask & character.getCurrentProcMaskForWeaponEnchant(effectID)
+	})
+}
+
+// Dynamic Proc Manager for dynamic ProcMasks on weapon temp enchants
+func (character *Character) NewDynamicLegacyProcForTempEnchant(effectID int32, ppm float64, fixedProcChanceFn func(ProcMask) float64) *DynamicProcManager {
+	return character.newDynamicProcManagerWithDynamicProcMaskDynamicProcChance(ppm, fixedProcChanceFn, func() ProcMask {
+		return character.getCurrentProcMaskForWeaponTempEnchant(effectID)
+	})
+}
+
+// Dynamic Proc Manager for dynamic ProcMasks on weapon effects
+func (character *Character) NewDynamicLegacyProcForWeapon(itemID int32, ppm float64, fixedProcChance float64) *DynamicProcManager {
+	return character.newDynamicProcManagerWithDynamicProcMask(ppm, fixedProcChance, func() ProcMask {
+		return character.getCurrentProcMaskForWeaponEffect(itemID)
+	})
+}
+
+func (character *Character) newDynamicProcManagerWithDynamicProcMask(ppm float64, fixedProcChance float64, procMaskFn func() ProcMask) *DynamicProcManager {
+	dpm := character.newDynamicWeaponProcManager(ppm, fixedProcChance, procMaskFn())
+	character.RegisterItemSwapCallback(AllWeaponSlots(), func(sim *Simulation, slot proto.ItemSlot) {
+		dpm = character.newDynamicWeaponProcManager(ppm, fixedProcChance, procMaskFn())
+	})
+
+	return &dpm
+}
+
+func (character *Character) newDynamicProcManagerWithDynamicProcMaskDynamicProcChance(ppm float64, fixedProcChanceFn func(ProcMask) float64, procMaskFn func() ProcMask) *DynamicProcManager {
+	procMask := procMaskFn()
+	dpm := character.newDynamicWeaponProcManager(ppm, fixedProcChanceFn(procMask), procMask)
+	character.RegisterItemSwapCallback(AllWeaponSlots(), func(sim *Simulation, slot proto.ItemSlot) {
+		procMask := procMaskFn()
+		dpm = character.newDynamicWeaponProcManager(ppm, fixedProcChanceFn(procMask), procMask)
+	})
+
+	return &dpm
+}
+
+func (character *Character) newDynamicWeaponProcManager(ppm float64, fixedProcChance float64, procMask ProcMask) DynamicProcManager {
+	if (ppm != 0) && (fixedProcChance != 0) {
+		panic("Cannot simultaneously specify both a ppm and a fixed proc chance!")
+	}
+
+	aa := character.AutoAttacks
+	if !aa.AutoSwingMelee && !aa.AutoSwingRanged {
+		return DynamicProcManager{}
+	}
+
+	dpm := DynamicProcManager{procMasks: make([]ProcMask, 0, 2), procChances: []DynamicProc{}}
+
+	chances := make([]staticProc, 0, 2)
+	mergeOrAppend := func(speed float64, mask ProcMask) {
+		if speed == 0 || mask == 0 {
+			return
+		}
+
+		for i, proc := range chances {
+			if proc.chance == speed {
+				dpm.procMasks[i] |= mask
+				return
+			}
+		}
+
+		dpm.procMasks = append(dpm.procMasks, mask)
+		chances = append(chances, staticProc{chance: speed})
+	}
+
+	mergeOrAppend(aa.mh.SwingSpeed, procMask&^ProcMaskRanged&^ProcMaskMeleeOH) // "everything else", even if not explicitly flagged MH
+	mergeOrAppend(aa.offHandProcSpeed(), procMask&ProcMaskMeleeOH)
+	mergeOrAppend(aa.ranged.SwingSpeed, procMask&ProcMaskRanged)
+
+	for i := range chances {
+		if fixedProcChance != 0 {
+			chances[i].chance = fixedProcChance
+		} else {
+			chances[i].chance *= ppm / 60
+		}
+
+		dpm.procChances = append(dpm.procChances, chances[i])
+	}
+
+	return dpm
+}
+
+type staticProc struct {
+	chance float64
+}
+
+func (sp staticProc) Reset()                       {}
+func (sp staticProc) Chance(_ *Simulation) float64 { return sp.chance }
+func (sp staticProc) Proc(sim *Simulation, label string) bool {
+	return sim.Proc(sp.chance, label)
+}

@@ -1,0 +1,645 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "./proto";
+
+import "api.proto";
+import "apl.proto";
+import "buffs.proto";
+import "common.proto";
+import "db.proto";
+import "spell.proto";
+import "druid.proto";
+import "hunter.proto";
+import "mage.proto";
+import "paladin.proto";
+import "priest.proto";
+import "rogue.proto";
+import "shaman.proto";
+import "warlock.proto";
+import "warrior.proto";
+
+// Holds all WoW data for the UI.
+message UIDatabase {
+	repeated UIItem items = 1;
+	repeated ItemRandomSuffix random_suffixes = 11;
+	repeated UIEnchant enchants = 2;
+	reserved 3;
+	reserved "gems";
+	repeated PresetEncounter encounters = 6;
+
+	repeated UIZone zones = 8;
+	repeated UINPC npcs = 9;
+	repeated UIFaction factions = 16;
+
+	// Entities for which we just need a name/icon.
+	repeated IconData item_icons = 4;
+	repeated IconData spell_icons = 5;
+
+	repeated ItemEffectRandPropPoints item_effect_rand_prop_points = 15;
+
+	repeated Consumable consumables = 13;
+	repeated SpellEffect spell_effects = 14;
+}
+
+message UIZone {
+	int32 id = 1;
+	string name = 2;
+	Expansion expansion = 3;
+	// Every kind of area the zone counts as.
+	repeated AreaType area_types = 4;
+}
+message UINPC {
+	int32 id = 1;
+	string name = 2;
+	int32 zone_id = 3;
+}
+message UIFaction {
+	int32 id = 1;
+	string name = 2;
+}
+
+// Contains all information about an Item needed by the UI.
+// Generally this will include everything needed by the sim, plus some
+// additional data for displaying / filtering.
+// Next tag: 37.
+message UIItem {
+	int32 id = 1;
+	string name = 2;
+	string icon = 3;
+
+	ItemType type = 4;
+	ArmorType armor_type = 5;
+	WeaponType weapon_type = 6;
+	HandType hand_type = 7;
+	RangedWeaponType ranged_weapon_type = 8;
+
+	repeated double stats = 9;
+	repeated double pseudo_stats = 34; // Indexed by PseudoStat.
+	reserved 10, 11;
+	reserved "gem_sockets", "socketBonus";
+	repeated int32 random_suffix_options = 26;
+	int32 rand_prop_points = 27;
+
+	// Weapon stats, needed for computing proper EP for melee weapons
+	double weapon_damage_min = 12;
+	double weapon_damage_max = 13;
+	double weapon_speed = 14;
+
+	int32 ilvl = 15;
+	int32 req_lvl = 36; // The character level that can equip the item; 0 for none.
+	int32 phase = 16;
+	ItemQuality quality = 17;
+	double quality_modifier = 33; // Negative for caster weapons; used by Seal of Righteousness proc among others.
+	bool unique = 18;
+	// How many of that item can be equipped at once.
+	int32 limit_category = 32;
+	string name_description = 19;
+
+	// Classes that are allowed to use the item. Empty indicates no special class restrictions.
+	repeated Class class_allowlist = 20;
+	Profession required_profession = 21;
+
+	// Name of the item set to which this item belongs, if any.
+	string set_name = 22;
+	// ID of the item set to which this item belongs, if any. (useful for shared pvp set bonuses)
+	int32 set_id = 28;
+
+	Expansion expansion = 24;
+	repeated UIItemSource sources = 23;
+
+	enum FactionRestriction {
+		FACTION_RESTRICTION_UNSPECIFIED = 0;
+		FACTION_RESTRICTION_ALLIANCE_ONLY = 1;
+		FACTION_RESTRICTION_HORDE_ONLY = 2;
+	}
+
+	FactionRestriction faction_restriction = 25;
+	map<int32, ScalingItemProperties> scaling_options = 29; // keys are the other ilvl variants that this item could potentially have
+	repeated ItemEffect item_effects = 30;
+	SpellSchool spell_school = 35; // The weapon's damage school; unset means physical.
+	// The terrain areas, mob types and creature groups the item's effects name: a stat bonus, proc or on-use that
+	// only counts there or against them, or is stronger there. The gear picker filters by them.
+	repeated AreaType area_types = 37;
+	repeated MobType mob_types = 38;
+	repeated CreatureFamily creature_families = 39;
+}
+
+enum Expansion {
+	ExpansionUnknown = 0;
+	ExpansionVanilla = 1;
+	ExpansionTbc = 2;
+	ExpansionWotlk = 3;
+	ExpansionCata = 4;
+	ExpansionMop = 5;
+	ExpansionForever = 6;
+}
+
+enum DungeonDifficulty {
+	DifficultyUnknown = 0;
+	DifficultyDungeon = 1;
+	DifficultyRaid = 2;
+}
+
+enum RepLevel {
+	RepLevelUnknown 	= 0;
+	RepLevelHated 		= 1;
+	RepLevelHostile 	= 2;
+	RepLevelUnfriendly 	= 3;
+	RepLevelNeutral 	= 4;
+	RepLevelFriendly 	= 5;
+	RepLevelHonored 	= 6;
+	RepLevelRevered 	= 7;
+	RepLevelExalted 	= 8;
+}
+
+message UIItemSource {
+	oneof source {
+		CraftedSource crafted = 1;
+		DropSource drop = 2;
+		QuestSource quest = 3;
+		SoldBySource sold_by = 4;
+		RepSource rep = 5;
+		PvpSource pvp = 6;
+	}
+}
+message CraftedSource {
+	Profession profession = 1;
+	int32 spell_id = 2;
+}
+message DropSource {
+	DungeonDifficulty difficulty = 1;
+	int32 npc_id = 2;
+	int32 zone_id = 3;
+	string other_name = 4; // For drops from things other than NPCs, e.g. "Trash" in a zone or "World Drop" in none
+	string category = 5;   // For conditions/categories of drops, e.g. 'Hard Mode' or 'Titan Rune'
+}
+message QuestSource {
+	int32 id = 1;
+	string name = 2;
+	Faction faction = 3; // The side that may take it; Unknown is both.
+}
+message SoldBySource {
+	int32 npc_id = 1;
+	string npc_name = 2;
+	int32 zone_id = 3;
+	Faction faction = 4; // The side the vendor sells to; Unknown is both.
+}
+message RepSource {
+	int32 rep_faction_id = 1; // Faction.ID in the game files; UIDatabase.factions carries its name.
+	RepLevel rep_level = 2;
+	Faction faction_id = 3;
+}
+
+message PvpSource {} // gen_db sets it on an item whose name is an honor rank or battleground name.
+
+message UIEnchant {
+	// All enchants have an effect ID. Some also have an item ID, others have a spell ID,
+	// and yet others have both item and spell IDs. No single ID alone is enough to
+	// uniquely identify an enchant. Uniqueness requires either effect ID + slot, or
+	// effect ID + item/spell ID.
+	int32 effect_id = 1; // ID of the effect.
+	int32 item_id = 2;   // ID of the enchant "item". Might be 0 if not available.
+	int32 spell_id = 3;  // ID of the enchant "spell". Might be 0 if not available.
+
+	string name = 4;
+	string icon = 5;
+
+	ItemType type = 6;                  // Which type of item this enchant can be applied to.
+	repeated ItemType extra_types = 13; // Extra types for enchants that can go in multiple slots (like armor kits).
+	EnchantType enchant_type = 7;
+
+	repeated double stats = 8;
+	repeated double pseudo_stats = 15; // Indexed by PseudoStat.
+	double weapon_damage = 16; // Flat damage on the enchanted weapon's minimum and maximum.
+
+	ItemQuality quality = 9;
+	int32 phase = 10;
+	int32 lvl = 17; // The item level of an item that carries the enchant or its spell; 0 when every such item is level 1.
+
+	// Classes that are allowed to use the enchant. Empty indicates no special class restrictions.
+	repeated Class class_allowlist = 11;
+	Profession required_profession = 12;
+	repeated ItemEffect enchant_effects = 14;
+	EnchantProcKind proc_kind = 18;
+	repeated UIItemSource sources = 19; // Of the enchant's own item and the items that teach it.
+}
+
+
+message IconData {
+	int32 id = 1;
+	string name = 2;
+	string icon = 3;
+	int32 rank = 4;
+	bool has_buff = 5;
+}
+
+enum SourceFilterOption {
+	SourceUnknown = 0;
+	SourceCrafting = 1;
+	SourceQuest = 2;
+	SourceReputation = 3;
+	SourcePvp = 4;
+	SourceDungeon = 5;
+	SourceRaid = 7;
+	SourceSoldBy = 6;
+}
+
+enum RaidFilterOption {
+	RaidUnknown = 0;
+	reserved 1 to 9;
+	RaidMC = 10;
+	RaidOny = 11;
+	RaidBWL = 12;
+	RaidZG = 13;
+	RaidAQ20 = 14;
+	RaidAQ40 = 15;
+	RaidNaxx = 16;
+}
+
+// The item list's faction filter. The zero value keeps the items of the player's race's faction,
+// plus the items open to both; Any keeps every item.
+enum FactionFilter {
+	FactionFilterRace = 0;
+	FactionFilterAny = 1;
+}
+
+// The stats one panel works with. Unset in StatFilters means the spec's list for that panel.
+message StatSelection {
+	repeated UIStat stats = 1;
+}
+
+// The viewer's own stat filters, one per panel. Shared builds neither carry nor change them.
+message StatFilters {
+	StatSelection ep = 1;
+	StatSelection character_stats = 2;
+	StatSelection buffs = 3;
+	StatSelection debuffs = 4;
+	StatSelection consumables = 5;
+}
+
+// NextIndex: 28
+message DatabaseFilters {
+	repeated ArmorType armor_types = 1;
+	repeated WeaponType weapon_types = 2;
+	repeated RangedWeaponType ranged_weapon_types = 16;
+	repeated SourceFilterOption sources = 17;
+	// Hides world drops and open-world NPC drops. A bool and not a SourceFilterOption, so a saved partial sources list leaves them shown.
+	bool hide_world_drops = 28;
+	repeated RaidFilterOption raids = 18;
+	FactionFilter faction_filter = 19;
+	int32 min_ilvl = 20;
+	int32 max_ilvl = 21;
+	int32 max_required_level = 27; // Hides items that need a higher character level; 0 hides none.
+	// The consumable pickers hide a consumable below the level set for its ConsumableType (keyed by
+	// ConsumableType; Consumable.lvl). A type with no entry takes Sim.DEFAULT_MIN_CONSUMABLE_LVL.
+	map<int32, int32> min_consumable_lvl = 24;
+
+	double min_mh_weapon_speed = 4;
+	double max_mh_weapon_speed = 5;
+	double min_oh_weapon_speed = 9;
+	double max_oh_weapon_speed = 10;
+	double min_ranged_weapon_speed = 14;
+	double max_ranged_weapon_speed = 15;
+
+	bool one_handed_weapons = 6;
+	bool two_handed_weapons = 7;
+	reserved 8;
+	reserved "matching_gems_only";
+	// With any set, the item list shows only the items with an effect that names one of them (UIItem.area_types,
+	// mob_types and creature_families). Empty hides none.
+	repeated AreaType area_types = 29;
+	repeated MobType mob_types = 30;
+	repeated CreatureFamily creature_families = 31;
+	// Shows only the items the sim's database first held within the last week, the ones the item list marks.
+	bool newly_discovered_only = 32;
+	// The enchant picker also lists enchants worth nothing to the spec's stat weights.
+	bool show_all_enchants = 25;
+	// The stats each panel shows; see StatFilters.
+	StatFilters stat_filters = 26;
+
+	// Item IDs for favorited items.
+	repeated int32 favorite_items = 11;
+	reserved 12;
+	reserved "favorite_gems";
+	// Item IDs for favorited random suffixes.
+	repeated int32 favorite_random_suffixes = 22;
+	// Item IDs for favorited reforges.
+	repeated int32 favorite_reforges = 23;
+	// Uniquely-identifying strings for favorited enchants.
+	repeated string favorite_enchants = 13;
+}
+
+message SimSettings {
+	int32 iterations = 1;
+	int32 phase = 2;
+	int64 fixed_rng_seed = 3;
+	bool show_damage_metrics = 8;
+	bool show_threat_metrics = 4;
+	bool show_healing_metrics = 7;
+	bool show_experimental = 5;
+	bool show_quick_swap = 12;
+	bool show_ep_values = 11;
+	bool use_custom_ep_values = 13 [deprecated=true];
+	bool use_soft_cap_breakpoints = 14 [deprecated=true];
+	string language = 9;
+	Faction faction = 6;
+	DatabaseFilters filters = 10;
+}
+
+// Contains all information that is imported/exported from an individual sim.
+message IndividualSimSettings {
+	int32 api_version = 15;
+	SimSettings settings = 5;
+	RaidBuffs raid_buffs = 1;
+	Debuffs debuffs = 8;
+	repeated UnitReference tanks = 7;
+	PartyBuffs party_buffs = 2;
+	Player player = 3;
+	Encounter encounter = 4;
+	int32 target_dummies = 9;
+	UnitStats ep_weights_stats = 10;
+	repeated double ep_ratios = 11;
+	Stat dps_ref_stat = 12;
+	Stat heal_ref_stat = 13;
+	Stat tank_ref_stat = 14;
+	UnitStats stat_caps = 16 [deprecated=true];
+	UnitStats breakpoint_limits = 17 [deprecated=true];
+	ReforgeSettings reforge_settings = 18;
+}
+
+// Local storage data for gear settings.
+message SavedGearSet {
+	EquipmentSpec gear = 1;
+	UnitStats bonus_stats_stats = 3;
+}
+
+// How the EP calculation and the stat sweep size their runs.
+enum PrecisionMode {
+	PrecisionModeUnknown = 0;
+	PrecisionModeIterations = 1;
+	PrecisionModeTarget = 2; // Simulates each stat or step until its ± reaches a target.
+}
+
+message SavedStatWeightSettings {
+	repeated Stat excluded_stats = 1;
+    repeated PseudoStat excluded_pseudo_stats = 2;
+    int32 api_version = 3; // Needed in case the Stat or PseudoStat enum orderings ever change
+
+	PrecisionMode precision_mode = 4;
+	int32 iterations = 5; // The iterations mode's count; 0 runs the global sim iteration count.
+	double target_ci = 6; // The 90% ± of each EP to reach.
+	int32 max_iteration_multiplier = 7; // Caps a stat's iterations at this multiple of the automatic first pass; 0 means no cap.
+}
+
+enum StatSweepMetric {
+	StatSweepMetricUnknown = 0; // Reads as DPS.
+	StatSweepMetricDps = 1;
+	StatSweepMetricHps = 2;
+	StatSweepMetricTps = 3;
+	StatSweepMetricDtps = 4;
+	StatSweepMetricTmi = 5;
+}
+
+// The stat sweep's last setup; an unset range, step or target reads as the default.
+message SavedStatSweepSettings {
+	int32 api_version = 1;
+	repeated UIStat stats = 2;
+	double range = 3;
+	double step = 4;
+	PrecisionMode precision_mode = 5;
+	int32 iterations = 6; // The iterations mode's count; 0 runs the global sim iteration count.
+	double target_ci = 7; // In the units of the metric picked when the run starts.
+	int32 max_iteration_multiplier = 8; // Caps a step's iterations at this multiple of the automatic first pass; 0 means no cap.
+	StatSweepMetric metric = 9; // The plotted metric; a run's Target ± follows the one picked when it starts.
+	bool hide_spread = 10; // Leaves the ± 1 standard deviation band off the chart; unset shows it.
+}
+
+// Local storage data for other settings.
+message SavedSettings {
+	RaidBuffs raid_buffs = 1;
+	PartyBuffs party_buffs = 2;
+	Debuffs debuffs = 7;
+	IndividualBuffs player_buffs = 3;
+	ConsumesSpec consumables = 4;
+	Race race = 5;
+	repeated Profession professions = 9;
+	bool enable_item_swap = 18;
+	ItemSwap item_swap = 17;
+
+	int32 reaction_time_ms = 10;
+	int32 reaction_time_max_ms = 35;
+	int32 channel_clip_delay_ms = 14;
+	bool in_front_of_target = 11;
+	double distance_from_target = 12;
+	HealingModel healing_model = 13;
+	double dark_intent_uptime = 19;
+	bool challenge_mode = 20;
+
+	// The spec's own options, under the arm Player.spec uses for the spec. An entry with none, or another spec's, keeps
+	// the live ones.
+	oneof spec {
+		BalanceDruid balance_druid = 6;
+		FeralCatDruid feral_cat_druid = 8;
+		FeralBearDruid feral_bear_druid = 15;
+		RestorationDruid restoration_druid = 16;
+
+		Hunter hunter = 21;
+
+		Mage mage = 22;
+
+		HolyPaladin holy_paladin = 23;
+		ProtectionPaladin protection_paladin = 24;
+		RetributionPaladin retribution_paladin = 25;
+
+		DpsPriest dps_priest = 26;
+		HealerPriest healer_priest = 27;
+
+		Rogue rogue = 28;
+
+		ElementalShaman elemental_shaman = 29;
+		EnhancementShaman enhancement_shaman = 30;
+		RestorationShaman restoration_shaman = 31;
+
+		Warlock warlock = 32;
+
+		DpsWarrior dps_warrior = 33;
+		ProtectionWarrior protection_warrior = 34;
+	}
+}
+
+message SavedTalents {
+	string talents_string = 1;
+}
+
+message SavedRotation {
+	APLRotation rotation = 1;
+}
+
+message SavedEPWeights {
+	UnitStats ep_weights = 1;
+}
+
+// The checked presets are unioned per slot into BulkSettings.enchants.
+message BulkEnchantPreset {
+	string name = 1;
+	repeated BulkEnchantSlotOptions slots = 2;
+	bool checked = 3;
+}
+
+// Local storage data for the bulk sim's enchant presets.
+message BulkEnchantPresets {
+	repeated BulkEnchantPreset presets = 1;
+}
+
+// A spec preset encounter or a user-saved one, by name. An empty name is the current encounter.
+message BulkEncounterRef {
+	string name = 1;
+	bool preset = 2;
+}
+
+// A spec preset talent setup or a user-saved one, by name. An empty name is the current talents.
+message BulkTalentRef {
+	string name = 1;
+	bool preset = 2;
+}
+
+// A spec preset gear set or a user-saved one, by name. An empty name is the current gear.
+message BulkGearSetRef {
+	string name = 1;
+	bool preset = 2;
+	string group = 3; // The preset's group in the Gear tab, empty for an ungrouped preset or a saved set; two presets may share a name across groups.
+}
+
+// Local storage data for the enchant presets the bulk sim runs every gear set with in Builds mode, by name. Separate
+// from BulkEnchantPreset.checked, which picks the enchants Gear mode tries.
+message BulkEnchantPresetSelection {
+	repeated string names = 1;
+}
+
+// A spec preset rotation or a user-saved one, by name. An empty name is the current rotation.
+message BulkRotationRef {
+	string name = 1;
+	bool preset = 2;
+}
+
+// A spec preset Settings entry or a user-saved one, by name. An empty name is the current settings.
+message BulkSettingsRef {
+	string name = 1;
+	bool preset = 2;
+}
+
+// A gear set the bulk sim runs in Builds mode with the talents, rotation and Settings entry it is bundled with. An absent
+// ref, or one with an empty name, is the current part.
+message BulkBuildBundle {
+	BulkGearSetRef gear_set = 1;
+	BulkTalentRef talents = 2;
+	BulkRotationRef rotation = 3;
+	BulkSettingsRef settings = 4;
+	bool checked = 5;
+}
+
+// Local storage data for the bundles the bulk sim runs in Builds mode, in list order. The Current bundle is not stored
+// here; it is ticked unless current_unchecked is set.
+message BulkBuildBundles {
+	repeated BulkBuildBundle bundles = 1;
+	bool current_unchecked = 2;
+}
+
+// Local storage data for the encounters the bulk sim runs in Builds mode: the checked refs in list order, the current
+// encounter by its empty ref.
+message BulkEncounterSelection {
+	repeated BulkEncounterRef encounters = 1;
+}
+
+// Local storage data for how many results a batch ranks per encounter, per mode, while power tools are on. 0 is All.
+message BulkTopResults {
+	int32 gear = 1;
+	int32 builds = 2;
+}
+
+// Local storage data for a saved encounter.
+message SavedEncounter {
+	Encounter encounter = 1;
+}
+
+// Local storage data for raid sim settings.
+message SavedRaid {
+	Raid raid = 1;
+	Faction faction = 4;
+	int32 phase = 5;
+}
+
+// Contains all information that is imported/exported from a raid sim.
+message RaidSimSettings {
+	SimSettings settings = 5;
+	Raid raid = 1;
+	Encounter encounter = 4;
+}
+
+// All the data related to running the sim once.
+message SimRun {
+	RaidSimRequest request = 1;
+	RaidSimResult result = 2;
+}
+
+// Contains a sim run and also other context data.
+message SimRunData {
+	SimRun run = 1;
+
+	// The run stored as a reference, for comparison to the current run.
+	SimRun reference_run = 2;
+}
+
+// Sent by the sim to the detailed results page.
+message DetailedResultsUpdate {
+	oneof data {
+		// Show results from a run.
+		SimRunData run_data = 1;
+
+		// Update sim settings.
+		SimSettings settings = 2;
+	}
+}
+
+// SIML (sim/siml/SPEC.md), read and written by the sim for the site.
+
+// A problem in a SIML text, at lines and columns counted from 1; columns count UTF-16 code units.
+message SimlDiagnostic {
+	int32 start_line = 1;
+	int32 start_col = 2;
+	int32 end_line = 3;
+	int32 end_col = 4;
+	bool warning = 5; // An error otherwise.
+	string code = 6; // A code of SPEC.md §13, such as unknown-name.
+	string message = 7;
+}
+
+// Reads text as the file at path, whose double extension gives its kind. A use line is refused.
+message SimlParseRequest {
+	string path = 1;
+	string text = 2;
+}
+
+message SimlParseResult {
+	IndividualSimSettings settings = 1; // Unset when the text has an error.
+	Spec spec = 2; // The spec line's spec; SpecUnknown when the text writes none.
+	repeated string categories = 3; // The site's category letters of the sections the text holds.
+	repeated SimlDiagnostic diagnostics = 4; // The errors and warnings.
+	string error = 5; // Set when the text could not be read at all.
+}
+
+// Prints settings as a file of section (apl, gear, ..., or "" for a full setup) for spec. A full setup writes the
+// sections of categories, or with none every section that holds something.
+message SimlPrintRequest {
+	string section = 1;
+	Spec spec = 2;
+	IndividualSimSettings settings = 3;
+	repeated string categories = 4;
+}
+
+message SimlPrintResult {
+	string text = 1; // Empty when the print does not read back.
+	repeated SimlDiagnostic diagnostics = 2; // Why the print does not read back.
+	string error = 3;
+}

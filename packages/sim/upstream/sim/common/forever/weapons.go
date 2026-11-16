@@ -1,0 +1,5 @@
+package forever
+
+func init() {
+
+}
