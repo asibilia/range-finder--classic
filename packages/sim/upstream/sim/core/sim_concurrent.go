@@ -346,6 +346,7 @@ func (rsrc *raidSimResultCombiner) combineUnitMetrics(base *proto.UnitMetrics, a
 	rsrc.combineDistMetrics(base.Tmi, add.Tmi, isLast, weight)
 	rsrc.combineDistMetrics(base.Hps, add.Hps, isLast, weight)
 	rsrc.combineDistMetrics(base.Tto, add.Tto, isLast, weight)
+	base.Timeline = combineTimeline(base.Timeline, add.Timeline) // local level-aware patch
 
 	base.SecondsOomAvg += add.SecondsOomAvg * weight
 	base.ChanceOfDeath += add.ChanceOfDeath * weight
@@ -631,4 +632,30 @@ func runSimConcurrent(request *proto.RaidSimRequest, progress chan *proto.Progre
 	}
 
 	return result
+}
+
+// combineTimeline merges two timelines bucket by bucket (local level-aware patch): means weighted by
+// the iterations that reached the bucket, spreads pooled.
+func combineTimeline(base, add []*proto.TimelinePoint) []*proto.TimelinePoint {
+	for i, a := range add {
+		if i >= len(base) {
+			base = append(base, &proto.TimelinePoint{TS: a.TS, Dps: a.Dps, DpsStdev: a.DpsStdev, Mana: a.Mana, ManaStdev: a.ManaStdev, Iterations: a.Iterations})
+			continue
+		}
+		b := base[i]
+		n1, n2 := float64(b.Iterations), float64(a.Iterations)
+		n := n1 + n2
+		if n == 0 {
+			continue
+		}
+		pool := func(m1, s1, m2, s2 float64) (float64, float64) {
+			m := (n1*m1 + n2*m2) / n
+			v := (n1*(s1*s1+m1*m1)+n2*(s2*s2+m2*m2))/n - m*m
+			return m, math.Sqrt(math.Max(0, v))
+		}
+		b.Dps, b.DpsStdev = pool(b.Dps, b.DpsStdev, a.Dps, a.DpsStdev)
+		b.Mana, b.ManaStdev = pool(b.Mana, b.ManaStdev, a.Mana, a.ManaStdev)
+		b.Iterations += a.Iterations
+	}
+	return base
 }

@@ -184,6 +184,7 @@ func NewCharacter(party *Party, partyIndex int, player *proto.Player) Character 
 		}
 	}
 	character.PseudoStats.InFrontOfTarget = player.InFrontOfTarget
+	character.Unit.manaBar.startFraction = player.StartingManaPercent / 100
 	character.applyWeaponSkills(player.WeaponSkills)
 	for slot := range character.Equipment {
 		character.addItemWeaponSkills(&character.Equipment[slot], 1)
@@ -537,6 +538,7 @@ func (character *Character) reset(sim *Simulation, agent Agent) {
 	for _, petAgent := range character.PetAgents {
 		petAgent.GetPet().reset(sim, petAgent)
 	}
+	character.setupTimeline(sim) // local level-aware patch
 }
 
 func (character *Character) HasProfession(prof proto.Profession) bool {
@@ -729,6 +731,9 @@ func (character *Character) doneIteration(sim *Simulation) {
 		character.Metrics.AddFinalPetMetrics(&pet.Metrics)
 	}
 
+	if character.Metrics.timeline != nil { // local level-aware patch
+		character.Metrics.timeline.doneIteration(sim.Duration)
+	}
 	character.Unit.doneIteration(sim)
 }
 

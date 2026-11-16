@@ -103,6 +103,8 @@ type UnitMetrics struct {
 	oomTimeSum   float64
 	actions      map[ActionID]*ActionMetrics
 	resources    []*ResourceMetrics
+
+	timeline *timelineRecorder // local level-aware patch: nil unless the sim asks for a timeline
 }
 
 // Metrics for the current iteration, for 1 agent. Keep this as a separate
@@ -681,6 +683,10 @@ func (unitMetrics *UnitMetrics) ToProto() *proto.UnitMetrics {
 		Tto:           unitMetrics.tto.ToProto(),
 		SecondsOomAvg: unitMetrics.oomTimeSum / n,
 		ChanceOfDeath: float64(unitMetrics.numItersDead) / n,
+	}
+
+	if unitMetrics.timeline != nil && unitMetrics.timeline.owner == unitMetrics {
+		protoMetrics.Timeline = unitMetrics.timeline.toProto()
 	}
 
 	if len(unitMetrics.deathSeeds) > 0 {

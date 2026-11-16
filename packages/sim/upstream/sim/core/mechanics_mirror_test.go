@@ -21,8 +21,8 @@ func TestMechanicsConstantsMatchTheUI(t *testing.T) {
 	}
 
 	goValues := map[string]float64{
-		"CHARACTER_LEVEL":                                CharacterLevel,
-		"BOSS_LEVEL":                                     CharacterLevel + 3,
+		"CHARACTER_LEVEL":                                float64(CharacterLevel),
+		"BOSS_LEVEL":                                     float64(CharacterLevel + 3),
 		"EXPERTISE_RATING_PER_EXPERTISE_PERCENT":         ExpertiseRatingPerExpertisePercent,
 		"HASTE_RATING_PER_HASTE_PERCENT":                 HasteRatingPerHastePercent,
 		"CRIT_RATING_PER_CRIT_PERCENT":                   CritRatingPerCritPercent,

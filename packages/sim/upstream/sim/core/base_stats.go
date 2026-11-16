@@ -215,6 +215,9 @@ var ClassBaseDodge = map[proto.Class]float64{
 // Dodge percent per point of Agility at level 60: the game files' crit per Agility
 // (PlayerExpectedStat), which rogues and hunters get twice over.
 func dodgePerAgility(class proto.Class) float64 {
+	if v, ok := levelDodgePerAgility[class]; ok {
+		return v
+	}
 	if class == proto.Class_ClassRogue || class == proto.Class_ClassHunter {
 		return 2 * CritPerAgiMaxLevel[class]
 	}
@@ -255,4 +258,5 @@ func init() {
 			AddBaseStatsCombo(race, class)
 		}
 	}
+	applyLevelProfile()
 }

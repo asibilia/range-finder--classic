@@ -19,6 +19,8 @@ type manaBar struct {
 	unit     *Unit
 	BaseMana float64
 
+	startFraction float64 // Local level-aware patch: the share of maximum mana an iteration starts with; 0 means full.
+
 	currentMana float64
 
 	manaRegenMultiplier float64
@@ -121,6 +123,9 @@ func (unit *Unit) AddMana(sim *Simulation, amount float64, metrics *ResourceMetr
 	}
 
 	unit.currentMana = newMana
+	if tl := unit.Metrics.timeline; tl != nil && tl.owner == &unit.Metrics { // local level-aware patch
+		tl.setMana(sim.CurrentTime, newMana)
+	}
 	unit.Metrics.ManaGained += newMana - oldMana
 	unit.addManaGainThreat(sim, newMana-oldMana, metrics)
 }
@@ -151,6 +156,9 @@ func (unit *Unit) SpendMana(sim *Simulation, amount float64, metrics *ResourceMe
 	}
 
 	unit.currentMana = newMana
+	if tl := unit.Metrics.timeline; tl != nil && tl.owner == &unit.Metrics { // local level-aware patch
+		tl.setMana(sim.CurrentTime, newMana)
+	}
 	unit.Metrics.ManaSpent += amount
 }
 
@@ -325,6 +333,9 @@ func (mb *manaBar) reset() {
 	}
 
 	mb.currentMana = mb.unit.MaxMana()
+	if mb.startFraction > 0 && mb.startFraction < 1 {
+		mb.currentMana *= mb.startFraction
+	}
 
 	mb.manaRegenMultiplier = 1.0
 

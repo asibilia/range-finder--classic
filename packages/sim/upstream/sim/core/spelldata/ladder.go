@@ -3,6 +3,7 @@ package spelldata
 import (
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/wowsims/forever/sim/core"
 	"github.com/wowsims/forever/sim/core/dbcenums"
@@ -65,11 +66,57 @@ func (l Ladder) Rank(n int32) *Spell {
 	return l.ranks[n-1]
 }
 
+// Highest is the top rank the character has. At level 60 with no level profile it is the ladder's
+// last rank. Otherwise (local level-aware patch) it is the highest rank the profile lists as trained;
+// with no trained list, the highest rank whose SpellLevel the character has reached. A ladder with
+// no rank the character has answers its lowest rank, so talents and other players' buffs, whose
+// rows carry no trainable level, still resolve; UnreachedRanks lists those for the run's checks.
 func (l Ladder) Highest() *Spell {
 	if len(l.ranks) == 0 {
 		return Nil
 	}
-	return l.ranks[len(l.ranks)-1]
+	if core.CharacterLevel == 60 && core.ActiveLevelProfile == nil {
+		return l.ranks[len(l.ranks)-1]
+	}
+	if len(l.ranks) > 1 {
+		for i := len(l.ranks) - 1; i >= 0; i-- {
+			if known, listed := core.KnownSpell(l.ranks[i].ID); listed && known {
+				return l.ranks[i]
+			}
+		}
+		if _, listed := core.KnownSpell(0); !listed {
+			for i := len(l.ranks) - 1; i >= 0; i-- {
+				if int32(l.ranks[i].SpellLevel) <= core.CharacterLevel {
+					return l.ranks[i]
+				}
+			}
+		}
+	}
+	lowest := l.ranks[0]
+	known, listed := core.KnownSpell(lowest.ID)
+	if (listed && !known) || (!listed && int32(lowest.SpellLevel) > core.CharacterLevel) {
+		unreachedMu.Lock()
+		unreachedRanks[lowest.ID] = true
+		unreachedMu.Unlock()
+	}
+	return lowest
+}
+
+// unreachedRanks holds the spells Highest answered although the character has no rank of them.
+// Sims build characters concurrently, so the set is written under a lock.
+var unreachedRanks = map[int32]bool{}
+var unreachedMu sync.Mutex
+
+// UnreachedRanks lists the spells Highest answered with a rank the character has not reached.
+func UnreachedRanks() []int32 {
+	unreachedMu.Lock()
+	defer unreachedMu.Unlock()
+	ids := make([]int32, 0, len(unreachedRanks))
+	for id := range unreachedRanks {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 // The rank with this spell id. Panics on an id the ladder does not carry, the way MustFind does on a

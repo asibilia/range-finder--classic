@@ -97,6 +97,9 @@ message Player {
 	// A weapon skill missing from the list is at the maximum for the player's level.
 	repeated WeaponSkillValue weapon_skills = 61;
 
+	// Local level-aware patch: the share of maximum mana each iteration starts with, 1 to 100; 0 means full.
+	double starting_mana_percent = 63;
+
 	HealingModel healing_model = 49;
 
 	// Items/enchants/etc to include in the database.
@@ -144,6 +147,9 @@ message SimOptions {
 	bool save_all_values = 7; // Only used internally.
 	bool interactive = 8; // Enables interactive mode.
 	bool use_labeled_rands = 9; // Use test level RNG.
+	// Local level-aware patch: > 0 records each player's damage and mana per bucket of this many ms
+	// (UnitMetrics.timeline). Off by default; it doesn't change any result.
+	int32 timeline_bucket_ms = 10;
 }
 
 // The aggregated results from all uses of a particular action.
@@ -361,6 +367,16 @@ message DistributionMetrics {
 }
 
 // All the results for a single Unit (player, target, or pet).
+// Local level-aware patch: one bucket of the timeline, averaged over the iterations that reached it.
+message TimelinePoint {
+	double t_s = 1; // the bucket's start, in seconds
+	double dps = 2;
+	double dps_stdev = 3;
+	double mana = 4; // at the end of the bucket
+	double mana_stdev = 5;
+	int32 iterations = 6;
+}
+
 message UnitMetrics {
 	string name = 9;
 	int32 unit_index = 13;
@@ -384,6 +400,8 @@ message UnitMetrics {
 	repeated ResourceMetrics resources = 10;
 
 	repeated UnitMetrics pets = 7;
+
+	repeated TimelinePoint timeline = 17; // local level-aware patch: see SimOptions.timeline_bucket_ms
 }
 
 // Results for a whole raid.

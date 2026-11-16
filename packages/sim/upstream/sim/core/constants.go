@@ -6,7 +6,6 @@ import (
 	"github.com/wowsims/forever/sim/core/proto"
 )
 
-const CharacterLevel = 60
 const MinIlvl = 60
 const MaxIlvl = 600
 

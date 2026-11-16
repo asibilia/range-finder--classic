@@ -534,12 +534,29 @@ func NewAttackTable(attacker *Unit, defender *Unit) *AttackTable {
 }
 
 func combatLevelDiff(attacker *Unit, defender *Unit) int32 {
-	return min(defender.Level-attacker.Level, 3)
+	return min(defender.Level-attacker.Level, maxCombatLevelDiff())
+}
+
+// The largest level difference the attack tables count. The shipped sim stops at 3 (a raid boss);
+// local level-aware patch: under a level profile, a levelling character fights mobs up to 10 levels
+// above, and the tables keep growing with the skill difference (Classic formulas, not yet measured
+// in Forever beyond +3).
+func maxCombatLevelDiff() int32 {
+	if ActiveLevelProfile != nil {
+		return 10
+	}
+	return 3
 }
 
 // The level-based spell miss for the defender's level minus the attacker's: 4% at equal level, one point
-// per level either side, 0% at -4 and below, and 17% at +3 and above.
+// per level either side, 0% at -4 and below, and 17% at +3. Local level-aware patch: each level beyond
+// +3 adds 11% (Classic's table, 28% at +4 up to 94% at +10; not yet seen in Forever).
 func spellMissChance(levelDiff int32) float64 {
+	// Only under a level profile: at level 60 a low weapon skill also pushes the difference past +3
+	// (a wand at 275 skill), and the shipped sim holds that at 17%.
+	if levelDiff > 3 && ActiveLevelProfile != nil {
+		return min(0.99, 0.17+0.11*float64(levelDiff-3))
+	}
 	if levelDiff >= 3 {
 		return 0.17
 	}

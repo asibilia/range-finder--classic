@@ -524,6 +524,9 @@ func (spell *Spell) dealDamageInternal(sim *Simulation, isPeriodic bool, result 
 
 	if sim.CurrentTime >= 0 {
 		spell.SpellMetrics[result.Target.UnitIndex].TotalDamage += result.Damage
+		if tl := spell.Unit.Metrics.timeline; tl != nil { // local level-aware patch
+			tl.addDamage(sim.CurrentTime, result.Damage)
+		}
 		if isPartialResist {
 			spell.SpellMetrics[result.Target.UnitIndex].TotalResistedDamage += result.Damage
 		}

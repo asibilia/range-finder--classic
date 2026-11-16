@@ -12,8 +12,17 @@ var windfuryTotemRank = spellData.WindfuryTotem.Highest()
 
 // Strength of Earth's rank 4 and Grace of Air's rank 2 are the last ranks the trainer teaches; the Tablet of
 // Strength of Earth Totem V and Tablet of Grace of Air Totem III books teach the ranks above them.
-var strengthOfEarthTotemRanks = []*spelldata.Spell{spellData.StrengthOfEarthTotem.ByID(10442), spellData.StrengthOfEarthTotem.ByID(25361)}
-var graceOfAirTotemRanks = []*spelldata.Spell{spellData.GraceOfAirTotem.ByID(10627), spellData.GraceOfAirTotem.ByID(25359)}
+var strengthOfEarthTotemRanks = levelTotemRanks(spellData.StrengthOfEarthTotem, 10442, 25361)
+var graceOfAirTotemRanks = levelTotemRanks(spellData.GraceOfAirTotem, 10627, 25359)
+
+// levelTotemRanks is the two level 60 ranks (the trained top rank and the book rank) at level 60
+// with no level profile. Local level-aware patch: otherwise it is the one rank the character has.
+func levelTotemRanks(ladder spelldata.Ladder, trained int32, book int32) []*spelldata.Spell {
+	if core.CharacterLevel == 60 && core.ActiveLevelProfile == nil {
+		return []*spelldata.Spell{ladder.ByID(trained), ladder.ByID(book)}
+	}
+	return []*spelldata.Spell{ladder.Highest()}
+}
 
 var manaSpringTotemRank = spellData.ManaSpringTotem.Highest()
 var flametongueTotemRank = spellData.FlametongueTotem.Highest()
