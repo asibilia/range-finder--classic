@@ -95,12 +95,14 @@ export async function simStatWeights(
             .then(dpsOf)
     return Promise.all(
         fights.map(async (fight) => {
+            // One baseline per fight and seed, shared by every stat.
+            const baselines = seeds.map((seed) => run(fight, seed))
             const perPoint = await Promise.all(
                 STAT_STEPS.map(async (step) =>
                     Promise.all(
-                        seeds.map(async (seed) => {
+                        seeds.map(async (seed, s) => {
                             const [base, up] = await Promise.all([
-                                run(fight, seed),
+                                baselines[s]!,
                                 run(fight, seed, step.stat, step.amount),
                             ])
                             return (up - base) / step.amount

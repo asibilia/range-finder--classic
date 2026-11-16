@@ -43,11 +43,17 @@ const round = (value: number) => Math.round(value * 10) / 10
 export function candidates(character: Character, db: ItemDb) {
     const bySlot = new Map<Slot, DbItem[]>(SLOTS.map((slot) => [slot, []]))
     const leftOut = new Map<Slot, DbItem[]>(SLOTS.map((slot) => [slot, []]))
-    const worn = (slot: Slot) => character.gear[slot]?.id
+    // An item already worn, in any slot, is never an alternative: the ring
+    // worn in finger_2 must not move to finger_1 and leave finger_2 empty.
+    const worn = new Set(
+        SLOTS.map((slot) => character.gear[slot]?.id).filter(
+            (id): id is number => id !== undefined
+        )
+    )
     for (const item of db.items.values()) {
         if (requiredLevel(item) > character.level + SOON_LEVELS) continue
+        if (worn.has(item.id)) continue
         for (const slot of slotsFor(character, item)) {
-            if (item.id === worn(slot)) continue
             const into = leftOutReason(character, item) ? leftOut : bySlot
             into.get(slot)!.push(item)
         }
