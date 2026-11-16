@@ -10,6 +10,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ESLint } from 'eslint'
+import ts from 'typescript'
 
 import commitConfig from '../../../commit.config'
 
@@ -164,10 +165,41 @@ describe('the @goturbo/armory package', () => {
 
         const catalog = readPackage('package.json').workspaces?.catalog ?? {}
         for (const [name, version] of Object.entries(deps)) {
+            // The repo's own packages come from the workspace.
+            if (name.startsWith('@goturbo/')) {
+                expect(`${name}@${version}`).toBe(`${name}@workspace:*`)
+                continue
+            }
             expect(`${name}@${version}`).toBe(`${name}@catalog:`)
             expect(Object.keys(catalog)).toContain(name)
         }
         expect(catalog['zod']).toMatch(/^[\^~]?4\./)
+    })
+
+    test('depends on @goturbo/sim from the workspace, takes its source in tsconfig.app.json with no project reference, and builds with vite-plugin-sim', () => {
+        const pkg = readPackage('packages/armory/package.json')
+        expect(pkg.dependencies?.['@goturbo/sim']).toBe('workspace:*')
+
+        const tsconfig = (path: string) =>
+            ts.parseConfigFileTextToJson(path, readText(path)).config as {
+                include?: string[]
+                references?: { path: string }[]
+            }
+        const app = tsconfig('packages/armory/tsconfig.app.json')
+        expect(
+            (app.include ?? []).some((p) => p.startsWith('../sim/src'))
+        ).toBe(true)
+        const references = [
+            ...(app.references ?? []),
+            ...(tsconfig('packages/armory/tsconfig.json').references ?? []),
+        ]
+        expect(references.filter((r) => r.path.includes('sim'))).toEqual([])
+
+        const node = tsconfig('packages/armory/tsconfig.node.json')
+        expect(node.include).toContain('vite-plugin-sim.ts')
+        expect(readText('packages/armory/vite.config.ts')).toMatch(
+            /from '\.\/vite-plugin-sim(\.ts)?'/
+        )
     })
 
     test('the root package.json description names @goturbo/armory', () => {

@@ -155,6 +155,20 @@ describe('what reads packages/sim/upstream', () => {
         )
     })
 
+    test('ESLint lints the tracked worker script with worker globals', async () => {
+        const eslint = new ESLint({ cwd: REPO_ROOT })
+        const worker = join(PACKAGE_DIR, 'src/worker.js')
+        expect(existsSync(worker)).toBe(true)
+        expect(await eslint.isPathIgnored(worker)).toBe(false)
+        const config = (await eslint.calculateConfigForFile(worker)) as {
+            languageOptions?: { globals?: Record<string, unknown> }
+        }
+        const globals = Object.keys(config.languageOptions?.globals ?? {})
+        expect(globals).toEqual(
+            expect.arrayContaining(['self', 'importScripts', 'postMessage'])
+        )
+    })
+
     test('type-check:sim runs a composite tsconfig without upstream, in the root type-check', () => {
         const root = readJson<PackageJson>('package.json')
         expect(root.scripts?.['type-check']).toContain('bun run type-check:sim')

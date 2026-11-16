@@ -8,7 +8,7 @@
  * wrote.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
@@ -18,6 +18,21 @@ const REPO_ROOT = join(import.meta.dir, '../../..')
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const CLIENT_DIR = join(PACKAGE_DIR, 'build/client')
 const INDEX_HTML = join(CLIENT_DIR, 'index.html')
+const SIM_DIR = join(REPO_ROOT, 'packages/sim')
+const SIM_BUILD = join(SIM_DIR, 'build')
+/** Cloudflare's limit per static asset. */
+const MAX_ASSET_BYTES = 25 * 1024 * 1024
+/** The sim's files the page needs, under `build/client/sim/`. */
+const SIM_FILES = [
+    'lib.wasm.gz',
+    'wasm_exec.js',
+    'worker.js',
+    'db.json',
+    'leftover_db.json',
+    'item_first_seen.json',
+]
+/** The one module allowed to fetch, from the repo root. */
+const LOADER = 'packages/sim/src/loader.ts'
 
 /**
  * Hosts that appear in the built JavaScript as names, never as requests:
@@ -92,6 +107,29 @@ function storageProblems(path: string, code: string): string[] {
     return problems
 }
 
+/**
+ * How `code` (a source file without comments, at `path` from the repo
+ * root) breaks the network rule: no XMLHttpRequest, WebSocket, EventSource
+ * or sendBeacon anywhere, and `fetch` only in the sim's loader, where every
+ * `fetch(` takes `new URL(`.
+ */
+function networkProblems(path: string, code: string): string[] {
+    const problems: string[] = []
+    for (const [, name] of code.matchAll(new RegExp(NETWORK, 'g'))) {
+        if (name !== 'fetch') problems.push(`${path} uses ${name}`)
+        else if (path !== LOADER) problems.push(`${path} uses fetch`)
+    }
+    if (path === LOADER) {
+        const fetches = code.match(/\bfetch\b/g) ?? []
+        const calls = [...code.matchAll(/\bfetch\s*\(\s*(new\s+URL\s*\()?/g)]
+        if (calls.length !== fetches.length)
+            problems.push(`${path} names fetch without calling it`)
+        for (const [, url] of calls)
+            if (!url) problems.push(`${path} fetches something not new URL(`)
+    }
+    return problems
+}
+
 function filesUnder(dir: string, extension: string): string[] {
     return readdirSync(dir, { recursive: true, encoding: 'utf8' })
         .filter((name) => name.endsWith(extension))
@@ -104,6 +142,19 @@ beforeAll(() => {
     const nodeProblem = nodeVersionProblem(readNodeVersion())
     if (nodeProblem) throw new Error(nodeProblem)
 
+    // The armory build copies the sim's build; Luca's checks don't build it.
+    if (!existsSync(join(SIM_BUILD, 'worker.js'))) {
+        const sim = Bun.spawnSync([process.execPath, 'run', 'sim:build'], {
+            cwd: REPO_ROOT,
+            stdout: 'pipe',
+            stderr: 'pipe',
+        })
+        if (sim.exitCode !== 0) {
+            console.error(sim.stdout.toString() + sim.stderr.toString())
+            throw new Error('bun run sim:build failed')
+        }
+    }
+
     const result = Bun.spawnSync([process.execPath, 'run', 'build:armory'], {
         cwd: REPO_ROOT,
         // `bun test` sets NODE_ENV=test, which would make Vite bundle
@@ -114,7 +165,7 @@ beforeAll(() => {
     })
     buildExitCode = result.exitCode
     buildOutput = result.stdout.toString() + result.stderr.toString()
-}, 180_000)
+}, 900_000)
 
 describe('the build', () => {
     test('writes packages/armory/build/client/index.html, which git ignores', () => {
@@ -202,9 +253,36 @@ describe('the build', () => {
         expect(css).toMatch(/@container doll \(min-width:\s*49rem\)/)
     })
 
+    test("puts the sim's module, runtime, worker and item data under build/client/sim/, and every built file is under 25 MiB", () => {
+        for (const name of SIM_FILES) {
+            const built = join(CLIENT_DIR, 'sim', name)
+            expect({ name, built: existsSync(built) }).toEqual({
+                name,
+                built: true,
+            })
+            const source = readFileSync(join(SIM_BUILD, name))
+            expect(readFileSync(built).equals(source)).toBe(true)
+        }
+
+        const files = readdirSync(CLIENT_DIR, {
+            recursive: true,
+            encoding: 'utf8',
+        })
+            .map((name) => join(CLIENT_DIR, name))
+            .filter((path) => statSync(path).isFile())
+        expect(files.length).toBeGreaterThan(SIM_FILES.length)
+        const tooBig = files.filter(
+            (path) => statSync(path).size >= MAX_ASSET_BYTES
+        )
+        expect(tooBig).toEqual([])
+    })
+
     test('no URL in the built JavaScript points at a server', () => {
+        // Go's own wasm_exec.js names github.com in a comment: skipped by name.
+        const goRuntime = join(CLIENT_DIR, 'sim/wasm_exec.js')
         const hosts = new Set<string>()
         for (const file of filesUnder(CLIENT_DIR, '.js')) {
+            if (file === goRuntime) continue
             const js = readFileSync(file, 'utf8')
             for (const m of js.matchAll(/\b(?:https?|wss?):\/\/([\w.-]+)/g))
                 hosts.add(m[1]!)
@@ -219,32 +297,80 @@ describe("the page's own code", () => {
     // (`routeDiscovery: 'initial'`), it asks the server for nothing. Our
     // code must not use them either. It keeps one thing in the browser:
     // the last results file, in `src/remembered-file.ts`.
-    const sources = [
+    // The sim's TypeScript API, its worker script, and the worker as
+    // `sim:build` copies it are the page's code too. Read once the build
+    // has run, as `packages/sim/build/worker.js` comes from it.
+    const sources = () => [
         ...filesUnder(join(PACKAGE_DIR, 'src'), '.ts'),
         ...filesUnder(join(PACKAGE_DIR, 'src'), '.tsx'),
         ...filesUnder(join(PACKAGE_DIR, 'workers'), '.ts'),
+        ...filesUnder(join(SIM_DIR, 'src'), '.ts'),
+        ...filesUnder(join(SIM_DIR, 'src'), '.js'),
+        ...(existsSync(join(SIM_BUILD, 'worker.js'))
+            ? [join(SIM_BUILD, 'worker.js')]
+            : []),
     ]
     const code = (file: string) => withoutComments(readFileSync(file, 'utf8'))
+    const slashes = (path: string) => path.split('\\').join('/')
+    const fromRepo = (file: string) => slashes(file.slice(REPO_ROOT.length + 1))
+    /** Paths from the armory package for its files, from the repo for others. */
     const fromPackage = (file: string) =>
-        file
-            .slice(PACKAGE_DIR.length + 1)
-            .split('\\')
-            .join('/')
+        fromRepo(file).startsWith('packages/armory/')
+            ? fromRepo(file).slice('packages/armory/'.length)
+            : fromRepo(file)
 
     test('asks no server for anything', () => {
-        expect(sources.length).toBeGreaterThan(0)
-        const offenders = sources.filter((file) =>
-            // The Worker's own `fetch(request)` handler is not a request.
-            NETWORK.test(code(file).replace(/^\s*fetch\(request\)\s*\{/m, ''))
+        const all = sources()
+        expect(all.map(fromRepo)).toContain(LOADER)
+        const problems = all.flatMap((file) =>
+            networkProblems(
+                fromRepo(file),
+                // The Worker's own `fetch(request)` handler is not a request.
+                code(file).replace(/^\s*fetch\(request\)\s*\{/m, '')
+            )
         )
-        expect(offenders).toEqual([])
+        expect(problems).toEqual([])
+    })
+
+    test('the network rule reports a fetch outside loader.ts or one in it not of new URL(, and passes the loader as written', () => {
+        const loader = code(join(REPO_ROOT, LOADER))
+        expect(loader).toContain('fetch(new URL(')
+        expect(networkProblems(LOADER, loader)).toEqual([])
+        // The worker script, and its copy in the sim's build, are scanned too.
+        expect(sources().map(fromRepo)).toEqual(
+            expect.arrayContaining([
+                'packages/sim/src/worker.js',
+                'packages/sim/build/worker.js',
+            ])
+        )
+
+        const bad: [string, string][] = [
+            ['packages/armory/src/app.tsx', "await fetch('/sim/db.json')"],
+            [
+                'packages/sim/src/pool.ts',
+                "await fetch(new URL('db.json', base))",
+            ],
+            ['packages/sim/src/worker.js', "fetch(new URL('lib.wasm.gz', b))"],
+            [LOADER, loader + '\nawait fetch(url)'],
+            [LOADER, loader + "\nawait fetch('https://example.com/x')"],
+            [LOADER, loader + '\nconst get = fetch'],
+            [LOADER, loader + '\nnew XMLHttpRequest()'],
+            ['packages/sim/src/pool.ts', 'navigator.sendBeacon("/x")'],
+        ]
+        for (const [path, source] of bad)
+            expect({
+                path,
+                source,
+                reported: networkProblems(path, source).length > 0,
+            }).toEqual({ path, source, reported: true })
     })
 
     test('keeps only the last results file in the browser, under one localStorage key, from one module', () => {
-        expect(sources.map(fromPackage)).toContain(REMEMBERED_FILE)
+        const all = sources()
+        expect(all.map(fromPackage)).toContain(REMEMBERED_FILE)
         expect(REMEMBERED_FILE_KEY).toBe('armory:last-results-file')
         expect(
-            sources.flatMap((file) =>
+            all.flatMap((file) =>
                 storageProblems(fromPackage(file), code(file))
             )
         ).toEqual([])
