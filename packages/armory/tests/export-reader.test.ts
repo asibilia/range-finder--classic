@@ -31,6 +31,7 @@ import {
     type ExportRead,
     type SimExportOutcome,
 } from '../src/browser-sim'
+import { exportCharacter } from '../src/browser-sim/export-reader'
 import type { ResultsFile } from '../src/results-file'
 import { exportFromCharacter } from './helpers/export-from-character'
 
@@ -406,6 +407,69 @@ describe('readExport', () => {
         const real = characterOf(await readExport(keyed(key), on))
         expect(real.character_key).toBe(key)
     }, 600_000)
+})
+
+/** A pool that records every data file asked for, and runs no sim or sheet. */
+function dataOnly(real: SimPool, files: string[]): SimPool {
+    return {
+        ...real,
+        size: real.size,
+        data: (name) => {
+            files.push(name)
+            return real.data(name)
+        },
+        sim: () => Promise.reject(new Error('no sim expected')),
+        sheet: () => Promise.reject(new Error('no sheet expected')),
+    }
+}
+
+/** The owner's real export, with no buffs, and its class set to `cls`. */
+async function exportWithClass(cls: string): Promise<string> {
+    const text = await Bun.file(BUFFED).text()
+    const buffs = /\["buffs"\] = \{\s*\{[^{}]*\},\s*\},/
+    const field = '["class"] = "SHAMAN"'
+    expect(text).toMatch(buffs)
+    expect(text.split(field)).toHaveLength(2)
+    return text
+        .replace(buffs, '["buffs"] = {\n},')
+        .replace(field, `["class"] = "${cls}"`)
+}
+
+describe("the export's class", () => {
+    test('an export whose class is ../../etc returns an unsupported stop naming ../../etc with no spec, and makes no pool.data call', async () => {
+        const files: string[] = []
+        const outcome = await exportCharacter(
+            await exportWithClass('../../etc'),
+            dataOnly(pool(), files)
+        )
+        expect(outcome).toEqual({
+            kind: 'unsupported',
+            class: '../../etc',
+            spec: '',
+        })
+        expect(files).toEqual([])
+    })
+
+    test('exports whose class is SHAMAN or Shaman read into a Shaman character, while the same export with class ../../etc stops before any pool.data call', async () => {
+        for (const cls of ['SHAMAN', 'Shaman']) {
+            const read = await exportCharacter(
+                await exportWithClass(cls),
+                dataOnly(pool(), [])
+            )
+            expect([cls, read.kind]).toEqual([cls, 'character'])
+            if (read.kind !== 'character')
+                throw new Error(`a ${read.kind} stop`)
+            expect(read.character.class).toBe('Shaman')
+            expect(read.character.level).toBe(32)
+        }
+        const files: string[] = []
+        const stopped = await exportCharacter(
+            await exportWithClass('../../etc'),
+            dataOnly(pool(), files)
+        )
+        expect(stopped.kind).toBe('unsupported')
+        expect(files).toEqual([])
+    })
 })
 
 describe('an export saved with buffs the sim can model', () => {
