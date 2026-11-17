@@ -111,8 +111,13 @@ export async function loadItemDb(pool: SimPool): Promise<ItemDb> {
     return { items, firstSeen: seen }
 }
 
+/**
+ * An item's required level. The data leaves `reqLvl` out when it is 60
+ * (the runner's `reqOf`); an item the data doesn't know needs level 1.
+ */
 export function requiredLevel(item: DbItem | undefined): number {
-    return Math.max(1, item?.reqLvl ?? 1)
+    if (!item) return 1
+    return Math.max(1, item.reqLvl ?? 60)
 }
 
 function sourceOf(item: DbItem | undefined): FileItem['source'] {
