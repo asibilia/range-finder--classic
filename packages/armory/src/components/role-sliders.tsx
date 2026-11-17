@@ -1,5 +1,5 @@
 /**
- * What to gear for (spec section 10), as the mockup's sliders show it:
+ * Stat Priority (spec section 10; spec #109 renamed it), as the mockup's sliders show it:
  * damage, survival, healing and utility (shadcn's Slider on Base UI) that
  * pick the closest plan the sim already made. Nothing is re-simmed here.
  * When the picked plan has a reach (`plans[].reach`) each slider says how
@@ -121,7 +121,7 @@ export function RoleSliders({
     return (
         <section aria-labelledby="roles-heading">
             <h2 id="roles-heading" className="mb-1 text-xl leading-tight">
-                What to gear for
+                Stat Priority
             </h2>
             {reach && (
                 <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">

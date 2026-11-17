@@ -1,7 +1,7 @@
 /**
  * The column on the right of the gear (below it under 90rem), holding what
- * the approved mockup keeps there, with no card around it: what the sim
- * says, what to gear for (the role sliders) and the Talents button. Before
+ * the approved mockup keeps there, with no card around it: Simulator Data
+ * (the readings), Stat Priority (the role sliders) and the Talents button. Before
  * a file loads it shows the same column dimmed and inert, under `These
  * unlock once a character is loaded.`
  */
@@ -10,10 +10,8 @@ import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 
 import type { Plan } from '../plans'
-import type { ResultsFile } from '../results-file'
+import type { Result, ResultsFile } from '../results-file'
 import { Readings } from './readings'
-
-type Result = ResultsFile['results'][number]
 
 /** The Talents button, as the mockup draws it: an outlined pill. */
 const TALENTS_BUTTON =
@@ -92,12 +90,12 @@ export function SimPanel({
 }
 
 const PLACEHOLDER_READINGS = [
-    'Solo DPS',
-    'Dungeon DPS',
-    'Mana runs out at',
+    'Solo',
+    'Dungeon',
+    'Resource Empty',
     'Health',
     'Armor',
-    'Time to die',
+    'Lifespan',
 ]
 
 const PLACEHOLDER_ROLES = ['Damage', 'Survival', 'Healing', 'Utility']
@@ -126,7 +124,7 @@ export function LockedSimPanel() {
             >
                 <div>
                     <p className="mb-1.5 text-xl leading-tight">
-                        What the sim says
+                        Simulator Data
                     </p>
                     <div className="grid grid-cols-2 border-t min-[30rem]:grid-cols-3">
                         {PLACEHOLDER_READINGS.map((label) => (
@@ -143,7 +141,7 @@ export function LockedSimPanel() {
                     </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                    <p className="text-xl leading-tight">What to gear for</p>
+                    <p className="text-xl leading-tight">Stat Priority</p>
                     {PLACEHOLDER_ROLES.map((role) => (
                         <div key={role} className="flex flex-col gap-2">
                             <span className="text-sm">{role}</span>

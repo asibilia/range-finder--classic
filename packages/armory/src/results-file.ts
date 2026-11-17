@@ -711,6 +711,10 @@ export const resultsFileSchema = baseSchema
     .meta({ title: 'Results file', description: FILE_DESCRIPTION })
 
 export type ResultsFile = z.infer<typeof resultsFileSchema>
+/** One fight the file simmed (`fights[]`). */
+export type Fight = ResultsFile['fights'][number]
+/** One gear set's result on one fight (`results[]`). */
+export type Result = ResultsFile['results'][number]
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
 /** One accuracy check: a gate, or a note that never blocks. */

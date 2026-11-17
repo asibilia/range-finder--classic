@@ -62,21 +62,23 @@ export async function pick(user: User, file: File): Promise<void> {
     await user.upload(screen.getByLabelText('Open a results file'), file)
 }
 
-/** Renders the page, loads the bundled sample and waits for its h1. */
+/**
+ * Renders the page, loads the bundled sample and waits for the gear card's
+ * heading to name the character.
+ */
 export async function openSample(): Promise<User> {
     const user = renderApp()
     await user.click(
         screen.getByRole('button', { name: 'Or look at a sample character' })
     )
-    await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+    await screen.findByRole('heading', { level: 2, name: 'Truncha' })
     await chartsLoaded()
     return user
 }
 
 /**
- * Renders the page, picks `data` as a results file and waits for the h1 to
- * name `character`. The page always has an h1 (`Armory planner` before a file
- * loads), so waiting for any h1 would not wait for the file.
+ * Renders the page, picks `data` as a results file and waits for the gear
+ * card's heading (an h2, `Gear` before a file loads) to name `character`.
  */
 export async function openFile(
     data: unknown,
@@ -84,7 +86,7 @@ export async function openFile(
 ): Promise<User> {
     const user = renderApp()
     await pick(user, jsonFile(data))
-    await screen.findByRole('heading', { level: 1, name: character })
+    await screen.findByRole('heading', { level: 2, name: character })
     await chartsLoaded()
     return user
 }

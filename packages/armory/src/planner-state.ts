@@ -12,7 +12,7 @@
 import { z } from 'zod'
 
 import { closestPlan, defaultPlan, isLive, type Mix, type Plan } from './plans'
-import type { ResultsFile } from './results-file'
+import type { Result, ResultsFile } from './results-file'
 
 /** `worn` shows what you wear; `plan` shows the plan the sliders picked. */
 export type View = 'worn' | 'plan'
@@ -266,8 +266,6 @@ export function pickedPlan(
 ): Plan | null {
     return state.mix ? closestPlan(file.plans, state.mix) : null
 }
-
-type Result = ResultsFile['results'][number]
 
 /**
  * What you wear's result on a fight, with the worn bag upgrade (if any) put

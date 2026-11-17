@@ -1,13 +1,13 @@
 /**
  * The gear pane, as the approved mockup lays it out: its heading row
- * (`Gear`, which gear is shown, the switch between what you wear and the
+ * (the character, which gear is shown, the switch between what you wear and the
  * plan) and the line under it, every slot around the character (six on the
  * left with the bag card under them, eight on the right, the weapons along
  * the bottom), and the middle with the figure and the character sheet.
  * Before a file loads the slots are disabled dashed outlines and the
  * middle holds `middle` (the new-visitor card).
  */
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -160,20 +160,44 @@ function slotWord(slot: Slot): string {
     return words[slot] ?? 'item'
 }
 
-/** The heading row and the line under it. */
+/**
+ * The weapon line under the character, as the mockup writes it:
+ * `Guardian's Dualblade with Windfury Weapon.` The weapon is the main
+ * hand's worn item; `with ...` is its imbue (`slots[].imbue`), left out
+ * when the file has none.
+ *
+ * @param file - The loaded results file.
+ * @returns The line, or null with no main hand worn.
+ */
+export function weaponLine(file: ResultsFile): string | null {
+    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
+    if (!mainHand?.worn) return null
+    const weapon = itemName(mainHand.worn, 'main_hand', file.character.class)
+    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
+    return `${weapon}${imbue}.`
+}
+
+/**
+ * The heading row (the character's name, or `Gear` before a file loads;
+ * then `Level 30 Enhancement Shaman` and the weapon line) and the line
+ * under it.
+ */
 function GearHead({
     file,
     plan,
     planShown,
+    headingRef,
     onShowPlan,
     onShowWorn,
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
+    headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
 }) {
+    const weapon = file ? weaponLine(file) : null
     const status = !file ? (
         'No character loaded yet.'
     ) : planShown && plan ? (
@@ -191,9 +215,32 @@ function GearHead({
     return (
         <div>
             <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
-                <h2 id="gear-heading" className="text-[1.375rem] leading-tight">
-                    Gear
-                </h2>
+                <div className="min-w-0">
+                    <h2
+                        id="gear-heading"
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="text-[1.375rem] leading-tight outline-none"
+                    >
+                        {file ? file.character.name : 'Gear'}
+                    </h2>
+                    {file && (
+                        <>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                                Level{' '}
+                                <b className="font-bold text-foreground">
+                                    {file.character.level}
+                                </b>{' '}
+                                {`${file.character.spec} ${file.character.class}`}
+                            </p>
+                            {weapon && (
+                                <p className="text-sm text-muted-foreground">
+                                    {weapon}
+                                </p>
+                            )}
+                        </>
+                    )}
+                </div>
                 <span
                     aria-live="polite"
                     className="text-sm text-muted-foreground"
@@ -250,6 +297,8 @@ function bigUpgrades(count: number): string {
  * @param planShown - True to show the plan's gear instead of what you wear.
  * @param bagWorn - The bag upgrade put on with Wear them, or null.
  * @param middle - What sits in the middle before a file loads.
+ * @param headingRef - The heading (`gear-heading`), focused when a picked
+ * file loads.
  * @param onWearBag - Wear them: puts a bag upgrade on.
  * @param onUndoBag - Undo: takes it off again.
  */
@@ -259,6 +308,7 @@ export function GearPane({
     planShown,
     bagWorn = null,
     middle,
+    headingRef,
     onShowPlan,
     onShowWorn,
     onOpenSlot,
@@ -270,6 +320,7 @@ export function GearPane({
     planShown: boolean
     bagWorn?: number | null
     middle?: ReactNode
+    headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
     onOpenSlot: (slot: Slot) => void
@@ -299,6 +350,7 @@ export function GearPane({
                 file={file}
                 plan={plan}
                 planShown={planShown && plan !== null}
+                headingRef={headingRef}
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}
             />
