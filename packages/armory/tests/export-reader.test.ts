@@ -14,6 +14,7 @@ import {
     createSimPool,
     sheetFromSim,
     type RaidSimRequest,
+    type Sheet,
     type SimPool,
 } from '@goturbo/sim'
 
@@ -24,9 +25,11 @@ import {
 } from '../../sim/tests/helpers/testchar'
 import {
     buildRequest,
+    chainFor,
     parseSavedVariables,
     readExport,
     simExport,
+    simSession,
     type Character,
     type ExportRead,
     type SimExportOutcome,
@@ -486,6 +489,8 @@ type SmallExport = {
     talentList?: Talent[]
     traits?: Talent[]
     without?: string
+    /** `sheet.manaRegen.outsideFiveSecondRule`; absent: no `manaRegen`. */
+    oocManaRegen?: number
 }
 
 /** An Enhancement build as traits: Stormstrike, Thundering Strikes 5 and Mental Dexterity 3. */
@@ -625,6 +630,11 @@ ${stat}
 ["spellCrit"] = 7.2,
 ["dodge"] = 9.9,
 ["meleeHit"] = 0,
+${
+    options.oocManaRegen === undefined
+        ? ''
+        : `["manaRegen"] = { ["outsideFiveSecondRule"] = ${options.oocManaRegen}, ["insideFiveSecondRule"] = 0 },`
+}
 },
 }
 `
@@ -764,6 +774,79 @@ describe("the export reader matches the runner's characterFromExport", () => {
         const real = 'cf765509-937b-4147-8e33-677e3eef7065'
         const kept = await smallCharacter({ characterKey: real })
         expect(kept.character_key).toBe(real)
+    })
+})
+
+/**
+ * The chain fight simmed through a fake pool whose every pull ends at
+ * `endMana`: the pulls' results and the requests the pool got.
+ */
+async function chainEndingAt(
+    character: Character,
+    endMana: number,
+    maxMana: number
+) {
+    const requests: RaidSimRequest[] = []
+    const fake: SimPool = {
+        ...dataOnly(pool(), []),
+        sim: (request) => {
+            requests.push(request)
+            const player = {
+                name: character.name,
+                dps: { avg: 100 },
+                timeline: [
+                    { tS: 0, mana: maxMana },
+                    { tS: 25, mana: endMana },
+                ],
+            }
+            return Promise.resolve({
+                raidMetrics: { parties: [{ players: [player] }] },
+            } as unknown as Awaited<ReturnType<SimPool['sim']>>)
+        },
+    }
+    const sheet: Sheet = {
+        ...character.sheet,
+        mana: maxMana,
+        spirit: 60,
+    } as Sheet
+    const result = await simSession(
+        fake,
+        character,
+        chainFor(character.level),
+        character.gear,
+        sheet,
+        () => undefined
+    )
+    const startPct = requests.map(
+        (request) => playerOf(request).startingManaPercent
+    )
+    return { pulls: result.pulls ?? [], startPct }
+}
+
+describe("mana between the chain's pulls at the export's out-of-combat rate", () => {
+    test('with outsideFiveSecondRule 7.5 and a pull ending at 400 of 1500 mana, the next pull starts at 490', async () => {
+        const character = await smallCharacter({ oocManaRegen: 7.5 })
+        expect(character.ooc_mana_regen).toBe(7.5)
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        expect(pulls).toHaveLength(10)
+        expect(pulls[0]?.mana_end).toBe(400)
+        expect(pulls[1]?.mana_start).toBe(490)
+        expect(startPct[1]).toBeCloseTo((490 / 1500) * 100, 6)
+    })
+
+    test('with outsideFiveSecondRule 100 and a pull ending at 400 of 1500 mana, the next pull starts at 1500, not above max mana', async () => {
+        const character = await smallCharacter({ oocManaRegen: 100 })
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        for (const pull of pulls.slice(1)) expect(pull.mana_start).toBe(1500)
+        expect(startPct[1]).toBe(100)
+    })
+
+    test('with no manaRegen in the export, ooc_mana_regen is 0 and a pull ending at 400 of 1500 mana starts the next at 400', async () => {
+        const character = await smallCharacter()
+        expect(character.ooc_mana_regen).toBe(0)
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        expect(pulls[1]?.mana_start).toBe(400)
+        expect(startPct[1]).toBeCloseTo((400 / 1500) * 100, 6)
     })
 })
 
