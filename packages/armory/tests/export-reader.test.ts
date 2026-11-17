@@ -274,11 +274,11 @@ describe('parseSavedVariables', () => {
 
     test('a ["__proto__"] key sets no prototype: ({}).polluted stays undefined and the parsed table has no polluted property through its prototype', () => {
         const vars = parseSavedVariables(
-            'TurboCharExportDB = { ["__proto__"] = { ["polluted"] = true } }',
+            'TurboCharExportDB = { ["__proto__"] = { ["polluted"] = true } }'
         )
         expect(({} as Record<string, unknown>).polluted).toBeUndefined()
         expect((Object.prototype as Record<string, unknown>).polluted).toBe(
-            undefined,
+            undefined
         )
         const db = vars.TurboCharExportDB as Record<string, unknown>
         expect(typeof db).toBe('object')
@@ -298,7 +298,7 @@ describe('parseSavedVariables', () => {
             vars = parseSavedVariables(text)
         }).not.toThrow()
         expect(Object.getOwnPropertyNames(Object.prototype).sort()).toEqual(
-            before,
+            before
         )
         expect(Object.prototype.constructor).toBe(ctor)
         const db = vars.TurboCharExportDB as object
