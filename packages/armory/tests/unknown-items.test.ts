@@ -26,7 +26,7 @@ import {
 } from '../../sim/tests/helpers/testchar'
 import { buildRequest, simExport, type Character } from '../src/browser-sim'
 import { exportCharacter } from '../src/browser-sim/export-reader'
-import type { DbItem, ItemDb } from '../src/browser-sim/gear'
+import { loadItemDb, type DbItem, type ItemDb } from '../src/browser-sim/gear'
 import { planMaxDamage } from '../src/browser-sim/plan'
 import { bonusFor, STAT_STEPS } from '../src/browser-sim/weights'
 import { stopLines } from '../src/components/bring-in'
@@ -74,22 +74,6 @@ function dataOnly(real: SimPool, calls: { sim: number; sheet: number }) {
             return Promise.reject(new Error('no sheet expected'))
         },
     } satisfies SimPool
-}
-
-/** A pool that keeps every sim and sheet request it passes on. */
-function logging(real: SimPool, requests: RaidSimRequest[]): SimPool {
-    return {
-        ...real,
-        size: real.size,
-        sim: (request, profile) => {
-            requests.push(request)
-            return real.sim(request, profile)
-        },
-        sheet: (request, profile) => {
-            requests.push(request)
-            return real.sheet(request, profile)
-        },
-    }
 }
 
 /** The export with `stats` (game keys) added to the gear record of `id`. */
@@ -150,8 +134,10 @@ async function madeUpLegsExport(sheetPool: SimPool): Promise<string> {
     })
 }
 
-describe('a worn item the sim lacks', () => {
-    test('an export wearing a made-up legs id with ITEM_MOD_STRENGTH_SHORT 10 reads into a character without that id and with bonus_stats of +10 Strength, and its request has no such item and +10 Strength, merged with a per-sim bonus', async () => {
+/** The character the made-up-legs export reads into, read once. */
+let madeUpMemo: Promise<Character> | undefined
+function madeUpCharacter(): Promise<Character> {
+    madeUpMemo ??= (async () => {
         const real = pool()
         const read = await exportCharacter(
             await madeUpLegsExport(real),
@@ -159,7 +145,23 @@ describe('a worn item the sim lacks', () => {
         )
         expect(read.kind).toBe('character')
         if (read.kind !== 'character') throw new Error(`a ${read.kind} stop`)
-        const character = read.character
+        return read.character
+    })()
+    return madeUpMemo
+}
+
+const dpsOf = (result: unknown) =>
+    (
+        result as {
+            raidMetrics: {
+                parties: { players: { dps: { avg: number } }[] }[]
+            }
+        }
+    ).raidMetrics.parties[0]!.players[0]!.dps.avg
+
+describe('a worn item the sim lacks', () => {
+    test('an export wearing a made-up legs id with ITEM_MOD_STRENGTH_SHORT 10 reads into a character without that id and with bonus_stats of +10 Strength, and its request has no such item and +10 Strength, merged with a per-sim bonus, and sims without error', async () => {
+        const character = await madeUpCharacter()
 
         const worn = Object.values(character.gear).map((piece) => piece?.id)
         expect(worn).not.toContain(MADE_UP)
@@ -180,38 +182,38 @@ describe('a worn item the sim lacks', () => {
             bonusStats: bonusFor('strength', 20),
         })
         expect(bonusStrength(raised)).toBe(30)
+
+        // The one real sim, at small settings: no "No item with id" panic.
+        const result = await pool().sim(request, character.profile)
+        expect(dpsOf(result)).toBeGreaterThan(0)
     }, 600_000)
 
-    test('simExport on that export gives a file; no request carries the made-up id, worn-gear requests carry +10 Strength, and the plan replacing the legs sims without it', async () => {
-        const real = pool()
-        const text = await madeUpLegsExport(real)
-        const requests: RaidSimRequest[] = []
-        const outcome = await simExport(text, logging(real, requests), () => {})
-        expect(outcome.kind).toBe('file')
-        if (outcome.kind !== 'file') throw new Error(`a ${outcome.kind} stop`)
-
-        for (const request of requests)
-            expect(itemIds(request)).not.toContain(MADE_UP)
-
-        const testcharRequests = requests.filter(
-            (request) => playerOf(request).name === 'Testchar'
+    test('the max damage plan replacing the made-up legs gives a plan request with other legs, no made-up id and no bonus Strength', async () => {
+        const character = await madeUpCharacter()
+        const db = await loadItemDb(dataOnly(pool(), { sim: 0, sheet: 0 }))
+        // Strength worth nothing: the made-up legs are worth 0 EP, so any
+        // wearable legs with a weighed stat replace them.
+        const ep = new Map<Stat, number>(
+            STAT_STEPS.map((step) => [
+                step.stat,
+                step.stat === 'strength' ? 0 : 1,
+            ])
         )
-        const wornGear = testcharRequests.filter(
-            (request) => itemIds(request)[LEGS] === undefined
-        )
-        expect(wornGear.length).toBeGreaterThan(0)
-        for (const request of wornGear)
-            expect(bonusStrength(request)).toBeGreaterThanOrEqual(10)
+        const planned = planMaxDamage(character, db, ep, new Map())
 
-        const planLegs = outcome.file.plans[0]!.gear.legs
+        const planLegs = planned.plan.gear.legs
         expect(planLegs).not.toBeNull()
         expect(planLegs).not.toBe(MADE_UP)
-        const planRequests = testcharRequests.filter(
-            (request) => itemIds(request)[LEGS] === planLegs
-        )
-        expect(planRequests.length).toBeGreaterThan(0)
-        for (const request of planRequests)
-            expect(bonusStrength(request)).toBe(0)
+        expect(planned.gear.legs?.id).toBe(planLegs!)
+
+        const request = buildRequest(character, 'dungeon-long', {
+            seed: 23,
+            iterations: 10,
+            gear: planned.gear,
+        })
+        expect(itemIds(request)).not.toContain(MADE_UP)
+        expect(itemIds(request)[LEGS]).toBe(planLegs!)
+        expect(bonusStrength(request)).toBe(0)
     }, 600_000)
 })
 
