@@ -73,12 +73,28 @@ const WEAPON = {
     fist: 3,
     mace: 4,
     offHand: 5,
+    polearm: 6,
     shield: 7,
     staff: 8,
+    sword: 9,
 }
 const HAND = { mainHand: 1, oneHand: 2, offHand: 3, twoHand: 4 }
 const TOTEM = 8
 const SHAMAN = 7
+
+/**
+ * The two-handed weapon types by the sim's weapon skill for each (the
+ * runner's `skillNames`). A two-hander of these types goes in the main
+ * hand; the character's weapon skills say which it can wield.
+ */
+const TWO_HAND_SKILLS: Readonly<Record<string, number>> = {
+    WeaponSkillTwoHandedAxes: WEAPON.axe,
+    WeaponSkillTwoHandedMaces: WEAPON.mace,
+    WeaponSkillStaves: WEAPON.staff,
+    WeaponSkillTwoHandedSwords: WEAPON.sword,
+    WeaponSkillPolearms: WEAPON.polearm,
+}
+const TWO_HAND_TYPES = Object.values(TWO_HAND_SKILLS)
 
 const QUALITY = [
     'poor',
@@ -88,6 +104,10 @@ const QUALITY = [
     'epic',
     'legendary',
 ] as const
+/** The lowest quality a weapon candidate may have. */
+const UNCOMMON = QUALITY.indexOf('uncommon')
+/** An item needing level 1 with an item level this far above the limit is left out. */
+const NO_LEVEL_ILVL_MARGIN = 8
 
 const PROFESSION: Record<number, string> = {
     1: 'Alchemy',
@@ -241,9 +261,14 @@ export function otherFaction(character: Character, item: DbItem): boolean {
     return false
 }
 
+/** The item's class list lets a Shaman have it: no list (or an empty one) lets anyone. */
+function shamanAllowed(item: DbItem): boolean {
+    return !item.classAllowlist?.length || item.classAllowlist.includes(SHAMAN)
+}
+
 /** The slots a Shaman of the character's level can wear an item in. */
 export function slotsFor(character: Character, item: DbItem): Slot[] {
-    if (item.classAllowlist && !item.classAllowlist.includes(SHAMAN)) return []
+    if (!shamanAllowed(item)) return []
     if (otherFaction(character, item)) return []
     const armor = item.armorType ?? 0
     const armorOk =
@@ -293,12 +318,50 @@ function weaponSlots(item: DbItem): Slot[] {
             : []
     const oneHand = [WEAPON.axe, WEAPON.dagger, WEAPON.fist, WEAPON.mace]
     if (item.handType === HAND.twoHand)
-        return [WEAPON.axe, WEAPON.mace, WEAPON.staff].includes(type)
-            ? ['main_hand']
-            : []
+        return TWO_HAND_TYPES.includes(type) ? ['main_hand'] : []
     if (item.handType === HAND.mainHand || item.handType === HAND.oneHand)
         return oneHand.includes(type) ? ['main_hand'] : []
     return []
+}
+
+/** The two-handed weapon types the character has a weapon skill for. */
+export function twoHandSkills(character: Character): Set<number> {
+    const types = (character.weapon_skills ?? []).map(({ skill }) =>
+        Object.hasOwn(TWO_HAND_SKILLS, skill)
+            ? TWO_HAND_SKILLS[skill]
+            : undefined
+    )
+    return new Set(types.filter((type): type is number => type !== undefined))
+}
+
+/**
+ * A two-hander the character could wield by `maxLevel` (the runner's
+ * `canWear` in `weaponList`): a main hand by the slot rule, of a type in
+ * `skills`, uncommon or better, needing `maxLevel` or less, not a
+ * level-1 item far above it, and not left out.
+ */
+export function canWearWeapon(
+    character: Character,
+    item: DbItem,
+    maxLevel: number,
+    skills: ReadonlySet<number>
+): boolean {
+    if (!isTwoHander(item) || !skills.has(item.weaponType ?? -1)) return false
+    if (!slotsFor(character, item).includes('main_hand')) return false
+    const required = requiredLevel(item)
+    if (required > maxLevel || (item.quality ?? 0) < UNCOMMON) return false
+    const ilvl = item.scalingOptions?.['0']?.ilvl ?? 0
+    if (required <= 1 && ilvl > maxLevel + NO_LEVEL_ILVL_MARGIN) return false
+    return leftOutReason(character, item) === null
+}
+
+/** A weapon's DPS, from its damage and speed when the data lacks it. */
+export function weaponDps(item: DbItem): number {
+    const scaling = item.scalingOptions?.['0']
+    if (scaling?.unroundedDps !== undefined) return scaling.unroundedDps
+    const min = scaling?.weaponDamageMin ?? 0
+    const max = scaling?.weaponDamageMax ?? 0
+    return (min + max) / 2 / (item.weaponSpeed || 1)
 }
 
 /**
@@ -381,7 +444,10 @@ export function gameFileItem(item: {
     }
 }
 
-/** An item's EP: its stats (and weapon DPS) by the given EP per stat. */
+/**
+ * An item's EP: its stats by the given EP per stat, and a weapon's DPS
+ * (`weaponDps`) by the `weapon_dps` EP.
+ */
 export function itemEp(
     item: DbItem | undefined,
     ep: ReadonlyMap<Stat, number>
@@ -392,6 +458,6 @@ export function itemEp(
     for (const { stat, index } of ITEM_STATS)
         total += (scaling?.stats?.[String(index)] ?? 0) * (ep.get(stat) ?? 0)
     if (item.type === ITEM_TYPE.weapon)
-        total += (scaling?.unroundedDps ?? 0) * (ep.get('weapon_dps') ?? 0)
+        total += weaponDps(item) * (ep.get('weapon_dps') ?? 0)
     return total
 }

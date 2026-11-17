@@ -8,6 +8,7 @@
 import { join } from 'node:path'
 
 import {
+    BONUS_STAT_COUNT,
     sheetFromSim,
     type LevelProfile,
     type RaidSimRequest,
@@ -58,9 +59,15 @@ export type TestcharCharacter = {
     class: string
     talents: string
     gear: Partial<Record<Slot, GearPiece | null>>
+    /** No worn item the sim lacks: 40 zeros. */
+    bonus_stats: number[]
     bags: BagItem[]
     imbue: string | null
     known_spells: number[]
+    /** No weapon-skill rows: 0, as the export reader gives it. */
+    weapon_skill_deficit: number
+    /** No `manaRegen` in the fixture: 0, as the export reader gives it. */
+    ooc_mana_regen: number
     profile: LevelProfile
     sheet: Sheet
     export_saved_at: string
@@ -104,9 +111,12 @@ export async function testcharCharacter(
         class: profile.class.replace(/^Class/, ''),
         talents: player.talentsString,
         gear,
+        bonus_stats: new Array<number>(BONUS_STAT_COUNT).fill(0),
         bags: [],
         imbue: player.enhancementShaman?.options?.classOptions?.imbueMh ?? null,
         known_spells: profile.knownSpells ?? [],
+        weapon_skill_deficit: 0,
+        ooc_mana_regen: 0,
         profile,
         sheet,
         export_saved_at: '2026-11-15T00:00:00Z',

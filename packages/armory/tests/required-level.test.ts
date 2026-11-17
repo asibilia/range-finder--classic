@@ -5,9 +5,6 @@
  * results file's slots, plan, bag upgrades and left-out items.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { join } from 'node:path'
-
-import type { SimPool } from '@goturbo/sim'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import type { Stat } from '../src/results-file'
@@ -20,8 +17,8 @@ import {
 } from '../src/browser-sim/gear'
 import { planMaxDamage } from '../src/browser-sim/plan'
 import { STAT_STEPS } from '../src/browser-sim/weights'
-
-const BUILD = join(import.meta.dir, '../../sim/build')
+import { recordedPool } from './helpers/recorded-pool'
+import { syntheticDb } from './helpers/synthetic-db'
 
 /** Every weighed stat worth 1 EP: any item with stats is a gain. */
 const EP = new Map<Stat, number>(STAT_STEPS.map((step) => [step.stat, 1]))
@@ -43,18 +40,8 @@ function shaman(level: number): Character {
 }
 
 /** The build's item data, read the way the page reads it. */
-async function realDb(): Promise<ItemDb> {
-    const files = {
-        data: (name: string) => Bun.file(join(BUILD, name)).json(),
-    } as unknown as SimPool
-    return loadItemDb(files)
-}
-
-function syntheticDb(items: DbItem[]): ItemDb {
-    return {
-        items: new Map(items.map((item) => [item.id, item])),
-        firstSeen: new Map(),
-    }
+function realDb(): Promise<ItemDb> {
+    return loadItemDb(recordedPool())
 }
 
 /** A leather helm with plenty of stats, dropped by a boss unless overridden. */

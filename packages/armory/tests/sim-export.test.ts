@@ -216,9 +216,12 @@ function isWeightsSim(event: RunEvent): boolean {
 }
 
 /**
- * A level with no weights file (only 30–34 has one). Below the sanity gates'
- * fixed level-31/32 fights, so +20 hit rating still raises DPS there (at 45
- * the character never misses a level-32 mob and that gate rightly fails).
+ * A level with no weights file (only 30–34 has one), at or below the
+ * runner's level 30, so the sanity gates run on its fixed level-31/32
+ * fights. At level 45, Testchar's level-30 gear passes the DPS-rises gates
+ * against the risen level-46/47 mobs, but its one-seed Stormstrike reset
+ * effect (1.14/min against 0.80/min expected) falls outside the ±35% band,
+ * so that run stops on the gates.
  */
 const NO_FILE_LEVEL = 29
 
@@ -304,9 +307,7 @@ describe('simExport', () => {
         expectSteadyProgress(reports)
     }, 600_000)
 
-    // The name says level 45 from slice B; under #94's fixed gate fights the
-    // run uses NO_FILE_LEVEL (29), which also has no weights file.
-    test('the same export at level 45 (no weights file for 45–49) sims weights on the device first and gives a file with weights of source yours', async () => {
+    test('the same export at level 29 (no weights file for 25–29) sims weights on the device first and gives a file with weights of source yours', async () => {
         expect(
             await shared.weights('Shaman', 'Enhancement', NO_FILE_LEVEL)
         ).toBeNull()
@@ -319,7 +320,7 @@ describe('simExport', () => {
             expect(fight.source).toEqual({ kind: 'yours' })
     }, 600_000)
 
-    test('a level-45 export whose sheet Strength is off by 10 returns a gates stop naming sheet strength, and no weights sim runs and no estimate is given', async () => {
+    test('a level-29 export whose sheet Strength is off by 10 returns a gates stop naming sheet strength, and no weights sim runs and no estimate is given', async () => {
         const { outcome, events } = await noFileLevelExport((sheet) => ({
             ...sheet,
             strength: sheet.strength + 10,
@@ -335,7 +336,7 @@ describe('simExport', () => {
         expect(events.filter((event) => event.kind === 'estimate')).toEqual([])
     }, 600_000)
 
-    test('a passing level-45 run calls onWeightsFirst once, with a whole number of minutes of at least 1, before the first weights sim', async () => {
+    test('a passing level-29 run calls onWeightsFirst once, with a whole number of minutes of at least 1, before the first weights sim', async () => {
         const { outcome, events } = await noFileLevelRun()
         expect(outcome.kind).toBe('file')
         const estimates = events.filter(

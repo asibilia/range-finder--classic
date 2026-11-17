@@ -10,9 +10,10 @@ import { describe, expect, test } from 'bun:test'
 
 import type { Stat } from '../src/results-file'
 import type { Character } from '../src/browser-sim/character'
-import type { DbItem, ItemDb } from '../src/browser-sim/gear'
+import type { DbItem } from '../src/browser-sim/gear'
 import { planMaxDamage } from '../src/browser-sim/plan'
 import { STAT_STEPS } from '../src/browser-sim/weights'
+import { syntheticDb } from './helpers/synthetic-db'
 
 /** Every weighed stat worth 1 EP: any item with stats is a gain. */
 const EP = new Map<Stat, number>(STAT_STEPS.map((step) => [step.stat, 1]))
@@ -53,18 +54,13 @@ const NEUTRAL_HELM = item(71_003, 1, 30)
 const ALLIANCE_NECK = item(71_011, 2, 50, ALLIANCE_ONLY)
 const HORDE_NECK = item(71_012, 2, 50, HORDE_ONLY)
 
-const DB: ItemDb = {
-    items: new Map(
-        [
-            ALLIANCE_HELM,
-            HORDE_HELM,
-            NEUTRAL_HELM,
-            ALLIANCE_NECK,
-            HORDE_NECK,
-        ].map((entry) => [entry.id, entry])
-    ),
-    firstSeen: new Map(),
-}
+const DB = syntheticDb([
+    ALLIANCE_HELM,
+    HORDE_HELM,
+    NEUTRAL_HELM,
+    ALLIANCE_NECK,
+    HORDE_NECK,
+])
 
 function shaman(race: string): Character {
     return {

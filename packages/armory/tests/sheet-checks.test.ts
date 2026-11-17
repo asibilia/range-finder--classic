@@ -18,6 +18,7 @@ import {
 
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { runGates, sheetChecks, type Character } from '../src/browser-sim'
+import { recordedPool } from './helpers/recorded-pool'
 
 const SIM: Sheet = {
     strength: 80,
@@ -77,35 +78,23 @@ function simSheetAnswer(): SimSheet {
 }
 
 /**
- * A pool with no sim behind it: every sheet call answers `simSheetAnswer`,
- * and the level 60 sim answers a fixed DPS. The gates' melee-crit check
- * then compares the character's game sheet with a sim crit of 5%.
+ * The fake pool, scripted: every sheet call answers `simSheetAnswer`, and
+ * the level 60 sim answers the DPS its stand-in version expects. The
+ * gates' melee-crit check then compares the character's game sheet with a
+ * sim crit of 5%.
  */
 function stubPool(): SimPool {
-    return {
-        size: 1,
+    return recordedPool({
         sim: () =>
             Promise.resolve({
                 raidMetrics: { parties: [{ players: [{ dps: { avg: 1 } }] }] },
             }),
         sheet: () => Promise.resolve(simSheetAnswer()),
-        version: () =>
-            Promise.resolve({
-                upstream_commit: '',
-                patch_id: '',
-                go_version: '',
-            }),
-        weights: () => Promise.resolve(null),
         data: (name) =>
             Promise.resolve(
                 name === 'version.json' ? { l60_expected_dps: 1 } : {}
             ),
-        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
-        batch() {},
-        onProgress: () => () => {},
-        cancel() {},
-        close() {},
-    }
+    })
 }
 
 /** The gates' `sheet meleeCrit` check for Testchar with this deficit. */

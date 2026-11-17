@@ -52,7 +52,7 @@ export async function simSingle(
     gear: Gear,
     sheet: Sheet,
     names: Names,
-    spellNames: SpellNames = {}
+    spellNames: SpellNames
 ): Promise<SimmedFight> {
     const result = await pool.sim(
         buildRequest(character, scenario, {
@@ -90,7 +90,7 @@ export async function simSession(
     gear: Gear,
     sheet: Sheet,
     names: Names,
-    spellNames: SpellNames = {}
+    spellNames: SpellNames
 ): Promise<FightResult> {
     const maxMana = Math.max(1, sheet.mana)
     const pulls: NonNullable<FightResult['pulls']> = []
@@ -124,7 +124,7 @@ export async function simSession(
         // The runner's rule: the export's out-of-combat rate over the gap.
         mana = Math.min(
             maxMana,
-            end + (character.ooc_mana_regen ?? 0) * scenario.gap_s
+            end + character.ooc_mana_regen * scenario.gap_s
         )
     }
     const dps = pulls.reduce((sum, p) => sum + p.dps, 0) / pulls.length

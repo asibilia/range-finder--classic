@@ -122,8 +122,8 @@ function add(into: Parts, name: string, damage: number, school: School) {
 export function damageByPart(
     unit: UnitMetrics,
     itemNames: (id: number) => string | undefined,
-    into: Parts = new Map(),
-    spellNames: SpellNames = {}
+    into: Parts,
+    spellNames: SpellNames
 ): Parts {
     for (const action of unit.actions ?? []) {
         const damage = damageOf(action)

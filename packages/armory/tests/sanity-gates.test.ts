@@ -10,15 +10,20 @@
  *   (level 31, armor 1100, 30 s), seed 31, 4000 iterations, with and
  *   without Improved Stormstrike, hit and not; it passes when the reset
  *   effect is above 0 and within ±35% of the rate the mob's dodges and
- *   parries per fight give.
+ *   parries per fight give. A build without Stormstrike gets it for the
+ *   check only.
+ * Above level 30 (the runner's level) both fights' mobs rise with the
+ * character, keeping the runner's gap: solo at level + 1, the dungeon at
+ * level + 2, each with its level's armor.
  *
- * `simCharacter` runs on Testchar with a fake `SimPool`: no sim behind it,
- * it answers each request from what the request asks for, so a test sets
- * each stat's gain per seed and the Stormstrike casts directly. The data
- * files come from `packages/sim/build/`.
+ * `simCharacter` runs on Testchar with the fake pool
+ * (`helpers/recorded-pool.ts`), scripted to answer each request from what
+ * the request asks for, so a test sets each stat's gain per seed and the
+ * Stormstrike casts directly. As the sim's rotation, it casts Stormstrike
+ * only when the request's talents have it. The data files come from
+ * `packages/sim/build/`.
  */
 import { describe, expect, test } from 'bun:test'
-import { join } from 'node:path'
 
 import {
     PSEUDO_STAT,
@@ -37,8 +42,7 @@ import {
     type SimOutcome,
     type StatWeights,
 } from '../src/browser-sim'
-
-const BUILD = join(import.meta.dir, '../../sim/build')
+import { recordedPool } from './helpers/recorded-pool'
 
 /** Stormstrike's spell id. */
 const STORMSTRIKE = 17364
@@ -97,10 +101,36 @@ function addedStat(
     return null
 }
 
-/** Points in Improved Stormstrike (Enhancement index 15). */
-function improvedStormstrike(request: RaidSimRequest): number {
+/** Points in the Enhancement talent at `index`. */
+function enhancementPoints(request: RaidSimRequest, index: number): number {
     const tree = (playerOfRequest(request).talentsString ?? '').split('-')[1]
-    return Number((tree ?? '').padEnd(18, '0')[15])
+    return Number((tree ?? '').padEnd(18, '0')[index])
+}
+
+/** Points in Stormstrike (Enhancement index 11). */
+const stormstrikePoints = (request: RaidSimRequest) =>
+    enhancementPoints(request, 11)
+
+/** Points in Improved Stormstrike (Enhancement index 15). */
+const improvedStormstrike = (request: RaidSimRequest) =>
+    enhancementPoints(request, 15)
+
+/** A sim of the Stormstrike gate: seed 31, 4000 iterations. */
+function isStormstrikeCheck(request: RaidSimRequest): boolean {
+    const { iterations, randomSeed } = asRequest(request).simOptions
+    return randomSeed === 31 && iterations === 4000
+}
+
+/** A sim of the DPS-rises gates: seeds 21 to 23, 3000 iterations. */
+function isDpsRisesSim(request: RaidSimRequest): boolean {
+    const { iterations, randomSeed } = asRequest(request).simOptions
+    return [21, 22, 23].includes(randomSeed) && iterations === 3000
+}
+
+/** The level and armor of the mob a request fights. */
+function mobOf(request: RaidSimRequest): { level: number; armor: number } {
+    const mob = asRequest(request).encounter.targets[0]!
+    return { level: mob.level, armor: mob.stats[STAT.armor]! }
 }
 
 const isHit = (request: RaidSimRequest) =>
@@ -189,20 +219,23 @@ function result(
     } as unknown as RaidSimResult
 }
 
-/** A pool with no sim behind it, recording every sim request. */
+/**
+ * The fake pool, scripted: it records every sim request and answers each
+ * from what it asks for. The data files come from the build.
+ */
 function scriptedPool(script: Scripted, requests: RaidSimRequest[]): SimPool {
+    const build = recordedPool()
     let l60: Promise<[string, number]> | undefined
     const level60 = () =>
         (l60 ??= Promise.all([
-            Bun.file(join(BUILD, 'l60-test.in.json')).json(),
-            Bun.file(join(BUILD, 'version.json')).json(),
+            build.data('l60-test.in.json'),
+            build.data('version.json'),
         ]).then(([request, version]) => [
             JSON.stringify(request),
             (version as { l60_expected_dps: number }).l60_expected_dps,
         ]))
     const effect = script.resetEffectPerMin ?? EXPECTED_EFFECT_PER_MIN
-    return {
-        size: 4,
+    return recordedPool({
         async sim(request) {
             const [l60Request, l60Dps] = await level60()
             if (JSON.stringify(request) === l60Request)
@@ -211,10 +244,14 @@ function scriptedPool(script: Scripted, requests: RaidSimRequest[]): SimPool {
             const { iterations, randomSeed } = asRequest(request).simOptions
             const hit = isHit(request)
             const avoided = hit ? AVOIDED_PER_FIGHT : 0
-            if (randomSeed === 31 && iterations === 4000) {
+            if (isStormstrikeCheck(request)) {
                 const talented = improvedStormstrike(request) > 0
                 const casts =
-                    talented && hit ? CASTS_CALM + effect / 2 : CASTS_CALM
+                    stormstrikePoints(request) === 0
+                        ? 0
+                        : talented && hit
+                          ? CASTS_CALM + effect / 2
+                          : CASTS_CALM
                 return result(BASE_DPS, casts, iterations, avoided)
             }
             const added = addedStat(request)
@@ -225,15 +262,7 @@ function scriptedPool(script: Scripted, requests: RaidSimRequest[]): SimPool {
             return result(BASE_DPS + gain, CASTS_CALM, iterations, avoided)
         },
         sheet: () => Promise.resolve(sheetAnswer()),
-        version: () => Bun.file(join(BUILD, 'version.json')).json(),
-        weights: () => Promise.resolve(null),
-        data: (name) => Bun.file(join(BUILD, name)).json(),
-        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
-        batch() {},
-        onProgress: () => () => {},
-        cancel() {},
-        close() {},
-    }
+    })
 }
 
 /** Every weighed stat at 1 EP, on every fight. */
@@ -249,15 +278,33 @@ function weights(): StatWeights {
     }))
 }
 
-/** Testchar simmed on the scripted pool, and the sim requests it made. */
+/** What a test changes in Testchar: its level, its talents. */
+type Changes = { level?: number; talents?: string }
+
+/**
+ * Testchar, with `changes`, simmed on the scripted pool, and the sim
+ * requests it made.
+ */
 async function simmed(
-    script: Scripted = {}
-): Promise<{ outcome: SimOutcome; requests: RaidSimRequest[] }> {
+    script: Scripted = {},
+    changes: Changes = {}
+): Promise<{
+    outcome: SimOutcome
+    requests: RaidSimRequest[]
+    character: Character
+}> {
     const requests: RaidSimRequest[] = []
     const pool = scriptedPool(script, requests)
-    const character = (await testcharCharacter(pool)) as unknown as Character
+    const testchar = (await testcharCharacter(pool)) as unknown as Character
+    const level = changes.level ?? testchar.level
+    const character: Character = {
+        ...testchar,
+        level,
+        talents: changes.talents ?? testchar.talents,
+        profile: { ...testchar.profile, level },
+    }
     const outcome = await simCharacter(character, weights(), pool, () => {})
-    return { outcome, requests }
+    return { outcome, requests, character }
 }
 
 /** The run's check whose name matches, from the file or the failed gates. */
@@ -274,7 +321,11 @@ function checkOf(outcome: SimOutcome, name: RegExp) {
 }
 
 const INTELLECT_RISES = /^DPS rises with intellect$/i
+const HIT_RISES = /^DPS rises with hit rating$/i
 const STORMSTRIKE_RULE = /^being hit resets Stormstrike as the rule says$/
+
+/** Testchar's build (`-050032302051`) with Stormstrike's point taken out. */
+const NO_STORMSTRIKE = '-050032302050'
 
 describe('the DPS-rises gates', () => {
     test('the sanity step asks for exactly Strength +20, Agility +20, Intellect +20, Attack Power +40, Hit rating +20 and Crit rating +28, each at seeds 21, 22 and 23 with 3000 iterations, on the level 32, 1150-armor, 30 s fight', async () => {
@@ -354,5 +405,46 @@ describe('the Stormstrike reset gate', () => {
         const check = checkOf(outcome, STORMSTRIKE_RULE)
         expect(check.passed).toBe(true)
         expect(check.detail).toMatch(/±\s?35\s?%/)
+    })
+
+    test('a build without Stormstrike gets it in the four Stormstrike-check sims only, passes at the expected reset effect, and the detail says it was added for this check only', async () => {
+        const { outcome, requests, character } = await simmed(
+            { resetEffectPerMin: EXPECTED_EFFECT_PER_MIN },
+            { talents: NO_STORMSTRIKE }
+        )
+        const checkSims = requests.filter(isStormstrikeCheck)
+        expect(checkSims).toHaveLength(4)
+        for (const request of checkSims)
+            expect(stormstrikePoints(request)).toBeGreaterThan(0)
+        const others = requests.filter((r) => !isStormstrikeCheck(r))
+        expect(others.length).toBeGreaterThan(0)
+        for (const request of others)
+            expect(playerOfRequest(request).talentsString).toBe(
+                character.talents
+            )
+
+        const check = checkOf(outcome, STORMSTRIKE_RULE)
+        expect(check.passed).toBe(true)
+        expect(check.detail).toMatch(/no Stormstrike talent/i)
+        expect(check.detail).toMatch(/for this check only/i)
+    })
+})
+
+describe('the sanity fights above level 30', () => {
+    test('for Testchar at level 45, the DPS-rises sims fight a level-47 mob with 1900 armor, the Stormstrike sims a level-46 mob with 1850 armor, and the run gives a file', async () => {
+        const { outcome, requests } = await simmed({}, { level: 45 })
+        const rises = requests.filter(isDpsRisesSim)
+        expect(rises).toHaveLength(3 * 7)
+        expect(rises.map(mobOf)).toEqual(
+            rises.map(() => ({ level: 47, armor: 1900 }))
+        )
+        const stormstrike = requests.filter(isStormstrikeCheck)
+        expect(stormstrike).toHaveLength(4)
+        expect(stormstrike.map(mobOf)).toEqual(
+            stormstrike.map(() => ({ level: 46, armor: 1850 }))
+        )
+
+        expect(checkOf(outcome, HIT_RISES).detail).toContain('level 47')
+        expect(outcome.kind).toBe('file')
     })
 })

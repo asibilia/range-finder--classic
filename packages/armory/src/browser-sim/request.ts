@@ -3,7 +3,7 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import { BONUS_STAT_COUNT, STAT, type RaidSimRequest } from '@goturbo/sim'
+import { STAT, type RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
 import type { Character, Gear, SheetBuffs } from './character'
@@ -59,19 +59,16 @@ function equipment(character: Character, gear: Gear) {
 }
 
 /**
- * The character's bonus stats (worn items the sim lacks) in `gear`: a
- * slot whose unknown item `gear` empties (null) or replaces takes its
- * stats off, as the runner's `wearing()`. A slot `gear` leaves out keeps
- * what's worn. Undefined when no stat is left.
+ * The character's bonus stats (worn items the sim lacks) in `gear`, by the
+ * `Gear` rule: a slot whose unknown item `gear` empties (null) or replaces
+ * takes its stats off, as the runner's `wearing()`, and a slot `gear`
+ * leaves out keeps them. Undefined when no stat is left.
  */
 function gearBonus(
     character: Character,
     gear: Gear | undefined
 ): number[] | undefined {
-    const bonus = [
-        ...(character.bonus_stats ??
-            new Array<number>(BONUS_STAT_COUNT).fill(0)),
-    ]
+    const bonus = [...character.bonus_stats]
     for (const slot of SLOTS) {
         const unknown = character.unknown_gear?.[slot]
         const piece = gear?.[slot]

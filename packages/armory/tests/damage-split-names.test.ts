@@ -7,95 +7,20 @@
  * `sim:build` writes from the vendored spell data, read through
  * `pool.data`.
  *
- * Driven through `simExport` of Testchar's export with a fake pool that
- * answers every `sim` and `sheet` call from the recorded outputs
- * (`tests/fixtures/sim-outputs.json`, `bun run sim:record`) and reads the
- * data files from `packages/sim/build/`, as `sim-page.test.tsx`'s does.
+ * Driven through `simExport` of Testchar's export with the fake pool
+ * (`helpers/recorded-pool.ts`), which answers every `sim` and `sheet` call
+ * from the recorded outputs (`tests/fixtures/sim-outputs.json`,
+ * `bun run sim:record`) and reads the data files from `packages/sim/build/`.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-
-import {
-    weightsBand,
-    weightsFileName,
-    type RaidSimResult,
-    type SimPool,
-    type SimSheet,
-    type SimVersion,
-} from '@goturbo/sim'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { simExport } from '../src/browser-sim'
 import type { ResultsFile } from '../src/results-file'
 import { exportFromCharacter } from './helpers/export-from-character'
-
-const BUILD = join(import.meta.dir, '../../sim/build')
-const OUTPUTS = join(import.meta.dir, 'fixtures/sim-outputs.json')
-
-/** The key a recorded call is kept under (`scripts/record-sim.ts`). */
-function callKey(
-    method: 'sim' | 'sheet',
-    request: unknown,
-    profile?: unknown
-): string {
-    return createHash('sha256')
-        .update(JSON.stringify({ method, request, profile }))
-        .digest('hex')
-}
-
-let recordedMemo: Promise<Record<string, unknown>> | undefined
-function recorded(): Promise<Record<string, unknown>> {
-    recordedMemo ??= Bun.file(OUTPUTS).json() as Promise<
-        Record<string, unknown>
-    >
-    return recordedMemo
-}
-
-/** A `SimPool` that answers from the recorded outputs and the build. */
-function recordedPool(): SimPool {
-    async function answer(
-        method: 'sim' | 'sheet',
-        request: unknown,
-        profile?: unknown
-    ): Promise<unknown> {
-        const key = callKey(method, request, profile)
-        const value = (await recorded())[key]
-        if (value === undefined)
-            throw new Error(
-                `sim-outputs.json has no ${method} call ${key}: run bun run sim:record.`
-            )
-        return structuredClone(value)
-    }
-    return {
-        size: 1,
-        sim: (request, profile) =>
-            answer('sim', request, profile) as Promise<RaidSimResult>,
-        sheet: (request, profile) =>
-            answer('sheet', request, profile) as Promise<SimSheet>,
-        version: () =>
-            Bun.file(join(BUILD, 'version.json')).json() as Promise<SimVersion>,
-        async weights(className, spec, level) {
-            const band = weightsBand(level)
-            if (!band) return null
-            const file = Bun.file(
-                join(
-                    BUILD,
-                    'weights',
-                    weightsFileName(className, spec, ...band)
-                )
-            )
-            return (await file.exists()) ? file.json() : null
-        },
-        data: (name) => Bun.file(join(BUILD, name)).json(),
-        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
-        batch() {},
-        onProgress: () => () => {},
-        cancel() {},
-        close() {},
-    }
-}
+import { BUILD, recorded, recordedPool } from './helpers/recorded-pool'
 
 type Result = ResultsFile['results'][number]
 

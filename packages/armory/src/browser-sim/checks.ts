@@ -70,7 +70,7 @@ export function sheetChecks(
     game: Sheet,
     sim: Sheet,
     calibratedSpellCrit: boolean,
-    weaponSkillDeficit = 0
+    weaponSkillDeficit: number
 ): Check[] {
     const checks = SHEET_STATS.map(({ name, key, within }): Check => {
         if (key === 'spell_crit_pct' && calibratedSpellCrit)
@@ -132,20 +132,22 @@ export function noSpellAboveLevelCheck(
 }
 
 /**
- * More of a stat gives more DPS: `gains` are the DPS it adds on each seed.
- * It passes when the mean gain less its 95% half-width (Student's t) is
- * above 0, as the runner's `sanityChecks`.
+ * More of a stat gives more DPS: `gains` are the DPS it adds on each seed,
+ * on the dungeon fight against a mob of `mobLevel`. It passes when the
+ * mean gain less its 95% half-width (Student's t) is above 0, as the
+ * runner's `sanityChecks`.
  */
 export function dpsRisesCheck(
     name: string,
     amount: number,
-    gains: number[]
+    gains: number[],
+    mobLevel: number
 ): Check {
     const { mean, half } = meanCI(gains)
     return {
         name: `DPS rises with ${name}`,
         passed: mean - half > 0,
-        detail: `+${amount}: ${mean.toFixed(2)} ± ${half.toFixed(2)} DPS on the level 32 dungeon fight, over ${gains.length} seeds.`,
+        detail: `+${amount}: ${mean.toFixed(2)} ± ${half.toFixed(2)} DPS on the level ${mobLevel} dungeon fight, over ${gains.length} seeds.`,
     }
 }
 
@@ -163,6 +165,8 @@ export type StormstrikeRates = { hit: number; notHit: number }
 export function stormstrikeRuleCheck(input: {
     /** Points in Improved Stormstrike in the talented variant. */
     points: number
+    /** The build has no Stormstrike: both variants got it for the check. */
+    addedStormstrike: boolean
     without: StormstrikeRates
     withIt: StormstrikeRates
     /** Dodges and parries per fight, hit with the talent. */
@@ -173,10 +177,13 @@ export function stormstrikeRuleCheck(input: {
     const effect = withIt.hit - withIt.notHit - (without.hit - without.notHit)
     const chance = 0.5 * points
     const expected = avoided * chance * 0.5 * (60 / durationS)
+    const added = input.addedStormstrike
+        ? 'No Stormstrike talent: added for this check only. '
+        : ''
     return {
         name: 'being hit resets Stormstrike as the rule says',
         passed: effect > 0 && Math.abs(effect - expected) <= 0.35 * expected,
-        detail: `Stormstrike/min: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
+        detail: `${added}Stormstrike/min: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
     }
 }
 

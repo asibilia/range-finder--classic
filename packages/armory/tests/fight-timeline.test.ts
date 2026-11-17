@@ -4,8 +4,9 @@
  * 1-second bucket, and its result's `timeline` holds `{ t_s, dps, mana }`
  * per point, mana whole. The chain keeps `timeline: null`.
  *
- * Driven through `simSingle` and `simSession` with a fake pool that keeps
- * every sim request and answers a fixed result, so no sim runs.
+ * Driven through `simSingle` and `simSession` with the fake pool
+ * (`helpers/recorded-pool.ts`), scripted to keep every sim request and
+ * answer a fixed result and sheet, so no sim runs.
  */
 import { describe, expect, test } from 'bun:test'
 
@@ -25,6 +26,7 @@ import {
     simSingle,
     type Character,
 } from '../src/browser-sim'
+import { recordedPool } from './helpers/recorded-pool'
 
 /** The sim's per-second points: mana with fractions, as the sim gives it. */
 const POINTS = [
@@ -54,29 +56,15 @@ function sheetAnswer(): SimSheet {
     }
 }
 
-/** A pool with no sim behind it that keeps every sim request in `sims`. */
+/** A pool that keeps every sim request in `sims` and answers `answer()`. */
 function recordingPool(sims: RaidSimRequest[]): SimPool {
-    return {
-        size: 1,
+    return recordedPool({
         sim: (request) => {
             sims.push(request)
             return Promise.resolve(answer())
         },
         sheet: () => Promise.resolve(sheetAnswer()),
-        version: () =>
-            Promise.resolve({
-                upstream_commit: '',
-                patch_id: '',
-                go_version: '',
-            }),
-        weights: () => Promise.resolve(null),
-        data: () => Promise.resolve({}),
-        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
-        batch() {},
-        onProgress: () => () => {},
-        cancel() {},
-        close() {},
-    }
+    })
 }
 
 async function character(pool: SimPool): Promise<Character> {
@@ -97,7 +85,8 @@ describe('single fights carry a per-second timeline', () => {
                 fight,
                 testchar.gear,
                 testchar.sheet,
-                () => undefined
+                () => undefined,
+                {}
             )
 
         expect(sims).toHaveLength(fights.length)
@@ -119,7 +108,8 @@ describe('single fights carry a per-second timeline', () => {
             fight,
             testchar.gear,
             testchar.sheet,
-            () => undefined
+            () => undefined,
+            {}
         )
 
         expect(result.timeline).toEqual([
@@ -142,7 +132,8 @@ describe('the chain keeps no timeline', () => {
             scenariosFor(testchar.level)[0]!,
             testchar.gear,
             testchar.sheet,
-            () => undefined
+            () => undefined,
+            {}
         )
         expect(single.result.timeline).toHaveLength(3)
         const result = await simSession(
@@ -151,7 +142,8 @@ describe('the chain keeps no timeline', () => {
             chainFor(testchar.level),
             testchar.gear,
             testchar.sheet,
-            () => undefined
+            () => undefined,
+            {}
         )
 
         expect(result.pulls?.length).toBeGreaterThan(0)

@@ -8,16 +8,9 @@
  * Testchar's export sends to a pool with no sim behind it.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 
-import {
-    STAT,
-    weightsBand,
-    weightsFileName,
-    type RaidSimRequest,
-    type SimPool,
-} from '@goturbo/sim'
+import { STAT, type RaidSimRequest, type SimPool } from '@goturbo/sim'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
@@ -26,10 +19,9 @@ import { loadItemDb, type DbItem } from '../src/browser-sim/gear'
 import { weaponCandidates } from '../src/browser-sim/plan'
 import { SLOTS, type Stat } from '../src/results-file'
 import { exportFromCharacter } from './helpers/export-from-character'
+import { recorded, recordedAnswer, recordedPool } from './helpers/recorded-pool'
 
-const BUILD = join(import.meta.dir, '../../sim/build')
 const FIXTURE = join(import.meta.dir, '../../sim/fixtures/testchar-l30.json')
-const OUTPUTS = join(import.meta.dir, 'fixtures/sim-outputs.json')
 const MAIN_HAND = SLOTS.indexOf('main_hand')
 
 /** The item data's weapon types (`weaponType`). */
@@ -181,36 +173,28 @@ const fightOf = (request: RaidSimRequest) =>
         tanks: (request.raid as { tanks?: unknown }).tanks,
     })
 
-const callKey = (method: string, request: unknown, profile?: unknown) =>
-    createHash('sha256')
-        .update(JSON.stringify({ method, request, profile }))
-        .digest('hex')
-
-type Recorded = Record<string, unknown>
-
 /**
- * A pool with no sim behind it that keeps every sim request. Data files
- * and weights come from the sim's build. Every sheet call answers
- * Testchar's recorded sheet, so the sheet gate passes; the level 60 sim
- * answers the version's expected DPS; every other sim a recorded result.
+ * The fake pool, scripted to keep every sim request. Every sheet call
+ * answers Testchar's recorded sheet, so the sheet gate passes; the level
+ * 60 sim answers the version's expected DPS; every other sim a recorded
+ * result. Data files and weights come from the sim's build.
  */
 async function recordingPool(sims: RaidSimRequest[]): Promise<SimPool> {
-    const recorded = (await Bun.file(OUTPUTS).json()) as Recorded
+    const build = recordedPool()
     const fixture = (await Bun.file(FIXTURE).json()) as {
         profile: unknown
         fights: { fight_id: string; request: unknown }[]
     }
     const long = fixture.fights.find((f) => f.fight_id === 'dungeon-long')!
-    const sheet = recorded[callKey('sheet', long.request, fixture.profile)]
-    expect(sheet).toBeDefined()
-    const result = Object.values(recorded).find(
+    const sheet = await recordedAnswer('sheet', long.request, fixture.profile)
+    const result = Object.values(await recorded()).find(
         (value) =>
             typeof value === 'object' &&
             value !== null &&
             'raidMetrics' in value
     )
     expect(result).toBeDefined()
-    const version = (await Bun.file(join(BUILD, 'version.json')).json()) as {
+    const version = (await build.data('version.json')) as {
         l60_expected_dps: number
     }
     const l60Requests = new Set<unknown>()
@@ -221,8 +205,7 @@ async function recordingPool(sims: RaidSimRequest[]): Promise<SimPool> {
         copy.raidMetrics.parties[0]!.players[0]!.dps.avg = dps
         return copy
     }
-    return {
-        size: 8,
+    return recordedPool({
         sim: (request) => {
             if (l60Requests.has(request))
                 return Promise.resolve(
@@ -232,30 +215,12 @@ async function recordingPool(sims: RaidSimRequest[]): Promise<SimPool> {
             return Promise.resolve(structuredClone(result) as never)
         },
         sheet: () => Promise.resolve(structuredClone(sheet) as never),
-        version: () => Bun.file(join(BUILD, 'version.json')).json(),
-        async weights(className, spec, level) {
-            const band = weightsBand(level)
-            if (!band) return null
-            const file = Bun.file(
-                join(
-                    BUILD,
-                    'weights',
-                    weightsFileName(className, spec, ...band)
-                )
-            )
-            return (await file.exists()) ? file.json() : null
-        },
         data: async (name) => {
-            const value: unknown = await Bun.file(join(BUILD, name)).json()
+            const value = await build.data(name)
             if (name === 'l60-test.in.json') l60Requests.add(value)
             return value
         },
-        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
-        batch() {},
-        onProgress: () => () => {},
-        cancel() {},
-        close() {},
-    }
+    })
 }
 
 beforeAll(() => ensureSimBuild(), 600_000)

@@ -31,12 +31,11 @@ import {
     sheetChecks,
     stormstrikeRuleCheck,
 } from './checks'
-import { loadItemDb } from './gear'
+import { loadItemDb, twoHandSkills } from './gear'
 import { pawnStrings } from './pawn'
 import {
     planMaxDamage,
     sameGear,
-    twoHandSkills,
     WEAPON_SIMS,
     weaponCandidates,
     withMainHand,
@@ -47,8 +46,7 @@ import {
     chainFor,
     DEFAULT_FIGHT,
     fightEntry,
-    SANITY_DUNGEON,
-    SANITY_SOLO,
+    sanityFights,
     scenariosFor,
     type Scenario,
 } from './scenarios'
@@ -116,7 +114,8 @@ const SANITY_ITERATIONS = 3000
 /** The Stormstrike gate's seed and iterations. */
 const STORMSTRIKE_SEED = 31
 const STORMSTRIKE_ITERATIONS = 4000
-/** Improved Stormstrike's place in the Enhancement tree. */
+/** Stormstrike's and Improved Stormstrike's places in the Enhancement tree. */
+const STORMSTRIKE_TALENT = 11
 const IMPROVED_STORMSTRIKE = 15
 /** The sanity sims: a baseline and each stat per seed, and 4 Stormstrike fights. */
 const SANITY_CALLS = SANITY_SEEDS.length * (SANITY_STATS.length + 1) + 4
@@ -125,15 +124,20 @@ const SANITY_CALLS = SANITY_SEEDS.length * (SANITY_STATS.length + 1) + 4
  * The Stormstrike gate's two builds, as the runner makes them: without
  * Improved Stormstrike, and with it (a point moved in from Enhancement's
  * talent 8, else the first ranked one but 4 and 11, when there is none).
+ * A build without Stormstrike gets it in both, for the check only, so the
+ * check measures the reset rather than a spell the build never casts.
  */
 function stormstrikeVariants(talents: string): {
     without: string
     withIt: string
     points: number
+    addedStormstrike: boolean
 } {
     const trees = talents.split('-')
     while (trees.length < 2) trees.push('')
     const enh = trees[1]!.padEnd(18, '0').split('').map(Number)
+    const addedStormstrike = enh[STORMSTRIKE_TALENT] === 0
+    if (addedStormstrike) enh[STORMSTRIKE_TALENT] = 1
     const withImp = [...enh]
     if (withImp[IMPROVED_STORMSTRIKE] === 0) {
         const from =
@@ -152,18 +156,20 @@ function stormstrikeVariants(talents: string): {
         ),
         withIt: withTree(tree(withImp)),
         points: withImp[IMPROVED_STORMSTRIKE]!,
+        addedStormstrike,
     }
 }
 
 /**
  * The sanity sims and their gates, as the runner's `sanityChecks`, on its
- * fixed fights: DPS rises with each stat, and being hit resets Stormstrike
- * as Improved Stormstrike says.
+ * fixed fights (`sanityFights`): DPS rises with each stat, and being hit
+ * resets Stormstrike as Improved Stormstrike says.
  */
 async function sanitySims(
     character: Character,
     pool: SimPool
 ): Promise<Check[]> {
+    const { solo, dungeon } = sanityFights(character.level)
     const run = (
         c: Character,
         fight: Scenario,
@@ -178,7 +184,7 @@ async function sanitySims(
     const dps = (seed: number, stat?: Stat, amount = 0) =>
         run(
             character,
-            SANITY_DUNGEON,
+            dungeon,
             seed,
             SANITY_ITERATIONS,
             stat ? bonusFor(stat, amount) : undefined
@@ -195,17 +201,17 @@ async function sanitySims(
                     return up - base
                 })
             )
-            return dpsRisesCheck(name, amount, gains)
+            return dpsRisesCheck(name, amount, gains, dungeon.target_level)
         })
     )
 
     const variants = stormstrikeVariants(character.talents)
-    const notHit: Scenario = { ...SANITY_SOLO, being_hit: false }
-    const minutes = SANITY_SOLO.duration_s / 60
+    const notHit: Scenario = { ...solo, being_hit: false }
+    const minutes = solo.duration_s / 60
     const measure = async (talents: string) => {
         const c = { ...character, talents }
         const [hit, calm] = await Promise.all(
-            [SANITY_SOLO, notHit].map((fight) =>
+            [solo, notHit].map((fight) =>
                 run(c, fight, STORMSTRIKE_SEED, STORMSTRIKE_ITERATIONS)
             )
         )
@@ -227,10 +233,11 @@ async function sanitySims(
         ...checks,
         stormstrikeRuleCheck({
             points: variants.points,
+            addedStormstrike: variants.addedStormstrike,
             without,
             withIt,
             avoided: withIt.avoided,
-            durationS: SANITY_SOLO.duration_s,
+            durationS: solo.duration_s,
         }),
     ]
 }
@@ -365,7 +372,7 @@ export async function runGates(
             character.sheet,
             sheetFromSim(simmedSheet),
             character.calibrated_spell_crit ?? false,
-            character.weapon_skill_deficit ?? 0
+            character.weapon_skill_deficit
         ),
         noSpellAboveLevelCheck(
             rotationSpells(character),

@@ -26,12 +26,13 @@ import {
 } from '../../sim/tests/helpers/testchar'
 import { buildRequest, simExport, type Character } from '../src/browser-sim'
 import { exportCharacter } from '../src/browser-sim/export-reader'
-import { loadItemDb, type DbItem, type ItemDb } from '../src/browser-sim/gear'
+import { loadItemDb, type DbItem } from '../src/browser-sim/gear'
 import { planMaxDamage } from '../src/browser-sim/plan'
 import { bonusFor, STAT_STEPS } from '../src/browser-sim/weights'
 import { stopLines } from '../src/components/bring-in'
 import { SLOTS, type Stat } from '../src/results-file'
 import { exportFromCharacter } from './helpers/export-from-character'
+import { syntheticDb } from './helpers/synthetic-db'
 
 const BASE = pathToFileURL(join(import.meta.dir, '../../sim/build') + '/')
 
@@ -246,13 +247,6 @@ describe('an unknown main hand', () => {
 
 /** Every weighed stat worth 1 EP. */
 const EP = new Map<Stat, number>(STAT_STEPS.map((step) => [step.stat, 1]))
-
-function syntheticDb(items: DbItem[]): ItemDb {
-    return {
-        items: new Map(items.map((item) => [item.id, item])),
-        firstSeen: new Map(),
-    }
-}
 
 describe('a bag item the sim lacks', () => {
     test("a bag helm the sim lacks, 20 EP by its game stats over a worn 5 EP helm, is in bag_upgrades for the head at +15 EP with the game's name; one worth less than the worn helm is not", () => {

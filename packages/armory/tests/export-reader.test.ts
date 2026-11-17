@@ -815,7 +815,8 @@ async function chainEndingAt(
         chainFor(character.level),
         character.gear,
         sheet,
-        () => undefined
+        () => undefined,
+        {}
     )
     const startPct = requests.map(
         (request) => playerOf(request).startingManaPercent

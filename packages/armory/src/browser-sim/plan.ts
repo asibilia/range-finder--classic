@@ -8,13 +8,13 @@
 import { SLOTS, type ResultsFile, type Slot, type Stat } from '../results-file'
 import type { Character, Gear } from './character'
 import {
+    canWearWeapon,
     fileItem,
     gameDbItem,
     gameFileItem,
     isTwoHander,
     itemEp,
     leftOutReason,
-    otherFaction,
     requiredLevel,
     slotsFor,
     type DbItem,
@@ -30,22 +30,6 @@ const SOON_LEVELS = 5
 export const WEAPON_SIMS = 12
 /** Weapon candidates may need up to this many levels more (`weaponList`'s `horizon`). */
 const WEAPON_LEVELS = 3
-/** The lowest quality a weapon candidate may have: uncommon. */
-const UNCOMMON = 2
-/** An item needing level 1 with an item level this far above the limit is left out. */
-const NO_LEVEL_ILVL_MARGIN = 8
-const WEAPON_TYPE = 13
-const TWO_HAND = 4
-const SHAMAN = 7
-
-/** The two-handed weapon types by the sim's skill name (the runner's `skillNames`). */
-const TWO_HAND_SKILLS: Readonly<Record<string, number>> = {
-    WeaponSkillTwoHandedAxes: 1,
-    WeaponSkillTwoHandedMaces: 4,
-    WeaponSkillStaves: 8,
-    WeaponSkillTwoHandedSwords: 9,
-    WeaponSkillPolearms: 6,
-}
 
 type Alternative = ResultsFile['slots'][number]['alternatives'][number]
 type LeftOut = NonNullable<ResultsFile['left_out_items']>[number]
@@ -88,43 +72,11 @@ const byGain = (
     b: { gain: number; item: DbItem }
 ) => b.gain - a.gain || a.item.id - b.item.id
 
-/** The two-handed weapon types the character has a skill for. */
-export function twoHandSkills(character: Character): Set<number> {
-    const types = (character.weapon_skills ?? []).map(
-        ({ skill }) => TWO_HAND_SKILLS[skill]
-    )
-    return new Set(types.filter((type): type is number => type !== undefined))
-}
-
-/** A weapon's DPS, from its damage and speed when the data lacks it. */
-function weaponDps(item: DbItem): number {
-    const scaling = item.scalingOptions?.['0']
-    if (scaling?.unroundedDps !== undefined) return scaling.unroundedDps
-    const min = scaling?.weaponDamageMin ?? 0
-    const max = scaling?.weaponDamageMax ?? 0
-    return (min + max) / 2 / (item.weaponSpeed || 1)
-}
-
-/** The runner's `canWear` for a weapon, at `maxLevel`. */
-function canWearWeapon(
-    character: Character,
-    item: DbItem,
-    maxLevel: number
-): boolean {
-    if (otherFaction(character, item)) return false
-    const required = requiredLevel(item)
-    if (required > maxLevel || (item.quality ?? 0) < UNCOMMON) return false
-    const ilvl = item.scalingOptions?.['0']?.ilvl ?? 0
-    if (required <= 1 && ilvl > maxLevel + NO_LEVEL_ILVL_MARGIN) return false
-    if (item.classAllowlist?.length && !item.classAllowlist.includes(SHAMAN))
-        return false
-    return leftOutReason(character, item) === null
-}
-
 /**
  * The weapons worth simming (the runner's `weaponList`): two-handers of a
- * type in `skills` the character can wear at level + 3, by their EP (stats
- * by `epByStat`, weapon DPS by `weaponDpsEp`), the best 12, best first.
+ * type in `skills` the character can wear at level + 3 (`canWearWeapon`),
+ * by their EP (stats by `epByStat`, weapon DPS by `weaponDpsEp`), the best
+ * 12, best first.
  */
 export function weaponCandidates(
     character: Character,
@@ -133,22 +85,11 @@ export function weaponCandidates(
     weaponDpsEp: number,
     skills: ReadonlySet<number>
 ): DbItem[] {
-    // Weapon DPS counts once, by `weaponDpsEp`.
-    const statEp = new Map(epByStat)
-    statEp.delete('weapon_dps')
+    const ep = new Map(epByStat).set('weapon_dps', weaponDpsEp)
     const maxLevel = character.level + WEAPON_LEVELS
     return [...items]
-        .filter(
-            (item) =>
-                item.type === WEAPON_TYPE &&
-                item.handType === TWO_HAND &&
-                skills.has(item.weaponType ?? -1) &&
-                canWearWeapon(character, item, maxLevel)
-        )
-        .map((item) => ({
-            item,
-            gain: itemEp(item, statEp) + weaponDps(item) * weaponDpsEp,
-        }))
+        .filter((item) => canWearWeapon(character, item, maxLevel, skills))
+        .map((item) => ({ item, gain: itemEp(item, ep) }))
         .sort(byGain)
         .slice(0, WEAPON_SIMS)
         .map(({ item }) => item)
@@ -248,7 +189,8 @@ export function planMaxDamage(
     for (const slot of SLOTS) {
         const id = chosen.get(slot) ?? null
         const worn = character.gear[slot]
-        // A kept item the sim lacks is left out: its bonus stats stay.
+        // A kept item the sim lacks: its slot stays out, which keeps its
+        // bonus stats (the `Gear` rule).
         if (id !== null && id === character.unknown_gear?.[slot]?.id) continue
         gear[slot] = id === null ? null : worn?.id === id ? worn : { id }
     }

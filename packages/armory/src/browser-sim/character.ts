@@ -9,7 +9,13 @@ import type { Check, ResultsFile, Slot } from '../results-file'
 /** One worn item, as the sim's `ItemSpec` takes it. */
 export type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
 
-/** Gear by slot; a slot that's absent or null is empty. */
+/**
+ * Gear by slot. The sim gets no item in a slot that's absent or null. The
+ * two differ only for a worn item the sim lacks (`Character.unknown_gear`,
+ * never in `gear`): a request's gear keeps that item's bonus stats when its
+ * slot is absent, and takes them off when the slot is null or holds
+ * another item (`buildRequest`).
+ */
 export type Gear = Partial<Record<Slot, GearPiece | null>>
 
 /** Game stats as the export has them: `ITEM_MOD_*` keys to amounts. */
@@ -58,9 +64,10 @@ export type Character = {
     unknown_gear?: Partial<Record<Slot, UnknownPiece>>
     /**
      * The game stats of worn items the sim lacks, indexed by the proto
-     * `Stat` enum (40 entries); every request adds them.
+     * `Stat` enum (40 entries, all 0 when there's none); every request
+     * adds them.
      */
-    bonus_stats?: number[]
+    bonus_stats: number[]
     /** The items in the bags, as the export has them. */
     bags?: BagItem[]
     /** The main hand's imbue as the sim names it, e.g. `WindfuryWeapon`. */
@@ -72,15 +79,15 @@ export type Character = {
     /**
      * The level's weapon-skill cap (5 per level) less the main hand's
      * weapon skill (rank plus modifier); 0 when the export has no row for
-     * it, and negative above the cap. The export reader always sets it.
+     * it, and negative above the cap.
      */
-    weapon_skill_deficit?: number
+    weapon_skill_deficit: number
     /**
      * Out-of-combat mana regen in mana per second, from the export's
      * `sheet.manaRegen.outsideFiveSecondRule`: 0 when absent. The chain
-     * gets it back between pulls. The export reader always sets it.
+     * gets it back between pulls.
      */
-    ooc_mana_regen?: number
+    ooc_mana_regen: number
     profile: LevelProfile
     /** The game's sheet at export. */
     sheet: ResultsFile['sheet']
