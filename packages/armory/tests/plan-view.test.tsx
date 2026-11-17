@@ -127,7 +127,7 @@ describe('the plan view', () => {
         ).toContain('sr-only')
     })
 
-    test('a file with no plans has no plan button and no What to gear for', async () => {
+    test('a file with no plans has no plan button and no Stat Priority', async () => {
         const noPlans = variant((file) => {
             file.plans = []
             file.results = (file.results as { gear: string }[]).filter(
@@ -138,13 +138,13 @@ describe('the plan view', () => {
         // The sample has both, so their absence below comes from the plans.
         await openSample()
         expect(screen.getByRole('button', { name: SHOW_PLAN })).toBeDefined()
-        expect(screen.getByText('What to gear for')).toBeDefined()
+        expect(screen.getByText('Stat Priority')).toBeDefined()
         cleanup()
 
         await openFile(noPlans)
 
         expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
-        expect(screen.queryByText('What to gear for')).toBeNull()
+        expect(screen.queryByText('Stat Priority')).toBeNull()
         expect(screen.queryByRole('slider', { name: 'Damage' })).toBeNull()
     })
     test('the item picker opened from the plan view shows what it shows from the worn view', async () => {
@@ -193,20 +193,20 @@ describe('the plan view', () => {
 })
 
 describe('the role sliders', () => {
-    test('What to gear for sits in the card after the readings and before Talents; the chart and damage split are in the band under the gear', async () => {
+    test('Stat Priority sits in the card after the readings and before Talents; the chart and damage split are in the band under the gear', async () => {
         await openSample()
 
         const card = screen.getByRole('complementary', {
             name: "The sim's numbers",
         })
         const sliders = screen
-            .getByRole('heading', { name: 'What to gear for' })
+            .getByRole('heading', { name: 'Stat Priority' })
             .closest('section')
         expect(sliders).not.toBeNull()
         expect(card.contains(sliders)).toBe(true)
 
         const readings = within(card).getByRole('heading', {
-            name: 'What the sim says',
+            name: 'Simulator Data',
         })
         const talents = within(card).getByRole('button', { name: /^Talents/ })
         const follows = (a: Node, b: Node) =>
@@ -233,7 +233,7 @@ describe('the role sliders', () => {
         await openSample()
 
         expect(
-            screen.getByRole('heading', { name: 'What to gear for' })
+            screen.getByRole('heading', { name: 'Stat Priority' })
         ).toBeDefined()
         expect(ROLES.map((role) => slider(role).value)).toEqual([
             '100',
@@ -411,10 +411,10 @@ describe('the role sliders', () => {
         toDamageAndSurvival()
 
         // Damage and survival has no result on the chain fight.
-        expect(readingValue('Solo, 30 s vs level 31')).toBe('111.0')
+        expect(readingValue('Solo')).toBe('111.0')
         expect(readingValue('Health')).toBe('Not simmed')
         expect(readingValue('Armor')).toBe('Not simmed')
-        expect(readingValue('Mana runs out at')).toBe('Not simmed')
+        expect(readingValue('Resource Empty')).toBe('Not simmed')
         expect(screen.getByLabelText('DPS and mana per pull')).toBeDefined()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
         expect(screen.getByText('Mana, what you wear')).toBeDefined()
@@ -429,7 +429,7 @@ describe('the role sliders', () => {
 
         await chooseFight(user, 'Dungeon, 2 min vs level 33')
 
-        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('80.2')
+        expect(readingValue('Dungeon')).toBe('80.2')
         expect(
             screen.getByLabelText('DPS and mana over the fight')
         ).toBeDefined()

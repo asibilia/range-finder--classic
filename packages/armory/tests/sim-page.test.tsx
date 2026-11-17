@@ -630,9 +630,7 @@ describe('Refine', () => {
 
         expect(await screen.findByText(YOURS, undefined, LOADS)).toBeDefined()
         expect(screen.queryByText(PRECOMPUTED)).toBeNull()
-        expect(
-            screen.getByRole('heading', { name: 'Testchar' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
     }, 120_000)
 
     test('Cancel during Refine keeps the unrefined file and its weights sentence', async () => {
@@ -650,9 +648,7 @@ describe('Refine', () => {
                 screen.queryByRole('progressbar', { name: 'Sim progress' })
             ).toBeNull()
         )
-        expect(
-            screen.getByRole('heading', { name: 'Testchar' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
         expect(screen.getByText(PRECOMPUTED)).toBeDefined()
         expect(screen.queryByText(YOURS)).toBeNull()
     }, 60_000)

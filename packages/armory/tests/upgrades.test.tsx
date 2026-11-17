@@ -209,7 +209,7 @@ describe('gains on the slots', () => {
 describe('Wear them', () => {
     test('puts the bag item on: the slot, the numbers and the card change; Undo puts it back', async () => {
         const user = await openSample()
-        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.4')
+        expect(readingValue('Dungeon')).toBe('75.4')
 
         await user.click(screen.getByRole('button', { name: 'Wear them' }))
 
@@ -224,8 +224,8 @@ describe('Wear them', () => {
                         "You wear Berylline Pads now. Serpent's Shoulders went to your bags."
             )
         ).toBeDefined()
-        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.7')
-        expect(readingValue('Solo, 30 s vs level 31')).toBe('104.1')
+        expect(readingValue('Dungeon')).toBe('75.7')
+        expect(readingValue('Solo')).toBe('104.1')
 
         await user.click(screen.getByRole('button', { name: 'Undo' }))
         expect(
@@ -233,7 +233,7 @@ describe('Wear them', () => {
                 name: /^Shoulder: Serpent's Shoulders, /,
             })
         ).toBeDefined()
-        expect(readingValue('Dungeon, 2 min vs level 33')).toBe('75.4')
+        expect(readingValue('Dungeon')).toBe('75.4')
         expect(screen.getByRole('button', { name: 'Wear them' })).toBeDefined()
     })
 

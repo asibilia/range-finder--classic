@@ -12,9 +12,7 @@ import { App } from '../src/app'
 describe('the DOM test helper', () => {
     test('its teardown leaves globalThis.window undefined', async () => {
         render(<App />)
-        expect(
-            screen.getByRole('heading', { level: 1 })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         cleanup()
 
         await teardownDom()

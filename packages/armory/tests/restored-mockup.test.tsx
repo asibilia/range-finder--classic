@@ -24,9 +24,9 @@ import { cleanup, screen, within } from '@testing-library/react'
 import { initials } from '../src/components/talents-dialog'
 
 const SHOW_PLAN = "Show the sim's plan"
-const DUNGEON_LONG = 'Dungeon, 2 min vs level 33'
-const DPS_SOLO = 'Solo, 30 s vs level 31'
-const DPS_LONG = DUNGEON_LONG
+// The readings' short labels (#111).
+const DPS_SOLO = 'Solo'
+const DPS_LONG = 'Dungeon'
 
 afterEach(() => {
     cleanup()
@@ -118,8 +118,8 @@ describe('the readings', () => {
         expect(readingChange(DPS_LONG)).toBe('+8.7')
         expect(readingChange('Health')).toBe('-65')
         expect(readingChange('Armor')).toBe('+58')
-        expect(readingChange('Mana runs out at')).toBe('+9 s later')
-        expect(readingChange('Time to die vs a level 33 elite')).toBe('-3 s')
+        expect(readingChange('Resource Empty')).toBe('+9 s later')
+        expect(readingChange('Lifespan')).toBe('-3 s')
     })
 
     test('a plan not simmed on the fight has no change to say', async () => {
@@ -139,7 +139,7 @@ describe('the readings', () => {
         await chooseFight(user, 'Chain, 4 pulls 20 s apart vs level 33')
         await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
         // The chain fight's readings: the plan has no result there.
-        expect(readingChange('Mana runs out at')).toBeNull()
+        expect(readingChange('Resource Empty')).toBeNull()
         expect(readingChange('Health')).toBeNull()
         // Solo and the 2-minute fight are still simmed for the plan.
         expect(readingChange(DPS_LONG)).toBe('+8.7')

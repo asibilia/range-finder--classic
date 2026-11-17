@@ -31,8 +31,12 @@ const SOLO = 'Solo, 30 s vs level 31'
 const DUNGEON_SHORT = 'Dungeon, 30 s vs level 32'
 const DUNGEON_LONG = 'Dungeon, 2 min vs level 33'
 const CHAIN = 'Chain, 4 pulls 20 s apart vs level 33'
-const MANA = 'Mana runs out at'
-const TTD = 'Time to die vs a level 33 elite'
+const MANA = 'Resource Empty'
+const TTD = 'Lifespan'
+// The readings' short labels (#111): the fight picker keeps the full labels above.
+const READ_SOLO = 'Solo'
+const READ_DUNGEON = 'Dungeon'
+const READ_CHAIN = 'Chain'
 const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
 const PROVISIONAL_TEXT =
@@ -180,7 +184,7 @@ describe('the chain fight', () => {
         const user = await openFile(sample)
         await chooseFight(user, CHAIN)
 
-        expect(await values(user, MANA)).toEqual(['1:58', '2:04'])
+        expect(await values(user, MANA)).toEqual(['118', '124'])
         expect(chart(PULL_CHART)).not.toBeNull()
         expect(chart(TIME_CHART)).toBeNull()
         expect(
@@ -296,11 +300,11 @@ describe('the readings', () => {
         await openFile(sample)
 
         expect(
-            screen.getByRole('heading', { name: 'What the sim says' })
+            screen.getByRole('heading', { name: 'Simulator Data' })
         ).toBeDefined()
         expect(readingLabels()).toEqual([
-            SOLO,
-            DUNGEON_LONG,
+            READ_SOLO,
+            READ_DUNGEON,
             MANA,
             'Health',
             'Armor',
@@ -311,18 +315,18 @@ describe('the readings', () => {
             expect(
                 document.querySelector(
                     `[data-reading="${label}"] [data-reading-change]`
-                )?.textContent
+                )?.textContent ?? ''
             ).toBe('')
     })
 
     test('the 2-minute fight reads what you wear, then Max damage in the plan view', async () => {
         const user = await openFile(sample)
 
-        expect(await values(user, SOLO)).toEqual(['103.7', '118.4'])
-        expect(await values(user, DUNGEON_LONG)).toEqual(['75.4', '84.1'])
+        expect(await values(user, READ_SOLO)).toEqual(['103.7', '118.4'])
+        expect(await values(user, READ_DUNGEON)).toEqual(['75.4', '84.1'])
         expect(await values(user, 'Health')).toEqual(['1375', '1310'])
         expect(await values(user, 'Armor')).toEqual(['952', '1010'])
-        expect(await values(user, MANA)).toEqual(['0:48', '0:57'])
+        expect(await values(user, MANA)).toEqual(['48', '57'])
         expect(await values(user, TTD)).toEqual(['34', '31'])
     })
 
@@ -330,10 +334,10 @@ describe('the readings', () => {
         const user = await openFile(sample)
         await chooseFight(user, SOLO)
 
-        expect(readingValue(SOLO)).toBe('103.7')
-        expect(readingValue(DUNGEON_LONG)).toBe('75.4')
+        expect(readingValue(READ_SOLO)).toBe('103.7')
+        expect(readingValue(READ_DUNGEON)).toBe('75.4')
         expect(readingValue(MANA)).toBe('Never')
-        expect(readingValue('Time to die vs a level 31 elite')).toBe('34')
+        expect(readingValue(TTD)).toBe('34')
     })
 
     test("a file without a short and a long single fight reads one DPS, the fight's", async () => {
@@ -345,8 +349,8 @@ describe('the readings', () => {
         )
         await chooseFight(user, CHAIN)
 
-        expect(readingValue(SOLO)).toBeNull()
-        expect(readingValue(CHAIN)).toBe('82.0')
+        expect(readingValue(READ_SOLO)).toBeNull()
+        expect(readingValue(READ_CHAIN)).toBe('82.0')
     })
 
     test('a null time to die reads Not simmed', async () => {
@@ -374,7 +378,7 @@ describe('the readings', () => {
         ).toBeDefined()
     })
 
-    test('out of mana reads m:ss for a time, Never for never and Not simmed for null', async () => {
+    test('out of mana reads whole seconds for a time, Never for never and Not simmed for null', async () => {
         const user = await openFile(
             variant((file) => {
                 for (const result of resultsOf(file, 'worn', 'dungeon-long'))
@@ -392,10 +396,10 @@ describe('the readings', () => {
         expect(await values(user, MANA)).toEqual(['Never', 'Not simmed'])
 
         await chooseFight(user, SOLO)
-        expect(await values(user, MANA)).toEqual(['1:01', 'Never'])
+        expect(await values(user, MANA)).toEqual(['61', 'Never'])
     })
 
-    test('an out of mana time of 47.6 s reads 0:47', async () => {
+    test('an out of mana time of 47.6 s reads 47', async () => {
         await openFile(
             variant((file) => {
                 for (const result of resultsOf(file, 'worn', 'dungeon-long'))
@@ -403,7 +407,7 @@ describe('the readings', () => {
             })
         )
 
-        expect(readingValue(MANA)).toBe('0:47')
+        expect(readingValue(MANA)).toBe('47')
     })
 })
 
@@ -418,7 +422,7 @@ describe('a file with no plans', () => {
             })
         )
         expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
-        expect(readingValue(DUNGEON_LONG)).toBe('75.4')
+        expect(readingValue(READ_DUNGEON)).toBe('75.4')
         expect(chart(TIME_CHART)).not.toBeNull()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()

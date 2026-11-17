@@ -218,9 +218,7 @@ describe('the page remembers the last results file', () => {
 
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
         await waitForName('Bring your character in')
-        expect(
-            screen.getByRole('heading', { level: 1 })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         expect(screen.queryByText(KEPT)).toBeNull()
 
         reload()
@@ -252,9 +250,7 @@ describe('the page remembers the last results file', () => {
         expect(await screen.findByText(FORGOTTEN)).toBeDefined()
         expect(screen.getAllByText(FORGOTTEN)).toHaveLength(1)
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
-        expect(
-            screen.getByRole('heading', { level: 1 })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         expect(noFileHeading()).toBeDefined()
         // Not the error for a file the visitor just opened.
         expect(
@@ -293,9 +289,7 @@ describe('the page remembers the last results file', () => {
     test('storage that throws on access: the page opens empty, reads a file, and does not claim to keep it', async () => {
         storageUnavailable()
         const user = renderApp()
-        expect(
-            screen.getByRole('heading', { level: 1 })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         expect(noFileHeading()).toBeDefined()
         await pick(user, jsonFile(sample))
         await waitForName('Truncha')

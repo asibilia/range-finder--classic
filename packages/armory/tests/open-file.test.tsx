@@ -73,9 +73,7 @@ describe('the new-visitor state', () => {
     test('shows the bring-your-character-in state with a picker, a drop target and the sample button', () => {
         renderApp()
 
-        expect(
-            screen.getByRole('heading', { level: 1 })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         expect(
             screen.getByRole('heading', {
                 level: 2,
@@ -323,9 +321,7 @@ describe('loading a results file', () => {
         expect(dropped).toBe(false)
         await new Promise((resolve) => setTimeout(resolve, 20))
 
-        expect(
-            screen.getByRole('heading', { name: 'Truncha' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Truncha' })).toBeDefined()
     })
 
     test("Or look at a sample character loads Truncha with the mockup's header line and export date", async () => {
