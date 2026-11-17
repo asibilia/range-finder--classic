@@ -125,7 +125,7 @@ export function buildRequest(
             stormstrike: hasStormstrike(character),
         }),
         distanceFromTarget: 5,
-        inFrontOfTarget: scenario.being_hit,
+        inFrontOfTarget: scenario.in_front ?? scenario.being_hit,
         reactionTimeMs: 100,
     }
     if (options.startingManaPct !== undefined)

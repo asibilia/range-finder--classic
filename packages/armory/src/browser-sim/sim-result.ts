@@ -188,6 +188,29 @@ export function castsOf(
     return iterations > 0 ? casts / iterations : 0
 }
 
+type EncounterMetrics = {
+    targets?: {
+        actions?: {
+            id?: { otherId?: string | number }
+            targets?: { dodges?: number; parries?: number }[]
+        }[]
+    }[]
+}
+
+/**
+ * The mob's melee swings the character dodged or parried, over all
+ * iterations: the first mob's attack, as the runner's `avoidedByMe` reads it.
+ */
+export function avoidedOf(result: RaidSimResult): number {
+    const encounter = result.encounterMetrics as EncounterMetrics | undefined
+    return (encounter?.targets?.[0]?.actions ?? [])
+        .filter(
+            (a) => a.id?.otherId === 'OtherActionAttack' || a.id?.otherId === 3
+        )
+        .flatMap((a) => a.targets ?? [])
+        .reduce((sum, t) => sum + (t.dodges ?? 0) + (t.parries ?? 0), 0)
+}
+
 /** The mana at the end of the last timeline bucket, if the sim kept one. */
 export function manaAtEnd(unit: UnitMetrics): number | null {
     const points = unit.timeline ?? []

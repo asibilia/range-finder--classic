@@ -352,7 +352,7 @@ export async function simExport(
                     ? 0
                     : beforeYourWeightsCalls(read.character) +
                       yourWeightsCalls(read.character, options)) +
-                characterCalls(read.character, weights)
+                characterCalls(read.character)
         )
         const character = await calibrate(read.character, run.pool)
         run.check()
@@ -392,8 +392,7 @@ export async function refine(
     const run = startRun(pool, onProgress)
     try {
         run.begin(
-            yourWeightsCalls(character, options) +
-                characterCalls(character, null)
+            yourWeightsCalls(character, options) + characterCalls(character)
         )
         const weights = await simYourWeights(run, character, options)
         run.check()

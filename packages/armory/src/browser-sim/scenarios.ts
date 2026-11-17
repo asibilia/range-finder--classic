@@ -15,6 +15,8 @@ export type Scenario = {
     variation_s: number
     /** The mob hits the character (solo); in a dungeon a tank holds it. */
     being_hit: boolean
+    /** The character stands in front of the mob; absent: when it's hit. */
+    in_front?: boolean
     /** The fight is long enough to drop totems. */
     totems: boolean
     pulls: number
@@ -74,6 +76,39 @@ export function scenariosFor(level: number): Scenario[] {
             gap_s: 0,
         },
     ]
+}
+
+/**
+ * The sanity gates' fixed fights, the runner's `SCENARIOS` (whatever the
+ * character's level): the solo fight (`SCENARIOS[0]`: a level 31 mob,
+ * armor 1100, hitting the character, 30 s) and the short dungeon fight
+ * (`SCENARIOS[1]`: level 32, armor 1150, behind a tank, 30 s).
+ */
+export const SANITY_SOLO: Scenario = {
+    fight_id: 'sanity-solo',
+    label: 'Solo, 30 s vs level 31',
+    kind: 'single',
+    target_level: 31,
+    duration_s: 30,
+    variation_s: 5,
+    being_hit: true,
+    in_front: true,
+    totems: false,
+    pulls: 1,
+    gap_s: 0,
+}
+export const SANITY_DUNGEON: Scenario = {
+    fight_id: 'sanity-dungeon',
+    label: 'Dungeon, 30 s vs level 32',
+    kind: 'single',
+    target_level: 32,
+    duration_s: 30,
+    variation_s: 5,
+    being_hit: false,
+    in_front: false,
+    totems: true,
+    pulls: 1,
+    gap_s: 0,
 }
 
 /** The chain: 10 pulls of 25 s, 12 s apart, being hit, no drinking. */

@@ -215,20 +215,27 @@ function isWeightsSim(event: RunEvent): boolean {
     )
 }
 
-let level45Memo:
+/**
+ * A level with no weights file (only 30–34 has one). Below the sanity gates'
+ * fixed level-31/32 fights, so +20 hit rating still raises DPS there (at 45
+ * the character never misses a level-32 mob and that gate rightly fails).
+ */
+const NO_FILE_LEVEL = 29
+
+let noFileLevelMemo:
     Promise<{ character: TestcharCharacter; sheet: Sheet }> | undefined
-/** Testchar at level 45 (no weights file for 45–49), and its sheet. */
-function level45() {
-    level45Memo ??= (async () => {
+/** Testchar at level 29 (no weights file for 25–29), and its sheet. */
+function noFileLevel() {
+    noFileLevelMemo ??= (async () => {
         const plain = await testcharCharacter(shared)
         const character: TestcharCharacter = {
             ...plain,
-            level: 45,
+            level: NO_FILE_LEVEL,
             // The reader sets base attack power to 2 × level − 20 (the runner's rule).
             profile: {
                 ...plain.profile,
-                level: 45,
-                baseAttackPower: 2 * 45 - 20,
+                level: NO_FILE_LEVEL,
+                baseAttackPower: 2 * NO_FILE_LEVEL - 20,
             },
         }
         const sheet = sheetFromSim(
@@ -242,12 +249,12 @@ function level45() {
         )
         return { character, sheet }
     })()
-    return level45Memo
+    return noFileLevelMemo
 }
 
-/** `simExport` on the level-45 export, its sims and estimates logged. */
-async function level45Export(sheet?: (sheet: Sheet) => Sheet) {
-    const level = await level45()
+/** `simExport` on the level-29 export, its sims and estimates logged. */
+async function noFileLevelExport(sheet?: (sheet: Sheet) => Sheet) {
+    const level = await noFileLevel()
     const events: RunEvent[] = []
     const text = exportFromCharacter(
         level.character,
@@ -260,11 +267,11 @@ async function level45Export(sheet?: (sheet: Sheet) => Sheet) {
     return { outcome, events }
 }
 
-let level45RunMemo: ReturnType<typeof level45Export> | undefined
-/** The level-45 export's run with its own sheet, run once to the end. */
-function level45Run() {
-    level45RunMemo ??= level45Export()
-    return level45RunMemo
+let noFileLevelRunMemo: ReturnType<typeof noFileLevelExport> | undefined
+/** The level-29 export's run with its own sheet, run once to the end. */
+function noFileLevelRun() {
+    noFileLevelRunMemo ??= noFileLevelExport()
+    return noFileLevelRunMemo
 }
 
 describe('simExport', () => {
@@ -297,19 +304,23 @@ describe('simExport', () => {
         expectSteadyProgress(reports)
     }, 600_000)
 
+    // The name says level 45 from slice B; under #94's fixed gate fights the
+    // run uses NO_FILE_LEVEL (29), which also has no weights file.
     test('the same export at level 45 (no weights file for 45–49) sims weights on the device first and gives a file with weights of source yours', async () => {
-        expect(await shared.weights('Shaman', 'Enhancement', 45)).toBeNull()
-        const { outcome } = await level45Run()
+        expect(
+            await shared.weights('Shaman', 'Enhancement', NO_FILE_LEVEL)
+        ).toBeNull()
+        const { outcome } = await noFileLevelRun()
         const { file } = fileRun(outcome)
         expect(readResultsFile(file).ok).toBe(true)
-        expect(file.character.level).toBe(45)
+        expect(file.character.level).toBe(NO_FILE_LEVEL)
         expect(file.stat_weights.length).toBeGreaterThan(0)
         for (const fight of file.stat_weights)
             expect(fight.source).toEqual({ kind: 'yours' })
     }, 600_000)
 
     test('a level-45 export whose sheet Strength is off by 10 returns a gates stop naming sheet strength, and no weights sim runs and no estimate is given', async () => {
-        const { outcome, events } = await level45Export((sheet) => ({
+        const { outcome, events } = await noFileLevelExport((sheet) => ({
             ...sheet,
             strength: sheet.strength + 10,
         }))
@@ -325,7 +336,7 @@ describe('simExport', () => {
     }, 600_000)
 
     test('a passing level-45 run calls onWeightsFirst once, with a whole number of minutes of at least 1, before the first weights sim', async () => {
-        const { outcome, events } = await level45Run()
+        const { outcome, events } = await noFileLevelRun()
         expect(outcome.kind).toBe('file')
         const estimates = events.filter(
             (event): event is Extract<RunEvent, { kind: 'estimate' }> =>

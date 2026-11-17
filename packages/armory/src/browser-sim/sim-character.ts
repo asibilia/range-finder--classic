@@ -9,6 +9,7 @@
 import {
     sheetFromSim,
     type RaidSimRequest,
+    type RaidSimResult,
     type Sheet,
     type SimPool,
 } from '@goturbo/sim'
@@ -40,12 +41,14 @@ import {
     weaponCandidates,
     withMainHand,
 } from './plan'
-import { buildRequest, hasStormstrike } from './request'
+import { buildRequest, type RequestOptions } from './request'
 import { rotationSpells, STORMSTRIKE } from './rotation'
 import {
     chainFor,
     DEFAULT_FIGHT,
     fightEntry,
+    SANITY_DUNGEON,
+    SANITY_SOLO,
     scenariosFor,
     type Scenario,
 } from './scenarios'
@@ -57,15 +60,15 @@ import {
     type FightResult,
     type SimmedFight,
 } from './session'
-import { castsOf, dpsOf, type SpellNames } from './sim-result'
 import {
-    specOf,
-    talentRank,
-    talentsSection,
-    talentTrees,
-    type TalentTree,
-} from './talents'
-import { bonusFor, epTable, STAT_STEPS, type StatWeights } from './weights'
+    avoidedOf,
+    castsOf,
+    dpsOf,
+    playerOf,
+    type SpellNames,
+} from './sim-result'
+import { specOf, talentsSection, talentTrees, type TalentTree } from './talents'
+import { bonusFor, epTable, type StatWeights } from './weights'
 
 export type SimOutcome =
     | {
@@ -80,12 +83,6 @@ export type SimOutcome =
 
 /** The one class and spec the sim covers for now. */
 export const SUPPORTED = { class: 'Shaman', spec: 'Enhancement' }
-/** Stormstrike's cooldown, in seconds. */
-const STORMSTRIKE_COOLDOWN_S = 8
-/** The sanity gate weighs stats with at least this EP on the long fight. */
-const SANITY_MIN_EP = 1
-/** It adds this many times the weights method's amount. */
-const SANITY_SCALE = 10
 /** The weapon sims' settings, the runner's `weaponList`'s. */
 const WEAPON_SETTINGS = { seed: 77, iterations: 6000 }
 
@@ -99,6 +96,143 @@ function longFightEp(weights: StatWeights) {
         else epByStat.set(stat, ep)
     }
     return { epByStat, weaponDpsEp }
+}
+
+/**
+ * The stats the DPS-rises gates add, the runner's: its name in the check,
+ * the stat and the amount.
+ */
+const SANITY_STATS: { name: string; stat: Stat; amount: number }[] = [
+    { name: 'Strength', stat: 'strength', amount: 20 },
+    { name: 'Agility', stat: 'agility', amount: 20 },
+    { name: 'Intellect', stat: 'intellect', amount: 20 },
+    { name: 'Attack Power', stat: 'attack_power', amount: 40 },
+    { name: 'Hit rating', stat: 'hit_rating', amount: 20 },
+    { name: 'Crit rating', stat: 'crit_rating', amount: 28 },
+]
+/** The DPS-rises gates' seeds and iterations. */
+const SANITY_SEEDS = [21, 22, 23]
+const SANITY_ITERATIONS = 3000
+/** The Stormstrike gate's seed and iterations. */
+const STORMSTRIKE_SEED = 31
+const STORMSTRIKE_ITERATIONS = 4000
+/** Improved Stormstrike's place in the Enhancement tree. */
+const IMPROVED_STORMSTRIKE = 15
+/** The sanity sims: a baseline and each stat per seed, and 4 Stormstrike fights. */
+const SANITY_CALLS = SANITY_SEEDS.length * (SANITY_STATS.length + 1) + 4
+
+/**
+ * The Stormstrike gate's two builds, as the runner makes them: without
+ * Improved Stormstrike, and with it (a point moved in from Enhancement's
+ * talent 8, else the first ranked one but 4 and 11, when there is none).
+ */
+function stormstrikeVariants(talents: string): {
+    without: string
+    withIt: string
+    points: number
+} {
+    const trees = talents.split('-')
+    while (trees.length < 2) trees.push('')
+    const enh = trees[1]!.padEnd(18, '0').split('').map(Number)
+    const withImp = [...enh]
+    if (withImp[IMPROVED_STORMSTRIKE] === 0) {
+        const from =
+            withImp[8]! > 0
+                ? 8
+                : withImp.findIndex((v, i) => v > 0 && i !== 11 && i !== 4)
+        if (from >= 0) withImp[from] = withImp[from]! - 1
+        withImp[IMPROVED_STORMSTRIKE] = 1
+    }
+    const tree = (ranks: number[]) => ranks.join('').replace(/0+$/, '')
+    const withTree = (enhancement: string) =>
+        trees.map((t, i) => (i === 1 ? enhancement : t)).join('-')
+    return {
+        without: withTree(
+            tree(enh.map((v, j) => (j === IMPROVED_STORMSTRIKE ? 0 : v)))
+        ),
+        withIt: withTree(tree(withImp)),
+        points: withImp[IMPROVED_STORMSTRIKE]!,
+    }
+}
+
+/**
+ * The sanity sims and their gates, as the runner's `sanityChecks`, on its
+ * fixed fights: DPS rises with each stat, and being hit resets Stormstrike
+ * as Improved Stormstrike says.
+ */
+async function sanitySims(
+    character: Character,
+    pool: SimPool
+): Promise<Check[]> {
+    const run = (
+        c: Character,
+        fight: Scenario,
+        seed: number,
+        iterations: number,
+        bonusStats?: RequestOptions['bonusStats']
+    ) =>
+        pool.sim(
+            buildRequest(c, fight, { seed, iterations, bonusStats }),
+            c.profile
+        )
+    const dps = (seed: number, stat?: Stat, amount = 0) =>
+        run(
+            character,
+            SANITY_DUNGEON,
+            seed,
+            SANITY_ITERATIONS,
+            stat ? bonusFor(stat, amount) : undefined
+        ).then(dpsOf)
+    const baselines = SANITY_SEEDS.map((seed) => dps(seed))
+    const rising = Promise.all(
+        SANITY_STATS.map(async ({ name, stat, amount }) => {
+            const gains = await Promise.all(
+                SANITY_SEEDS.map(async (seed, s) => {
+                    const [base, up] = await Promise.all([
+                        baselines[s]!,
+                        dps(seed, stat, amount),
+                    ])
+                    return up - base
+                })
+            )
+            return dpsRisesCheck(name, amount, gains)
+        })
+    )
+
+    const variants = stormstrikeVariants(character.talents)
+    const notHit: Scenario = { ...SANITY_SOLO, being_hit: false }
+    const minutes = SANITY_SOLO.duration_s / 60
+    const measure = async (talents: string) => {
+        const c = { ...character, talents }
+        const [hit, calm] = await Promise.all(
+            [SANITY_SOLO, notHit].map((fight) =>
+                run(c, fight, STORMSTRIKE_SEED, STORMSTRIKE_ITERATIONS)
+            )
+        )
+        const perMin = (result: RaidSimResult) =>
+            castsOf(playerOf(result), STORMSTRIKE, STORMSTRIKE_ITERATIONS) /
+            minutes
+        return {
+            hit: perMin(hit!),
+            notHit: perMin(calm!),
+            avoided: avoidedOf(hit!) / STORMSTRIKE_ITERATIONS,
+        }
+    }
+    const [checks, without, withIt] = await Promise.all([
+        rising,
+        measure(variants.without),
+        measure(variants.withIt),
+    ])
+    return [
+        ...checks,
+        stormstrikeRuleCheck({
+            points: variants.points,
+            without,
+            withIt,
+            avoided: withIt.avoided,
+            durationS: SANITY_SOLO.duration_s,
+        }),
+    ]
 }
 
 /** The results file's weights, without anything it doesn't take. */
@@ -242,15 +376,6 @@ export async function runGates(
     return { checks, l60Dps, sheet: sheetFromSim(unbuffed ?? simmedSheet) }
 }
 
-/** The stats the sanity gate weighs: those the long fight's EP counts. */
-function sanityStats(weights: StatWeights): Stat[] {
-    const long = weights.find((w) => w.fight_id === DEFAULT_FIGHT)
-    return (long?.weights ?? [])
-        .filter((w) => w.ep >= SANITY_MIN_EP)
-        .map((w) => w.stat)
-        .filter((stat) => STAT_STEPS.some((step) => step.stat === stat))
-}
-
 /** The calls the max damage plan's sims make: its sheet, every pull. */
 function planCalls(level: number): number {
     return 1 + scenariosFor(level).length + chainFor(level).pulls
@@ -258,23 +383,17 @@ function planCalls(level: number): number {
 
 /**
  * The most calls `simCharacter` makes: the gates, worn gear on every pull,
- * the sanity sims (one per stat the weights weigh; with no weights yet,
- * every stat the method weighs), the most weapons it sims and the worn set
- * at their settings, and the plan's sims. It makes fewer when there are
- * fewer weapons to sim, or when the plan is worn gear, and says so as it
- * learns.
+ * the sanity sims, the most weapons it sims and the worn set at their
+ * settings, and the plan's sims. It makes fewer when there are fewer
+ * weapons to sim, or when the plan is worn gear, and says so as it learns.
  */
-export function characterCalls(
-    character: Character,
-    weights: StatWeights | null
-): number {
+export function characterCalls(character: Character): number {
     const level = character.level
-    const sanity = weights ? sanityStats(weights).length : STAT_STEPS.length
     return (
         gateCalls(character) +
         scenariosFor(level).length +
         chainFor(level).pulls +
-        sanity +
+        SANITY_CALLS +
         WEAPON_SIMS +
         1 +
         planCalls(level)
@@ -306,8 +425,7 @@ export async function simCharacter(
     const fights = scenariosFor(level)
     const chain = chainFor(level)
     const longFight = fights.find((f) => f.fight_id === DEFAULT_FIGHT)!
-    const sanity = sanityStats(weights)
-    let callsPlanned = characterCalls(character, weights)
+    let callsPlanned = characterCalls(character)
     let callsDone = 0
     const report = () =>
         onProgress(callsDone, Math.max(callsDone, callsPlanned))
@@ -332,12 +450,6 @@ export async function simCharacter(
     }
 
     async function run(): Promise<SimOutcome> {
-        const stormstrike = hasStormstrike(character)
-        const improved = talentRank(
-            character.talents,
-            trees,
-            'improvedStormstrike'
-        )
         const settings = { seed: FIGHT_SEED, iterations: FIGHT_ITERATIONS }
         const sim = (request: RaidSimRequest) =>
             pool.sim(request, character.profile).then(dpsOf)
@@ -417,18 +529,7 @@ export async function simCharacter(
             names,
             spellNames
         )
-        const raising = Promise.all(
-            sanity.map((stat) => {
-                const step = STAT_STEPS.find((s) => s.stat === stat)!
-                const amount = step.amount * SANITY_SCALE
-                return sim(
-                    buildRequest(character, longFight, {
-                        ...settings,
-                        bonusStats: bonusFor(stat, amount),
-                    })
-                ).then((dps) => ({ stat, amount, dps }))
-            })
-        )
+        const raising = sanitySims(character, pool)
         // The max damage plan, then its sims (none when it's worn gear).
         const planning = Promise.all([weaponBase, weapons]).then(
             async ([baseDps, weaponDps]) => {
@@ -464,32 +565,9 @@ export async function simCharacter(
             await Promise.all([wornSingles, wornChain, raising, planning])
         const worn = { singles, chain: wornChainResult }
 
-        const single = (id: string) =>
-            singles.find((f) => f.result.fight_id === id)!
-        const wornLong = longDps(singles)
-        const hit = fights.find((f) => f.being_hit)!
-        const calm = fights.find((f) => !f.being_hit)!
         const sanityChecks: Check[] = [
-            belowLevel60Check(wornLong, l60Dps),
-            ...raised.map(({ stat, amount, dps }) =>
-                dpsRisesCheck(stat, amount, wornLong, dps)
-            ),
-            stormstrikeRuleCheck({
-                talented: stormstrike,
-                improved: improved > 0,
-                hitCasts: castsOf(
-                    single(hit.fight_id).player,
-                    STORMSTRIKE,
-                    FIGHT_ITERATIONS
-                ),
-                hitMaxS: hit.duration_s + hit.variation_s,
-                cooldownS: STORMSTRIKE_COOLDOWN_S,
-                calmCasts: castsOf(
-                    single(calm.fight_id).player,
-                    STORMSTRIKE,
-                    FIGHT_ITERATIONS
-                ),
-            }),
+            belowLevel60Check(longDps(singles), l60Dps),
+            ...raised,
         ]
         const failedSanity = sanityChecks.filter((c) => !c.passed)
         if (failedSanity.length > 0)

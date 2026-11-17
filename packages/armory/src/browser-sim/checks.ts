@@ -5,6 +5,7 @@
 import type { Sheet } from '@goturbo/sim'
 
 import type { Check } from '../results-file'
+import { meanCI } from './weights'
 
 /** WASM rounds the last digit differently from native Go. */
 export const L60_TOLERANCE = 1e-9
@@ -130,50 +131,52 @@ export function noSpellAboveLevelCheck(
     }
 }
 
-/** More of a weighed stat gives at least as much DPS. */
+/**
+ * More of a stat gives more DPS: `gains` are the DPS it adds on each seed.
+ * It passes when the mean gain less its 95% half-width (Student's t) is
+ * above 0, as the runner's `sanityChecks`.
+ */
 export function dpsRisesCheck(
-    stat: string,
+    name: string,
     amount: number,
-    base: number,
-    up: number
+    gains: number[]
 ): Check {
-    const words = stat.replace(/_/g, ' ')
+    const { mean, half } = meanCI(gains)
     return {
-        name: `DPS rises with ${words}`,
-        passed: up >= base,
-        detail: `${round(base)} DPS, ${round(up)} with ${amount} more ${words} on the long dungeon fight.`,
+        name: `DPS rises with ${name}`,
+        passed: mean - half > 0,
+        detail: `+${amount}: ${mean.toFixed(2)} ± ${half.toFixed(2)} DPS on the level 32 dungeon fight, over ${gains.length} seeds.`,
     }
 }
 
+/** Stormstrike casts per minute on the solo fight, hit and not hit. */
+export type StormstrikeRates = { hit: number; notHit: number }
+
 /**
- * Being hit resets Stormstrike only through Improved Stormstrike (a dodge
- * or parry resets its cooldown). Without the talent, the fight where the
- * character is hit can't cast it more often than its cooldown allows; with
- * it, that fight casts it at least as often as one where it isn't hit.
+ * Improved Stormstrike's reset, as the runner's `sanityChecks` measures
+ * it: a dodge or parry resets Stormstrike at 50% a point, and a reset
+ * gains half a cast on average. Being hit also costs casts, so the reset's
+ * effect is the rise when hit with the talent less the change without it.
+ * It passes when that effect is above 0 and within ±35% of the rate the
+ * mob's dodged and parried swings per fight give.
  */
 export function stormstrikeRuleCheck(input: {
-    talented: boolean
-    improved: boolean
-    hitCasts: number
-    hitMaxS: number
-    cooldownS: number
-    calmCasts: number
+    /** Points in Improved Stormstrike in the talented variant. */
+    points: number
+    without: StormstrikeRates
+    withIt: StormstrikeRates
+    /** Dodges and parries per fight, hit with the talent. */
+    avoided: number
+    durationS: number
 }): Check {
-    const name = 'being hit resets Stormstrike as the rule says'
-    if (!input.talented)
-        return { name, passed: true, detail: 'No Stormstrike talent.' }
-    if (!input.improved) {
-        const most = Math.floor(input.hitMaxS / input.cooldownS) + 1
-        return {
-            name,
-            passed: input.hitCasts <= most,
-            detail: `No Improved Stormstrike: ${round(input.hitCasts)} casts a fight while being hit, at most ${most} by its cooldown.`,
-        }
-    }
+    const { points, without, withIt, avoided, durationS } = input
+    const effect = withIt.hit - withIt.notHit - (without.hit - without.notHit)
+    const chance = 0.5 * points
+    const expected = avoided * chance * 0.5 * (60 / durationS)
     return {
-        name,
-        passed: input.hitCasts >= input.calmCasts * 0.95,
-        detail: `Improved Stormstrike: ${round(input.hitCasts)} casts a fight while being hit, ${round(input.calmCasts)} when not.`,
+        name: 'being hit resets Stormstrike as the rule says',
+        passed: effect > 0 && Math.abs(effect - expected) <= 0.35 * expected,
+        detail: `Stormstrike/min: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
     }
 }
 
