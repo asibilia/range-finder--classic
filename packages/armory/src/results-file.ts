@@ -214,8 +214,9 @@ const result = z.strictObject({
     ),
 })
 
-/** A result for gear that isn't a plan: what you wear with one bag item put on. */
+/** A result for gear that isn't a plan: what you wear with bag items put on. */
 const bagResult = result.omit({ gear: true })
+export type BagResult = z.infer<typeof bagResult>
 
 /*
  * Talent limits. Forever's real trees (WoWSims' talent data, nine class
@@ -295,6 +296,19 @@ const baseSchema = z.strictObject({
         race: z.string(),
         class: z.string(),
         spec: z.string(),
+        professions: z
+            .array(
+                z.strictObject({
+                    name: z.string(),
+                    skill: z.int().min(0),
+                    max: z.int().min(0),
+                })
+            )
+            .optional()
+            .meta({
+                description:
+                    "The character's professions at export, e.g. Leatherworking 165 of 225. The page matches them by name only, to tell items you can craft yourself; skill and max are carried, unused for now. Absent or an empty list: none.",
+            }),
     }),
     sheet_buffed: z.boolean().meta({
         description:
@@ -378,6 +392,30 @@ const baseSchema = z.strictObject({
             }),
         })
     ),
+    bag_upgrades_all: z
+        .strictObject({
+            results: z.array(bagResult),
+        })
+        .nullable()
+        .optional()
+        .meta({
+            description:
+                "What you wear with every bag upgrade put on together, everything else worn: one result per fight, shaped like results (no gear). Only with two or more bag_upgrades, each in a different slot. The page's Equip all button shows these in place of worn's results; Undo takes them all off. Absent or null: not simmed (no Equip all button).",
+        }),
+    quick_fixes: z
+        .array(
+            z.strictObject({
+                kind: z.enum(['imbue', 'empty_slot', 'weapon_skill']),
+                slot: slot.nullable(),
+                dps_gain: z.number().min(0),
+                text: z.string().min(1),
+            })
+        )
+        .optional()
+        .meta({
+            description:
+                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text says the fix and names the slot. Absent or an empty list: none.',
+        }),
     plans: z.array(plan),
     results: z.array(result),
     stat_weights: z.array(
@@ -540,6 +578,38 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
             )
     })
 
+    const all = file.bag_upgrades_all
+    if (all) {
+        all.results.forEach((r, j) => {
+            const f = fights.get(r.fight_id)
+            const at = ['bag_upgrades_all', 'results', j]
+            if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
+            if (f?.kind === 'chain' && r.timeline !== null)
+                problem(
+                    [...at, 'timeline'],
+                    'Only a single fight has a timeline.'
+                )
+            if (f?.kind === 'single' && r.pulls !== null)
+                problem([...at, 'pulls'], 'Only a chain fight has pulls.')
+        })
+        const ids = all.results.map((r) => r.fight_id)
+        const onePerFight =
+            ids.length === file.fights.length &&
+            !repeats(ids) &&
+            file.fights.every((f) => ids.includes(f.fight_id))
+        if (!onePerFight)
+            problem(
+                ['bag_upgrades_all', 'results'],
+                'bag_upgrades_all.results needs one result for each fight in fights.'
+            )
+        const bagSlots = file.bag_upgrades.map((u) => u.slot)
+        if (bagSlots.length < 2 || repeats(bagSlots))
+            problem(
+                ['bag_upgrades_all'],
+                'bag_upgrades_all needs two or more bag_upgrades, each in a different slot.'
+            )
+    }
+
     const skill = file.sheet.weapon_skill
     if (skill && skill.current > skill.max)
         problem(
@@ -607,8 +677,10 @@ const FILE_DESCRIPTION = [
     'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
     "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
     '- default_fight_id names a fight in fights.',
-    '- Every fight_id in results, bag_upgrades results, stat_weights and talents.best names a fight in fights.',
+    '- Every fight_id in results, bag_upgrades results, bag_upgrades_all results, stat_weights and talents.best names a fight in fights.',
     "- A bag upgrade's results have at most one entry per fight.",
+    '- bag_upgrades_all.results has exactly one result for each fight in fights.',
+    '- bag_upgrades_all needs two or more bag_upgrades, each in a different slot.',
     '- sheet.weapon_skill.current is at most its max.',
     '- Every gear in results is worn or a plan_id in plans.',
     "- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.",
@@ -625,11 +697,13 @@ const FILE_DESCRIPTION = [
     "- A talent's rank is at most its max_rank.",
     '- No two talents in talents.yours share a tier and column.',
     '- A chain fight has a setup.',
-    "- timeline is null on a chain fight's results (bag upgrade results too).",
-    "- pulls is null on a single fight's results (bag upgrade results too).",
+    "- timeline is null on a chain fight's results (bag upgrade and bag_upgrades_all results too).",
+    "- pulls is null on a single fight's results (bag upgrade and bag_upgrades_all results too).",
     'The runner must also keep these, which nothing checks:',
     "- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
+    '- character.professions names each profession as the game does (Leatherworking): the page matches them by name.',
+    '- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.',
 ].join('\n')
 
 export const resultsFileSchema = baseSchema

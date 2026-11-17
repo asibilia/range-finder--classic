@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Results file",
-  "description": "One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.\nThe page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:\n- default_fight_id names a fight in fights.\n- Every fight_id in results, bag_upgrades results, stat_weights and talents.best names a fight in fights.\n- A bag upgrade's results have at most one entry per fight.\n- sheet.weapon_skill.current is at most its max.\n- Every gear in results is worn or a plan_id in plans.\n- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.\n- slots has each slot exactly once.\n- Every fight has a result for worn gear.\n- Each fight_id in fights is unique.\n- Each plan_id is unique.\n- No item_id appears twice in one slot's alternatives.\n- stat_weights has at most one entry per fight.\n- Each Pawn label is unique.\n- Each item_id in left_out_items is unique.\n- No two results share a gear and fight.\n- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.\n- A talent's rank is at most its max_rank.\n- No two talents in talents.yours share a tier and column.\n- A chain fight has a setup.\n- timeline is null on a chain fight's results (bag upgrade results too).\n- pulls is null on a single fight's results (bag upgrade results too).\nThe runner must also keep these, which nothing checks:\n- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.\n- talents.yours lists every talent in the tree, at rank 0 or more.",
+  "description": "One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.\nThe page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:\n- default_fight_id names a fight in fights.\n- Every fight_id in results, bag_upgrades results, bag_upgrades_all results, stat_weights and talents.best names a fight in fights.\n- A bag upgrade's results have at most one entry per fight.\n- bag_upgrades_all.results has exactly one result for each fight in fights.\n- bag_upgrades_all needs two or more bag_upgrades, each in a different slot.\n- sheet.weapon_skill.current is at most its max.\n- Every gear in results is worn or a plan_id in plans.\n- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.\n- slots has each slot exactly once.\n- Every fight has a result for worn gear.\n- Each fight_id in fights is unique.\n- Each plan_id is unique.\n- No item_id appears twice in one slot's alternatives.\n- stat_weights has at most one entry per fight.\n- Each Pawn label is unique.\n- Each item_id in left_out_items is unique.\n- No two results share a gear and fight.\n- talents.best.ranks lists every talent in talents.yours exactly once, by talent_id.\n- A talent's rank is at most its max_rank.\n- No two talents in talents.yours share a tier and column.\n- A chain fight has a setup.\n- timeline is null on a chain fight's results (bag upgrade and bag_upgrades_all results too).\n- pulls is null on a single fight's results (bag upgrade and bag_upgrades_all results too).\nThe runner must also keep these, which nothing checks:\n- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.\n- talents.yours lists every talent in the tree, at rank 0 or more.\n- character.professions names each profession as the game does (Leatherworking): the page matches them by name.\n- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.",
   "type": "object",
   "properties": {
     "schema_version": {
@@ -109,6 +109,34 @@
         },
         "spec": {
           "type": "string"
+        },
+        "professions": {
+          "description": "The character's professions at export, e.g. Leatherworking 165 of 225. The page matches them by name only, to tell items you can craft yourself; skill and max are carried, unused for now. Absent or an empty list: none.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "skill": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "name",
+              "skill",
+              "max"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -888,6 +916,256 @@
           "slot",
           "item",
           "gain_ep"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "bag_upgrades_all": {
+      "description": "What you wear with every bag upgrade put on together, everything else worn: one result per fight, shaped like results (no gear). Only with two or more bag_upgrades, each in a different slot. The page's Equip all button shows these in place of worn's results; Undo takes them all off. Absent or null: not simmed (no Equip all button).",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "fight_id": {
+                    "type": "string"
+                  },
+                  "dps": {
+                    "type": "number"
+                  },
+                  "health": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "armor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "out_of_mana_s": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "const": "never"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Seconds to the first out of mana (the sim's tto); on a chain fight, wall time from the start of the first pull, gaps included. On a chain fight the page says the pull this falls in ran dry: pull k runs from (k-1)*(duration_s + gap_s) to that plus duration_s (setup.gap_s); a time in the gap after a pull counts as the next pull (you start it with no mana), and a time past the last pull is said as a time. \"never\": simmed, and it never runs dry in this fight. Null: not simmed."
+                  },
+                  "time_to_die_s": {
+                    "description": "Seconds to die. Null: not simmed.",
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "timeline": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "t_s": {
+                              "type": "number"
+                            },
+                            "dps": {
+                              "type": "number"
+                            },
+                            "mana": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "t_s",
+                            "dps",
+                            "mana"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "DPS and mana over the fight. Single fights only: null on a chain fight. Null on a single fight: no timeline in this file."
+                  },
+                  "pulls": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "pull": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "dps": {
+                              "type": "number"
+                            },
+                            "mana_start": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "mana_end": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "The mana left at the end of the pull. A pull that ran dry can end a little above 0 (the sim regains some after running out), so the page doesn't read it to say which pull ran dry: out_of_mana_s says that."
+                            }
+                          },
+                          "required": [
+                            "pull",
+                            "dps",
+                            "mana_start",
+                            "mana_end"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "DPS and mana per pull. Chain fights only: null on a single fight. The pull that ran dry is the one out_of_mana_s falls in, not one whose mana_end is 0. Null on a chain fight: no pull data in this file."
+                  },
+                  "damage_split": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "share_pct": {
+                          "type": "number"
+                        },
+                        "school": {
+                          "description": "The spell school of this part of the damage: physical for melee swings and weapon procs. The page colours the split by it. Absent or null: not simmed (the page colours parts by order and leaves out \"Colour is the spell school.\").",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "physical",
+                                "fire",
+                                "nature",
+                                "frost",
+                                "arcane",
+                                "shadow",
+                                "holy"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "share_pct"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "fight_id",
+                  "dps",
+                  "health",
+                  "armor",
+                  "out_of_mana_s",
+                  "time_to_die_s",
+                  "timeline",
+                  "pulls",
+                  "damage_split"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "results"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "quick_fixes": {
+      "description": "Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text says the fix and names the slot. Absent or an empty list: none.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "imbue",
+              "empty_slot",
+              "weapon_skill"
+            ]
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "head",
+                  "neck",
+                  "shoulder",
+                  "back",
+                  "chest",
+                  "wrist",
+                  "hands",
+                  "waist",
+                  "legs",
+                  "feet",
+                  "finger_1",
+                  "finger_2",
+                  "trinket_1",
+                  "trinket_2",
+                  "main_hand",
+                  "off_hand",
+                  "relic"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dps_gain": {
+            "type": "number",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "slot",
+          "dps_gain",
+          "text"
         ],
         "additionalProperties": false
       }
