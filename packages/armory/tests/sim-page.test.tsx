@@ -434,6 +434,20 @@ describe('simming an export', () => {
     }, 120_000)
 })
 
+describe('the fight chart for a browser-simmed file', () => {
+    test('after Testchar’s export sims, the page draws the DPS and mana over the fight chart and not No fight timeline in this file.', async () => {
+        await simmedTestchar()
+
+        const chart = await screen.findByRole(
+            'img',
+            { name: 'DPS and mana over the fight' },
+            LOADS
+        )
+        expect(chart.tagName.toLowerCase()).toBe('svg')
+        expect(screen.queryByText('No fight timeline in this file.')).toBeNull()
+    }, 60_000)
+})
+
 describe('stops', () => {
     test('dropping the buffed export of 15 November says to export again without Warchief’s Blessing, and shows no numbers', async () => {
         renderWith(fakePool())
