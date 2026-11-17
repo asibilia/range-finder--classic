@@ -14,6 +14,7 @@ import {
     isTwoHander,
     itemEp,
     leftOutReason,
+    otherFaction,
     requiredLevel,
     slotsFor,
     type DbItem,
@@ -104,12 +105,13 @@ function weaponDps(item: DbItem): number {
     return (min + max) / 2 / (item.weaponSpeed || 1)
 }
 
-/** The runner's `canWear` for a weapon, at `maxLevel` (faction aside). */
+/** The runner's `canWear` for a weapon, at `maxLevel`. */
 function canWearWeapon(
     character: Character,
     item: DbItem,
     maxLevel: number
 ): boolean {
+    if (otherFaction(character, item)) return false
     const required = requiredLevel(item)
     if (required > maxLevel || (item.quality ?? 0) < UNCOMMON) return false
     const ilvl = item.scalingOptions?.['0']?.ilvl ?? 0

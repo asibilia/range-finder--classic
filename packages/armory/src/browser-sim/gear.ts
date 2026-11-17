@@ -21,6 +21,8 @@ export type DbItem = {
     reqLvl?: number
     quality?: number
     classAllowlist?: number[]
+    /** 1: Alliance only, 2: Horde only. */
+    factionRestriction?: number
     weaponSpeed?: number
     sources?: Record<string, Record<string, unknown>>[]
     scalingOptions?: Record<
@@ -210,9 +212,39 @@ export function isTwoHander(item: DbItem | undefined): boolean {
     return item?.handType === HAND.twoHand
 }
 
+const ALLIANCE_ONLY = 1
+const HORDE_ONLY = 2
+
+/** Each race's faction. A race outside the table gets no faction filter. */
+const RACE_FACTION: Readonly<Record<string, 'alliance' | 'horde'>> = {
+    Human: 'alliance',
+    Dwarf: 'alliance',
+    NightElf: 'alliance',
+    Gnome: 'alliance',
+    Orc: 'horde',
+    Undead: 'horde',
+    Tauren: 'horde',
+    Troll: 'horde',
+}
+
+/**
+ * The item is the other faction's only (the runner's faction rule in
+ * `gear.ts`, both ways): a Horde race can't have an Alliance-only item, and
+ * an Alliance race can't have a Horde-only one.
+ */
+export function otherFaction(character: Character, item: DbItem): boolean {
+    const faction = Object.hasOwn(RACE_FACTION, character.race)
+        ? RACE_FACTION[character.race]
+        : undefined
+    if (faction === 'horde') return item.factionRestriction === ALLIANCE_ONLY
+    if (faction === 'alliance') return item.factionRestriction === HORDE_ONLY
+    return false
+}
+
 /** The slots a Shaman of the character's level can wear an item in. */
 export function slotsFor(character: Character, item: DbItem): Slot[] {
     if (item.classAllowlist && !item.classAllowlist.includes(SHAMAN)) return []
+    if (otherFaction(character, item)) return []
     const armor = item.armorType ?? 0
     const armorOk =
         armor === 0 ||
