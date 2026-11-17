@@ -7,8 +7,8 @@
  * run by `build-output.test.ts`.
  */
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { ESLint } from 'eslint'
 import ts from 'typescript'
 
@@ -264,6 +264,37 @@ describe('the root scripts', () => {
     test('type-check runs type-check:armory', () => {
         expect(scripts()['type-check:armory']).toBeDefined()
         expect(scripts()['type-check']).toContain('bun run type-check:armory')
+    })
+})
+
+describe('the runner reference folder', () => {
+    // Built from parts, so this file doesn't name the folder itself.
+    const folderName = ['browser', 'sim', 'reference'].join('-')
+
+    test('is gone from packages/armory, and no file in the repo names it', () => {
+        expect(existsSync(join(REPO_ROOT, 'packages/armory', folderName))).toBe(
+            false
+        )
+
+        const listed = Bun.spawnSync(
+            ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+            { cwd: REPO_ROOT }
+        )
+        expect(listed.exitCode).toBe(0)
+        const files = listed.stdout
+            .toString()
+            .split('\n')
+            .filter((f) => f.length > 0)
+        expect(files.length).toBeGreaterThan(0)
+
+        const self = relative(REPO_ROOT, import.meta.path)
+        const naming = files.filter((file) => {
+            if (file === self) return false
+            const path = join(REPO_ROOT, file)
+            if (!existsSync(path) || !statSync(path).isFile()) return false
+            return readFileSync(path, 'utf8').includes(folderName)
+        })
+        expect(naming).toEqual([])
     })
 })
 
