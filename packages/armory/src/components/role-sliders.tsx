@@ -95,10 +95,9 @@ function RoleSlider({
  * @param mix - Where the sliders sit.
  * @param plan - The plan they pick.
  * @param inWornView - On what you wear, the page says moving a role switches.
- * @param switched - A slider move switched the gear to the plan: says so,
- * with `Show what I wear`.
+ * @param switched - A slider move switched the gear to the plan: says so
+ * (the gear card's `View` switch goes back).
  * @param onChange - A role moved to a value.
- * @param onShowWorn - Back to what you wear.
  */
 export function RoleSliders({
     plans,
@@ -107,7 +106,6 @@ export function RoleSliders({
     inWornView,
     switched = false,
     onChange,
-    onShowWorn = () => {},
 }: {
     plans: Plan[]
     mix: Mix
@@ -115,7 +113,6 @@ export function RoleSliders({
     inWornView: boolean
     switched?: boolean
     onChange: (role: Role, value: number) => void
-    onShowWorn?: () => void
 }) {
     const reach = plan?.reach ?? null
     return (
@@ -161,14 +158,7 @@ export function RoleSliders({
                     "Moving a role switches the gear to the sim's plan."
                 ) : switched ? (
                     <span className="text-foreground">
-                        Switched the gear to the sim&apos;s plan for this mix.{' '}
-                        <button
-                            type="button"
-                            className="text-[0.8125rem] text-muted-foreground underline underline-offset-3 hover:text-foreground"
-                            onClick={onShowWorn}
-                        >
-                            Show what I wear
-                        </button>
+                        Switched the gear to the sim&apos;s plan for this mix.
                     </span>
                 ) : null}
             </p>

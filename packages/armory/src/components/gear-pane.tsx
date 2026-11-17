@@ -20,6 +20,8 @@ import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
 import { emptySlot, slotShown, upgradeSummary } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
+import { Segmented } from './segmented'
+import { SimBestIcon } from './sim-best-icon'
 import { GainPill, SlotButton, type SlotSide } from './slot-button'
 
 /** The placeholder figure (the approved mockup's own drawing). */
@@ -70,6 +72,24 @@ function Figure({ faded }: { faded: boolean }) {
                 Character model goes here
             </figcaption>
         </figure>
+    )
+}
+
+/** A chestpiece outline (an original drawing), for the switch's `Current`. */
+function ChestIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="inline-block size-[1em] shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+        >
+            <path d="M8 3 L4 5 L2.5 11 L6 12 L6.5 21 L17.5 21 L18 12 L21.5 11 L20 5 L16 3 Q12 6.5 8 3 Z" />
+            <path d="M9 13 L15 13" />
+        </svg>
     )
 }
 
@@ -247,24 +267,30 @@ function GearHead({
                 >
                     {status}
                 </span>
-                {file &&
-                    plan &&
-                    (planShown ? (
-                        <Button
-                            variant="outline"
-                            className="ml-auto h-auto rounded-full px-4 py-2"
-                            onClick={onShowWorn}
-                        >
-                            Show what I wear
-                        </Button>
-                    ) : (
-                        <Button
-                            className="ml-auto h-auto rounded-full bg-gain px-4 py-2 font-bold text-gain-foreground hover:bg-gain/85"
-                            onClick={onShowPlan}
-                        >
-                            Show the sim&apos;s plan
-                        </Button>
-                    ))}
+                {file && plan && (
+                    <div className="ml-auto">
+                        <Segmented
+                            legend="View"
+                            hideLegend
+                            value={planShown ? 'bis' : 'current'}
+                            onChange={(value) =>
+                                value === 'bis' ? onShowPlan() : onShowWorn()
+                            }
+                            options={[
+                                {
+                                    value: 'current',
+                                    label: 'Current',
+                                    icon: <ChestIcon />,
+                                },
+                                {
+                                    value: 'bis',
+                                    label: 'BIS',
+                                    icon: <SimBestIcon variant="best" />,
+                                },
+                            ]}
+                        />
+                    </div>
+                )}
             </div>
             <p className="mt-1 mb-3.5 flex min-h-4.75 flex-wrap items-center gap-x-1.5 text-[0.8125rem] text-muted-foreground">
                 {!file ? (

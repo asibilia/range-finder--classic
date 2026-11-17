@@ -624,9 +624,6 @@ export function App({
                                         plan={plan}
                                         inWornView={!planShown}
                                         switched={planner.switched}
-                                        onShowWorn={() =>
-                                            dispatch({ type: 'show-worn' })
-                                        }
                                         onChange={(role, value) =>
                                             dispatch({
                                                 type: 'set-sliders',

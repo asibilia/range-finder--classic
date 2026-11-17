@@ -3,14 +3,15 @@
  * PvP`): a radio group of native radios inside a fieldset with its legend,
  * so arrow keys move between the options and a screen reader hears a group.
  */
-import { useId } from 'react'
+import { type ReactNode, useId } from 'react'
 
 import { cn } from '@/lib/utils'
 
-/** One option. */
+/** One option; `icon` is drawn before the label, hidden from screen readers. */
 export type SegmentOption = {
     value: string
     label: string
+    icon?: ReactNode
     disabled?: boolean
 }
 
@@ -64,12 +65,22 @@ export function Segmented({
                                 htmlFor={id}
                                 className={cn(
                                     'cursor-pointer rounded-full px-3.25 py-1 text-sm text-muted-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
+                                    option.icon &&
+                                        'inline-flex items-center gap-1.5',
                                     value === option.value &&
                                         'bg-secondary text-foreground shadow-[inset_0_0_0_1px_var(--ring)]',
                                     option.disabled &&
                                         'cursor-not-allowed opacity-50'
                                 )}
                             >
+                                {option.icon && (
+                                    <span
+                                        aria-hidden="true"
+                                        className="inline-flex"
+                                    >
+                                        {option.icon}
+                                    </span>
+                                )}
                                 {option.label}
                             </label>
                         </span>
