@@ -26,10 +26,16 @@ const NOTHING_RESIMMED =
 const SWITCHED = "Switched the gear to the sim's plan for this mix."
 const CHAIN = 'Chain, 4 pulls 20 s apart vs level 33'
 
-/** What the gear pane says it shows, beside its Gear heading. */
+/**
+ * What the gear pane says it shows, in its heading row: the line that
+ * starts with `What you wear` or `The sim's plan` in bold.
+ */
 function paneStatus(): string {
-    const heading = screen.getByRole('heading', { level: 2, name: 'Gear' })
-    return heading.nextElementSibling?.textContent ?? ''
+    const pane = document.querySelector('[data-slot="gear-pane"]')
+    const bold = [...(pane?.querySelectorAll('b') ?? [])].find((element) =>
+        ['What you wear', "The sim's plan"].includes(element.textContent ?? '')
+    )
+    return bold?.parentElement?.textContent ?? ''
 }
 
 /** The line that names the plan the mix picks. */
