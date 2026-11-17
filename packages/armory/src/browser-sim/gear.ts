@@ -21,10 +21,17 @@ export type DbItem = {
     reqLvl?: number
     quality?: number
     classAllowlist?: number[]
+    weaponSpeed?: number
     sources?: Record<string, Record<string, unknown>>[]
     scalingOptions?: Record<
         string,
-        { stats?: Record<string, number>; ilvl?: number; unroundedDps?: number }
+        {
+            stats?: Record<string, number>
+            ilvl?: number
+            unroundedDps?: number
+            weaponDamageMin?: number
+            weaponDamageMax?: number
+        }
     >
 }
 

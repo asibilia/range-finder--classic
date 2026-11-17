@@ -3,7 +3,7 @@
  * of a run: the class and spec check (before any sim), the gates (the
  * level 60 regression, the sheet, no spell above the level), worn gear on
  * every fight with the sanity gates, then the max damage plan. The plan's
- * sims start once worn gear's single fights and the weapons are in, beside
+ * sims start once the weapons (and worn gear at their settings) are in, beside
  * the sanity sims, and the plan is kept only when the sanity gates pass.
  */
 import {
@@ -35,8 +35,9 @@ import { pawnStrings } from './pawn'
 import {
     planMaxDamage,
     sameGear,
+    twoHandSkills,
     WEAPON_SIMS,
-    weaponsToSim,
+    weaponCandidates,
     withMainHand,
 } from './plan'
 import { buildRequest, hasStormstrike } from './request'
@@ -85,6 +86,20 @@ const STORMSTRIKE_COOLDOWN_S = 8
 const SANITY_MIN_EP = 1
 /** It adds this many times the weights method's amount. */
 const SANITY_SCALE = 10
+/** The weapon sims' settings, the runner's `weaponList`'s. */
+const WEAPON_SETTINGS = { seed: 77, iterations: 6000 }
+
+/** The long fight's EP per stat and its weapon DPS EP, apart. */
+function longFightEp(weights: StatWeights) {
+    const long = weights.find((w) => w.fight_id === DEFAULT_FIGHT)
+    const epByStat = new Map<Stat, number>()
+    let weaponDpsEp = 0
+    for (const { stat, ep } of long?.weights ?? []) {
+        if (stat === 'weapon_dps') weaponDpsEp = ep
+        else epByStat.set(stat, ep)
+    }
+    return { epByStat, weaponDpsEp }
+}
 
 /** The results file's weights, without anything it doesn't take. */
 function cleanWeights(weights: StatWeights, fightIds: string[]): StatWeights {
@@ -244,9 +259,10 @@ function planCalls(level: number): number {
 /**
  * The most calls `simCharacter` makes: the gates, worn gear on every pull,
  * the sanity sims (one per stat the weights weigh; with no weights yet,
- * every stat the method weighs), the most weapons it sims, and the plan's
- * sims. It makes fewer when there are fewer weapons to sim, or when the
- * plan is worn gear, and says so as it learns.
+ * every stat the method weighs), the most weapons it sims and the worn set
+ * at their settings, and the plan's sims. It makes fewer when there are
+ * fewer weapons to sim, or when the plan is worn gear, and says so as it
+ * learns.
  */
 export function characterCalls(
     character: Character,
@@ -260,6 +276,7 @@ export function characterCalls(
         chainFor(level).pulls +
         sanity +
         WEAPON_SIMS +
+        1 +
         planCalls(level)
     )
 }
@@ -335,8 +352,16 @@ export async function simCharacter(
         ] = await Promise.all([
             runGates(character, pool),
             loadItemDb(pool).then((db) => {
-                const ids = weaponsToSim(character, db, ep)
-                plannedLess(WEAPON_SIMS - ids.length)
+                const { epByStat, weaponDpsEp } = longFightEp(weights)
+                const ids = weaponCandidates(
+                    character,
+                    db.items.values(),
+                    epByStat,
+                    weaponDpsEp,
+                    twoHandSkills(character)
+                ).map((item) => item.id)
+                // No candidates: no worn sim at their settings either.
+                plannedLess(WEAPON_SIMS - ids.length + (ids.length ? 0 : 1))
                 return { db, weaponIds: ids }
             }),
             pool.data('spell-names.json') as Promise<SpellNames>,
@@ -346,8 +371,8 @@ export async function simCharacter(
             return { kind: 'gates', failed: failedGates }
 
         // Worn gear, the weapons, the sanity sims and the plan. The plan
-        // needs only worn gear's single fights and the weapons, so those go
-        // first and the plan's sims start while the worn chain and the
+        // needs only the weapons and worn gear at their settings, so those go
+        // first and the plan's sims start while worn gear's fights and the
         // sanity sims run: the pool's workers stay busy. The plan's numbers
         // are kept only when every sanity gate passes.
         const names = (id: number) => db.items.get(id)?.name
@@ -367,14 +392,20 @@ export async function simCharacter(
                 )
             )
         )
+        // Each weapon against the worn set, both at the weapon settings.
+        const weaponSim = (gear: Gear) =>
+            sim(
+                buildRequest(character, longFight, { ...WEAPON_SETTINGS, gear })
+            )
+        const weaponBase =
+            weaponIds.length > 0
+                ? weaponSim(character.gear)
+                : Promise.resolve(0)
         const weapons = Promise.all(
             weaponIds.map((id) =>
-                sim(
-                    buildRequest(character, longFight, {
-                        ...settings,
-                        gear: withMainHand(character.gear, db, id),
-                    })
-                ).then((dps) => [id, dps] as const)
+                weaponSim(withMainHand(character.gear, db, id)).then(
+                    (dps) => [id, dps] as const
+                )
             )
         )
         const wornChain = simSession(
@@ -399,11 +430,10 @@ export async function simCharacter(
             })
         )
         // The max damage plan, then its sims (none when it's worn gear).
-        const planning = Promise.all([wornSingles, weapons]).then(
-            async ([singles, weaponDps]) => {
-                const wornLong = longDps(singles)
+        const planning = Promise.all([weaponBase, weapons]).then(
+            async ([baseDps, weaponDps]) => {
                 const gains = new Map(
-                    weaponDps.map(([id, dps]) => [id, dps - wornLong])
+                    weaponDps.map(([id, dps]) => [id, dps - baseDps])
                 )
                 const planned = planMaxDamage(character, db, ep, gains)
                 if (sameGear(planned.gear, character.gear)) {

@@ -25,8 +25,26 @@ import {
 const ALTERNATIVES = 8
 /** Alternatives may need up to this many levels more than the character. */
 const SOON_LEVELS = 5
-/** Weapons simmed: the best by EP. */
-export const WEAPON_SIMS = 6
+/** Weapons simmed: the best by the runner's pre-rank (`weaponList`'s `simTop`). */
+export const WEAPON_SIMS = 12
+/** Weapon candidates may need up to this many levels more (`weaponList`'s `horizon`). */
+const WEAPON_LEVELS = 3
+/** The lowest quality a weapon candidate may have: uncommon. */
+const UNCOMMON = 2
+/** An item needing level 1 with an item level this far above the limit is left out. */
+const NO_LEVEL_ILVL_MARGIN = 8
+const WEAPON_TYPE = 13
+const TWO_HAND = 4
+const SHAMAN = 7
+
+/** The two-handed weapon types by the sim's skill name (the runner's `skillNames`). */
+const TWO_HAND_SKILLS: Readonly<Record<string, number>> = {
+    WeaponSkillTwoHandedAxes: 1,
+    WeaponSkillTwoHandedMaces: 4,
+    WeaponSkillStaves: 8,
+    WeaponSkillTwoHandedSwords: 9,
+    WeaponSkillPolearms: 6,
+}
 
 type Alternative = ResultsFile['slots'][number]['alternatives'][number]
 type LeftOut = NonNullable<ResultsFile['left_out_items']>[number]
@@ -69,19 +87,69 @@ const byGain = (
     b: { gain: number; item: DbItem }
 ) => b.gain - a.gain || a.item.id - b.item.id
 
-/** The weapons worth simming: the best by EP, never a left-out one. */
-export function weaponsToSim(
+/** The two-handed weapon types the character has a skill for. */
+export function twoHandSkills(character: Character): Set<number> {
+    const types = (character.weapon_skills ?? []).map(
+        ({ skill }) => TWO_HAND_SKILLS[skill]
+    )
+    return new Set(types.filter((type): type is number => type !== undefined))
+}
+
+/** A weapon's DPS, from its damage and speed when the data lacks it. */
+function weaponDps(item: DbItem): number {
+    const scaling = item.scalingOptions?.['0']
+    if (scaling?.unroundedDps !== undefined) return scaling.unroundedDps
+    const min = scaling?.weaponDamageMin ?? 0
+    const max = scaling?.weaponDamageMax ?? 0
+    return (min + max) / 2 / (item.weaponSpeed || 1)
+}
+
+/** The runner's `canWear` for a weapon, at `maxLevel` (faction aside). */
+function canWearWeapon(
     character: Character,
-    db: ItemDb,
-    ep: ReadonlyMap<Stat, number>
-): number[] {
-    const { bySlot } = candidates(character, db)
-    return bySlot
-        .get('main_hand')!
-        .map((item) => ({ item, gain: itemEp(item, ep) }))
+    item: DbItem,
+    maxLevel: number
+): boolean {
+    const required = requiredLevel(item)
+    if (required > maxLevel || (item.quality ?? 0) < UNCOMMON) return false
+    const ilvl = item.scalingOptions?.['0']?.ilvl ?? 0
+    if (required <= 1 && ilvl > maxLevel + NO_LEVEL_ILVL_MARGIN) return false
+    if (item.classAllowlist?.length && !item.classAllowlist.includes(SHAMAN))
+        return false
+    return leftOutReason(character, item) === null
+}
+
+/**
+ * The weapons worth simming (the runner's `weaponList`): two-handers of a
+ * type in `skills` the character can wear at level + 3, by their EP (stats
+ * by `epByStat`, weapon DPS by `weaponDpsEp`), the best 12, best first.
+ */
+export function weaponCandidates(
+    character: Character,
+    items: Iterable<DbItem>,
+    epByStat: ReadonlyMap<Stat, number>,
+    weaponDpsEp: number,
+    skills: ReadonlySet<number>
+): DbItem[] {
+    // Weapon DPS counts once, by `weaponDpsEp`.
+    const statEp = new Map(epByStat)
+    statEp.delete('weapon_dps')
+    const maxLevel = character.level + WEAPON_LEVELS
+    return [...items]
+        .filter(
+            (item) =>
+                item.type === WEAPON_TYPE &&
+                item.handType === TWO_HAND &&
+                skills.has(item.weaponType ?? -1) &&
+                canWearWeapon(character, item, maxLevel)
+        )
+        .map((item) => ({
+            item,
+            gain: itemEp(item, statEp) + weaponDps(item) * weaponDpsEp,
+        }))
         .sort(byGain)
         .slice(0, WEAPON_SIMS)
-        .map(({ item }) => item.id)
+        .map(({ item }) => item)
 }
 
 /** The weapon gear for an alternative main hand: a two-hander drops the off hand. */
