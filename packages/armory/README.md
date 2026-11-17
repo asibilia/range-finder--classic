@@ -210,15 +210,16 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
 
 Every colour, radius and font is a CSS variable in `src/styles.css`:
 shadcn's neutral tokens (`--background`, `--primary`, `--chart-1` to
-`--chart-5`...) and ours (`--gain` for the gain pills, `--quality-*` for item
-quality). Light and dark follow the system (`prefers-color-scheme`); there is
-no toggle. A redesign is a change to those variables. In the charts,
+`--chart-5`...) and ours (`--gain` for the gain pills, `--owned` for BIS,
+`--quality-*` for item quality). The page is dark only: one theme, in
+`:root`, and `<html>` always has the class `dark`. The accent `--primary` is
+the owner's orange. A redesign is a change to those variables. In the charts,
 `--chart-1` is DPS and the sim's plan, `--chart-2` is mana, and what you wear
 is drawn in `--muted-foreground`. As text (labels, deltas, coloured times)
-those colours are `--chart-1-text`, `--chart-2-text` and `--gain-text`,
-darker in light mode so text reads at 4.5:1; `tests/contrast.test.ts` checks
-the pairs from `src/styles.css`. Fonts are the system's; nothing is
-downloaded.
+those colours are `--chart-1-text`, `--chart-2-text` and `--gain-text`;
+`tests/contrast.test.ts` checks the pairs from `src/styles.css` (text at
+4.5:1). Fonts are the system's; nothing is downloaded. Numbers (slot badges,
+stat values, stat weights, readings) use `font-mono`.
 
 ### Adding a shadcn component
 

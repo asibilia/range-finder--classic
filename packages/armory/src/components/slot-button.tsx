@@ -66,7 +66,7 @@ export function GainPill({
             data-size={size}
             variant={size === 'big' ? 'gain' : 'gain-outline'}
             className={cn(
-                'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]',
+                'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 font-mono text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]',
                 className
             )}
         >

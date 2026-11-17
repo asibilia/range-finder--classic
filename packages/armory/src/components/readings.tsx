@@ -264,7 +264,7 @@ export function Readings({
                                         'tabular-nums',
                                         words
                                             ? 'text-lg'
-                                            : 'text-[1.625rem] leading-tight whitespace-nowrap'
+                                            : 'font-mono text-[1.625rem] leading-tight whitespace-nowrap'
                                     )}
                                 >
                                     {value}
