@@ -226,13 +226,14 @@ describe('simCharacter stops and leaves out', () => {
         const real = pool()
         const character = await testcharCharacter(real)
         // A leather helm far better than anything worn, that no source
-        // confirms and that needs no level.
+        // confirms and that needs level 1 (a missing reqLvl means 60).
         const madeUp = {
             id: MADE_UP_ID,
             name: 'Made-up Helm',
             icon: 'inv_helmet_01',
             type: 1,
             armorType: 2,
+            reqLvl: 1,
             phase: 1,
             quality: 4,
             scalingOptions: {
