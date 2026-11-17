@@ -26,7 +26,7 @@ const BUILD = join(import.meta.dir, '../../sim/build')
 /** Every weighed stat worth 1 EP: any item with stats is a gain. */
 const EP = new Map<Stat, number>(STAT_STEPS.map((step) => [step.stat, 1]))
 
-function shaman(level: number, bags: number[] = []): Character {
+function shaman(level: number): Character {
     return {
         name: 'Levelling',
         level,
@@ -34,7 +34,7 @@ function shaman(level: number, bags: number[] = []): Character {
         class: 'Shaman',
         talents: '',
         gear: {},
-        bags,
+        bags: [],
         imbue: null,
         known_spells: [],
         export_saved_at: '2026-11-16T00:00:00Z',
@@ -88,7 +88,16 @@ describe('a missing required level means 60', () => {
         // The data really has such items, or the test proves nothing.
         expect(noReq.length).toBeGreaterThan(0)
         const noReqIds = new Set(noReq.map((item) => item.id))
-        character.bags = noReq.slice(0, 20).map((item) => item.id)
+        // As the export has them: the game says these need level 60.
+        character.bags = noReq.slice(0, 20).map((item) => ({
+            id: item.id,
+            name: item.name,
+            quality: item.quality ?? 1,
+            item_level: item.scalingOptions?.['0']?.ilvl ?? 0,
+            required_level: 60,
+            equip_loc: '',
+            stats: {},
+        }))
 
         // Every weapon is "simmed" with a gain, so main_hand is ranked too.
         const weaponGains = new Map<number, number>(
