@@ -15,7 +15,9 @@ import {
     manaAtEnd,
     outOfMana,
     playerOf,
+    timelineOf,
     type Parts,
+    type SpellNames,
     type UnitMetrics,
 } from './sim-result'
 
@@ -27,11 +29,11 @@ export const FIGHT_SEED = 23
  */
 export const FIGHT_ITERATIONS = 4000
 export const PULL_ITERATIONS = 2000
-/** The timeline's bucket on a pull, to read the mana it ends with. */
-const PULL_BUCKET_MS = 1000
-/** No spirit regen for 5 s after the last cast, then a tick every 2 s. */
-const FIVE_SECOND_RULE_S = 5
-const TICK_S = 2
+/**
+ * The timeline's bucket: per second on a single fight (its chart), and on
+ * a pull, to read the mana it ends with.
+ */
+const TIMELINE_BUCKET_MS = 1000
 
 export type FightResult = Omit<ResultsFile['results'][number], 'gear'>
 
@@ -39,26 +41,25 @@ export type SimmedFight = { result: FightResult; player: UnitMetrics }
 
 type Names = (id: number) => string | undefined
 
-/** The mana a Shaman regains out of combat over a gap. */
-export function gapRegen(spirit: number, gapS: number): number {
-    const ticks = Math.max(0, Math.floor((gapS - FIVE_SECOND_RULE_S) / TICK_S))
-    return ticks * (spirit / 5 + 17)
-}
-
-/** One single fight in `gear`, at the fixed seed. */
+/**
+ * One single fight in `gear`, at the fixed seed. `names` names items,
+ * `spellNames` spells (`build/spell-names.json`), in the damage split.
+ */
 export async function simSingle(
     pool: SimPool,
     character: Character,
     scenario: Scenario,
     gear: Gear,
     sheet: Sheet,
-    names: Names
+    names: Names,
+    spellNames: SpellNames
 ): Promise<SimmedFight> {
     const result = await pool.sim(
         buildRequest(character, scenario, {
             seed: FIGHT_SEED,
             iterations: FIGHT_ITERATIONS,
             gear,
+            timelineBucketMs: TIMELINE_BUCKET_MS,
         }),
         character.profile
     )
@@ -72,9 +73,11 @@ export async function simSingle(
             armor: sheet.armor,
             out_of_mana_s: outOfMana(player, scenario.duration_s),
             time_to_die_s: null,
-            timeline: null,
+            timeline: timelineOf(player),
             pulls: null,
-            damage_split: damageSplit(damageByPart(player, names)),
+            damage_split: damageSplit(
+                damageByPart(player, names, new Map(), spellNames)
+            ),
         },
     }
 }
@@ -86,7 +89,8 @@ export async function simSession(
     scenario: Scenario,
     gear: Gear,
     sheet: Sheet,
-    names: Names
+    names: Names,
+    spellNames: SpellNames
 ): Promise<FightResult> {
     const maxMana = Math.max(1, sheet.mana)
     const pulls: NonNullable<FightResult['pulls']> = []
@@ -101,12 +105,12 @@ export async function simSession(
                 iterations: PULL_ITERATIONS,
                 gear,
                 startingManaPct: pull === 1 ? undefined : pct,
-                timelineBucketMs: PULL_BUCKET_MS,
+                timelineBucketMs: TIMELINE_BUCKET_MS,
             }),
             character.profile
         )
         const player = playerOf(result)
-        damageByPart(player, names, parts)
+        damageByPart(player, names, parts, spellNames)
         const end = Math.max(0, manaAtEnd(player) ?? mana)
         pulls.push({
             pull,
@@ -117,7 +121,11 @@ export async function simSession(
         const dry = outOfMana(player, scenario.duration_s)
         if (firstDry === null && dry !== 'never')
             firstDry = (pull - 1) * (scenario.duration_s + scenario.gap_s) + dry
-        mana = Math.min(maxMana, end + gapRegen(sheet.spirit, scenario.gap_s))
+        // The runner's rule: the export's out-of-combat rate over the gap.
+        mana = Math.min(
+            maxMana,
+            end + character.ooc_mana_regen * scenario.gap_s
+        )
     }
     const dps = pulls.reduce((sum, p) => sum + p.dps, 0) / pulls.length
     return {

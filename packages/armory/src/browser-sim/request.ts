@@ -3,15 +3,20 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import { STAT, type RaidSimRequest } from '@goturbo/sim'
+import { BONUS_STAT_COUNT, STAT, type RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
-import type { Character, Gear, SheetBuffs } from './character'
+import {
+    wornGear,
+    type Character,
+    type Gear,
+    type SheetBuffs,
+    type UnknownPiece,
+} from './character'
+import { gameStats } from './game-stats'
 import { rotationFor } from './rotation'
 import { allScenarios, mobArmor, type Scenario } from './scenarios'
-
-/** Where Stormstrike sits in a Shaman's talent string: tree, then talent. */
-const STORMSTRIKE_TALENT = { tree: 1, index: 11 }
+import { hasStormstrike } from './talents'
 
 /** The sim's stats arrays run to health, the last a mob needs. */
 const MOB_STATS = STAT.health + 1
@@ -19,7 +24,10 @@ const MOB_STATS = STAT.health + 1
 export type RequestOptions = {
     seed: number
     iterations: number
-    /** Gear in place of the character's own. */
+    /**
+     * Gear in place of everything the character wears (`wornGear`), by
+     * `Gear`'s rule.
+     */
     gear?: Gear
     /** The share of max mana the fight starts with; absent: full. */
     startingManaPct?: number
@@ -31,12 +39,6 @@ export type RequestOptions = {
     timelineBucketMs?: number
 }
 
-/** True when the talent string takes Stormstrike. */
-export function hasStormstrike(character: Character): boolean {
-    const tree = character.talents.split('-')[STORMSTRIKE_TALENT.tree] ?? ''
-    return Number(tree[STORMSTRIKE_TALENT.index] ?? 0) > 0
-}
-
 function scenarioOf(character: Character, fight: string | Scenario) {
     if (typeof fight !== 'string') return fight
     const found = allScenarios(character.level).find(
@@ -46,13 +48,54 @@ function scenarioOf(character: Character, fight: string | Scenario) {
     return found
 }
 
-function equipment(gear: Gear) {
+/** The worn items the sim lacks, by id. */
+function unknownById(character: Character): Map<number, UnknownPiece> {
+    return new Map(
+        Object.values(character.unknown_gear ?? {}).map((piece) => [
+            piece.id,
+            piece,
+        ])
+    )
+}
+
+/** The sim's equipment: never an item the sim's data lacks. */
+function equipment(gear: Gear, lacked: ReadonlyMap<number, UnknownPiece>) {
     return {
         items: SLOTS.map((slot) => {
             const piece = gear[slot]
-            return piece ? { ...piece } : {}
+            return piece && !lacked.has(piece.id) ? { ...piece } : {}
         }),
     }
+}
+
+/**
+ * The game stats of the items in `gear` the sim lacks, once for each slot
+ * that holds one, as the runner's `wearing()` keeps an unknown item's
+ * stats only while it's worn. Undefined when there are none.
+ */
+function gearBonus(
+    gear: Gear,
+    lacked: ReadonlyMap<number, UnknownPiece>
+): number[] | undefined {
+    const bonus = new Array<number>(BONUS_STAT_COUNT).fill(0)
+    for (const slot of SLOTS) {
+        const piece = lacked.get(gear[slot]?.id ?? -1)
+        if (!piece) continue
+        gameStats(piece.stats).forEach((amount, i) => {
+            bonus[i] = (bonus[i] ?? 0) + amount
+        })
+    }
+    return bonus.some((amount) => amount !== 0) ? bonus : undefined
+}
+
+/** Two stats arrays added, as the runner's `mergeStats`. */
+function mergeStats(a: number[] | undefined, b: number[] | undefined) {
+    if (!a) return b
+    if (!b) return a
+    return Array.from(
+        { length: Math.max(a.length, b.length) },
+        (_, i) => (a[i] ?? 0) + (b[i] ?? 0)
+    )
 }
 
 /** The request for one pull of `fight` (a fight id or a scenario). */
@@ -62,11 +105,13 @@ export function buildRequest(
     options: RequestOptions
 ): RaidSimRequest {
     const scenario = scenarioOf(character, fight)
+    const gear = options.gear ?? wornGear(character)
+    const lacked = unknownById(character)
     const player: Record<string, unknown> = {
         name: character.name,
         race: character.profile.race,
         class: character.profile.class,
-        equipment: equipment(options.gear ?? character.gear),
+        equipment: equipment(gear, lacked),
         talentsString: character.talents,
         enhancementShaman: {
             options: {
@@ -83,24 +128,26 @@ export function buildRequest(
         ),
         rotation: rotationFor(character, {
             totems: scenario.totems,
-            stormstrike: hasStormstrike(character),
+            stormstrike: hasStormstrike(character.talents),
         }),
         distanceFromTarget: 5,
-        inFrontOfTarget: scenario.being_hit,
+        inFrontOfTarget: scenario.in_front ?? scenario.being_hit,
         reactionTimeMs: 100,
     }
     if (options.startingManaPct !== undefined)
         player.startingManaPercent = options.startingManaPct
-    if (options.bonusStats) player.bonusStats = options.bonusStats
-    if (options.sheetBuffs) {
-        const bonus = [...(options.bonusStats?.stats ?? [])]
-        options.sheetBuffs.stats.forEach(
-            (amount, i) => (bonus[i] = (bonus[i] ?? 0) + amount)
-        )
-        player.bonusStats = { ...options.bonusStats, stats: bonus }
-        if (options.sheetBuffs.kings)
-            player.buffs = { greaterBlessingOfKings: true }
-    }
+    // Worn items the sim lacks, the per-sim bonus and the export's buffs.
+    const bonus = mergeStats(
+        mergeStats(gearBonus(gear, lacked), options.bonusStats?.stats),
+        options.sheetBuffs?.stats
+    )
+    if (options.bonusStats || bonus)
+        player.bonusStats = {
+            ...options.bonusStats,
+            ...(bonus ? { stats: bonus } : {}),
+        }
+    if (options.sheetBuffs?.kings)
+        player.buffs = { greaterBlessingOfKings: true }
 
     const stats = new Array<number>(MOB_STATS).fill(0)
     stats[STAT.armor] = mobArmor(scenario.target_level)

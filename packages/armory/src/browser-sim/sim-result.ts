@@ -20,7 +20,24 @@ export type UnitMetrics = {
     secondsOomAvg?: number
     actions?: ActionMetrics[]
     pets?: UnitMetrics[]
-    timeline?: { tS?: number; mana?: number }[]
+    timeline?: { tS?: number; dps?: number; mana?: number }[]
+}
+
+type Timeline = ResultsFile['results'][number]['timeline']
+
+/**
+ * The sim's per-second series as the results file keeps it: DPS to two
+ * decimals and whole mana, as the runner's `results.ts` does. Null when
+ * the sim kept none.
+ */
+export function timelineOf(unit: UnitMetrics): Timeline {
+    const points = unit.timeline ?? []
+    if (points.length === 0) return null
+    return points.map((p) => ({
+        t_s: p.tS ?? 0,
+        dps: Math.round((p.dps ?? 0) * 100) / 100,
+        mana: Math.round(p.mana ?? 0),
+    }))
 }
 
 type RaidMetrics = { parties?: { players?: UnitMetrics[] }[] }
@@ -55,13 +72,38 @@ function schoolOf(mask: number | undefined): School {
     return mask === undefined ? null : (bits[mask] ?? null)
 }
 
+/** Spell names by spell id, as `build/spell-names.json` keeps them. */
+export type SpellNames = Readonly<Partial<Record<string, string>>>
+
+/** Auto Attack's spell id. */
+const AUTO_ATTACK = 6603
+
+/**
+ * The damage split's line for a spell's name, as the runner's `lineOf`
+ * (`combatlog/parse.ts`) folds it: every Windfury spell (the imbue's
+ * attacks, the totem's) is one `Windfury` line. Other spells keep their
+ * name, so a spell's ranks and triggered parts (Lightning Shield's damage)
+ * share one line, and a totem is its own.
+ */
+function lineOf(name: string): string {
+    if (/^Windfury/.test(name)) return 'Windfury'
+    if (name === 'Auto Attack') return 'Melee'
+    return name
+}
+
 function actionName(
     action: ActionMetrics,
-    itemNames: (id: number) => string | undefined
+    itemNames: (id: number) => string | undefined,
+    spellNames: SpellNames
 ): string {
     const id = action.id ?? {}
     if (id.otherId === 'OtherActionAttack' || id.otherId === 3) return 'Melee'
-    if (id.spellId) return SPELL_NAMES.get(id.spellId) ?? `Spell ${id.spellId}`
+    if (id.spellId === AUTO_ATTACK) return 'Melee'
+    if (id.spellId) {
+        const name =
+            spellNames[String(id.spellId)] ?? SPELL_NAMES.get(id.spellId)
+        return name ? lineOf(name) : 'Other'
+    }
     if (id.itemId) return itemNames(id.itemId) ?? `Item ${id.itemId}`
     return 'Other'
 }
@@ -80,14 +122,15 @@ function add(into: Parts, name: string, damage: number, school: School) {
 export function damageByPart(
     unit: UnitMetrics,
     itemNames: (id: number) => string | undefined,
-    into: Parts = new Map()
+    into: Parts,
+    spellNames: SpellNames
 ): Parts {
     for (const action of unit.actions ?? []) {
         const damage = damageOf(action)
         if (damage > 0)
             add(
                 into,
-                actionName(action, itemNames),
+                actionName(action, itemNames, spellNames),
                 damage,
                 schoolOf(action.spellSchool)
             )
@@ -143,6 +186,29 @@ export function castsOf(
         .flatMap((a) => a.targets ?? [])
         .reduce((sum, t) => sum + (t.casts ?? 0), 0)
     return iterations > 0 ? casts / iterations : 0
+}
+
+type EncounterMetrics = {
+    targets?: {
+        actions?: {
+            id?: { otherId?: string | number }
+            targets?: { dodges?: number; parries?: number }[]
+        }[]
+    }[]
+}
+
+/**
+ * The mob's melee swings the character dodged or parried, over all
+ * iterations: the first mob's attack, as the runner's `avoidedByMe` reads it.
+ */
+export function avoidedOf(result: RaidSimResult): number {
+    const encounter = result.encounterMetrics as EncounterMetrics | undefined
+    return (encounter?.targets?.[0]?.actions ?? [])
+        .filter(
+            (a) => a.id?.otherId === 'OtherActionAttack' || a.id?.otherId === 3
+        )
+        .flatMap((a) => a.targets ?? [])
+        .reduce((sum, t) => sum + (t.dodges ?? 0) + (t.parries ?? 0), 0)
 }
 
 /** The mana at the end of the last timeline bucket, if the sim kept one. */

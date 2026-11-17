@@ -44,7 +44,7 @@ export function stopLines(stop: SimStop): string[] {
             ]
         case 'format':
             return [
-                `This export is format ${stop.format}. The page reads formats ${stop.accepted.join(', ')}. Update the Turbo addon and export again.`,
+                `This export is format ${stop.format}. The page reads formats ${stop.accepted.join(', ')}. Update the TurboCharExport addon and export again.`,
             ]
         case 'gates': {
             const lines = stop.failed.map(
@@ -54,6 +54,10 @@ export function stopLines(stop: SimStop): string[] {
                 lines.push(EXPORT_AGAIN)
             return lines
         }
+        case 'unknown_main_hand':
+            return [
+                `The sim doesn't know your main-hand weapon (item ${stop.item_id}).`,
+            ]
         default: {
             // A new kind of stop fails the type-check until it has words.
             const unworded: never = stop
@@ -154,7 +158,7 @@ export function BringIn({
             )}
             <ol className="mb-3 list-decimal pl-5 text-sm marker:text-muted-foreground [&>li]:my-0.75">
                 <li>
-                    Install the Turbo addon and type{' '}
+                    Install the TurboCharExport addon and type{' '}
                     <code className="font-mono text-[0.8125rem] text-chart-2-text">
                         /tbexport
                     </code>{' '}

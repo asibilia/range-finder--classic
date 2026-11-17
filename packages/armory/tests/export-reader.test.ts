@@ -14,6 +14,7 @@ import {
     createSimPool,
     sheetFromSim,
     type RaidSimRequest,
+    type Sheet,
     type SimPool,
 } from '@goturbo/sim'
 
@@ -24,13 +25,16 @@ import {
 } from '../../sim/tests/helpers/testchar'
 import {
     buildRequest,
+    chainFor,
     parseSavedVariables,
     readExport,
     simExport,
+    simSession,
     type Character,
     type ExportRead,
     type SimExportOutcome,
 } from '../src/browser-sim'
+import { exportCharacter } from '../src/browser-sim/export-reader'
 import type { ResultsFile } from '../src/results-file'
 import { exportFromCharacter } from './helpers/export-from-character'
 
@@ -271,6 +275,41 @@ describe('parseSavedVariables', () => {
             expect(typeof value).toBe('object')
         expect(parseSavedVariables(crlf(text))).toEqual(vars)
     })
+
+    test('a ["__proto__"] key sets no prototype: ({}).polluted stays undefined and the parsed table has no polluted property through its prototype', () => {
+        const vars = parseSavedVariables(
+            'TurboCharExportDB = { ["__proto__"] = { ["polluted"] = true } }'
+        )
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+        expect((Object.prototype as Record<string, unknown>).polluted).toBe(
+            undefined
+        )
+        const db = vars.TurboCharExportDB as Record<string, unknown>
+        expect(typeof db).toBe('object')
+        const proto = Object.getPrototypeOf(db) as object | null
+        expect(proto === null || proto === Object.prototype).toBe(true)
+        expect(db.polluted).toBeUndefined()
+        expect('polluted' in db).toBe(false)
+    })
+
+    test('["constructor"] and ["prototype"] keys, next to a ["__proto__"] key, parse without throwing and change neither Object.prototype nor the parsed table\'s prototype', () => {
+        const before = Object.getOwnPropertyNames(Object.prototype).sort()
+        const ctor = Object.prototype.constructor
+        const text =
+            'TurboCharExportDB = { ["constructor"] = 1, ["prototype"] = 2, ["__proto__"] = { ["x"] = 1 } }\nPlain = {}'
+        let vars: Record<string, unknown> = {}
+        expect(() => {
+            vars = parseSavedVariables(text)
+        }).not.toThrow()
+        expect(Object.getOwnPropertyNames(Object.prototype).sort()).toEqual(
+            before
+        )
+        expect(Object.prototype.constructor).toBe(ctor)
+        const db = vars.TurboCharExportDB as object
+        const proto = Object.getPrototypeOf(db) as object | null
+        expect(proto === null || proto === Object.prototype).toBe(true)
+        expect(proto).toBe(Object.getPrototypeOf(vars.Plain as object))
+    })
 })
 
 describe('readExport', () => {
@@ -371,6 +410,445 @@ describe('readExport', () => {
         const real = characterOf(await readExport(keyed(key), on))
         expect(real.character_key).toBe(key)
     }, 600_000)
+})
+
+/** A pool that records every data file asked for, and runs no sim or sheet. */
+function dataOnly(real: SimPool, files: string[]): SimPool {
+    return {
+        ...real,
+        size: real.size,
+        data: (name) => {
+            files.push(name)
+            return real.data(name)
+        },
+        sim: () => Promise.reject(new Error('no sim expected')),
+        sheet: () => Promise.reject(new Error('no sheet expected')),
+    }
+}
+
+/** The owner's real export, with no buffs, and its class set to `cls`. */
+async function exportWithClass(cls: string): Promise<string> {
+    const text = await Bun.file(BUFFED).text()
+    const buffs = /\["buffs"\] = \{\s*\{[^{}]*\},\s*\},/
+    const field = '["class"] = "SHAMAN"'
+    expect(text).toMatch(buffs)
+    expect(text.split(field)).toHaveLength(2)
+    return text
+        .replace(buffs, '["buffs"] = {\n},')
+        .replace(field, `["class"] = "${cls}"`)
+}
+
+describe("the export's class", () => {
+    test('an export whose class is ../../etc returns an unsupported stop naming ../../etc with no spec, and makes no pool.data call', async () => {
+        const files: string[] = []
+        const outcome = await exportCharacter(
+            await exportWithClass('../../etc'),
+            dataOnly(pool(), files)
+        )
+        expect(outcome).toEqual({
+            kind: 'unsupported',
+            class: '../../etc',
+            spec: '',
+        })
+        expect(files).toEqual([])
+    })
+
+    test('exports whose class is SHAMAN or Shaman read into a Shaman character, while the same export with class ../../etc stops before any pool.data call', async () => {
+        for (const cls of ['SHAMAN', 'Shaman']) {
+            const read = await exportCharacter(
+                await exportWithClass(cls),
+                dataOnly(pool(), [])
+            )
+            expect([cls, read.kind]).toEqual([cls, 'character'])
+            if (read.kind !== 'character')
+                throw new Error(`a ${read.kind} stop`)
+            expect(read.character.class).toBe('Shaman')
+            expect(read.character.level).toBe(32)
+        }
+        const files: string[] = []
+        const stopped = await exportCharacter(
+            await exportWithClass('../../etc'),
+            dataOnly(pool(), files)
+        )
+        expect(stopped.kind).toBe('unsupported')
+        expect(files).toEqual([])
+    })
+})
+
+type Skill = { name: string; rank: number; modifier: number }
+type Talent = { name: string; rank: number; spellID?: number }
+
+type SmallExport = {
+    level?: number | null
+    characterKey?: string
+    subclass?: string
+    tooltip?: string[]
+    enchantId?: number
+    meter?: { name: string; damage: number }[]
+    skills?: Skill[]
+    talentList?: Talent[]
+    traits?: Talent[]
+    without?: string
+    /** `sheet.manaRegen.outsideFiveSecondRule`; absent: no `manaRegen`. */
+    oocManaRegen?: number
+}
+
+/** An Enhancement build as traits: Stormstrike, Thundering Strikes 5 and Mental Dexterity 3. */
+const ENHANCEMENT_TRAITS: Talent[] = [
+    { name: 'Stormstrike', rank: 1, spellID: 17364 },
+    { name: 'Thundering Strikes', rank: 5, spellID: 16255 },
+    { name: 'Mental Dexterity', rank: 3, spellID: 415140 },
+]
+
+const lua = (value: string | number | boolean): string =>
+    typeof value === 'string' ? JSON.stringify(value) : String(value)
+
+function luaList(rows: Record<string, string | number | boolean>[]): string {
+    return rows
+        .map(
+            (row) =>
+                `{\n${Object.entries(row)
+                    .map(([k, v]) => `["${k}"] = ${lua(v)},`)
+                    .join('\n')}\n},`
+        )
+        .join('\n')
+}
+
+/**
+ * A small format-7 export, written by hand: a level-32 Orc Shaman with a
+ * main hand (`Two-Handed Maces` by default) at gear index 16, no buffs, and
+ * only the fields the reader reads. `without` leaves out one attribute.
+ */
+function smallExport(options: SmallExport = {}): string {
+    const level = options.level === undefined ? 32 : options.level
+    const attributes = {
+        strength: 100,
+        agility: 80,
+        stamina: 90,
+        intellect: 70,
+        spirit: 60,
+    }
+    const stat = Object.entries(attributes)
+        .filter(([name]) => name !== options.without)
+        .map(
+            ([name, total]) =>
+                `["${name}"] = { ["total"] = ${total}, ["pos"] = 0, ["neg"] = 0 },`
+        )
+        .join('\n')
+    const tooltip = (options.tooltip ?? ['Rage of the Storm', 'Soulbound'])
+        .map((line) => `${lua(line)},`)
+        .join('\n')
+    const enchants =
+        options.enchantId === undefined
+            ? ''
+            : luaList([
+                  {
+                      enchantID: options.enchantId,
+                      hasEnchant: true,
+                      enchantType: 3,
+                  },
+              ])
+    const meter = luaList(
+        (options.meter ?? []).map((spell) => ({ ...spell, overkill: 0 }))
+    )
+    const skills = luaList(
+        (options.skills ?? []).map((skill) => ({ ...skill, maxRank: 300 }))
+    )
+    return `TurboCharExportDB = {
+["formatVersion"] = 7,
+["savedAt"] = 1763251200,
+["identity"] = {
+["characterKey"] = ${lua(options.characterKey ?? '')},
+["class"] = "SHAMAN",
+["race"] = "Orc",
+["name"] = "Smallchar",
+["gameBuild"] = "70938",
+${level === null ? '' : `["level"] = ${level},`}
+},
+["talents"] = {
+["list"] = {
+${luaList(options.talentList ?? [])}
+},
+["traits"] = {
+${luaList(options.traits ?? ENHANCEMENT_TRAITS)}
+},
+},
+["buffs"] = {
+},
+["spells"] = {
+},
+["bags"] = {
+},
+["meter"] = {
+["sessions"] = {
+{
+["durationSeconds"] = 600,
+["spells"] = {
+${meter}
+},
+},
+},
+},
+["weaponEnchants"] = {
+["mainHand"] = {
+${enchants}
+},
+["offHand"] = {
+},
+},
+["gear"] = {
+[16] = {
+["equipLoc"] = "INVTYPE_2HWEAPON",
+["link"] = "|cnIQ3:|Hitem:280604::::::::32:1489::11:::::::|h[Rage of the Storm]|h|r",
+["id"] = 280604,
+["name"] = "Rage of the Storm",
+["tooltip"] = {
+${tooltip}
+},
+["subclass"] = ${lua(options.subclass ?? 'Two-Handed Maces')},
+["class"] = "Weapon",
+["slot"] = "mainHand",
+},
+},
+["skills"] = {
+${skills}
+},
+["sheet"] = {
+["stat"] = {
+${stat}
+},
+["conversion"] = {
+["apPer100"] = { ["strength"] = 200, ["agility"] = 0, ["stamina"] = 0, ["intellect"] = 0, ["spirit"] = 0 },
+["critPer100"] = { ["agility"] = 0.0846, ["intellect"] = 0.05, ["strength"] = 0, ["stamina"] = 0, ["spirit"] = 0 },
+["dodgeFromAgility"] = 0.0635,
+},
+["attackPower"] = { ["base"] = 300, ["pos"] = 0, ["neg"] = 0 },
+["armor"] = { ["base"] = 48, ["effective"] = 744 },
+["health"] = 1000,
+["mana"] = 900,
+["meleeCrit"] = 9.5,
+["spellCrit"] = 7.2,
+["dodge"] = 9.9,
+["meleeHit"] = 0,
+${
+    options.oocManaRegen === undefined
+        ? ''
+        : `["manaRegen"] = { ["outsideFiveSecondRule"] = ${options.oocManaRegen}, ["insideFiveSecondRule"] = 0 },`
+}
+},
+}
+`
+}
+
+/** The character a small export reads into, with no sim run. */
+async function smallCharacter(options: SmallExport = {}): Promise<Character> {
+    return characterOf(
+        await exportCharacter(smallExport(options), dataOnly(pool(), []))
+    )
+}
+
+describe("the export reader matches the runner's characterFromExport", () => {
+    test('a main-hand tooltip line Rockbiter 7 (29 min) with main-hand enchant id 9999 gives imbue RockbiterWeapon', async () => {
+        const character = await smallCharacter({
+            tooltip: ['Rage of the Storm', 'Soulbound', 'Rockbiter 7 (29 min)'],
+            enchantId: 9999,
+        })
+        expect(character.imbue).toBe('RockbiterWeapon')
+    })
+
+    test('with no imbue in the tooltip and no enchant, a meter spell Windfury Attack with damage 120 gives imbue WindfuryWeapon; with damage 0, no imbue and the request has no Windfury', async () => {
+        const windfury = await smallCharacter({
+            meter: [
+                { name: 'Attack', damage: 5000 },
+                { name: 'Windfury Attack', damage: 120 },
+            ],
+        })
+        expect(windfury.imbue).toBe('WindfuryWeapon')
+
+        const character = await smallCharacter({
+            meter: [
+                { name: 'Attack', damage: 5000 },
+                { name: 'Windfury Attack', damage: 0 },
+            ],
+        })
+        expect(character.imbue ?? null).toBeNull()
+        const request = buildRequest(character, 'dungeon-long', {
+            seed: 1,
+            iterations: 1,
+        })
+        const shaman = playerOf(request).enhancementShaman as {
+            options: { classOptions: Json }
+        }
+        expect(shaman.options.classOptions).not.toHaveProperty('imbueMh')
+        expect(JSON.stringify(shaman)).not.toContain('Windfury')
+    })
+
+    test("a skill row Axes at rank 145 with modifier 5 gives { skill: 'WeaponSkillAxes', value: 150 } in weapon_skills", async () => {
+        const character = await smallCharacter({
+            skills: [{ name: 'Axes', rank: 145, modifier: 5 }],
+        })
+        expect(character.weapon_skills).toContainEqual({
+            skill: 'WeaponSkillAxes',
+            value: 150,
+        })
+    })
+
+    test('weapon_skill_deficit: level 32 with a Two-Handed Maces main hand at rank 153, modifier 0 gives 7; level 30 with Two-Handed Axes at rank 150, modifier 5 gives -5', async () => {
+        const maces = await smallCharacter({
+            level: 32,
+            subclass: 'Two-Handed Maces',
+            skills: [
+                { name: 'Axes', rank: 100, modifier: 0 },
+                { name: 'Two-Handed Maces', rank: 153, modifier: 0 },
+            ],
+        })
+        expect(maces.weapon_skill_deficit).toBe(7)
+        const axes = await smallCharacter({
+            level: 30,
+            subclass: 'Two-Handed Axes',
+            skills: [{ name: 'Two-Handed Axes', rank: 150, modifier: 5 }],
+        })
+        expect(axes.weapon_skill_deficit).toBe(-5)
+    })
+
+    test("weapon_skill_deficit is 0 when no skill row matches the main hand's weapon skill", async () => {
+        const character = await smallCharacter({
+            level: 32,
+            subclass: 'Two-Handed Maces',
+            skills: [{ name: 'Axes', rank: 100, modifier: 0 }],
+        })
+        expect(character.weapon_skill_deficit).toBe(0)
+    })
+
+    test('level 32 with a Defense row at rank 157 gives profile.baseDodgePercent 1.58, and no Defense row gives 1.7', async () => {
+        const defended = await smallCharacter({
+            level: 32,
+            skills: [{ name: 'Defense', rank: 157, modifier: 0 }],
+        })
+        expect(defended.profile.baseDodgePercent).toBeCloseTo(1.58, 6)
+        const none = await smallCharacter({ level: 32, skills: [] })
+        expect(none.profile.baseDodgePercent).toBeCloseTo(1.7, 6)
+    })
+
+    test('level 32 gives profile.baseAttackPower 44 (2 per level less 20), whatever the sheet says', async () => {
+        const character = await smallCharacter({ level: 32 })
+        expect(character.profile.baseAttackPower).toBe(44)
+    })
+
+    test('talents.list with Thundering Strikes rank 5, Mental Dexterity rank 3 and Stormstrike rank 1, and empty traits, gives the talent string -050030000001', async () => {
+        const character = await smallCharacter({
+            talentList: [
+                { name: 'Thundering Strikes', rank: 5 },
+                { name: 'Mental Dexterity', rank: 3 },
+                { name: 'Stormstrike', rank: 1 },
+            ],
+            traits: [],
+        })
+        expect(character.talents).toBe('-050030000001')
+    })
+
+    test('an export with no identity.level rejects with the export has no level', async () => {
+        await expect(
+            exportCharacter(smallExport({ level: null }), dataOnly(pool(), []))
+        ).rejects.toThrow('the export has no level')
+    })
+
+    test('an export with no agility rejects with the export lacks agility', async () => {
+        await expect(
+            exportCharacter(
+                smallExport({ without: 'agility' }),
+                dataOnly(pool(), [])
+            )
+        ).rejects.toThrow('the export lacks agility')
+    })
+
+    test('character keys: the all-zero key, aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa and Player-1-0000000A give none, while cf765509-937b-4147-8e33-677e3eef7065 is kept', async () => {
+        for (const key of [
+            '00000000-00000000-00000000-00000000',
+            'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+            'Player-1-0000000A',
+        ]) {
+            const character = await smallCharacter({ characterKey: key })
+            expect([key, character.character_key]).toEqual([key, undefined])
+        }
+        const real = 'cf765509-937b-4147-8e33-677e3eef7065'
+        const kept = await smallCharacter({ characterKey: real })
+        expect(kept.character_key).toBe(real)
+    })
+})
+
+/**
+ * The chain fight simmed through a fake pool whose every pull ends at
+ * `endMana`: the pulls' results and the requests the pool got.
+ */
+async function chainEndingAt(
+    character: Character,
+    endMana: number,
+    maxMana: number
+) {
+    const requests: RaidSimRequest[] = []
+    const fake: SimPool = {
+        ...dataOnly(pool(), []),
+        sim: (request) => {
+            requests.push(request)
+            const player = {
+                name: character.name,
+                dps: { avg: 100 },
+                timeline: [
+                    { tS: 0, mana: maxMana },
+                    { tS: 25, mana: endMana },
+                ],
+            }
+            return Promise.resolve({
+                raidMetrics: { parties: [{ players: [player] }] },
+            } as unknown as Awaited<ReturnType<SimPool['sim']>>)
+        },
+    }
+    const sheet: Sheet = {
+        ...character.sheet,
+        mana: maxMana,
+        spirit: 60,
+    } as Sheet
+    const result = await simSession(
+        fake,
+        character,
+        chainFor(character.level),
+        character.gear,
+        sheet,
+        () => undefined,
+        {}
+    )
+    const startPct = requests.map(
+        (request) => playerOf(request).startingManaPercent
+    )
+    return { pulls: result.pulls ?? [], startPct }
+}
+
+describe("mana between the chain's pulls at the export's out-of-combat rate", () => {
+    test('with outsideFiveSecondRule 7.5 and a pull ending at 400 of 1500 mana, the next pull starts at 490', async () => {
+        const character = await smallCharacter({ oocManaRegen: 7.5 })
+        expect(character.ooc_mana_regen).toBe(7.5)
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        expect(pulls).toHaveLength(10)
+        expect(pulls[0]?.mana_end).toBe(400)
+        expect(pulls[1]?.mana_start).toBe(490)
+        expect(startPct[1]).toBeCloseTo((490 / 1500) * 100, 6)
+    })
+
+    test('with outsideFiveSecondRule 100 and a pull ending at 400 of 1500 mana, the next pull starts at 1500, not above max mana', async () => {
+        const character = await smallCharacter({ oocManaRegen: 100 })
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        for (const pull of pulls.slice(1)) expect(pull.mana_start).toBe(1500)
+        expect(startPct[1]).toBe(100)
+    })
+
+    test('with no manaRegen in the export, ooc_mana_regen is 0 and a pull ending at 400 of 1500 mana starts the next at 400', async () => {
+        const character = await smallCharacter()
+        expect(character.ooc_mana_regen).toBe(0)
+        const { pulls, startPct } = await chainEndingAt(character, 400, 1500)
+        expect(pulls[1]?.mana_start).toBe(400)
+        expect(startPct[1]).toBeCloseTo((400 / 1500) * 100, 6)
+    })
 })
 
 describe('an export saved with buffs the sim can model', () => {

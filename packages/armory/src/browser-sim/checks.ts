@@ -5,6 +5,7 @@
 import type { Sheet } from '@goturbo/sim'
 
 import type { Check } from '../results-file'
+import { meanCI } from './weights'
 
 /** WASM rounds the last digit differently from native Go. */
 export const L60_TOLERANCE = 1e-9
@@ -56,11 +57,20 @@ const SHEET_STATS: { name: string; key: keyof Sheet; within: number }[] = [
 /** Rounding slack, so a tolerance of 0.06 takes a 0.06 gap. */
 const SLACK = 1e-9
 
-/** The sim's sheet against the game's, one check per stat. */
+/** Melee crit lost per point of weapon skill under the level's maximum. */
+const CRIT_PER_SKILL_POINT = 0.04
+
+/**
+ * The sim's sheet against the game's, one check per stat. The game's melee
+ * crit is less 0.04% per point of main-hand weapon skill under the level's
+ * maximum; the sim applies that in its attack table, not its sheet, so the
+ * check takes it off the sim's crit here.
+ */
 export function sheetChecks(
     game: Sheet,
     sim: Sheet,
-    calibratedSpellCrit: boolean
+    calibratedSpellCrit: boolean,
+    weaponSkillDeficit: number
 ): Check[] {
     const checks = SHEET_STATS.map(({ name, key, within }): Check => {
         if (key === 'spell_crit_pct' && calibratedSpellCrit)
@@ -69,6 +79,14 @@ export function sheetChecks(
                 passed: true,
                 detail: 'Skipped: spell crit was calibrated from the export.',
             }
+        if (key === 'melee_crit_pct') {
+            const simCrit = sim[key] - CRIT_PER_SKILL_POINT * weaponSkillDeficit
+            return {
+                name: `sheet ${name}`,
+                passed: Math.abs(simCrit - game[key]) <= within + SLACK,
+                detail: `The sim says ${round2(simCrit)} (${sim[key]} less 0.04% × ${weaponSkillDeficit} points of weapon skill under the cap), the game ${game[key]} (within ±${within}).`,
+            }
+        }
         const gap = Math.abs(sim[key] - game[key])
         return {
             name: `sheet ${name}`,
@@ -113,53 +131,68 @@ export function noSpellAboveLevelCheck(
     }
 }
 
-/** More of a weighed stat gives at least as much DPS. */
+/**
+ * More of a stat gives more DPS: `gains` are the DPS it adds on each seed,
+ * on the dungeon fight against a mob of `mobLevel`. It passes when the
+ * mean gain less its 95% half-width (Student's t) is above 0, as the
+ * runner's `sanityChecks`.
+ */
 export function dpsRisesCheck(
-    stat: string,
+    name: string,
     amount: number,
-    base: number,
-    up: number
+    gains: number[],
+    mobLevel: number
 ): Check {
-    const words = stat.replace(/_/g, ' ')
+    const { mean, half } = meanCI(gains)
     return {
-        name: `DPS rises with ${words}`,
-        passed: up >= base,
-        detail: `${round(base)} DPS, ${round(up)} with ${amount} more ${words} on the long dungeon fight.`,
+        name: `DPS rises with ${name}`,
+        passed: mean - half > 0,
+        detail: `+${amount}: ${mean.toFixed(2)} ± ${half.toFixed(2)} DPS on the level ${mobLevel} dungeon fight, over ${gains.length} seeds.`,
     }
 }
 
+/** Stormstrike casts per minute on the solo fight, hit and not hit. */
+export type StormstrikeRates = { hit: number; notHit: number }
+
 /**
- * Being hit resets Stormstrike only through Improved Stormstrike (a dodge
- * or parry resets its cooldown). Without the talent, the fight where the
- * character is hit can't cast it more often than its cooldown allows; with
- * it, that fight casts it at least as often as one where it isn't hit.
+ * Improved Stormstrike's reset, as the runner's `sanityChecks` measures
+ * it: a dodge or parry resets Stormstrike at 50% a point, and a reset
+ * gains half a cast on average. Being hit also costs casts, so the reset's
+ * effect is the rise when hit with the talent less the change without it.
+ * It passes when that effect is above 0 and within ±35% of the rate the
+ * mob's dodged and parried swings per fight give. The rates come from sims
+ * whose mana never runs out (`sanity.ts`): Stormstrike goes out whenever
+ * it's ready, as the expected rate assumes.
  */
 export function stormstrikeRuleCheck(input: {
-    talented: boolean
-    improved: boolean
-    hitCasts: number
-    hitMaxS: number
-    cooldownS: number
-    calmCasts: number
+    /** Points in Improved Stormstrike in the talented variant. */
+    points: number
+    /** The build has no Stormstrike: both variants got it for the check. */
+    addedStormstrike: boolean
+    without: StormstrikeRates
+    withIt: StormstrikeRates
+    /** Dodges and parries per fight, hit with the talent. */
+    avoided: number
+    durationS: number
 }): Check {
-    const name = 'being hit resets Stormstrike as the rule says'
-    if (!input.talented)
-        return { name, passed: true, detail: 'No Stormstrike talent.' }
-    if (!input.improved) {
-        const most = Math.floor(input.hitMaxS / input.cooldownS) + 1
-        return {
-            name,
-            passed: input.hitCasts <= most,
-            detail: `No Improved Stormstrike: ${round(input.hitCasts)} casts a fight while being hit, at most ${most} by its cooldown.`,
-        }
-    }
+    const { points, without, withIt, avoided, durationS } = input
+    const effect = withIt.hit - withIt.notHit - (without.hit - without.notHit)
+    const chance = 0.5 * points
+    const expected = avoided * chance * 0.5 * (60 / durationS)
+    const added = input.addedStormstrike
+        ? 'No Stormstrike talent: added for this check only. '
+        : ''
     return {
-        name,
-        passed: input.hitCasts >= input.calmCasts * 0.95,
-        detail: `Improved Stormstrike: ${round(input.hitCasts)} casts a fight while being hit, ${round(input.calmCasts)} when not.`,
+        name: 'being hit resets Stormstrike as the rule says',
+        passed: effect > 0 && Math.abs(effect - expected) <= 0.35 * expected,
+        detail: `${added}Stormstrike/min, with mana that never runs out: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
     }
 }
 
 function round(value: number): number {
     return Math.round(value * 10) / 10
+}
+
+function round2(value: number): number {
+    return Math.round(value * 100) / 100
 }

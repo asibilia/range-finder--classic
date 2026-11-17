@@ -12,7 +12,6 @@ import './dom'
 import { readingLabels, sentence, variant } from './open-app'
 
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import {
     act,
@@ -42,9 +41,9 @@ import { level60Check } from '../src/browser-sim'
 import { readResultsFile } from '../src/results-file'
 import sample from '../src/sample-truncha.json'
 import { exportFromCharacter } from './helpers/export-from-character'
+import { BUILD, callKey, recorded } from './helpers/recorded-pool'
 
 const SIM_DIR = join(import.meta.dir, '../../sim')
-const BUILD = join(SIM_DIR, 'build')
 const BUFFED = join(SIM_DIR, 'fixtures/truncha-export-buffed.lua')
 const OUTPUTS = join(import.meta.dir, 'fixtures/sim-outputs.json')
 
@@ -72,25 +71,6 @@ const MS_PER_ITERATION = 0.93
 const LOADS = { timeout: 20_000 }
 
 type Listener = (done: number, planned: number) => void
-
-/** The key a recorded call is kept under (spec section 10). */
-function callKey(
-    method: 'sim' | 'sheet',
-    request: unknown,
-    profile?: unknown
-): string {
-    return createHash('sha256')
-        .update(JSON.stringify({ method, request, profile }))
-        .digest('hex')
-}
-
-let recordedMemo: Promise<Record<string, unknown>> | undefined
-function recorded(): Promise<Record<string, unknown>> {
-    recordedMemo ??= Bun.file(OUTPUTS).json() as Promise<
-        Record<string, unknown>
-    >
-    return recordedMemo
-}
 
 type FakePool = SimPool & {
     /** While true, `sim` and `sheet` calls wait for `release()`. */
@@ -432,6 +412,20 @@ describe('simming an export', () => {
         const refine = await screen.findByRole('button', { name: REFINE })
         expect(await tabTo(user, refine)).toBe(true)
     }, 120_000)
+})
+
+describe('the fight chart for a browser-simmed file', () => {
+    test('after Testchar’s export sims, the page draws the DPS and mana over the fight chart and not No fight timeline in this file.', async () => {
+        await simmedTestchar()
+
+        const chart = await screen.findByRole(
+            'img',
+            { name: 'DPS and mana over the fight' },
+            LOADS
+        )
+        expect(chart.tagName.toLowerCase()).toBe('svg')
+        expect(screen.queryByText('No fight timeline in this file.')).toBeNull()
+    }, 60_000)
 })
 
 describe('stops', () => {

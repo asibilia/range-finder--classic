@@ -3,7 +3,7 @@
  * of a run: the class and spec check (before any sim), the gates (the
  * level 60 regression, the sheet, no spell above the level), worn gear on
  * every fight with the sanity gates, then the max damage plan. The plan's
- * sims start once worn gear's single fights and the weapons are in, beside
+ * sims start once the weapons (and worn gear at their settings) are in, beside
  * the sanity sims, and the plan is kept only when the sanity gates pass.
  */
 import {
@@ -20,27 +20,26 @@ import {
     type ResultsFile,
     type Stat,
 } from '../results-file'
-import type { Character, Gear, SimStop } from './character'
+import { wornGear, type Character, type Gear, type SimStop } from './character'
 import {
     belowLevel60Check,
-    dpsRisesCheck,
     level60Check,
     NOTES,
     noSpellAboveLevelCheck,
     sheetChecks,
-    stormstrikeRuleCheck,
 } from './checks'
-import { loadItemDb } from './gear'
+import { loadItemDb, twoHandSkills } from './gear'
 import { pawnStrings } from './pawn'
 import {
     planMaxDamage,
     sameGear,
     WEAPON_SIMS,
-    weaponsToSim,
+    weaponCandidates,
     withMainHand,
 } from './plan'
-import { buildRequest, hasStormstrike } from './request'
-import { rotationSpells, STORMSTRIKE } from './rotation'
+import { buildRequest } from './request'
+import { rotationSpells } from './rotation'
+import { SANITY_CALLS, sanitySims } from './sanity'
 import {
     chainFor,
     DEFAULT_FIGHT,
@@ -56,15 +55,9 @@ import {
     type FightResult,
     type SimmedFight,
 } from './session'
-import { castsOf, dpsOf } from './sim-result'
-import {
-    specOf,
-    talentRank,
-    talentsSection,
-    talentTrees,
-    type TalentTree,
-} from './talents'
-import { bonusFor, epTable, STAT_STEPS, type StatWeights } from './weights'
+import { dpsOf, type SpellNames } from './sim-result'
+import { specOf, talentsSection, talentTrees, type TalentTree } from './talents'
+import { epTable, type StatWeights } from './weights'
 
 export type SimOutcome =
     | {
@@ -79,12 +72,20 @@ export type SimOutcome =
 
 /** The one class and spec the sim covers for now. */
 export const SUPPORTED = { class: 'Shaman', spec: 'Enhancement' }
-/** Stormstrike's cooldown, in seconds. */
-const STORMSTRIKE_COOLDOWN_S = 8
-/** The sanity gate weighs stats with at least this EP on the long fight. */
-const SANITY_MIN_EP = 1
-/** It adds this many times the weights method's amount. */
-const SANITY_SCALE = 10
+/** The weapon sims' settings, the runner's `weaponList`'s. */
+const WEAPON_SETTINGS = { seed: 77, iterations: 6000 }
+
+/** The long fight's EP per stat and its weapon DPS EP, apart. */
+function longFightEp(weights: StatWeights) {
+    const long = weights.find((w) => w.fight_id === DEFAULT_FIGHT)
+    const epByStat = new Map<Stat, number>()
+    let weaponDpsEp = 0
+    for (const { stat, ep } of long?.weights ?? []) {
+        if (stat === 'weapon_dps') weaponDpsEp = ep
+        else epByStat.set(stat, ep)
+    }
+    return { epByStat, weaponDpsEp }
+}
 
 /** The results file's weights, without anything it doesn't take. */
 function cleanWeights(weights: StatWeights, fightIds: string[]): StatWeights {
@@ -139,13 +140,22 @@ async function simAll(
     character: Character,
     gear: Gear,
     sheet: Sheet,
-    names: (id: number) => string | undefined
+    names: (id: number) => string | undefined,
+    spellNames: SpellNames
 ): Promise<{ singles: SimmedFight[]; chain: FightResult }> {
     const fights = scenariosFor(character.level)
     const [singles, chain] = await Promise.all([
         Promise.all(
             fights.map((fight) =>
-                simSingle(pool, character, fight, gear, sheet, names)
+                simSingle(
+                    pool,
+                    character,
+                    fight,
+                    gear,
+                    sheet,
+                    names,
+                    spellNames
+                )
             )
         ),
         simSession(
@@ -154,7 +164,8 @@ async function simAll(
             chainFor(character.level),
             gear,
             sheet,
-            names
+            names,
+            spellNames
         ),
     ])
     return { singles, chain }
@@ -205,7 +216,8 @@ export async function runGates(
         ...sheetChecks(
             character.sheet,
             sheetFromSim(simmedSheet),
-            character.calibrated_spell_crit ?? false
+            character.calibrated_spell_crit ?? false,
+            character.weapon_skill_deficit
         ),
         noSpellAboveLevelCheck(
             rotationSpells(character),
@@ -216,15 +228,6 @@ export async function runGates(
     return { checks, l60Dps, sheet: sheetFromSim(unbuffed ?? simmedSheet) }
 }
 
-/** The stats the sanity gate weighs: those the long fight's EP counts. */
-function sanityStats(weights: StatWeights): Stat[] {
-    const long = weights.find((w) => w.fight_id === DEFAULT_FIGHT)
-    return (long?.weights ?? [])
-        .filter((w) => w.ep >= SANITY_MIN_EP)
-        .map((w) => w.stat)
-        .filter((stat) => STAT_STEPS.some((step) => step.stat === stat))
-}
-
 /** The calls the max damage plan's sims make: its sheet, every pull. */
 function planCalls(level: number): number {
     return 1 + scenariosFor(level).length + chainFor(level).pulls
@@ -232,23 +235,19 @@ function planCalls(level: number): number {
 
 /**
  * The most calls `simCharacter` makes: the gates, worn gear on every pull,
- * the sanity sims (one per stat the weights weigh; with no weights yet,
- * every stat the method weighs), the most weapons it sims, and the plan's
- * sims. It makes fewer when there are fewer weapons to sim, or when the
- * plan is worn gear, and says so as it learns.
+ * the sanity sims, the most weapons it sims and the worn set at their
+ * settings, and the plan's sims. It makes fewer when there are fewer
+ * weapons to sim, or when the plan is worn gear, and says so as it learns.
  */
-export function characterCalls(
-    character: Character,
-    weights: StatWeights | null
-): number {
+export function characterCalls(character: Character): number {
     const level = character.level
-    const sanity = weights ? sanityStats(weights).length : STAT_STEPS.length
     return (
         gateCalls(character) +
         scenariosFor(level).length +
         chainFor(level).pulls +
-        sanity +
+        SANITY_CALLS +
         WEAPON_SIMS +
+        1 +
         planCalls(level)
     )
 }
@@ -278,8 +277,7 @@ export async function simCharacter(
     const fights = scenariosFor(level)
     const chain = chainFor(level)
     const longFight = fights.find((f) => f.fight_id === DEFAULT_FIGHT)!
-    const sanity = sanityStats(weights)
-    let callsPlanned = characterCalls(character, weights)
+    let callsPlanned = characterCalls(character)
     let callsDone = 0
     const report = () =>
         onProgress(callsDone, Math.max(callsDone, callsPlanned))
@@ -304,12 +302,6 @@ export async function simCharacter(
     }
 
     async function run(): Promise<SimOutcome> {
-        const stormstrike = hasStormstrike(character)
-        const improved = talentRank(
-            character.talents,
-            trees,
-            'improvedStormstrike'
-        )
         const settings = { seed: FIGHT_SEED, iterations: FIGHT_ITERATIONS }
         const sim = (request: RaidSimRequest) =>
             pool.sim(request, character.profile).then(dpsOf)
@@ -317,72 +309,87 @@ export async function simCharacter(
         // The gates before any numbers. The item data says how many
         // weapons there are to sim.
         const ep = epTable(weights)
-        const [{ checks: gates, l60Dps, sheet }, { db, weaponIds }] =
-            await Promise.all([
-                runGates(character, pool),
-                loadItemDb(pool).then((db) => {
-                    const ids = weaponsToSim(character, db, ep)
-                    plannedLess(WEAPON_SIMS - ids.length)
-                    return { db, weaponIds: ids }
-                }),
-            ])
+        const [
+            { checks: gates, l60Dps, sheet },
+            { db, weaponIds },
+            spellNames,
+        ] = await Promise.all([
+            runGates(character, pool),
+            loadItemDb(pool).then((db) => {
+                const { epByStat, weaponDpsEp } = longFightEp(weights)
+                const ids = weaponCandidates(
+                    character,
+                    db.items.values(),
+                    epByStat,
+                    weaponDpsEp,
+                    twoHandSkills(character)
+                ).map((item) => item.id)
+                // No candidates: no worn sim at their settings either.
+                plannedLess(WEAPON_SIMS - ids.length + (ids.length ? 0 : 1))
+                return { db, weaponIds: ids }
+            }),
+            pool.data('spell-names.json') as Promise<SpellNames>,
+        ])
         const failedGates = gates.filter((c) => !c.passed)
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
 
         // Worn gear, the weapons, the sanity sims and the plan. The plan
-        // needs only worn gear's single fights and the weapons, so those go
-        // first and the plan's sims start while the worn chain and the
+        // needs only the weapons and worn gear at their settings, so those go
+        // first and the plan's sims start while worn gear's fights and the
         // sanity sims run: the pool's workers stay busy. The plan's numbers
         // are kept only when every sanity gate passes.
         const names = (id: number) => db.items.get(id)?.name
         const longDps = (singles: SimmedFight[]) =>
             singles.find((f) => f.result.fight_id === DEFAULT_FIGHT)!.player.dps
                 ?.avg ?? 0
+        // Everything worn, items the sim lacks included (the `Gear` rule).
+        const wearing = wornGear(character)
         const wornSingles = Promise.all(
             fights.map((fight) =>
-                simSingle(pool, character, fight, character.gear, sheet, names)
+                simSingle(
+                    pool,
+                    character,
+                    fight,
+                    wearing,
+                    sheet,
+                    names,
+                    spellNames
+                )
             )
         )
+        // Each weapon against the worn set, both at the weapon settings.
+        const weaponSim = (gear: Gear) =>
+            sim(
+                buildRequest(character, longFight, { ...WEAPON_SETTINGS, gear })
+            )
+        const weaponBase =
+            weaponIds.length > 0 ? weaponSim(wearing) : Promise.resolve(0)
         const weapons = Promise.all(
             weaponIds.map((id) =>
-                sim(
-                    buildRequest(character, longFight, {
-                        ...settings,
-                        gear: withMainHand(character.gear, db, id),
-                    })
-                ).then((dps) => [id, dps] as const)
+                weaponSim(withMainHand(wearing, db, id)).then(
+                    (dps) => [id, dps] as const
+                )
             )
         )
         const wornChain = simSession(
             pool,
             character,
             chain,
-            character.gear,
+            wearing,
             sheet,
-            names
+            names,
+            spellNames
         )
-        const raising = Promise.all(
-            sanity.map((stat) => {
-                const step = STAT_STEPS.find((s) => s.stat === stat)!
-                const amount = step.amount * SANITY_SCALE
-                return sim(
-                    buildRequest(character, longFight, {
-                        ...settings,
-                        bonusStats: bonusFor(stat, amount),
-                    })
-                ).then((dps) => ({ stat, amount, dps }))
-            })
-        )
+        const raising = sanitySims(character, pool)
         // The max damage plan, then its sims (none when it's worn gear).
-        const planning = Promise.all([wornSingles, weapons]).then(
-            async ([singles, weaponDps]) => {
-                const wornLong = longDps(singles)
+        const planning = Promise.all([weaponBase, weapons]).then(
+            async ([baseDps, weaponDps]) => {
                 const gains = new Map(
-                    weaponDps.map(([id, dps]) => [id, dps - wornLong])
+                    weaponDps.map(([id, dps]) => [id, dps - baseDps])
                 )
                 const planned = planMaxDamage(character, db, ep, gains)
-                if (sameGear(planned.gear, character.gear)) {
+                if (sameGear(planned.gear, wearing)) {
                     plannedLess(planCalls(level))
                     return { planned, planSims: undefined }
                 }
@@ -400,7 +407,8 @@ export async function simCharacter(
                     character,
                     planned.gear,
                     planSheet,
-                    names
+                    names,
+                    spellNames
                 )
                 return { planned, planSims }
             }
@@ -409,32 +417,9 @@ export async function simCharacter(
             await Promise.all([wornSingles, wornChain, raising, planning])
         const worn = { singles, chain: wornChainResult }
 
-        const single = (id: string) =>
-            singles.find((f) => f.result.fight_id === id)!
-        const wornLong = longDps(singles)
-        const hit = fights.find((f) => f.being_hit)!
-        const calm = fights.find((f) => !f.being_hit)!
         const sanityChecks: Check[] = [
-            belowLevel60Check(wornLong, l60Dps),
-            ...raised.map(({ stat, amount, dps }) =>
-                dpsRisesCheck(stat, amount, wornLong, dps)
-            ),
-            stormstrikeRuleCheck({
-                talented: stormstrike,
-                improved: improved > 0,
-                hitCasts: castsOf(
-                    single(hit.fight_id).player,
-                    STORMSTRIKE,
-                    FIGHT_ITERATIONS
-                ),
-                hitMaxS: hit.duration_s + hit.variation_s,
-                cooldownS: STORMSTRIKE_COOLDOWN_S,
-                calmCasts: castsOf(
-                    single(calm.fight_id).player,
-                    STORMSTRIKE,
-                    FIGHT_ITERATIONS
-                ),
-            }),
+            belowLevel60Check(longDps(singles), l60Dps),
+            ...raised,
         ]
         const failedSanity = sanityChecks.filter((c) => !c.passed)
         if (failedSanity.length > 0)

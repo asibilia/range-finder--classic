@@ -16,6 +16,7 @@ import {
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 
+import { stopLines } from '../src/components/bring-in'
 import sample from '../src/sample-truncha.json'
 
 const SLOT_LABELS = [
@@ -126,12 +127,28 @@ describe('the new-visitor state', () => {
         expect(list.tagName).toBe('OL')
         const steps = within(list).getAllByRole('listitem')
         expect(steps).toHaveLength(3)
-        expect(steps[0]!.textContent).toBe(
-            'Install the Turbo addon and type /tbexport in the game.'
-        )
+        expect(steps[0]!.textContent).toContain('/tbexport')
     })
 
     test('the three steps are /tbexport, /reload, then drop TurboCharExport.lua from the SavedVariables folder', () => {
+        renderApp()
+
+        const section = screen
+            .getByRole('heading', { level: 2, name: 'Bring your character in' })
+            .closest('section')
+        const list = within(section as HTMLElement).getByRole('list')
+        const steps = within(list)
+            .getAllByRole('listitem')
+            .map((item) => item.textContent)
+        expect(steps).toHaveLength(3)
+        expect(steps[0]).toContain('type /tbexport in the game.')
+        expect(steps.slice(1)).toEqual([
+            'Type /reload so the game writes the file.',
+            "Drop TurboCharExport.lua here. It's in your game folder, inside WTF, then Account, in your character's SavedVariables folder.",
+        ])
+    })
+
+    test('the first step names the TurboCharExport addon, not Turbo', () => {
         renderApp()
 
         const section = screen
@@ -143,7 +160,7 @@ describe('the new-visitor state', () => {
                 .getAllByRole('listitem')
                 .map((item) => item.textContent)
         ).toEqual([
-            'Install the Turbo addon and type /tbexport in the game.',
+            'Install the TurboCharExport addon and type /tbexport in the game.',
             'Type /reload so the game writes the file.',
             "Drop TurboCharExport.lua here. It's in your game folder, inside WTF, then Account, in your character's SavedVariables folder.",
         ])
@@ -169,6 +186,14 @@ describe('the new-visitor state', () => {
 })
 
 describe('opening the wrong file', () => {
+    test('an export of format 99 says to update the TurboCharExport addon', () => {
+        expect(
+            stopLines({ kind: 'format', format: 99, accepted: [7] })
+        ).toEqual([
+            'This export is format 99. The page reads formats 7. Update the TurboCharExport addon and export again.',
+        ])
+    })
+
     test('a .json file that is not JSON says it is not JSON', async () => {
         await pick(
             renderApp(),

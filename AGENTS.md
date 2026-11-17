@@ -43,6 +43,8 @@ file) on the player's own computer, with the **browser sim**
   Pick the newest release older than a week.
 - **kebab-case file names**, except where WoW requires otherwise (the `Turbo`
   addon folder and its TOC).
+    - Go files in `packages/sim/upstream/` keep Go's snake_case names (Go's
+      convention, and upstream's), an exception to kebab-case.
 - **Never read, compare or compute a secret value** in addon code. Never change
   a player's existing UI settings (CVars, Blizzard frames); tell them how
   instead.

@@ -21,6 +21,7 @@ const BUILT = [
     'worker.js',
     'db.json',
     'buffs.json',
+    'spell-names.json',
     'l60-test.in.json',
     'version.json',
 ]

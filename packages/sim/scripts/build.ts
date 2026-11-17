@@ -10,7 +10,8 @@
  * - `wasm_exec.js`, copied from the same Go toolchain (it must match).
  * - The item data the TypeScript side reads, from `upstream/assets/database/`.
  * - `buffs.json`, the stats of the buffs in the vendored spell data
- *   (`write-buffs.ts`).
+ *   (`write-buffs.ts`), and `spell-names.json`, each spell's name by its
+ *   id (`write-spell-names.ts`).
  * - `worker.js`, the pool's worker (from `src/`), `talents/<class>.json`
  *   (upstream's talent trees), `l60-test.in.json` (the level-60 gate's
  *   request) and `weights/` (from `packages/sim/weights/`, when it exists).
@@ -32,6 +33,7 @@ import { join } from 'node:path'
 
 import { patchId, UPSTREAM, upstreamCommit } from './pin'
 import { writeBuffs } from './write-buffs'
+import { writeSpellNames } from './write-spell-names'
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
 const BUILD = join(PACKAGE_DIR, 'build')
@@ -97,6 +99,9 @@ copyFileSync(join(PACKAGE_DIR, 'src/worker.js'), join(BUILD, 'worker.js'))
 
 // The buffs the sheet check can model, from the vendored spell data.
 writeBuffs(BUILD)
+
+// Every spell's name, for the damage split.
+writeSpellNames(BUILD)
 
 // The talent trees and the level-60 gate's request, for pool.data().
 cpSync(join(UPSTREAM, 'ui/sim/talents/trees'), join(BUILD, 'talents'), {
