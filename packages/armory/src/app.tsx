@@ -460,6 +460,8 @@ export function App({
     /** Loads the local latest file and follows it (never in a build). */
     const followLatest = () => {
         unfollow()
+        // An export's run or a Refine would replace the latest when done.
+        if (simming || refining) cancel()
         if (import.meta.env.PROD) return
         const id = follow.current
         void import('./local-latest').then((module) => {

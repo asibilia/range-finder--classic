@@ -184,6 +184,7 @@ afterEach(() => {
     globalThis.clearTimeout = ORIGINAL_CLEAR_TIMEOUT
     globalThis.clearInterval = ORIGINAL_CLEAR_INTERVAL
     held.clear()
+    localStorage.clear()
 })
 
 /** Renders the page with the local latest file on. */
@@ -210,6 +211,61 @@ describe('the page opens on the local latest file', () => {
         expect(callsTo(LATEST)[0]?.ifModifiedSince ?? null).toBeNull()
         // The local file is never kept in this browser.
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBe(kept)
+    })
+
+    test('a 404 leaves the page as today: the remembered file, no local line or buttons, no polling', async () => {
+        localStorage.setItem(
+            REMEMBERED_FILE_KEY,
+            JSON.stringify(resultsFile('Kept'))
+        )
+        renderLocal()
+
+        await waitForName('Kept')
+        await settle()
+        expect(callsTo(LATEST).length).toBeGreaterThan(0)
+        expect(screen.queryByText(/Loaded from this computer/)).toBeNull()
+        expect(screen.queryByRole('button', { name: OPEN_ANOTHER })).toBeNull()
+        expect(screen.queryByRole('button', { name: BACK })).toBeNull()
+        expect(screen.queryByText(/couldn't be read/)).toBeNull()
+
+        const before = localCalls().length
+        await tick()
+        await tick()
+        await tick()
+        expect(localCalls().length).toBe(before)
+        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+            'Kept'
+        )
+    })
+
+    test('a network error leaves the page as today: the remembered file, no local line or buttons, no polling', async () => {
+        localStorage.setItem(
+            REMEMBERED_FILE_KEY,
+            JSON.stringify(resultsFile('Kept'))
+        )
+        server.latest = () => {
+            throw new TypeError('Failed to fetch')
+        }
+        server.status = () => {
+            throw new TypeError('Failed to fetch')
+        }
+        renderLocal()
+
+        await waitForName('Kept')
+        await settle()
+        expect(callsTo(LATEST).length).toBeGreaterThan(0)
+        expect(screen.queryByText(/Loaded from this computer/)).toBeNull()
+        expect(screen.queryByText(/couldn't be read/)).toBeNull()
+        expect(screen.queryByRole('button', { name: OPEN_ANOTHER })).toBeNull()
+
+        const before = localCalls().length
+        await tick()
+        await tick()
+        await tick()
+        expect(localCalls().length).toBe(before)
+        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+            'Kept'
+        )
     })
 })
 
@@ -250,6 +306,33 @@ describe('the status file', () => {
                 'Showing the previous good file because the sim reported a problem.'
             )
         ).toBeDefined()
+    })
+
+    test('a status file that is not JSON, or has no boolean ok, shows no note', async () => {
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.status = () =>
+            new Response('not json {', {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        renderLocal()
+        await waitForName('Localchar')
+        await screen.findByText(LOADED_LINE)
+        await settle()
+        expect(screen.queryByText(/Showing the previous good file/)).toBeNull()
+
+        const statusBefore = callsTo(STATUS).length
+        server.latest = notModified
+        server.status = json({ ok: 'false', reason: 'the sim crashed' })
+        await tick()
+        await waitFor(() =>
+            expect(callsTo(STATUS).length).toBeGreaterThan(statusBefore)
+        )
+        await settle()
+        expect(screen.queryByText(/Showing the previous good file/)).toBeNull()
+        expect(screen.getByText(LOADED_LINE)).toBeDefined()
     })
 
     test('a status that turns ok false while latest.json answers 304 shows its note after the next tick', async () => {
