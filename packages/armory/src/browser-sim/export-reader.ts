@@ -603,6 +603,9 @@ export async function exportCharacter(
         known_spells: knownSpells,
         weapon_skills: readWeaponSkills(list(db.skills)),
         weapon_skill_deficit: weaponSkillDeficit(db, gear, level),
+        ooc_mana_regen: num(
+            table(table(db.sheet).manaRegen).outsideFiveSecondRule
+        ),
         profile,
         sheet: weaponSkill ? { ...sheet, weapon_skill: weaponSkill } : sheet,
         ...(modelled ? { sheet_buffs: modelled } : {}),

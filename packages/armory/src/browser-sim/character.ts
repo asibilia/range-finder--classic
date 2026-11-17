@@ -46,6 +46,12 @@ export type Character = {
      * it, and negative above the cap. The export reader always sets it.
      */
     weapon_skill_deficit?: number
+    /**
+     * Out-of-combat mana regen in mana per second, from the export's
+     * `sheet.manaRegen.outsideFiveSecondRule`: 0 when absent. The chain
+     * gets it back between pulls. The export reader always sets it.
+     */
+    ooc_mana_regen?: number
     profile: LevelProfile
     /** The game's sheet at export. */
     sheet: ResultsFile['sheet']

@@ -29,21 +29,12 @@ export const FIGHT_ITERATIONS = 4000
 export const PULL_ITERATIONS = 2000
 /** The timeline's bucket on a pull, to read the mana it ends with. */
 const PULL_BUCKET_MS = 1000
-/** No spirit regen for 5 s after the last cast, then a tick every 2 s. */
-const FIVE_SECOND_RULE_S = 5
-const TICK_S = 2
 
 export type FightResult = Omit<ResultsFile['results'][number], 'gear'>
 
 export type SimmedFight = { result: FightResult; player: UnitMetrics }
 
 type Names = (id: number) => string | undefined
-
-/** The mana a Shaman regains out of combat over a gap. */
-export function gapRegen(spirit: number, gapS: number): number {
-    const ticks = Math.max(0, Math.floor((gapS - FIVE_SECOND_RULE_S) / TICK_S))
-    return ticks * (spirit / 5 + 17)
-}
 
 /** One single fight in `gear`, at the fixed seed. */
 export async function simSingle(
@@ -117,7 +108,11 @@ export async function simSession(
         const dry = outOfMana(player, scenario.duration_s)
         if (firstDry === null && dry !== 'never')
             firstDry = (pull - 1) * (scenario.duration_s + scenario.gap_s) + dry
-        mana = Math.min(maxMana, end + gapRegen(sheet.spirit, scenario.gap_s))
+        // The runner's rule: the export's out-of-combat rate over the gap.
+        mana = Math.min(
+            maxMana,
+            end + (character.ooc_mana_regen ?? 0) * scenario.gap_s
+        )
     }
     const dps = pulls.reduce((sum, p) => sum + p.dps, 0) / pulls.length
     return {
