@@ -264,6 +264,10 @@ describe('the build', () => {
             'latest_results_file',
             'vite-plugin-latest',
             'Loaded from this computer',
+            // The page's dev-only header buttons: the wiring that makes them
+            // must fold away in a build, not only `src/local-latest.ts`.
+            'Open another file',
+            'Back to the latest from this computer',
         ]
         const files = readdirSync(CLIENT_DIR, {
             recursive: true,

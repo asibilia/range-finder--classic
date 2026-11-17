@@ -24,7 +24,57 @@ From the repo root, with Go installed (the version in
 
 Files are read in the browser only; nothing is sent anywhere. An export is
 simmed in the page's workers and never kept: the page fetches only its own
-files (the sim and its data).
+files (the sim and its data) and, in dev only, the dev server's `/local/`
+files (below).
+
+### Opening on your latest file (dev only)
+
+`bun run dev:armory` can open straight onto the latest results file the gear
+sim's session keeps on your computer, and follow it as it changes:
+
+1. Copy `packages/armory/.local.example.json` to `packages/armory/.local.json`
+   and set `latest_results_file` to the latest file's absolute path:
+   `{ "latest_results_file": "/path/to/latest.json" }`. `.local.json` is
+   gitignored, and the leak guard (`packages/sim/src/leak-scan.ts`) treats
+   that path and its folder as machine words: `bun run check` fails if
+   either turns up in the repo.
+2. Beside the latest file, the sim's session writes `latest-status.json`:
+   `{ made_at, export_saved_at, ok, reason, results_file }`, where `ok` is
+   false (with a `reason`, or null) when it couldn't make a new file and
+   kept the previous good one.
+3. Start `bun run dev:armory` and open http://localhost:5173. With no
+   usable config, or no latest file, the dev server warns once at start
+   (`armory: no local latest file (...)`) and the page works as without it.
+
+The dev server (`vite-plugin-latest.ts`, `apply: 'serve'`) serves two
+paths, reading the config on each request: `/local/latest.json` (the
+latest file, with `Last-Modified`; `If-Modified-Since` gets a 304 when it
+hasn't changed) and `/local/latest-status.json`. Any other `/local/` path is
+a 404, no part of a URL reaches the file system, and a request whose `Host`
+isn't `localhost` or `127.0.0.1` gets a 403.
+
+The page (`src/components/latest-file.tsx`, which loads
+`src/local-latest.ts`) shows the latest file in place of the one kept in
+this browser, without keeping it, and says `Loaded from this computer, made
+17 November` under the header. Every 10 s it asks again, with
+`If-Modified-Since`, and reads the status file:
+
+- A newer file shows, keeping the fight and the plan view where it has
+  them. One that doesn't read keeps the last one and says `The latest file
+  from this computer couldn't be read; showing the last one that could.`
+- A status with `ok: false` adds `Showing the previous good file because
+  <reason>.`
+
+`Open another file` in the header, or a file dropped anywhere on the page,
+shows that file (a results file or an export) and stops following; `Back to
+the latest from this computer` goes back and follows again.
+
+None of it reaches `bun run build:armory`: the plugin only serves, and in a
+build the page's hook is inert, so Rollup leaves out its code, its words and
+`src/local-latest.ts`. `tests/build-output.test.ts` fails if the build
+carries a trace of it, and its network rule (`tests/network-rule.ts`) lets
+`src/local-latest.ts` fetch only `'/local/'` strings, beside the sim's
+loader's `new URL(` fetches.
 
 ### Simming an export
 

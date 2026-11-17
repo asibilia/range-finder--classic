@@ -28,6 +28,7 @@ import {
     type Wishlist,
     WishlistDialog,
 } from '@/components/item-picker'
+import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
 import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
@@ -53,7 +54,6 @@ import {
 } from './browser-sim'
 import type { Item } from './gains'
 import { itemName } from './item-name'
-import type { LatestHandlers } from './local-latest'
 import {
     initialPlannerState,
     pickedPlan,
@@ -64,27 +64,15 @@ import {
     showView,
     wornResult,
 } from './planner-state'
+import { readResults, readResultsText } from './read-results'
 import { forgetFile, recallFile, rememberFile } from './remembered-file'
-import { readResultsFile, type ResultsFile, type Slot } from './results-file'
+import type { ResultsFile, Slot } from './results-file'
 import { slotLabel } from './slot-labels'
 import { slotEntry } from './slot-view'
 import sample from './sample-truncha.json'
 
+/** The file shown, or why the last one didn't read (both null: nothing). */
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
-
-function load(input: unknown): Loaded {
-    const outcome = readResultsFile(input)
-    if (outcome.ok) return { file: outcome.file, error: null }
-    if (outcome.reason === 'version')
-        return {
-            file: null,
-            error: { kind: 'version', version: outcome.version },
-        }
-    return {
-        file: null,
-        error: { kind: 'invalid', problems: outcome.problems },
-    }
-}
 
 /**
  * Reads a picked or dropped file's text as a results file. A file that
@@ -104,16 +92,7 @@ async function readFile(
             remembered: false,
         }
     }
-    let input: unknown
-    try {
-        input = JSON.parse(text)
-    } catch {
-        return {
-            loaded: { file: null, error: { kind: 'not-json' } },
-            remembered: false,
-        }
-    }
-    const loaded = load(input)
+    const loaded = readResultsText(text)
     return { loaded, remembered: loaded.file ? rememberFile(text) : false }
 }
 
@@ -275,20 +254,6 @@ function isExport(file: File): boolean {
     return file.name.toLowerCase().endsWith('.lua')
 }
 
-/**
- * Dev only: the local latest file's state, once one showed. `following`
- * while it shows (and is refreshed); false once another file replaced it.
- */
-type LocalLatest = {
-    following: boolean
-    /** `Loaded from this computer, made 17 November`. */
-    line: string
-    /** The status file's note, or null. */
-    note: string | null
-    /** Why a newer latest file isn't shown, or null. */
-    problem: string | null
-}
-
 /** A character simmed from an export dropped in this visit, for Refine. */
 type Simmed = { character: Character; minutes: number }
 
@@ -299,7 +264,8 @@ type Simmed = { character: Character; minutes: number }
  * @param createPool - Makes the browser sim's pool, the first time an
  * export is dropped (tests pass a fake).
  * @param localLatest - Dev only: open on the owner's latest results file
- * from the dev server, and follow it (`local-latest.ts`). Off in a build.
+ * from the dev server, and follow it (`components/latest-file.tsx`). Off
+ * in a build.
  */
 export function App({
     createPool = createSimPool,
@@ -325,15 +291,8 @@ export function App({
     const [simmed, setSimmed] = useState<Simmed | null>(null)
     const [refining, setRefining] = useState<SimCount | null>(null)
     const [phone, setPhone] = useState(false)
-    // Dev only: the local latest file, once one showed.
-    const [local, setLocal] = useState<LocalLatest | null>(null)
 
     const pool = useRef<SimPool | null>(null)
-    // Stops following the local latest file, while it's followed.
-    const stopFollowing = useRef<(() => void) | null>(null)
-    // Each follow's number: a follow that's no longer the latest is ignored.
-    const follow = useRef(0)
-    const openOther = useRef<HTMLInputElement | null>(null)
     // Each run's number: a run that's no longer the latest is ignored.
     const run = useRef(0)
     const heading = useRef<HTMLHeadingElement | null>(null)
@@ -414,64 +373,29 @@ export function App({
         }
     }
 
-    /** Stops following the local latest file (no state change). */
-    const unfollow = () => {
-        follow.current += 1
-        stopFollowing.current?.()
-        stopFollowing.current = null
-    }
-
-    /** Another file replaces the local latest: polling stops. */
-    const leaveLatest = () => {
-        unfollow()
-        setLocal((current) => current && { ...current, following: false })
-    }
-
-    const latestHandlers: LatestHandlers = {
-        onFile: (next, line, refresh) => {
-            setLoaded({ file: next, error: null })
-            setPlanner((current) => {
-                let state = initialPlannerState(next)
-                if (refresh && current) {
-                    state = pickFight(next, state, current.fightId)
-                    if (current.view === 'plan')
-                        state = showView(next, state, 'plan')
-                }
-                return state
-            })
-            setRemembered(false)
-            setForgotten(false)
-            setStop(null)
-            setSimmed(null)
-            setLocal((current) => ({
-                following: true,
-                line,
-                note: current?.following ? current.note : null,
-                problem: null,
-            }))
-        },
-        onReadError: (readError) => open({ file: null, error: readError }),
-        onProblem: (problem) =>
-            setLocal((current) => current && { ...current, problem }),
-        onNote: (note) =>
-            setLocal((current) => current && { ...current, note }),
-    }
-
-    /** Loads the local latest file and follows it (never in a build). */
-    const followLatest = () => {
-        unfollow()
-        // An export's run or a Refine would replace the latest when done.
-        if (simming || refining) cancel()
-        if (import.meta.env.PROD) return
-        const id = follow.current
-        void import('./local-latest').then((module) => {
-            if (follow.current === id)
-                stopFollowing.current = module.followLatest(latestHandlers)
+    /**
+     * Shows the local latest file (dev only). A newer one found by a
+     * refresh keeps the fight and the plan view where it has them.
+     */
+    const showLatest = (next: ResultsFile, refresh: boolean) => {
+        setLoaded({ file: next, error: null })
+        setPlanner((current) => {
+            let state = initialPlannerState(next)
+            if (refresh && current) {
+                state = pickFight(next, state, current.fightId)
+                if (current.view === 'plan')
+                    state = showView(next, state, 'plan')
+            }
+            return state
         })
+        setRemembered(false)
+        setForgotten(false)
+        setStop(null)
+        setSimmed(null)
     }
 
     const openPicked = (picked: File) => {
-        leaveLatest()
+        latest.leave()
         stopRefine()
         if (isExport(picked)) {
             void simPicked(picked)
@@ -523,7 +447,7 @@ export function App({
     }
 
     const forget = () => {
-        leaveLatest()
+        latest.leave()
         stopRefine()
         forgetFile()
         open({ file: null, error: null })
@@ -568,16 +492,22 @@ export function App({
     }, [])
 
     // Dev only: the local latest file overrides the kept one, after it.
-    useEffect(() => {
-        if (localLatest) followLatest()
-        return unfollow
-    }, [localLatest])
+    const latest = useLocalLatest({
+        on: localLatest,
+        show: showLatest,
+        showError: (readError) => open({ file: null, error: readError }),
+        // An export's run or a Refine would replace the latest when done.
+        beforeFollow: () => {
+            if (simming || refining) cancel()
+        },
+        openPicked,
+    })
 
     // A file dropped anywhere on the page must not make the browser open it.
     // With nothing loaded yet, or the local latest file shown, the drop
     // loads it, as the drop box does.
-    const following = local?.following === true
-    const waiting = (loaded.file === null && simming === null) || following
+    const waiting =
+        (loaded.file === null && simming === null) || latest.following
     useEffect(() => {
         const onDragOver = (event: DragEvent) => event.preventDefault()
         const onDrop = (event: DragEvent) => {
@@ -645,49 +575,11 @@ export function App({
                     file={file}
                     headingRef={heading}
                     wishlistCount={wishlist.size}
-                    localAction={
-                        local === null ? null : following ? (
-                            <>
-                                <input
-                                    ref={openOther}
-                                    type="file"
-                                    accept=".json,application/json,.lua"
-                                    hidden
-                                    onChange={(event) => {
-                                        const picked =
-                                            event.currentTarget.files?.[0]
-                                        event.currentTarget.value = ''
-                                        if (picked) openPicked(picked)
-                                    }}
-                                />
-                                <Button
-                                    variant="outline"
-                                    className={PILL}
-                                    onClick={() => openOther.current?.click()}
-                                >
-                                    Open another file
-                                </Button>
-                            </>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                className={PILL}
-                                onClick={followLatest}
-                            >
-                                Back to the latest from this computer
-                            </Button>
-                        )
-                    }
+                    localAction={latest.action}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
                     onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
-                {local?.following && (
-                    <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                        <p>{local.line}</p>
-                        {local.note && <p role="note">{local.note}</p>}
-                        {local.problem && <p role="alert">{local.problem}</p>}
-                    </div>
-                )}
+                {latest.lines}
                 {file?.provisional && (
                     <p
                         role="note"
@@ -726,8 +618,8 @@ export function App({
                                     phone={phone}
                                     onFile={openPicked}
                                     onSample={() => {
-                                        leaveLatest()
-                                        open(load(sample))
+                                        latest.leave()
+                                        open(readResults(sample))
                                     }}
                                 />
                             )

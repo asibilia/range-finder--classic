@@ -1,8 +1,9 @@
 /**
  * Dev only: the owner's latest results file, served by the dev server at
  * `/local/latest.json` (`vite-plugin-latest.ts`), and the sim's status file
- * beside it. The page loads this module with a dynamic import when its
- * `localLatest` prop is on (in dev), so no build carries it.
+ * beside it. The page's dev-only hook (`components/latest-file.tsx`) loads
+ * this module with a dynamic import when the `localLatest` prop is on, so
+ * no build carries it.
  *
  * `followLatest` loads the latest file, then asks again every 10 s with
  * `If-Modified-Since`, and asks for the status file on load and on every
@@ -11,7 +12,8 @@
 import type { ReadError } from '@/components/bring-in'
 
 import { exportDay } from './format'
-import { readResultsFile, type ResultsFile } from './results-file'
+import { readResultsText } from './read-results'
+import type { ResultsFile } from './results-file'
 
 /** How long between two asks for the latest file. */
 const REFRESH_MS = 10_000
@@ -54,22 +56,6 @@ export function statusNote(status: unknown): string | null {
             ? reason
             : 'the sim reported a problem'
     return `Showing the previous good file because ${why}.`
-}
-
-type Read = { file: ResultsFile } | { error: ReadError }
-
-function readText(text: string): Read {
-    let input: unknown
-    try {
-        input = JSON.parse(text)
-    } catch {
-        return { error: { kind: 'not-json' } }
-    }
-    const outcome = readResultsFile(input)
-    if (outcome.ok) return { file: outcome.file }
-    if (outcome.reason === 'version')
-        return { error: { kind: 'version', version: outcome.version } }
-    return { error: { kind: 'invalid', problems: outcome.problems } }
 }
 
 /**
@@ -118,8 +104,8 @@ export function followLatest(handlers: LatestHandlers): () => void {
         }
         if (stopped) return true
         lastModified = answer.headers.get('Last-Modified') ?? lastModified
-        const read = readText(text)
-        if ('file' in read) {
+        const read = readResultsText(text)
+        if (read.file !== null) {
             handlers.onFile(read.file, loadedLine(read.file), shown)
             handlers.onProblem(null)
             shown = true
