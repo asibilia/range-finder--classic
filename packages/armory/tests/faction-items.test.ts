@@ -55,9 +55,13 @@ const HORDE_NECK = item(71_012, 2, 50, HORDE_ONLY)
 
 const DB: ItemDb = {
     items: new Map(
-        [ALLIANCE_HELM, HORDE_HELM, NEUTRAL_HELM, ALLIANCE_NECK, HORDE_NECK].map(
-            (entry) => [entry.id, entry]
-        )
+        [
+            ALLIANCE_HELM,
+            HORDE_HELM,
+            NEUTRAL_HELM,
+            ALLIANCE_NECK,
+            HORDE_NECK,
+        ].map((entry) => [entry.id, entry])
     ),
     firstSeen: new Map(),
 }
