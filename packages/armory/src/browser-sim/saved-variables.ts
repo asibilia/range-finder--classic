@@ -3,7 +3,8 @@
  * read into plain objects with no Lua VM, the way the runner's Lua bridge
  * read it: every table is an object with string keys (`"1"`, `"2"` … for
  * arrays), `nil` leaves its key out (an array keeps its numbering), and `inf`
- * and `nan` become `null`.
+ * and `nan` become `null`. The keys `__proto__`, `constructor` and
+ * `prototype` are dropped, so a file can't tamper with any object.
  */
 
 export type SavedValue = string | number | boolean | null | Table
@@ -13,6 +14,12 @@ type Table = { [key: string]: SavedValue }
 /** What a parsed value is: `nil` is kept apart so it can drop its key. */
 const NIL = Symbol('nil')
 type Parsed = SavedValue | typeof NIL
+
+/**
+ * Keys a file must never set: assigning them on a plain object could swap
+ * its prototype or shadow what the page relies on, so they're dropped.
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
 const ESCAPES: Record<string, string> = {
     n: '\n',
@@ -212,7 +219,7 @@ class Reader {
                 key = String(index++)
                 value = this.value()
             }
-            if (value !== NIL) table[key] = value
+            if (value !== NIL && !UNSAFE_KEYS.has(key)) table[key] = value
             if (!this.take(',') && !this.take(';')) {
                 this.expect('}')
                 break
@@ -235,7 +242,7 @@ export function parseSavedVariables(text: string): Record<string, SavedValue> {
         const name = reader.name()
         reader.expect('=')
         const value = reader.value()
-        if (value !== NIL) vars[name] = value
+        if (value !== NIL && !UNSAFE_KEYS.has(name)) vars[name] = value
         reader.take(';')
     }
     return vars
