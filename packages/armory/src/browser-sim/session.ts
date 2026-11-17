@@ -17,6 +17,7 @@ import {
     playerOf,
     timelineOf,
     type Parts,
+    type SpellNames,
     type UnitMetrics,
 } from './sim-result'
 
@@ -40,14 +41,18 @@ export type SimmedFight = { result: FightResult; player: UnitMetrics }
 
 type Names = (id: number) => string | undefined
 
-/** One single fight in `gear`, at the fixed seed. */
+/**
+ * One single fight in `gear`, at the fixed seed. `names` names items,
+ * `spellNames` spells (`build/spell-names.json`), in the damage split.
+ */
 export async function simSingle(
     pool: SimPool,
     character: Character,
     scenario: Scenario,
     gear: Gear,
     sheet: Sheet,
-    names: Names
+    names: Names,
+    spellNames: SpellNames = {}
 ): Promise<SimmedFight> {
     const result = await pool.sim(
         buildRequest(character, scenario, {
@@ -70,7 +75,9 @@ export async function simSingle(
             time_to_die_s: null,
             timeline: timelineOf(player),
             pulls: null,
-            damage_split: damageSplit(damageByPart(player, names)),
+            damage_split: damageSplit(
+                damageByPart(player, names, new Map(), spellNames)
+            ),
         },
     }
 }
@@ -82,7 +89,8 @@ export async function simSession(
     scenario: Scenario,
     gear: Gear,
     sheet: Sheet,
-    names: Names
+    names: Names,
+    spellNames: SpellNames = {}
 ): Promise<FightResult> {
     const maxMana = Math.max(1, sheet.mana)
     const pulls: NonNullable<FightResult['pulls']> = []
@@ -102,7 +110,7 @@ export async function simSession(
             character.profile
         )
         const player = playerOf(result)
-        damageByPart(player, names, parts)
+        damageByPart(player, names, parts, spellNames)
         const end = Math.max(0, manaAtEnd(player) ?? mana)
         pulls.push({
             pull,

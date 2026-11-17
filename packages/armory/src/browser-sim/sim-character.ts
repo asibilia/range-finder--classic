@@ -56,7 +56,7 @@ import {
     type FightResult,
     type SimmedFight,
 } from './session'
-import { castsOf, dpsOf } from './sim-result'
+import { castsOf, dpsOf, type SpellNames } from './sim-result'
 import {
     specOf,
     talentRank,
@@ -139,13 +139,22 @@ async function simAll(
     character: Character,
     gear: Gear,
     sheet: Sheet,
-    names: (id: number) => string | undefined
+    names: (id: number) => string | undefined,
+    spellNames: SpellNames
 ): Promise<{ singles: SimmedFight[]; chain: FightResult }> {
     const fights = scenariosFor(character.level)
     const [singles, chain] = await Promise.all([
         Promise.all(
             fights.map((fight) =>
-                simSingle(pool, character, fight, gear, sheet, names)
+                simSingle(
+                    pool,
+                    character,
+                    fight,
+                    gear,
+                    sheet,
+                    names,
+                    spellNames
+                )
             )
         ),
         simSession(
@@ -154,7 +163,8 @@ async function simAll(
             chainFor(character.level),
             gear,
             sheet,
-            names
+            names,
+            spellNames
         ),
     ])
     return { singles, chain }
@@ -318,15 +328,19 @@ export async function simCharacter(
         // The gates before any numbers. The item data says how many
         // weapons there are to sim.
         const ep = epTable(weights)
-        const [{ checks: gates, l60Dps, sheet }, { db, weaponIds }] =
-            await Promise.all([
-                runGates(character, pool),
-                loadItemDb(pool).then((db) => {
-                    const ids = weaponsToSim(character, db, ep)
-                    plannedLess(WEAPON_SIMS - ids.length)
-                    return { db, weaponIds: ids }
-                }),
-            ])
+        const [
+            { checks: gates, l60Dps, sheet },
+            { db, weaponIds },
+            spellNames,
+        ] = await Promise.all([
+            runGates(character, pool),
+            loadItemDb(pool).then((db) => {
+                const ids = weaponsToSim(character, db, ep)
+                plannedLess(WEAPON_SIMS - ids.length)
+                return { db, weaponIds: ids }
+            }),
+            pool.data('spell-names.json') as Promise<SpellNames>,
+        ])
         const failedGates = gates.filter((c) => !c.passed)
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
@@ -342,7 +356,15 @@ export async function simCharacter(
                 ?.avg ?? 0
         const wornSingles = Promise.all(
             fights.map((fight) =>
-                simSingle(pool, character, fight, character.gear, sheet, names)
+                simSingle(
+                    pool,
+                    character,
+                    fight,
+                    character.gear,
+                    sheet,
+                    names,
+                    spellNames
+                )
             )
         )
         const weapons = Promise.all(
@@ -361,7 +383,8 @@ export async function simCharacter(
             chain,
             character.gear,
             sheet,
-            names
+            names,
+            spellNames
         )
         const raising = Promise.all(
             sanity.map((stat) => {
@@ -401,7 +424,8 @@ export async function simCharacter(
                     character,
                     planned.gear,
                     planSheet,
-                    names
+                    names,
+                    spellNames
                 )
                 return { planned, planSims }
             }
