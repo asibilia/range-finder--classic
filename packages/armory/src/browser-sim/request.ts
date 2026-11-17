@@ -3,16 +3,20 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import { STAT, type RaidSimRequest } from '@goturbo/sim'
+import { BONUS_STAT_COUNT, STAT, type RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
-import type { Character, Gear, SheetBuffs } from './character'
+import {
+    wornGear,
+    type Character,
+    type Gear,
+    type SheetBuffs,
+    type UnknownPiece,
+} from './character'
 import { gameStats } from './game-stats'
 import { rotationFor } from './rotation'
 import { allScenarios, mobArmor, type Scenario } from './scenarios'
-
-/** Where Stormstrike sits in a Shaman's talent string: tree, then talent. */
-const STORMSTRIKE_TALENT = { tree: 1, index: 11 }
+import { hasStormstrike } from './talents'
 
 /** The sim's stats arrays run to health, the last a mob needs. */
 const MOB_STATS = STAT.health + 1
@@ -20,7 +24,10 @@ const MOB_STATS = STAT.health + 1
 export type RequestOptions = {
     seed: number
     iterations: number
-    /** Gear in place of the character's own. */
+    /**
+     * Gear in place of everything the character wears (`wornGear`), by
+     * `Gear`'s rule.
+     */
     gear?: Gear
     /** The share of max mana the fight starts with; absent: full. */
     startingManaPct?: number
@@ -32,12 +39,6 @@ export type RequestOptions = {
     timelineBucketMs?: number
 }
 
-/** True when the talent string takes Stormstrike. */
-export function hasStormstrike(character: Character): boolean {
-    const tree = character.talents.split('-')[STORMSTRIKE_TALENT.tree] ?? ''
-    return Number(tree[STORMSTRIKE_TALENT.index] ?? 0) > 0
-}
-
 function scenarioOf(character: Character, fight: string | Scenario) {
     if (typeof fight !== 'string') return fight
     const found = allScenarios(character.level).find(
@@ -47,35 +48,41 @@ function scenarioOf(character: Character, fight: string | Scenario) {
     return found
 }
 
+/** The worn items the sim lacks, by id. */
+function unknownById(character: Character): Map<number, UnknownPiece> {
+    return new Map(
+        Object.values(character.unknown_gear ?? {}).map((piece) => [
+            piece.id,
+            piece,
+        ])
+    )
+}
+
 /** The sim's equipment: never an item the sim's data lacks. */
-function equipment(character: Character, gear: Gear) {
+function equipment(gear: Gear, lacked: ReadonlyMap<number, UnknownPiece>) {
     return {
         items: SLOTS.map((slot) => {
             const piece = gear[slot]
-            const unknown = character.unknown_gear?.[slot]
-            return piece && piece.id !== unknown?.id ? { ...piece } : {}
+            return piece && !lacked.has(piece.id) ? { ...piece } : {}
         }),
     }
 }
 
 /**
- * The character's bonus stats (worn items the sim lacks) in `gear`, by the
- * `Gear` rule: a slot whose unknown item `gear` empties (null) or replaces
- * takes its stats off, as the runner's `wearing()`, and a slot `gear`
- * leaves out keeps them. Undefined when no stat is left.
+ * The game stats of the items in `gear` the sim lacks, once for each slot
+ * that holds one, as the runner's `wearing()` keeps an unknown item's
+ * stats only while it's worn. Undefined when there are none.
  */
 function gearBonus(
-    character: Character,
-    gear: Gear | undefined
+    gear: Gear,
+    lacked: ReadonlyMap<number, UnknownPiece>
 ): number[] | undefined {
-    const bonus = [...character.bonus_stats]
+    const bonus = new Array<number>(BONUS_STAT_COUNT).fill(0)
     for (const slot of SLOTS) {
-        const unknown = character.unknown_gear?.[slot]
-        const piece = gear?.[slot]
-        if (!unknown || piece === undefined || piece?.id === unknown.id)
-            continue
-        gameStats(unknown.stats).forEach((amount, i) => {
-            bonus[i] = (bonus[i] ?? 0) - amount
+        const piece = lacked.get(gear[slot]?.id ?? -1)
+        if (!piece) continue
+        gameStats(piece.stats).forEach((amount, i) => {
+            bonus[i] = (bonus[i] ?? 0) + amount
         })
     }
     return bonus.some((amount) => amount !== 0) ? bonus : undefined
@@ -98,11 +105,13 @@ export function buildRequest(
     options: RequestOptions
 ): RaidSimRequest {
     const scenario = scenarioOf(character, fight)
+    const gear = options.gear ?? wornGear(character)
+    const lacked = unknownById(character)
     const player: Record<string, unknown> = {
         name: character.name,
         race: character.profile.race,
         class: character.profile.class,
-        equipment: equipment(character, options.gear ?? character.gear),
+        equipment: equipment(gear, lacked),
         talentsString: character.talents,
         enhancementShaman: {
             options: {
@@ -119,7 +128,7 @@ export function buildRequest(
         ),
         rotation: rotationFor(character, {
             totems: scenario.totems,
-            stormstrike: hasStormstrike(character),
+            stormstrike: hasStormstrike(character.talents),
         }),
         distanceFromTarget: 5,
         inFrontOfTarget: scenario.in_front ?? scenario.being_hit,
@@ -129,10 +138,7 @@ export function buildRequest(
         player.startingManaPercent = options.startingManaPct
     // Worn items the sim lacks, the per-sim bonus and the export's buffs.
     const bonus = mergeStats(
-        mergeStats(
-            gearBonus(character, options.gear),
-            options.bonusStats?.stats
-        ),
+        mergeStats(gearBonus(gear, lacked), options.bonusStats?.stats),
         options.sheetBuffs?.stats
     )
     if (options.bonusStats || bonus)

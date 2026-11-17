@@ -4,17 +4,16 @@
  */
 import type { LevelProfile } from '@goturbo/sim'
 
-import type { Check, ResultsFile, Slot } from '../results-file'
+import { SLOTS, type Check, type ResultsFile, type Slot } from '../results-file'
 
 /** One worn item, as the sim's `ItemSpec` takes it. */
 export type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
 
 /**
- * Gear by slot. The sim gets no item in a slot that's absent or null. The
- * two differ only for a worn item the sim lacks (`Character.unknown_gear`,
- * never in `gear`): a request's gear keeps that item's bonus stats when its
- * slot is absent, and takes them off when the slot is null or holds
- * another item (`buildRequest`).
+ * Gear by slot; a slot that's absent or null is empty. A piece may be a
+ * worn item the sim lacks (one of `Character.unknown_gear`): a request
+ * never sends it to the sim, and adds its game stats instead, once for
+ * each slot that holds it (`buildRequest`).
  */
 export type Gear = Partial<Record<Slot, GearPiece | null>>
 
@@ -56,16 +55,14 @@ export type Character = {
     class: string
     /** Talents in the sim's format: each tree's ranks, trees split by `-`. */
     talents: string
+    /** The worn items the sim knows; `wornGear` adds the ones it lacks. */
     gear: Gear
-    /**
-     * Worn items the sim's item data lacks, by slot: left out of `gear`,
-     * their game stats are in `bonus_stats`.
-     */
+    /** Worn items the sim's item data lacks, by slot: never in `gear`. */
     unknown_gear?: Partial<Record<Slot, UnknownPiece>>
     /**
      * The game stats of worn items the sim lacks, indexed by the proto
-     * `Stat` enum (40 entries, all 0 when there's none); every request
-     * adds them.
+     * `Stat` enum (40 entries, all 0 when there's none): a summary of
+     * `unknown_gear`. A request adds them from its gear, by `Gear`'s rule.
      */
     bonus_stats: number[]
     /** The items in the bags, as the export has them. */
@@ -100,6 +97,20 @@ export type Character = {
     calibrated_spell_crit?: boolean
     export_saved_at: string
     game_build: string
+}
+
+/**
+ * Everything the character wears: `gear`, and each worn item the sim
+ * lacks in its slot. The worn set a request, the plan or a weapon swap
+ * starts from.
+ */
+export function wornGear(character: Character): Gear {
+    const gear: Gear = { ...character.gear }
+    for (const slot of SLOTS) {
+        const unknown = character.unknown_gear?.[slot]
+        if (unknown) gear[slot] = { id: unknown.id }
+    }
+    return gear
 }
 
 /** A run that stops before it makes a file. The page words each one. */

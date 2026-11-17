@@ -330,7 +330,11 @@ const NO_STORMSTRIKE = '-050032302050'
 describe('the DPS-rises gates', () => {
     test('the sanity step asks for exactly Strength +20, Agility +20, Intellect +20, Attack Power +40, Hit rating +20 and Crit rating +28, each at seeds 21, 22 and 23 with 3000 iterations, on the level 32, 1150-armor, 30 s fight', async () => {
         const { requests } = await simmed()
-        const raised = requests.filter((r) => addedStat(r) !== null)
+        // The DPS-rises sims only: the Stormstrike gate's sims carry their
+        // own bonus (mana that never runs out).
+        const raised = requests
+            .filter(isDpsRisesSim)
+            .filter((r) => addedStat(r) !== null)
         const asked = raised
             .map((r) => {
                 const added = addedStat(r)!

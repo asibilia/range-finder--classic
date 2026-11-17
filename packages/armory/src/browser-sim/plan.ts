@@ -6,7 +6,7 @@
  * the item `finger_1` or `trinket_1` already took), else the worn item.
  */
 import { SLOTS, type ResultsFile, type Slot, type Stat } from '../results-file'
-import type { Character, Gear } from './character'
+import { wornGear, type Character, type Gear } from './character'
 import {
     canWearWeapon,
     fileItem,
@@ -37,7 +37,7 @@ type LeftOut = NonNullable<ResultsFile['left_out_items']>[number]
 export type GearPlan = {
     slots: ResultsFile['slots']
     plan: ResultsFile['plans'][number]
-    /** The plan's gear as the sim takes it. */
+    /** The plan's gear, by `Gear`'s rule: a kept item the sim lacks is in it. */
     gear: Gear
     bag_upgrades: ResultsFile['bag_upgrades']
     left_out_items: LeftOut[]
@@ -146,6 +146,7 @@ export function planMaxDamage(
     }
 
     const wearable = (item: DbItem) => requiredLevel(item) <= character.level
+    const wearing = wornGear(character)
     const chosen = new Map<Slot, number | null>()
     const slots: ResultsFile['slots'] = SLOTS.map((slot) => {
         const list = ranked.get(slot)!
@@ -160,8 +161,7 @@ export function planMaxDamage(
         )
         const kept = list.slice(0, ALTERNATIVES)
         if (pick && !kept.includes(pick)) kept.push(pick)
-        const unknown = character.unknown_gear?.[slot]
-        const wornId = character.gear[slot]?.id ?? unknown?.id ?? null
+        const wornId = wearing[slot]?.id ?? null
         chosen.set(slot, pick ? pick.item.id : wornId === taken ? null : wornId)
         const weapon = slot === 'main_hand'
         const alternatives: Alternative[] = kept.map(({ item, gain }) => ({
@@ -170,6 +170,7 @@ export function planMaxDamage(
             gain_dps: weapon ? round(gain) : null,
         }))
         const piece = character.gear[slot]
+        const unknown = character.unknown_gear?.[slot]
         let worn: FileItem | null = null
         if (piece) worn = fileItem(db, piece.id)
         else if (unknown) worn = gameFileItem(unknown)
@@ -185,13 +186,12 @@ export function planMaxDamage(
     if (isTwoHander(db.items.get(chosen.get('main_hand') ?? -1)))
         chosen.set('off_hand', null)
 
+    // A kept item the sim lacks stays in its slot, as `{ id }`: the request
+    // adds its game stats (the `Gear` rule).
     const gear: Gear = {}
     for (const slot of SLOTS) {
         const id = chosen.get(slot) ?? null
-        const worn = character.gear[slot]
-        // A kept item the sim lacks: its slot stays out, which keeps its
-        // bonus stats (the `Gear` rule).
-        if (id !== null && id === character.unknown_gear?.[slot]?.id) continue
+        const worn = wearing[slot]
         gear[slot] = id === null ? null : worn?.id === id ? worn : { id }
     }
 
@@ -265,7 +265,7 @@ function spaced(name: string): string {
     return name.replace(/([a-z])([A-Z])/g, '$1 $2')
 }
 
-/** Gear by slot, for comparing two sets. */
+/** True when two sets hold the same item in every slot (absent is empty). */
 export function sameGear(a: Gear, b: Gear): boolean {
     return SLOTS.every(
         (slot) => (a[slot]?.id ?? null) === (b[slot]?.id ?? null)

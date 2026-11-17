@@ -160,7 +160,9 @@ export type StormstrikeRates = { hit: number; notHit: number }
  * gains half a cast on average. Being hit also costs casts, so the reset's
  * effect is the rise when hit with the talent less the change without it.
  * It passes when that effect is above 0 and within ±35% of the rate the
- * mob's dodged and parried swings per fight give.
+ * mob's dodged and parried swings per fight give. The rates come from sims
+ * whose mana never runs out (`sanity.ts`): Stormstrike goes out whenever
+ * it's ready, as the expected rate assumes.
  */
 export function stormstrikeRuleCheck(input: {
     /** Points in Improved Stormstrike in the talented variant. */
@@ -183,7 +185,7 @@ export function stormstrikeRuleCheck(input: {
     return {
         name: 'being hit resets Stormstrike as the rule says',
         passed: effect > 0 && Math.abs(effect - expected) <= 0.35 * expected,
-        detail: `${added}Stormstrike/min: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
+        detail: `${added}Stormstrike/min, with mana that never runs out: no talent ${without.notHit.toFixed(2)} → ${without.hit.toFixed(2)} when hit; Improved Stormstrike ${points}/2 ${withIt.notHit.toFixed(2)} → ${withIt.hit.toFixed(2)}. Reset effect ${effect.toFixed(2)}/min vs ${expected.toFixed(2)}/min expected from ${avoided.toFixed(2)} dodges and parries per fight at ${chance * 100}% (±35%).`,
     }
 }
 
