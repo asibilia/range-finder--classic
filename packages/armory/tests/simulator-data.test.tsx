@@ -256,6 +256,8 @@ describe('the Simulator Data card', () => {
         expect(gapLine('Resource Empty')).toBeNull()
         expect(cell('Resource Empty').textContent).not.toContain('↓')
         cleanup()
+        // The page keeps a picked file; forget it so the next render asks again.
+        localStorage.clear()
 
         await load(wornOnLongFight((result) => (result.out_of_mana_s = null)))
         expect(readingValue('Resource Empty')).toBe('Not simmed')

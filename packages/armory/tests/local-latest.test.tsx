@@ -194,7 +194,12 @@ function renderLocal() {
 }
 
 async function waitForName(name: string) {
-    await screen.findByRole('heading', { level: 1, name }, { timeout: 4000 })
+    await screen.findByRole('heading', { name }, { timeout: 4000 })
+}
+
+/** The page shows `name` as its character (the gear card's heading). */
+function showsCharacter(name: string): boolean {
+    return screen.queryByRole('heading', { name }) !== null
 }
 
 describe('the page opens on the local latest file', () => {
@@ -233,9 +238,7 @@ describe('the page opens on the local latest file', () => {
         await tick()
         await tick()
         expect(localCalls().length).toBe(before)
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Kept'
-        )
+        expect(showsCharacter('Kept')).toBe(true)
     })
 
     test('a network error leaves the page as today: the remembered file, no local line or buttons, no polling', async () => {
@@ -263,9 +266,7 @@ describe('the page opens on the local latest file', () => {
         await tick()
         await tick()
         expect(localCalls().length).toBe(before)
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Kept'
-        )
+        expect(showsCharacter('Kept')).toBe(true)
     })
 })
 
@@ -354,9 +355,7 @@ describe('the status file', () => {
                 'Showing the previous good file because the sim crashed.'
             )
         ).toBeDefined()
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Localchar'
-        )
+        expect(showsCharacter('Localchar')).toBe(true)
     })
 })
 
@@ -409,9 +408,7 @@ describe('the page follows the local latest file', () => {
         await tick()
 
         expect(await screen.findByText(UNREADABLE)).toBeDefined()
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Localchar'
-        )
+        expect(showsCharacter('Localchar')).toBe(true)
     })
 })
 

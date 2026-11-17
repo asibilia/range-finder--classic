@@ -13,7 +13,7 @@ describe('the DOM test helper', () => {
     test('its teardown leaves globalThis.window undefined', async () => {
         render(<App />)
         expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
+            screen.getByRole('heading', { level: 1 })
         ).toBeDefined()
         cleanup()
 

@@ -82,7 +82,7 @@ describe('the error boundary', () => {
                     name: 'Or look at a sample character',
                 })
             )
-            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+            await screen.findByRole('heading', { name: 'Truncha' })
 
             act(() => trip())
             expect(screen.getByText(WENT_WRONG)).toBeDefined()
@@ -97,7 +97,7 @@ describe('the error boundary', () => {
                 })
             ).toBeDefined()
             expect(
-                screen.queryByRole('heading', { level: 1, name: 'Truncha' })
+                screen.queryByRole('heading', { name: 'Truncha' })
             ).toBeNull()
         } finally {
             quiet.mockRestore()

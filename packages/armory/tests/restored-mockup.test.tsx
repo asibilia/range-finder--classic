@@ -35,7 +35,10 @@ afterEach(() => {
 describe('the gear pane', () => {
     test('explains the gain pills in the worn view, with an example pill and the count of big upgrades', async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        // The gear card, a region named after the character.
+        const gear = document.querySelector<HTMLElement>(
+            'section[data-slot="gear-pane"]'
+        )!
 
         const line = within(gear).getByText(
             'is the best gain the sim found for that slot. 11 slots have a big upgrade (15 EP or 3 DPS and up).',

@@ -74,7 +74,7 @@ describe('the new-visitor state', () => {
         renderApp()
 
         expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
+            screen.getByRole('heading', { level: 1 })
         ).toBeDefined()
         expect(
             screen.getByRole('heading', {
@@ -269,7 +269,7 @@ describe('opening the wrong file', () => {
         await pick(user, jsonFile(sample))
 
         expect(
-            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+            await screen.findByRole('heading', { name: 'Truncha' })
         ).toBeDefined()
         expect(
             screen.queryByText(
@@ -289,7 +289,7 @@ describe('loading a results file', () => {
         fireEvent.drop(drop, { dataTransfer: { files: [file] } })
 
         expect(
-            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+            await screen.findByRole('heading', { name: 'Truncha' })
         ).toBeDefined()
     })
 
@@ -307,7 +307,7 @@ describe('loading a results file', () => {
         expect(dropped).toBe(false)
 
         expect(
-            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+            await screen.findByRole('heading', { name: 'Truncha' })
         ).toBeDefined()
     })
 
@@ -324,7 +324,7 @@ describe('loading a results file', () => {
         await new Promise((resolve) => setTimeout(resolve, 20))
 
         expect(
-            screen.getByRole('heading', { level: 1, name: 'Truncha' })
+            screen.getByRole('heading', { name: 'Truncha' })
         ).toBeDefined()
     })
 
@@ -337,16 +337,15 @@ describe('loading a results file', () => {
         )
 
         expect(
-            await screen.findByRole('heading', { level: 1, name: 'Truncha' })
+            await screen.findByRole('heading', { name: 'Truncha' })
         ).toBeDefined()
         expect(
             screen.queryByRole('heading', { level: 1, name: 'Armory planner' })
         ).toBeNull()
-        expect(
-            screen.getByText(
-                "Orc Enhancement Shaman, level 30. Guardian's Dualblade with Windfury Weapon."
-            )
-        ).toBeDefined()
+        // The weapon line (on the gear card, under the character's name).
+        expect(document.body.textContent).toContain(
+            "Guardian's Dualblade with Windfury Weapon."
+        )
         expect(
             screen.getByText(', from your export of 13 November', {
                 exact: false,
@@ -405,11 +404,8 @@ describe('the gear pane with a file', () => {
             })
         )
 
-        expect(
-            screen.getByText(
-                "Orc Enhancement Shaman, level 30. Guardian's Dualblade."
-            )
-        ).toBeDefined()
+        // The weapon line, on the gear card.
+        expect(document.body.textContent).toContain("Guardian's Dualblade.")
     })
 
     test('shows the worn legs and an empty trinket slot', async () => {

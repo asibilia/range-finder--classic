@@ -754,7 +754,7 @@ describe('how sure the sim is', () => {
         )
 
         expect(
-            screen.getByRole('heading', { name: 'What the sim says' })
+            screen.getByRole('complementary', { name: "The sim's numbers" })
         ).toBeDefined()
         expect(screen.queryByText('Provisional')).toBeNull()
         expect(screen.queryByText('Sim numbers are provisional.')).toBeNull()

@@ -17,11 +17,20 @@ afterEach(() => {
     cleanup()
 })
 
+/** The gear card (a region named after the character). */
+function gearCard(): HTMLElement {
+    const found = document.querySelector<HTMLElement>(
+        'section[data-slot="gear-pane"]'
+    )
+    if (!found) throw new Error('no gear card')
+    return found
+}
+
 describe('the page layout (approved C2 mockup)', () => {
     test('from 90rem the gear and the card sit side by side; the band follows, full width', async () => {
         await openSample()
 
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const card = screen.getByRole('complementary', {
             name: "The sim's numbers",
         })
@@ -47,7 +56,7 @@ describe('the page layout (approved C2 mockup)', () => {
 
     test("the doll's columns are the mockup's: two 268 px slot columns around the figure", async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const container = gear.querySelector('.\\@container\\/doll')
         expect(container).not.toBeNull()
         expect(container!.firstElementChild!.className).toContain(
@@ -57,7 +66,7 @@ describe('the page layout (approved C2 mockup)', () => {
 
     test('slots are one line for the name, cut off with an ellipsis, and the full name is in the accessible name', async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const names = gear.querySelectorAll('[data-slot-name]')
         expect(names).toHaveLength(16)
         for (const name of names)
