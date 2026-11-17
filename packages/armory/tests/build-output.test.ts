@@ -156,6 +156,14 @@ describe('the build', () => {
         expect(html).toMatch(/<h1[^>]*>Armory planner<\/h1>/)
     })
 
+    test('the prerendered page is dark only: its <html> has the class dark', () => {
+        const html = readFileSync(INDEX_HTML, 'utf8')
+        const tag = html.match(/<html\b[^>]*>/)
+        expect(tag).not.toBeNull()
+        const classes = tag![0].match(/\bclass="([^"]*)"/)?.[1] ?? ''
+        expect(classes.split(/\s+/)).toContain('dark')
+    })
+
     test('the page loads only its own files', () => {
         const html = readFileSync(INDEX_HTML, 'utf8')
         const refs = [...html.matchAll(/\b(?:src|href)="([^"]*)"/g)].map(

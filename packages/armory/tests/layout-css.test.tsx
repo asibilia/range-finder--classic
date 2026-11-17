@@ -82,6 +82,24 @@ describe('the page layout (approved C2 mockup)', () => {
             )
     })
 
+    test("numbers are monospace: the stat sheet's value cells and the slot badges have font-mono", async () => {
+        await openSample()
+        const sheet = screen.getByLabelText('Character sheet')
+        const values = sheet.querySelectorAll('dd')
+        expect(values.length).toBeGreaterThan(0)
+        for (const value of values)
+            expect(value.className.split(/\s+/)).toContain('font-mono')
+
+        const badges = [...document.querySelectorAll('[data-slot-name]')]
+            .map((name) => name.closest('button'))
+            .flatMap((slot) => [
+                ...(slot?.querySelectorAll<HTMLElement>('[data-size]') ?? []),
+            ])
+        expect(badges.length).toBeGreaterThan(0)
+        for (const badge of badges)
+            expect(badge.className.split(/\s+/)).toContain('font-mono')
+    })
+
     test('the page has one h1, one header (banner) and one footer, with a file and without', async () => {
         await openSample()
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
