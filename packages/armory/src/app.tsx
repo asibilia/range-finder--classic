@@ -9,7 +9,9 @@
  * The last file picked or dropped is kept in this browser and comes back on
  * reload (`remembered-file.ts`); the sample is never kept.
  */
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
+
+import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { BringIn, type ReadError } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
@@ -23,10 +25,26 @@ import {
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
 import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
+import {
+    PHONE_QUERY,
+    SIM_CREDIT,
+    type SimCount,
+    SimProgress,
+    Simming,
+} from '@/components/sim-progress'
 import { TalentsDialog } from '@/components/talents-dialog'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
+import {
+    type Character,
+    estimateMinutes,
+    refine,
+    simExport,
+    type SimExportOutcome,
+    type SimStop,
+    weightsIterations,
+} from './browser-sim'
 import type { Item } from './gains'
 import { itemName } from './item-name'
 import {
@@ -117,11 +135,13 @@ const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
 
 function Header({
     file,
+    headingRef,
     wishlistCount,
     onOpenWishlist,
     onOpenPawn,
 }: {
     file: ResultsFile | null
+    headingRef: RefObject<HTMLHeadingElement | null>
     wishlistCount: number
     onOpenWishlist: () => void
     onOpenPawn: () => void
@@ -129,7 +149,11 @@ function Header({
     return (
         <header className="flex flex-wrap items-end gap-6">
             <div>
-                <h1 className="text-[2.625rem] leading-none tracking-[0.01em]">
+                <h1
+                    ref={headingRef}
+                    tabIndex={-1}
+                    className="text-[2.625rem] leading-none tracking-[0.01em] outline-none"
+                >
                     {file ? file.character.name : 'Armory planner'}
                 </h1>
                 <p className="mt-1.5 text-muted-foreground">
@@ -171,16 +195,18 @@ function Header({
 
 /**
  * The footer, where the mockup has its own: the sample note (a sample file
- * has made-up numbers), how sure the sim is (its checks), and the line on
- * the art.
+ * has made-up numbers), how sure the sim is (its checks), the line on
+ * the art, and the sim's credit while it runs and once a file loads.
  */
 function Footer({
     file,
     remembered,
+    credit,
     onForget,
 }: {
     file: ResultsFile | null
     remembered: boolean
+    credit: boolean
     onForget: () => void
 }) {
     return (
@@ -219,6 +245,7 @@ function Footer({
             {file && (
                 <Checks checks={file.checks} leftOut={file.left_out_items} />
             )}
+            {credit && <p>{SIM_CREDIT}</p>}
         </footer>
     )
 }
@@ -230,11 +257,26 @@ type OpenDialog =
     | { kind: 'pawn' }
     | null
 
+/** An export: the addon's SavedVariables file. */
+function isExport(file: File): boolean {
+    return file.name.toLowerCase().endsWith('.lua')
+}
+
+/** A character simmed from an export dropped in this visit, for Refine. */
+type Simmed = { character: Character; minutes: number }
+
 /**
  * The armory planner's page. A render error in it is caught by the home
  * route's error boundary (`routes/home.tsx`).
+ *
+ * @param createPool - Makes the browser sim's pool, the first time an
+ * export is dropped (tests pass a fake).
  */
-export function App() {
+export function App({
+    createPool = createSimPool,
+}: {
+    createPool?: () => SimPool
+} = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
     const [wishlist, setWishlist] = useState<Wishlist>(() => new Map())
@@ -243,26 +285,180 @@ export function App() {
     const [remembered, setRemembered] = useState(false)
     // Whether the kept file no longer read and was forgotten on load.
     const [forgotten, setForgotten] = useState(false)
+    // The export's run before any file: its progress, or why it stopped.
+    const [simming, setSimming] = useState<SimCount | null>(null)
+    // The estimate while the run sims weights first (no file for the band).
+    const [weightsFirst, setWeightsFirst] = useState<number | null>(null)
+    const [stop, setStop] = useState<SimStop | null>(null)
+    // The character behind the file shown, when this visit simmed it.
+    const [simmed, setSimmed] = useState<Simmed | null>(null)
+    const [refining, setRefining] = useState<SimCount | null>(null)
+    const [phone, setPhone] = useState(false)
 
-    const open = (next: Loaded, keptHere = false) => {
+    const pool = useRef<SimPool | null>(null)
+    // Each run's number: a run that's no longer the latest is ignored.
+    const run = useRef(0)
+    const heading = useRef<HTMLHeadingElement | null>(null)
+    const focusHeading = useRef(false)
+
+    const getPool = () => (pool.current ??= createPool())
+
+    const open = (next: Loaded, keptHere = false, focus = false) => {
         setLoaded(next)
         setPlanner(next.file ? initialPlannerState(next.file) : null)
         setRemembered(keptHere)
         setForgotten(false)
+        setStop(null)
+        setSimmed(null)
+        focusHeading.current = focus && next.file !== null
+    }
+
+    /** A file the browser sim made: shown, and kept like any results file. */
+    const openSimmed = (
+        outcome: Extract<SimExportOutcome, { kind: 'file' }>,
+        size: number,
+        focus: boolean
+    ) => {
+        const kept = rememberFile(JSON.stringify(outcome.file))
+        open({ file: outcome.file, error: null }, kept, focus)
+        setSimmed({
+            character: outcome.character,
+            minutes: estimateMinutes(
+                weightsIterations(outcome.character.level),
+                outcome.msPerIteration,
+                size
+            ),
+        })
+    }
+
+    const simFailed = (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        open({ file: null, error: { kind: 'sim', message } })
+    }
+
+    const simPicked = async (picked: File) => {
+        const id = ++run.current
+        open({ file: null, error: null })
+        let text: string
+        try {
+            text = await picked.text()
+        } catch {
+            open({ file: null, error: { kind: 'unreadable' } })
+            return
+        }
+        if (run.current !== id) return
+        const simPool = getPool()
+        setSimming({ done: 0, planned: 0 })
+        setWeightsFirst(null)
+        try {
+            const outcome = await simExport(
+                text,
+                simPool,
+                (done, planned) => {
+                    if (run.current === id) setSimming({ done, planned })
+                },
+                {
+                    onWeightsFirst: (minutes) => {
+                        if (run.current === id) setWeightsFirst(minutes)
+                    },
+                }
+            )
+            if (run.current !== id) return
+            setSimming(null)
+            setWeightsFirst(null)
+            if (outcome.kind === 'file') openSimmed(outcome, simPool.size, true)
+            else setStop(outcome)
+        } catch (error) {
+            if (run.current !== id || error instanceof SimCancelled) return
+            setSimming(null)
+            setWeightsFirst(null)
+            simFailed(error)
+        }
     }
 
     const openPicked = (picked: File) => {
+        stopRefine()
+        if (isExport(picked)) {
+            void simPicked(picked)
+            return
+        }
         void readFile(picked).then(({ loaded: next, remembered: kept }) =>
-            open(next, kept)
+            open(next, kept, next.file !== null)
         )
     }
 
+    /** Stops the export's run, or Refine (which keeps the file shown). */
+    const cancel = () => {
+        run.current += 1
+        pool.current?.cancel()
+        setSimming(null)
+        setWeightsFirst(null)
+        setRefining(null)
+    }
+
+    /** A Refine still running is stopped when its file goes away. */
+    const stopRefine = () => {
+        if (refining) cancel()
+    }
+
+    const startRefine = async () => {
+        const file = loaded.file
+        if (!file || !simmed) return
+        const id = ++run.current
+        const simPool = getPool()
+        setRefining({ done: 0, planned: 0 })
+        try {
+            const outcome = await refine(
+                file,
+                simmed.character,
+                simPool,
+                (done, planned) => {
+                    if (run.current === id) setRefining({ done, planned })
+                }
+            )
+            if (run.current !== id) return
+            setRefining(null)
+            // A refined run that stops keeps the file shown.
+            if (outcome.kind === 'file')
+                openSimmed(outcome, simPool.size, false)
+        } catch {
+            // Cancelled, or the sim failed: the unrefined file stays.
+            if (run.current === id) setRefining(null)
+        }
+    }
+
     const forget = () => {
+        stopRefine()
         forgetFile()
         open({ file: null, error: null })
         setWishlist(new Map())
         setDialog(null)
     }
+
+    // The pool's workers stop with the page.
+    useEffect(
+        () => () => {
+            pool.current?.close()
+            pool.current = null
+        },
+        []
+    )
+
+    // Phones get a note: the browser only, so the prerendered page has none.
+    useEffect(() => {
+        setPhone(
+            typeof window.matchMedia === 'function' &&
+                window.matchMedia(PHONE_QUERY).matches
+        )
+    }, [])
+
+    // Focus moves to the character's name when a picked file loads.
+    useEffect(() => {
+        if (loaded.file && focusHeading.current) {
+            focusHeading.current = false
+            heading.current?.focus()
+        }
+    }, [loaded.file])
 
     // The kept file comes back after the page loads: in an effect, so the
     // prerendered page (and hydration) is always the new-visitor state.
@@ -277,7 +473,7 @@ export function App() {
 
     // A file dropped anywhere on the page must not make the browser open it.
     // With nothing loaded yet, the drop loads it, as the drop box does.
-    const waiting = loaded.file === null
+    const waiting = loaded.file === null && simming === null
     useEffect(() => {
         const onDragOver = (event: DragEvent) => event.preventDefault()
         const onDrop = (event: DragEvent) => {
@@ -324,16 +520,39 @@ export function App() {
     const bagWorn = planner?.bagWorn ?? null
     const wornOf = (fightId: string) =>
         file && planner ? wornResult(file, planner, fightId) : null
+    // Refine: only for a character simmed in this visit, until its weights
+    // are its own.
+    const refinable =
+        file !== null &&
+        simmed !== null &&
+        !file.stat_weights.some((entry) => entry.source?.kind === 'yours')
+    const refineAction = refining ? (
+        <SimProgress count={refining} onCancel={cancel} />
+    ) : refinable && simmed ? (
+        <Button variant="outline" size="sm" onClick={() => void startRefine()}>
+            {`Refine for your gear (about ${simmed.minutes} min)`}
+        </Button>
+    ) : null
 
     return (
         <TooltipProvider>
             <main className="mx-auto flex max-w-360 flex-col px-4 pt-5.5 pb-9 sm:px-6 lg:px-10">
                 <Header
                     file={file}
+                    headingRef={heading}
                     wishlistCount={wishlist.size}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
                     onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
+                {file?.provisional && (
+                    <p
+                        role="note"
+                        className="mt-3 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-sm"
+                    >
+                        The sim isn&apos;t checked against real fights yet. Use
+                        these numbers to compare gear, not as a promise of DPS.
+                    </p>
+                )}
                 <div
                     data-slot="planner-body"
                     className="mt-4.5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
@@ -348,12 +567,23 @@ export function App() {
                         }
                         onUndoBag={() => dispatch({ type: 'undo-bag-item' })}
                         middle={
-                            <BringIn
-                                error={error}
-                                notice={forgotten ? FORGOTTEN_NOTE : null}
-                                onFile={openPicked}
-                                onSample={() => open(load(sample))}
-                            />
+                            simming ? (
+                                <Simming
+                                    count={simming}
+                                    phone={phone}
+                                    weightsFirst={weightsFirst}
+                                    onCancel={cancel}
+                                />
+                            ) : (
+                                <BringIn
+                                    error={error}
+                                    notice={forgotten ? FORGOTTEN_NOTE : null}
+                                    stop={stop}
+                                    phone={phone}
+                                    onFile={openPicked}
+                                    onSample={() => open(load(sample))}
+                                />
+                            )
                         }
                         onShowPlan={() => dispatch({ type: 'show-plan' })}
                         onShowWorn={() => dispatch({ type: 'show-worn' })}
@@ -403,9 +633,15 @@ export function App() {
                         onPickFight={(fightId) =>
                             dispatch({ type: 'pick-fight', fight_id: fightId })
                         }
+                        weightsAction={refineAction}
                     />
                 )}
-                <Footer file={file} remembered={remembered} onForget={forget} />
+                <Footer
+                    file={file}
+                    remembered={remembered}
+                    credit={file !== null || simming !== null}
+                    onForget={forget}
+                />
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
                         entry={slotEntry(file, dialog.slot, bagWorn)}

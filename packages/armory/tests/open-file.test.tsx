@@ -16,6 +16,7 @@ import {
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 
+import { stopLines } from '../src/components/bring-in'
 import sample from '../src/sample-truncha.json'
 
 const SLOT_LABELS = [
@@ -84,7 +85,6 @@ describe('the new-visitor state', () => {
         const input = screen.getByLabelText('Open a results file')
         expect(input.tagName).toBe('INPUT')
         expect(input.getAttribute('type')).toBe('file')
-        expect(input.getAttribute('accept')).toBe('.json,application/json')
 
         const drop = screen.getByRole('region', { name: 'Drop a results file' })
         expect(drop.textContent).toContain('Drop your results file here')
@@ -93,15 +93,27 @@ describe('the new-visitor state', () => {
         expect(drop.contains(input)).toBe(true)
 
         expect(
-            screen.getByText(
-                'Simming your own export right here is coming later.'
-            )
-        ).toBeDefined()
-        expect(
             screen.getByRole('button', {
                 name: 'Or look at a sample character',
             })
         ).toBeDefined()
+    })
+
+    test('the picker takes .json and .lua, and the state says the export is simmed on this computer and never leaves it', () => {
+        renderApp()
+
+        const input = screen.getByLabelText('Open a results file')
+        expect(input.getAttribute('accept')).toBe('.json,application/json,.lua')
+        expect(
+            screen.getByText(
+                'Drop your TurboCharExport.lua here to sim your character on this computer. It never leaves your computer.'
+            )
+        ).toBeDefined()
+        expect(
+            screen.queryByText(
+                'Simming your own export right here is coming later.'
+            )
+        ).toBeNull()
     })
 
     test('lists the three steps to bring a character in, in order', () => {
@@ -113,14 +125,44 @@ describe('the new-visitor state', () => {
         expect(section).not.toBeNull()
         const list = within(section as HTMLElement).getByRole('list')
         expect(list.tagName).toBe('OL')
+        const steps = within(list).getAllByRole('listitem')
+        expect(steps).toHaveLength(3)
+        expect(steps[0]!.textContent).toContain('/tbexport')
+    })
+
+    test('the three steps are /tbexport, /reload, then drop TurboCharExport.lua from the SavedVariables folder', () => {
+        renderApp()
+
+        const section = screen
+            .getByRole('heading', { level: 2, name: 'Bring your character in' })
+            .closest('section')
+        const list = within(section as HTMLElement).getByRole('list')
+        const steps = within(list)
+            .getAllByRole('listitem')
+            .map((item) => item.textContent)
+        expect(steps).toHaveLength(3)
+        expect(steps[0]).toContain('type /tbexport in the game.')
+        expect(steps.slice(1)).toEqual([
+            'Type /reload so the game writes the file.',
+            "Drop TurboCharExport.lua here. It's in your game folder, inside WTF, then Account, in your character's SavedVariables folder.",
+        ])
+    })
+
+    test('the first step names the TurboCharExport addon, not Turbo', () => {
+        renderApp()
+
+        const section = screen
+            .getByRole('heading', { level: 2, name: 'Bring your character in' })
+            .closest('section')
+        const list = within(section as HTMLElement).getByRole('list')
         expect(
             within(list)
                 .getAllByRole('listitem')
                 .map((item) => item.textContent)
         ).toEqual([
-            'Install the Turbo addon and type /tbexport in the game.',
-            'Run the gear sim on that export to get a results file.',
-            'Open the results file here, or drop it on this page.',
+            'Install the TurboCharExport addon and type /tbexport in the game.',
+            'Type /reload so the game writes the file.',
+            "Drop TurboCharExport.lua here. It's in your game folder, inside WTF, then Account, in your character's SavedVariables folder.",
         ])
     })
 
@@ -144,6 +186,14 @@ describe('the new-visitor state', () => {
 })
 
 describe('opening the wrong file', () => {
+    test('an export of format 99 says to update the TurboCharExport addon', () => {
+        expect(
+            stopLines({ kind: 'format', format: 99, accepted: [7] })
+        ).toEqual([
+            'This export is format 99. The page reads formats 7. Update the TurboCharExport addon and export again.',
+        ])
+    })
+
     test('a .json file that is not JSON says it is not JSON', async () => {
         await pick(
             renderApp(),

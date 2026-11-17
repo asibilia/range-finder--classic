@@ -45,7 +45,8 @@ jobs:
                     echo ""
                     echo "  bun run changeset"
                     echo ""
-                    echo "Pick @goturbo/addon and/or @goturbo/web, choose a bump,"
+                    echo "Pick @goturbo/addon, @goturbo/web, @goturbo/armory and/or"
+                  echo "@goturbo/sim, choose a bump,"
                     echo "and commit the generated .changeset/*.md file."
                     exit 1
                   fi

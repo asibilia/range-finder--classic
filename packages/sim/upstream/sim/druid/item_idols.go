@@ -1,0 +1,102 @@
+package druid
+
+import (
+	"github.com/wowsims/forever/sim/common/shared"
+	"github.com/wowsims/forever/sim/core"
+	"github.com/wowsims/forever/sim/core/proto"
+	"github.com/wowsims/forever/sim/core/spelldata"
+)
+
+// The idols' equip spells reach their spells by class flags.
+func init() {
+	core.NewItemEffect(263435, func(agent core.Agent) {
+		character := agent.GetCharacter()
+		row := spelldata.MustFind(1270490)
+		config := spelldata.AuraConfig(row)
+		if character.HasItemEquipped(263435, []proto.ItemSlot{proto.ItemSlot_ItemSlotRanged}) {
+			config.BuildPhase = core.CharacterBuildPhaseGear
+		}
+		aura := character.RegisterAura(config)
+		spelldata.ParseEffects(character, aura, row)
+		character.ItemSwap.RegisterProc(263435, core.MakePermanent(aura))
+	})
+
+	core.NewItemEffect(279251, func(agent core.Agent) {
+		druid := agent.(DruidAgent).GetDruid()
+		row := spelldata.MustFind(1306483)
+		trigger := spelldata.ProcTrigger(&druid.Character, row, func(sim *core.Simulation, _ *core.Spell, _ *core.SpellResult) {
+			druid.PrimalBite.CD.Reset()
+		})
+		trigger.Outcome = core.OutcomeLanded
+		// TODO: Ingame test needed -- whether a fully absorbed Lacerate qualifies; the sim lets it.
+		trigger.RequireDamageDealt = false
+		trigger.ExtraCondition = func(_ *core.Simulation, spell *core.Spell, _ *core.SpellResult) bool {
+			return druid.PrimalBite != nil && spell.SpellID == lacerateHitSpellID
+		}
+		druid.ItemSwap.RegisterProc(279251, druid.MakeProcTriggerAura(trigger))
+	})
+
+	// Idol of Health
+	// https://www.wowhead.com/forever/item=22399/idol-of-health
+	//
+	// Reduces the casting time of your Healing Touch spell by 0.15 sec.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 27846},
+		[]shared.ItemVariant{
+			{ItemID: 22399, ItemName: "Idol of Health"},
+		})
+
+	// Howling Idol
+	// https://www.wowhead.com/forever/item=272427/howling-idol
+	//
+	// Reduces the cooldown of your Shifting Power ability by 0.5 sec.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1291059},
+		[]shared.ItemVariant{
+			{ItemID: 272427, ItemName: "Howling Idol"},
+		})
+
+	// Enraged Idol
+	// https://www.wowhead.com/forever/item=272428/enraged-idol
+	//
+	// Your Enrage ability generates an additional 10 Rage over its duration.
+	//
+	// Enrage's ticks add the rage (enrage.go).
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1291060},
+		[]shared.ItemVariant{
+			{ItemID: 272428, ItemName: "Enraged Idol"},
+		})
+
+	// Swarming Idol
+	// https://www.wowhead.com/forever/item=272430/swarming-idol
+	//
+	// Increases the duration of your Insect Swarm ability by 2 sec.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1291061},
+		[]shared.ItemVariant{
+			{ItemID: 272430, ItemName: "Swarming Idol"},
+		})
+
+	// Idol of Shifting Tides
+	//
+	// Reduces the mana cost of your shapeshifts by 40. The cut comes off the row's cost before
+	// the percent cost mods.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1270470},
+		[]shared.ItemVariant{
+			{ItemID: 263411, ItemName: "Idol of Shifting Tides"},
+		})
+
+	// Mystic Mushroom
+	//
+	// Increases your Spirit by 5%.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1248751},
+		[]shared.ItemVariant{
+			{ItemID: 249396, ItemName: "Mystic Mushroom"},
+		})
+
+	// Idol of Swiftness
+	// https://www.wowhead.com/forever/item=279250/idol-of-swiftness
+	//
+	// Reduces the cooldown of your Swiftmend spell by 3 sec.
+	shared.NewSpellDataEquipAura(shared.SpellDataProc{TriggerSpellID: 1306488},
+		[]shared.ItemVariant{
+			{ItemID: 279250, ItemName: "Idol of Swiftness"},
+		})
+}

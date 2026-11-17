@@ -612,6 +612,32 @@ describe('the damage split and stat weights', () => {
     })
 })
 
+describe("the stat weights' source", () => {
+    const withSource = (source: Json) =>
+        variant((file) => {
+            for (const entry of file.stat_weights as Json[])
+                entry.source = structuredClone(source)
+        })
+
+    test('precomputed weights say so under the stat weights, with the spec, class and band', async () => {
+        await openFile(
+            withSource({ kind: 'precomputed', level_min: 30, level_max: 34 })
+        )
+        expect(
+            screen.getByText(
+                'Stat weights: precomputed for an Enhancement Shaman at level 30–34, not your gear.'
+            )
+        ).toBeDefined()
+    })
+
+    test('weights simmed for the gear say so', async () => {
+        await openFile(withSource({ kind: 'yours' }))
+        expect(
+            screen.getByText('Stat weights: simmed for your gear.')
+        ).toBeDefined()
+    })
+})
+
 describe('how sure the sim is', () => {
     test('How sure is this? opens to the counts and one line per check', async () => {
         const user = await openFile(sample)

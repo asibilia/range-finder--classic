@@ -1,0 +1,1315 @@
+package core
+
+import (
+	"time"
+
+	"github.com/wowsims/forever/sim/core/proto"
+	"github.com/wowsims/forever/sim/core/stats"
+)
+
+// ReplaceMHSwing is called right before a main hand auto attack fires.
+// It must never return nil, but either a replacement spell or the passed in regular mhSwingSpell.
+// This allows for abilities that convert a white attack into a yellow attack.
+type ReplaceMHSwing func(sim *Simulation, mhSwingSpell *Spell) *Spell
+
+// Represents a generic weapon. Pets / unarmed / various other cases don't use
+// actual weapon items so this is an abstraction of a Weapon.
+type Weapon struct {
+	BaseDamageMin        float64
+	BaseDamageMax        float64
+	AttackPowerPerDPS    float64
+	SwingSpeed           float64
+	NormalizedSwingSpeed float64
+	SpellSchool          SpellSchool
+	MinRange             float64
+	MaxRange             float64
+}
+
+func (weapon *Weapon) DPS() float64 {
+	if weapon.SwingSpeed == 0 {
+		return 0
+	}
+	return (weapon.BaseDamageMin + weapon.BaseDamageMax) / 2.0 / weapon.SwingSpeed
+}
+
+func newWeaponFromUnarmed() Weapon {
+	// These numbers are probably wrong but nobody cares.
+	return Weapon{
+		BaseDamageMin:        0,
+		BaseDamageMax:        0,
+		SwingSpeed:           1,
+		NormalizedSwingSpeed: 1,
+		AttackPowerPerDPS:    DefaultAttackPowerPerDPS,
+		MaxRange:             MaxMeleeRange,
+	}
+}
+
+func getWeaponMaxRange(item *Item) float64 {
+	switch item.RangedWeaponType {
+	case proto.RangedWeaponType_RangedWeaponTypeUnknown:
+		return MaxMeleeRange
+	case proto.RangedWeaponType_RangedWeaponTypeWand:
+	case proto.RangedWeaponType_RangedWeaponTypeThrown:
+		return 30
+	default:
+		return 35
+	}
+
+	return 35
+}
+
+// How close to its target a ranged weapon of the type fires from: a bow, crossbow or gun from MinRangedRange, a wand
+// or thrown weapon from anywhere. A relic never fires.
+func RangedWeaponMinRange(weaponType proto.RangedWeaponType) float64 {
+	switch weaponType {
+	case proto.RangedWeaponType_RangedWeaponTypeBow, proto.RangedWeaponType_RangedWeaponTypeCrossbow, proto.RangedWeaponType_RangedWeaponTypeGun:
+		return MinRangedRange
+	}
+	return 0
+}
+
+const TwoHandNormalizedSwingSpeed = 3.3
+
+func newWeaponFromItem(item *Item, bonusDps float64) Weapon {
+	normalizedWeaponSpeed := 2.4
+	if item.WeaponType == proto.WeaponType_WeaponTypeDagger {
+		normalizedWeaponSpeed = 1.7
+	} else if item.HandType == proto.HandType_HandTypeTwoHand {
+		normalizedWeaponSpeed = TwoHandNormalizedSwingSpeed
+	} else if item.RangedWeaponType != proto.RangedWeaponType_RangedWeaponTypeUnknown {
+		normalizedWeaponSpeed = 2.8
+	}
+
+	return Weapon{
+		BaseDamageMin:        item.WeaponDamageMin + item.Enchant.WeaponDamage + bonusDps*item.SwingSpeed + item.TempEnchantWeaponDamage,
+		BaseDamageMax:        item.WeaponDamageMax + item.Enchant.WeaponDamage + bonusDps*item.SwingSpeed + item.TempEnchantWeaponDamage,
+		SwingSpeed:           item.SwingSpeed,
+		NormalizedSwingSpeed: normalizedWeaponSpeed,
+		AttackPowerPerDPS:    DefaultAttackPowerPerDPS,
+		MinRange:             RangedWeaponMinRange(item.RangedWeaponType),
+		MaxRange:             getWeaponMaxRange(item),
+		SpellSchool:          SpellSchoolFromProto(item.SpellSchool),
+	}
+}
+
+// Returns weapon stats using the main hand equipped weapon.
+func (character *Character) WeaponFromMainHand() Weapon {
+	if weapon := character.GetMHWeapon(); weapon != nil {
+		return newWeaponFromItem(weapon, character.PseudoStats.BonusMHDps)
+	} else {
+		return newWeaponFromUnarmed()
+	}
+}
+
+// Returns weapon stats using the off-hand equipped weapon.
+func (character *Character) WeaponFromOffHand() Weapon {
+	if weapon := character.GetOHWeapon(); weapon != nil {
+		return newWeaponFromItem(weapon, character.PseudoStats.BonusOHDps)
+	} else {
+		return Weapon{}
+	}
+}
+
+// Returns weapon stats using the ranged equipped weapon.
+func (character *Character) WeaponFromRanged() Weapon {
+	if weapon := character.GetRangedWeapon(); weapon != nil {
+		return newWeaponFromItem(weapon, character.PseudoStats.BonusRangedDps)
+	} else {
+		return Weapon{}
+	}
+}
+
+func (weapon *Weapon) GetSpellSchool() SpellSchool {
+	if weapon.SpellSchool == SpellSchoolNone {
+		return SpellSchoolPhysical
+	} else {
+		return weapon.SpellSchool
+	}
+}
+
+// A weapon that deals magic damage adds no spell damage to its autos.
+func (weapon *Weapon) GetBonusCoefficient() float64 {
+	if weapon.GetSpellSchool() == SpellSchoolPhysical {
+		return 1
+	}
+	return 0
+}
+
+func (weapon *Weapon) EnemyWeaponDamage(sim *Simulation, attackPower float64, damageSpread float64) float64 {
+	// Maximum damage range is 133% of minimum damage; AP contribution is % of minimum damage roll.
+	// Patchwerk follows special damage range rules.
+	// TODO: Scrape more logs to determine these values more accurately. AP defined in constants.go
+
+	rand := 1 + damageSpread*sim.RandomFloat("Enemy Weapon Damage")
+	return weapon.BaseDamageMin * (rand + max(0, attackPower*EnemyAutoAttackAPCoefficient))
+}
+
+func (weapon *Weapon) BaseDamage(sim *Simulation) float64 {
+	return weapon.BaseDamageMin + (weapon.BaseDamageMax-weapon.BaseDamageMin)*sim.RandomFloat("Weapon Base Damage")
+}
+
+func (weapon *Weapon) AverageDamage() float64 {
+	return (weapon.BaseDamageMin + weapon.BaseDamageMax) / 2
+}
+
+func (weapon *Weapon) CalculateWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return weapon.BaseDamage(sim) + (weapon.SwingSpeed*attackPower)/weapon.AttackPowerPerDPS
+}
+
+func (weapon *Weapon) CalculateAverageWeaponDamage(attackPower float64) float64 {
+	return weapon.AverageDamage() + (weapon.SwingSpeed*attackPower)/weapon.AttackPowerPerDPS
+}
+
+func (weapon *Weapon) CalculateNormalizedWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return weapon.BaseDamage(sim) + (weapon.NormalizedSwingSpeed*attackPower)/weapon.AttackPowerPerDPS
+}
+
+func (unit *Unit) MHWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return unit.AutoAttacks.mh.CalculateWeaponDamage(sim, attackPower)
+}
+func (unit *Unit) MHNormalizedWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return unit.AutoAttacks.mh.CalculateNormalizedWeaponDamage(sim, attackPower)
+}
+
+func (unit *Unit) OHWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return 0.5 * unit.AutoAttacks.oh.CalculateWeaponDamage(sim, attackPower)
+}
+func (unit *Unit) OHNormalizedWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return 0.5 * unit.AutoAttacks.oh.CalculateNormalizedWeaponDamage(sim, attackPower)
+}
+func (unit *Unit) RangedNormalizedWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return unit.AutoAttacks.ranged.CalculateNormalizedWeaponDamage(sim, attackPower)
+}
+
+func (unit *Unit) RangedWeaponDamage(sim *Simulation, attackPower float64) float64 {
+	return unit.AutoAttacks.ranged.CalculateWeaponDamage(sim, attackPower)
+}
+
+type MeleeDamageCalculator func(attackPower float64, bonusWeaponDamage float64) float64
+
+// Returns whether this hit effect is associated with the main-hand weapon.
+func (spell *Spell) IsMH() bool {
+	return spell.ProcMask.Matches(ProcMaskMeleeMH)
+}
+
+// Returns whether this hit effect is associated with the off-hand weapon.
+func (spell *Spell) IsOH() bool {
+	return spell.ProcMask.Matches(ProcMaskMeleeOH)
+}
+
+// Returns whether this hit effect is associated with either melee weapon.
+func (spell *Spell) IsMelee() bool {
+	return spell.ProcMask.Matches(ProcMaskMelee)
+}
+
+// Returns whether this hit effect is associated with a ranged weapon.
+func (spell *Spell) IsRanged() bool {
+	return spell.ProcMask.Matches(ProcMaskRanged)
+}
+
+func (aa *AutoAttacks) MH() *Weapon {
+	return aa.mh.getWeapon()
+}
+
+func (aa *AutoAttacks) SetMH(weapon Weapon) {
+	aa.mh.setWeapon(weapon)
+}
+
+func (aa *AutoAttacks) OH() *Weapon {
+	return aa.oh.getWeapon()
+}
+
+func (aa *AutoAttacks) SetOH(weapon Weapon) {
+	aa.oh.setWeapon(weapon)
+}
+
+func (aa *AutoAttacks) Ranged() *Weapon {
+	return aa.ranged.getWeapon()
+}
+
+func (aa *AutoAttacks) SetRanged(weapon Weapon) {
+	aa.ranged.setWeapon(weapon)
+}
+
+func (aa *AutoAttacks) MHAuto() *Spell {
+	return aa.mh.spell
+}
+
+func (aa *AutoAttacks) SetMHSpell(spell *Spell) {
+	aa.mh.spell = spell
+}
+
+func (aa *AutoAttacks) OHAuto() *Spell {
+	return aa.oh.spell
+}
+
+func (aa *AutoAttacks) SetOHSpell(spell *Spell) {
+	aa.oh.spell = spell
+}
+
+func (aa *AutoAttacks) RangedAuto() *Spell {
+	return aa.ranged.spell
+}
+
+func (aa *AutoAttacks) MainhandSwingAt() time.Duration {
+	return aa.mh.swingAt
+}
+
+func (aa *AutoAttacks) MainhandPreviousSwing() time.Duration {
+	return aa.mh.previousSwing
+}
+
+func (aa *AutoAttacks) OffhandSwingAt() time.Duration {
+	return aa.oh.swingAt
+}
+
+func (aa *AutoAttacks) OffhandPreviousSwing() time.Duration {
+	return aa.oh.previousSwing
+}
+
+// Returns the next ranged event time, or the natural windup start while an enabled shot is blocked.
+func (aa *AutoAttacks) NextRangedAttackAt() time.Duration {
+	if aa.ranged.swingAt == NeverExpires && aa.ranged.enabled {
+		return aa.ranged.windupStartAt()
+	}
+	return aa.ranged.swingAt
+}
+
+func (aa *AutoAttacks) PreviousRangedAttack() time.Duration {
+	return aa.ranged.previousSwing
+}
+
+func (aa *AutoAttacks) SetOffhandSwingAt(offhandSwingAt time.Duration) {
+	aa.oh.swingAt = offhandSwingAt
+}
+
+func (aa *AutoAttacks) SetReplaceMHSwing(replaceSwing ReplaceMHSwing) {
+	aa.mh.replaceSwing = replaceSwing
+}
+
+func (aa *AutoAttacks) SetReplaceOHSwing(replaceSwing ReplaceMHSwing) {
+	aa.oh.replaceSwing = replaceSwing
+}
+
+// Sets how the unit drops the attack it queued for the next swing (Heroic Strike, Cleave, Maul); nil
+// for a unit that queues none.
+func (aa *AutoAttacks) SetQueuedSwingCanceler(cancel func(sim *Simulation)) {
+	aa.cancelQueuedSwing = cancel
+}
+
+// Drops the attack the unit queued for the next swing, if any.
+func (aa *AutoAttacks) CancelQueuedSwing(sim *Simulation) {
+	if aa.cancelQueuedSwing != nil {
+		aa.cancelQueuedSwing(sim)
+	}
+}
+
+func (aa *AutoAttacks) MHConfig() *SpellConfig {
+	return &aa.mh.config
+}
+
+func (aa *AutoAttacks) OHConfig() *SpellConfig {
+	return &aa.oh.config
+}
+
+func (aa *AutoAttacks) RangedConfig() *SpellConfig {
+	return &aa.ranged.config
+}
+
+type WeaponAttack struct {
+	Weapon
+
+	agent Agent
+	unit  *Unit
+
+	config SpellConfig
+	spell  *Spell
+
+	replaceSwing ReplaceMHSwing
+
+	swingAt       time.Duration
+	previousSwing time.Duration
+
+	// When the next swing would naturally complete, ignoring holds. For ranged attacks this is
+	// the release, and 0 marks the opening shot before windup starts. Used for the timeline's auto delay.
+	naturalReadyAt time.Duration
+
+	// Set by swing() immediately before firing the cast, read by the ranged
+	// auto ApplyEffects to log how late the shot fired.
+	pendingSwingDelay time.Duration
+
+	// When the running ranged windup completes, 0 when none is running.
+	windupEnd      time.Duration
+	windupDuration time.Duration // the running windup's length, at the ranged haste it started with
+	pauseUntil     time.Duration // Ranged windup cannot start before a pause ends.
+	reactionUntil  time.Duration // A held shot waits a reaction time after movement ends.
+
+	curSwingSpeed    float64
+	curSwingDuration time.Duration
+	enabled          bool
+	heldByCast       bool // The swing came due during a cast that resets it and waits for the cast to end.
+}
+
+func (wa *WeaponAttack) rangedWindup() time.Duration {
+	return time.Duration(float64(RangedSwingWindup) / wa.curSwingSpeed)
+}
+
+func (wa *WeaponAttack) windupStartAt() time.Duration {
+	if wa.naturalReadyAt == 0 {
+		return 0
+	}
+	return wa.naturalReadyAt - wa.rangedWindup()
+}
+
+func (wa *WeaponAttack) scheduleRangedSwing(sim *Simulation) {
+	if wa.windupEnd != 0 {
+		wa.swingAt = max(sim.CurrentTime, wa.windupEnd)
+	} else {
+		wa.swingAt = max(sim.CurrentTime, wa.windupStartAt())
+	}
+	wa.swingAt = max(wa.swingAt, wa.pauseUntil, wa.reactionUntil)
+	if wa.unit.Moving {
+		wa.swingAt = NeverExpires
+	}
+	if wa.enabled {
+		sim.rescheduleWeaponAttack(wa.swingAt)
+	}
+}
+
+func (wa *WeaponAttack) getWeapon() *Weapon {
+	return &wa.Weapon
+}
+
+func (wa *WeaponAttack) setWeapon(weapon Weapon) {
+	wa.Weapon = weapon
+	if wa.spell != nil {
+		wa.spell.SetSpellSchool(weapon.GetSpellSchool())
+		wa.spell.BonusCoefficient = weapon.GetBonusCoefficient()
+	}
+	wa.updateSwingDuration(wa.curSwingSpeed)
+}
+
+// inlineable stub for swing
+func (wa *WeaponAttack) trySwing(sim *Simulation) time.Duration {
+	if sim.CurrentTime < wa.swingAt {
+		return wa.swingAt
+	}
+	return wa.swing(sim)
+}
+
+func (wa *WeaponAttack) swing(sim *Simulation) time.Duration {
+	attackSpell := wa.spell
+	isRanged := wa == &wa.unit.AutoAttacks.ranged
+
+	// A blocked ranged auto resumes when movement ends, the target returns to range,
+	// a melee swing resets it, or a ranged weapon swap resets it.
+	if isRanged && (wa.unit.Moving || wa.requirementFails(sim)) {
+		wa.dropRangedWindup(sim)
+		wa.swingAt = NeverExpires
+		return wa.swingAt
+	}
+
+	// A ready ranged auto first winds up, which runs through casts. Moving
+	// cancels it (see initMovement).
+	if isRanged && wa.windupEnd == 0 {
+		wa.unit.AutoAttacks.meleeAttackOn = false // starting a ranged auto turns the melee attack off
+		wa.windupDuration = wa.rangedWindup()
+		wa.windupEnd = sim.CurrentTime + wa.windupDuration
+		if wa.naturalReadyAt == 0 {
+			wa.naturalReadyAt = wa.windupEnd
+		}
+		wa.scheduleRangedSwing(sim)
+		if sim.Log != nil {
+			wa.unit.Log(sim, "Casting %s (Cost = 0.000, Cast Time = %s, GCD = 0s, Effective Time = %s)", attackSpell.ActionID, wa.windupDuration, wa.windupDuration)
+		}
+		return wa.swingAt
+	}
+	wa.windupEnd = 0
+
+	// A melee swing waits out a cast that resets it, one due at the cast's last instant included. The
+	// completed cast sets the real swing time; this one only has to land past the cast's end,
+	// wherever pushback moves it.
+	if hc := &wa.unit.Hardcast; !isRanged && hc.ResetsSwing && hc.Expires >= sim.CurrentTime {
+		wa.swingAt = hc.Expires + wa.curSwingDuration
+		wa.heldByCast = true
+		return wa.swingAt
+	}
+
+	if wa.replaceSwing != nil {
+		// Need to check APL here to allow last-moment HS queue casts.
+		wa.unit.ReactToEvent(sim, false, false)
+
+		// Need to check this again in case the DoNextAction call swapped items.
+		if wa.replaceSwing != nil {
+			// Allow MH swing to be overridden for abilities like Heroic Strike.
+			attackSpell = wa.replaceSwing(sim, attackSpell)
+		}
+	}
+
+	// Update swing timer BEFORE the cast, so that APL checks for TimeToNextAuto behave correctly
+	// if the attack causes APL evaluations (e.g. from rage gain).
+	wa.previousSwing = wa.swingAt
+	wa.swingAt = sim.CurrentTime + wa.curSwingDuration
+	// Parry haste can bring a melee swing in before its uncontested ready time.
+	wa.pendingSwingDelay = max(0, sim.CurrentTime-wa.naturalReadyAt)
+	wa.naturalReadyAt = wa.swingAt
+	if isRanged {
+		wa.scheduleRangedSwing(sim)
+	}
+	wa.logSwingDelay(sim, attackSpell, isRanged)
+
+	// A melee swing restarts the ranged auto: the next one fires a full ranged swing after it, the
+	// windup included, wherever the player stands by then.
+	if !isRanged && wa.unit.AutoAttacks.AutoSwingRanged {
+		wa.unit.AutoAttacks.StopRangedUntil(sim, sim.CurrentTime)
+	}
+
+	attackSpell.Cast(sim, wa.unit.CurrentTarget)
+
+	if !sim.Options.Interactive && (wa.unit.Rotation != nil) && !wa.unit.Metrics.isTanking {
+		wa.unit.ReactToEvent(sim, false, true)
+	}
+
+	return wa.swingAt
+}
+
+// logSwingDelay logs how late a player's swing went off against an uncontested rotation, for the
+// timeline's delay band. It names the spell the swing casts, so a queued Heroic Strike or Raptor
+// Strike carries the delay too. Under 1ms is rounding and stays silent.
+func (wa *WeaponAttack) logSwingDelay(sim *Simulation, spell *Spell, isRanged bool) {
+	if sim.Log == nil || wa.unit.Type != PlayerUnit || wa.pendingSwingDelay <= time.Millisecond {
+		return
+	}
+	readyAt := sim.CurrentTime - wa.pendingSwingDelay
+	if isRanged {
+		readyAt -= wa.windupDuration // when the windup could have started
+	}
+	if readyAt > 0 {
+		wa.unit.Log(sim, "%s delayed by %s, was ready at %s", spell.ActionID, wa.pendingSwingDelay, readyAt)
+	}
+}
+
+func (wa *WeaponAttack) requirementFails(sim *Simulation) bool {
+	if !wa.spell.hasCastRequirement {
+		return false
+	}
+	reason, _ := wa.spell.castRequirementFailure(sim, nil)
+	return reason != ""
+}
+
+func (wa *WeaponAttack) updateSwingDuration(curSwingSpeed float64) {
+	wa.curSwingSpeed = curSwingSpeed
+	wa.curSwingDuration = DurationFromSeconds(wa.SwingSpeed / wa.curSwingSpeed)
+}
+
+func (wa *WeaponAttack) addWeaponAttack(sim *Simulation, swingSpeed float64) {
+	if !wa.enabled {
+		return
+	}
+
+	wa.updateSwingDuration(swingSpeed)
+	sim.addWeaponAttack(wa)
+	sim.rescheduleWeaponAttack(wa.swingAt)
+}
+
+type AutoAttacks struct {
+	AutoSwingMelee    bool
+	AutoSwingRanged   bool
+	RandomMeleeOffset bool
+
+	IsDualWielding bool
+
+	character *Character
+
+	mh     WeaponAttack
+	oh     WeaponAttack
+	ranged WeaponAttack
+
+	// Wakes a melee-weaver's rotation when an out-of-range MH swing comes ready.
+	meleeWeaveWakeup *PendingAction
+
+	meleeAttackOn bool // The melee attack is toggled on, which starting a ranged auto turns off.
+
+	cancelQueuedSwing func(sim *Simulation) // Drops the attack the unit queued for the next swing.
+}
+
+// Options for initializing auto attacks.
+type AutoAttackOptions struct {
+	MainHand        Weapon
+	OffHand         Weapon
+	Ranged          Weapon
+	AutoSwingMelee  bool // If true, core engine will handle calling SwingMelee() for you.
+	AutoSwingRanged bool // If true, core engine will handle calling SwingRanged() for you.
+	ReplaceMHSwing  ReplaceMHSwing
+	ProcMask        ProcMask // If set will replace the ProcMask for any weapon spells configured.
+}
+
+func (unit *Unit) EnableAutoAttacks(agent Agent, options AutoAttackOptions) {
+	if options.MainHand.AttackPowerPerDPS == 0 {
+		options.MainHand.AttackPowerPerDPS = DefaultAttackPowerPerDPS
+	}
+	if options.OffHand.AttackPowerPerDPS == 0 {
+		options.OffHand.AttackPowerPerDPS = DefaultAttackPowerPerDPS
+	}
+
+	unit.AutoAttacks = AutoAttacks{
+		AutoSwingMelee:    options.AutoSwingMelee,
+		AutoSwingRanged:   options.AutoSwingRanged,
+		RandomMeleeOffset: true,
+
+		IsDualWielding: options.OffHand.SwingSpeed != 0,
+
+		character: agent.GetCharacter(),
+
+		mh: WeaponAttack{
+			agent:        agent,
+			unit:         unit,
+			Weapon:       options.MainHand,
+			replaceSwing: options.ReplaceMHSwing,
+		},
+		oh: WeaponAttack{
+			agent:  agent,
+			unit:   unit,
+			Weapon: options.OffHand,
+		},
+		ranged: WeaponAttack{
+			agent:  agent,
+			unit:   unit,
+			Weapon: options.Ranged,
+		},
+	}
+
+	unit.AutoAttacks.mh.config = SpellConfig{
+		ActionID:    ActionID{OtherID: proto.OtherAction_OtherActionAttack}.WithHand(proto.ItemSlot_ItemSlotMainHand),
+		SpellSchool: options.MainHand.GetSpellSchool(),
+		DefenseType: DefenseTypeMelee,
+		ProcMask:    Ternary(options.ProcMask == ProcMaskUnknown, ProcMaskMeleeMHAuto, options.ProcMask),
+		Flags:       SpellFlagMeleeMetrics | SpellFlagIncludeTargetBonusDamage | SpellFlagNoOnCastComplete,
+		MaxRange:    MaxMeleeRange,
+
+		DamageMultiplier:         1,
+		DamageMultiplierAdditive: 1,
+		ThreatMultiplier:         1,
+
+		BonusCoefficient: options.MainHand.GetBonusCoefficient(),
+
+		ApplyEffects: func(sim *Simulation, target *Unit, spell *Spell) {
+			baseDamage := spell.Unit.MHWeaponDamage(sim, spell.MeleeAttackPower(target))
+
+			spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeWhite)
+		},
+
+		ExpectedInitialDamage: func(sim *Simulation, target *Unit, spell *Spell, _ bool) *SpellResult {
+			baseDamage := spell.Unit.AutoAttacks.MH().CalculateAverageWeaponDamage(spell.MeleeAttackPower(target))
+			return spell.CalcDamage(sim, target, baseDamage, spell.OutcomeExpectedMeleeWhite)
+		},
+	}
+
+	unit.AutoAttacks.oh.config = SpellConfig{
+		ActionID:    ActionID{OtherID: proto.OtherAction_OtherActionAttack}.WithHand(proto.ItemSlot_ItemSlotOffHand),
+		SpellSchool: options.OffHand.GetSpellSchool(),
+		DefenseType: DefenseTypeMelee,
+		ProcMask:    Ternary(options.ProcMask == ProcMaskUnknown, ProcMaskMeleeOHAuto, options.ProcMask),
+		Flags:       SpellFlagMeleeMetrics | SpellFlagIncludeTargetBonusDamage | SpellFlagNoOnCastComplete,
+		MaxRange:    MaxMeleeRange,
+
+		DamageMultiplier:         1,
+		DamageMultiplierAdditive: 1,
+		ThreatMultiplier:         1,
+
+		BonusCoefficient: options.OffHand.GetBonusCoefficient(),
+
+		ApplyEffects: func(sim *Simulation, target *Unit, spell *Spell) {
+			baseDamage := spell.Unit.OHWeaponDamage(sim, spell.MeleeAttackPower(target))
+
+			spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeWhite)
+		},
+	}
+
+	unit.AutoAttacks.ranged.config = SpellConfig{
+		ActionID:     ActionID{OtherID: proto.OtherAction_OtherActionShoot},
+		SpellSchool:  options.Ranged.GetSpellSchool(),
+		DefenseType:  DefenseTypeRanged,
+		ProcMask:     Ternary(options.ProcMask == ProcMaskUnknown, ProcMaskRangedAuto, options.ProcMask),
+		Flags:        SpellFlagMeleeMetrics | SpellFlagIncludeTargetBonusDamage,
+		MissileSpeed: 40, // Auto Shot's speed; the hunter reads it from the row.
+		MinRange:     unit.AutoAttacks.ranged.MinRange,
+		MaxRange:     unit.AutoAttacks.ranged.MaxRange,
+
+		DamageMultiplier:         1,
+		DamageMultiplierAdditive: 1,
+		ThreatMultiplier:         1,
+		BonusCoefficient:         options.Ranged.GetBonusCoefficient(),
+
+		ApplyEffects: func(sim *Simulation, target *Unit, spell *Spell) {
+			baseDamage := spell.Unit.RangedWeaponDamage(sim, spell.RangedAttackPower(target))
+
+			result := spell.CalcDamage(sim, target, baseDamage, spell.OutcomeRangedHitAndCrit)
+
+			spell.DealDamageAfterTravel(sim, result)
+
+			// Have to react an extra time here to allow for movement actions (melee weaving)
+			unit.ReactToEvent(sim, false, true)
+		},
+	}
+
+	if unit.Type == EnemyUnit {
+		unit.AutoAttacks.mh.config.ApplyEffects = func(sim *Simulation, target *Unit, spell *Spell) {
+			ap := max(0, spell.Unit.stats[stats.AttackPower])
+			baseDamage := spell.Unit.AutoAttacks.mh.EnemyWeaponDamage(sim, ap, spell.Unit.PseudoStats.DamageSpread)
+
+			spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeEnemyMeleeWhite)
+		}
+		unit.AutoAttacks.oh.config.ApplyEffects = func(sim *Simulation, target *Unit, spell *Spell) {
+			ap := max(0, spell.Unit.stats[stats.AttackPower])
+			baseDamage := spell.Unit.AutoAttacks.mh.EnemyWeaponDamage(sim, ap, spell.Unit.PseudoStats.DamageSpread) * 0.5
+
+			spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeEnemyMeleeWhite)
+		}
+	}
+}
+
+func (aa *AutoAttacks) finalize() {
+	if aa.AutoSwingMelee {
+		aa.mh.spell = aa.mh.unit.GetOrRegisterSpell(aa.mh.config)
+
+		// Will keep keep the OH spell registered for Item swapping
+		aa.oh.spell = aa.oh.unit.GetOrRegisterSpell(aa.oh.config)
+	}
+	if aa.AutoSwingRanged {
+		aa.ranged.spell = aa.ranged.unit.GetOrRegisterSpell(aa.ranged.config)
+	}
+}
+
+func (aa *AutoAttacks) anyEnabled() bool {
+	return aa.mh.enabled || aa.oh.enabled || aa.ranged.enabled
+}
+
+func (aa *AutoAttacks) reset(sim *Simulation) {
+	if !aa.AutoSwingMelee && !aa.AutoSwingRanged {
+		return
+	}
+
+	aa.meleeWeaveWakeup = nil
+	aa.meleeAttackOn = false
+
+	aa.mh.enabled = false
+	aa.oh.enabled = false
+	aa.mh.heldByCast = false
+	aa.oh.heldByCast = false
+	aa.ranged.enabled = false
+
+	aa.mh.previousSwing = -NeverExpires
+	aa.mh.swingAt = NeverExpires
+	aa.oh.previousSwing = -NeverExpires
+	aa.oh.swingAt = NeverExpires
+
+	if aa.AutoSwingMelee {
+		aa.mh.updateSwingDuration(aa.mh.unit.TotalMeleeHasteMultiplier())
+		aa.mh.previousSwing = -aa.MainhandSwingSpeed()
+		aa.mh.swingAt = 0
+		aa.mh.naturalReadyAt = 0
+
+		if aa.IsDualWielding {
+			aa.resetOffHandSwing()
+		}
+
+		// Each enemy opens at its own point in its swing timer, so a pack does not swing in volleys.
+		if aa.mh.unit.Type == EnemyUnit {
+			offset := time.Duration(sim.RandomFloat("Enemy Swing Offset") * float64(aa.MainhandSwingSpeed()))
+			aa.mh.previousSwing += offset
+			aa.mh.swingAt += offset
+			aa.mh.naturalReadyAt += offset
+			if aa.IsDualWielding {
+				aa.oh.previousSwing += offset
+				aa.oh.swingAt += offset
+				aa.oh.naturalReadyAt += offset
+			}
+		}
+	}
+
+	aa.ranged.previousSwing = -NeverExpires
+	aa.ranged.swingAt = NeverExpires
+
+	if aa.AutoSwingRanged {
+		aa.ranged.updateSwingDuration(aa.ranged.unit.TotalRangedHasteMultiplier())
+		aa.ranged.previousSwing = -aa.RangedSwingSpeed()
+		aa.ranged.swingAt = 0
+		aa.ranged.windupEnd = 0
+		aa.ranged.naturalReadyAt = 0
+		aa.ranged.reactionUntil = 0
+		aa.ranged.pauseUntil = 0
+	}
+}
+
+// The off hand opens half its weapon speed into the fight, a full swing after its last one.
+func (aa *AutoAttacks) resetOffHandSwing() {
+	aa.oh.updateSwingDuration(aa.oh.unit.TotalMeleeHasteMultiplier())
+	aa.oh.previousSwing = -aa.OffhandSwingSpeed()
+	aa.oh.swingAt = DurationFromSeconds(aa.oh.SwingSpeed / 2)
+	aa.oh.naturalReadyAt = aa.oh.swingAt
+}
+
+func (aa *AutoAttacks) startPull(sim *Simulation) {
+	if !aa.AutoSwingMelee && !aa.AutoSwingRanged {
+		return
+	}
+
+	if aa.mh.unit.CurrentTarget == nil {
+		return
+	}
+
+	if aa.anyEnabled() {
+		return
+	}
+
+	if aa.AutoSwingMelee {
+		if aa.mh.swingAt == NeverExpires {
+			aa.mh.swingAt = 0
+			aa.mh.naturalReadyAt = 0
+		}
+
+		if aa.IsDualWielding {
+			if aa.oh.IsInRange() {
+				aa.oh.enabled = true
+				aa.oh.addWeaponAttack(sim, aa.oh.unit.TotalMeleeHasteMultiplier())
+			}
+		}
+
+		if aa.mh.IsInRange() {
+			aa.mh.enabled = true
+			aa.mh.addWeaponAttack(sim, aa.mh.unit.TotalMeleeHasteMultiplier())
+		}
+	}
+
+	if aa.AutoSwingRanged {
+		if aa.ranged.swingAt == NeverExpires {
+			aa.ranged.swingAt = 0
+		}
+		if aa.ranged.IsInRange() {
+			aa.ranged.enabled = true
+			aa.ranged.addWeaponAttack(sim, aa.ranged.unit.TotalRangedHasteMultiplier())
+		}
+	}
+}
+
+// An attack whose spell states a range reaches as far as the spell does, so a range mod on the spell
+// (Hawk Eye, Sniper Shot on Auto Shot) moves the auto attack too.
+func (wa *WeaponAttack) IsInRange() bool {
+	maxRange := wa.MaxRange
+	if wa.spell != nil && wa.spell.MaxRange != 0 {
+		maxRange = wa.spell.EffectiveMaxRange()
+	}
+	return (wa.MinRange == 0. || wa.MinRange <= wa.unit.DistanceFromTarget) && (maxRange == 0. || maxRange >= wa.unit.DistanceFromTarget)
+}
+
+// Toggles the melee attack on. For a unit that also shoots, the off hand's next swing comes no sooner
+// than half a swing from now, out of range or not, so starting the attack on the way in brings it
+// closer to ready by the time the unit arrives.
+func (aa *AutoAttacks) StartMeleeAttack(sim *Simulation) {
+	if !aa.AutoSwingMelee || aa.meleeAttackOn {
+		return
+	}
+	aa.meleeAttackOn = true
+	if aa.IsDualWielding && aa.AutoSwingRanged {
+		aa.oh.updateSwingDuration(aa.oh.unit.TotalMeleeHasteMultiplier())
+		aa.oh.swingAt = max(aa.oh.swingAt, sim.CurrentTime+aa.oh.curSwingDuration/2)
+		aa.oh.naturalReadyAt = max(aa.oh.naturalReadyAt, aa.oh.swingAt) // the game's rule, no delay on the timeline
+	}
+}
+
+// Starts or stops the ranged auto attack when the target has come into or gone out of its range.
+func (aa *AutoAttacks) UpdateRangedRange(sim *Simulation) {
+	if !aa.AutoSwingRanged {
+		return
+	}
+	inRange := aa.ranged.IsInRange()
+	if aa.ranged.enabled == inRange {
+		return
+	}
+	if inRange {
+		aa.EnableRangedSwing(sim)
+	} else {
+		aa.CancelRangedSwing(sim)
+	}
+}
+
+// Stops the auto swing action for the rest of the iteration. Used for pets
+// after being disabled.
+func (aa *AutoAttacks) CancelAutoSwing(sim *Simulation) {
+	aa.CancelMeleeSwing(sim)
+	aa.CancelRangedSwing(sim)
+}
+
+// Re-enables the auto swing action for the iteration
+func (aa *AutoAttacks) EnableAutoSwing(sim *Simulation) {
+	aa.EnableMeleeSwing(sim)
+	aa.EnableRangedSwing(sim)
+}
+
+func (aa *AutoAttacks) EnableMeleeSwing(sim *Simulation) {
+	if !aa.AutoSwingMelee || sim.isInPrepull {
+		return
+	}
+
+	if aa.mh.unit.CurrentTarget == nil {
+		return
+	}
+
+	earliest := sim.CurrentTime
+	if !aa.mh.unit.engagedBeforePull {
+		earliest = max(earliest, 0)
+	}
+	aa.mh.swingAt = max(aa.mh.swingAt, earliest)
+	if aa.mh.IsInRange() && !aa.mh.enabled {
+		aa.mh.enabled = true
+		aa.mh.addWeaponAttack(sim, aa.mh.unit.TotalMeleeHasteMultiplier())
+	}
+
+	if aa.IsDualWielding && !aa.oh.enabled {
+		aa.StartMeleeAttack(sim) // on arrival, when it was not started on the way in
+		aa.oh.swingAt = max(aa.oh.swingAt, sim.CurrentTime, 0)
+		if aa.oh.IsInRange() {
+			aa.oh.enabled = true
+			aa.oh.addWeaponAttack(sim, aa.oh.unit.TotalMeleeHasteMultiplier())
+		}
+	}
+
+	if !aa.IsDualWielding && aa.oh.enabled {
+		sim.removeWeaponAttack(&aa.oh)
+		aa.oh.enabled = false
+	}
+}
+
+func (aa *AutoAttacks) EnableRangedSwing(sim *Simulation) {
+	if !aa.AutoSwingRanged || aa.ranged.enabled || sim.isInPrepull {
+		return
+	}
+
+	if aa.ranged.unit.CurrentTarget == nil {
+		return
+	}
+
+	aa.ranged.scheduleRangedSwing(sim)
+	if aa.ranged.IsInRange() {
+		aa.ranged.enabled = true
+		aa.ranged.addWeaponAttack(sim, aa.ranged.unit.TotalRangedHasteMultiplier())
+	}
+}
+
+func (aa *AutoAttacks) CancelMeleeSwing(sim *Simulation) {
+	if !aa.AutoSwingMelee {
+		return
+	}
+
+	if aa.mh.enabled {
+		sim.removeWeaponAttack(&aa.mh)
+		aa.mh.enabled = false
+	}
+
+	if aa.IsDualWielding && aa.oh.enabled {
+		aa.oh.enabled = false
+		sim.removeWeaponAttack(&aa.oh)
+	}
+}
+
+func (aa *AutoAttacks) CancelRangedSwing(sim *Simulation) {
+	if !aa.AutoSwingRanged || !aa.ranged.enabled {
+		return
+	}
+
+	aa.ranged.enabled = false
+	aa.ranged.dropRangedWindup(sim)
+	sim.removeWeaponAttack(&aa.ranged)
+}
+
+// Ends a running windup without releasing the shot.
+func (wa *WeaponAttack) dropRangedWindup(sim *Simulation) {
+	if wa.windupEnd == 0 {
+		return
+	}
+	if sim.Log != nil {
+		wa.unit.Log(sim, "Cancelled %s after %s", wa.spell.ActionID, wa.windupDuration-(wa.windupEnd-sim.CurrentTime))
+	}
+	wa.windupEnd = 0
+}
+
+// Ends a running windup as movement starts; the shot waits for the move to end.
+func (aa *AutoAttacks) cancelRangedWindup(sim *Simulation) {
+	if aa.ranged.windupEnd == 0 {
+		return
+	}
+	aa.ranged.dropRangedWindup(sim)
+	aa.ranged.swingAt = NeverExpires
+}
+
+// A ranged auto that came due while moving waits a reaction time after movement ends.
+func (aa *AutoAttacks) resumeHeldRangedSwing(sim *Simulation) {
+	if !aa.AutoSwingRanged || !aa.ranged.enabled || aa.ranged.windupEnd != 0 {
+		return
+	}
+	if aa.ranged.windupStartAt() > sim.CurrentTime {
+		aa.ranged.scheduleRangedSwing(sim)
+		return // not due yet
+	}
+	// A shot that came back in range only as the move ended waits the reaction too.
+	aa.ranged.reactionUntil = sim.CurrentTime + aa.ranged.unit.ReactionTime
+	aa.ranged.scheduleRangedSwing(sim)
+}
+
+// scheduleMeleeWeaveWakeup wakes the rotation when the out-of-range MH swing comes
+// ready, so a weaver parked behind its GCD can move back into melee on time.
+func (aa *AutoAttacks) scheduleMeleeWeaveWakeup(sim *Simulation) {
+	if !aa.AutoSwingMelee || !aa.AutoSwingRanged {
+		return
+	}
+	aa.cancelMeleeWeaveWakeup(sim)
+	pa := &PendingAction{
+		NextActionAt: max(aa.mh.swingAt, sim.CurrentTime),
+		Priority:     ActionPriorityAuto,
+		OnAction: func(sim *Simulation) {
+			if !aa.mh.IsInRange() {
+				aa.mh.unit.ReactToEvent(sim, false, true)
+			}
+		},
+	}
+	aa.meleeWeaveWakeup = pa
+	sim.AddPendingAction(pa)
+}
+
+func (aa *AutoAttacks) cancelMeleeWeaveWakeup(sim *Simulation) {
+	if aa.meleeWeaveWakeup != nil && !aa.meleeWeaveWakeup.consumed {
+		aa.meleeWeaveWakeup.Cancel(sim)
+	}
+	aa.meleeWeaveWakeup = nil
+}
+
+// weaveWakeupAfterCast wakes the rotation the instant a hardcast finishes so a
+// weaver can move in for a pending out-of-range swing during GCD downtime. Gated
+// on an outstanding weave wakeup, which is only scheduled for ranged-swing units
+// mid-excursion (so turret/non-weaving units are never woken).
+func (aa *AutoAttacks) weaveWakeupAfterCast(sim *Simulation) {
+	if aa.meleeWeaveWakeup != nil && aa.mh.swingAt <= sim.CurrentTime {
+		aa.mh.unit.ReactToEvent(sim, false, true)
+	}
+}
+
+// The amount of time between two MH swings.
+func (aa *AutoAttacks) MainhandSwingSpeed() time.Duration {
+	return aa.mh.curSwingDuration
+}
+
+// The amount of time between two OH swings.
+func (aa *AutoAttacks) OffhandSwingSpeed() time.Duration {
+	return aa.oh.curSwingDuration
+}
+
+// The amount of time between two Ranged swings.
+func (aa *AutoAttacks) RangedSwingSpeed() time.Duration {
+	return aa.ranged.curSwingDuration
+}
+
+func (aa *AutoAttacks) MainHandPendingSwingDelay() time.Duration {
+	return aa.mh.pendingSwingDelay
+}
+
+func (aa *AutoAttacks) RangedPendingSwingDelay() time.Duration {
+	return aa.ranged.pendingSwingDelay
+}
+
+// Optionally replaces the given swing spell with an Agent-specified MH Swing replacer.
+// This is for effects like Heroic Strike or Raptor Strike.
+func (aa *AutoAttacks) MaybeReplaceMHSwing(sim *Simulation, mhSwingSpell *Spell) *Spell {
+	if aa.mh.replaceSwing == nil {
+		return mhSwingSpell
+	}
+
+	// Allow MH swing to be overridden for abilities like Heroic Strike.
+	return aa.mh.replaceSwing(sim, mhSwingSpell)
+}
+
+func (aa *AutoAttacks) UpdateSwingTimers(sim *Simulation) {
+	if aa.AutoSwingRanged {
+		aa.ranged.rescaleRangedSwing(sim)
+	}
+
+	if aa.AutoSwingMelee && aa.mh.enabled {
+		oldSwingSpeed := aa.mh.curSwingSpeed
+		aa.mh.updateSwingDuration(aa.mh.unit.TotalMeleeHasteMultiplier())
+		f := oldSwingSpeed / aa.mh.curSwingSpeed
+		aa.mh.rescaleSwing(sim, f)
+
+		if aa.IsDualWielding && aa.oh.enabled {
+			aa.oh.updateSwingDuration(aa.oh.unit.TotalMeleeHasteMultiplier())
+			aa.oh.rescaleSwing(sim, f)
+		}
+	}
+}
+
+// Moves a waiting windup after a haste change. A running windup keeps its starting duration.
+func (wa *WeaponAttack) rescaleRangedSwing(sim *Simulation) {
+	oldStart := wa.windupStartAt()
+	wa.updateSwingDuration(wa.unit.TotalRangedHasteMultiplier())
+	if sim == nil || wa.windupEnd != 0 {
+		return
+	}
+	if wa.naturalReadyAt != 0 {
+		windup := wa.rangedWindup()
+		if oldStart >= max(sim.CurrentTime, 0) {
+			// A haste loss cannot start a windup in the past or create a delay by itself.
+			wa.naturalReadyAt = max(wa.naturalReadyAt, sim.CurrentTime+windup)
+		} else {
+			// An overdue windup keeps its start.
+			wa.naturalReadyAt = oldStart + windup
+		}
+	}
+	if wa.swingAt != NeverExpires {
+		wa.scheduleRangedSwing(sim)
+	}
+}
+
+// Stretches what is left of the running swing by the attack speed factor f. The uncontested ready time
+// stretches with it, so a haste change does not count as a swing delay.
+func (wa *WeaponAttack) rescaleSwing(sim *Simulation, f float64) {
+	rescale := func(at time.Duration) time.Duration {
+		if remaining := at - sim.CurrentTime; remaining > 0 {
+			return sim.CurrentTime + time.Duration(float64(remaining)*f)
+		}
+		return at
+	}
+	wa.swingAt = rescale(wa.swingAt)
+	wa.naturalReadyAt = rescale(wa.naturalReadyAt)
+	sim.rescheduleWeaponAttack(wa.swingAt)
+}
+
+// Desyncs the offhand swing
+func (aa *AutoAttacks) DesyncOffHand(sim *Simulation, readyAt time.Duration) {
+	if !aa.AutoSwingMelee { // if not auto swinging, don't auto restart.
+		return
+	}
+	if aa.IsDualWielding {
+		aa.oh.swingAt = readyAt + aa.oh.curSwingDuration
+		aa.oh.swingAt += aa.oh.curSwingDuration / 2
+		sim.rescheduleWeaponAttack(aa.oh.swingAt)
+	}
+}
+
+// StopMeleeUntil should be used whenever a non-melee spell is cast. It stops melee, then restarts it
+// at end of cast, but with a reset swing timer (as if swings had just landed).
+func (aa *AutoAttacks) StopMeleeUntil(sim *Simulation, readyAt time.Duration) {
+	if !aa.AutoSwingMelee { // if not auto swinging, don't auto restart.
+		return
+	}
+
+	aa.mh.swingAt = readyAt + aa.mh.curSwingDuration
+	aa.mh.heldByCast = false
+	sim.rescheduleWeaponAttack(aa.mh.swingAt)
+
+	if aa.IsDualWielding {
+		aa.oh.swingAt = readyAt + aa.oh.curSwingDuration
+		aa.oh.heldByCast = false
+		sim.rescheduleWeaponAttack(aa.oh.swingAt)
+	}
+
+	// A weaver out of melee range wakes when the reset swing comes ready.
+	if aa.meleeWeaveWakeup != nil {
+		aa.scheduleMeleeWeaveWakeup(sim)
+	}
+}
+
+// A cast that ends without completing lets the swings it held land at once: their timers ran out
+// while it was underway.
+func (aa *AutoAttacks) releaseMeleeHeldByCast(sim *Simulation) {
+	for _, wa := range []*WeaponAttack{&aa.mh, &aa.oh} {
+		if wa.heldByCast {
+			wa.heldByCast = false
+			wa.swingAt = sim.CurrentTime
+			sim.rescheduleWeaponAttack(wa.swingAt)
+		}
+	}
+}
+
+func (aa *AutoAttacks) StopRangedUntil(sim *Simulation, readyAt time.Duration) {
+	if !aa.AutoSwingRanged { // if not auto swinging, don't auto restart.
+		return
+	}
+
+	aa.ranged.dropRangedWindup(sim)
+	aa.ranged.naturalReadyAt = readyAt + aa.ranged.curSwingDuration
+	aa.ranged.scheduleRangedSwing(sim)
+}
+
+// Delays all swing timers for the specified amount.
+func (aa *AutoAttacks) DelayMeleeBy(sim *Simulation, delay time.Duration) {
+	if delay <= 0 {
+		return
+	}
+
+	aa.mh.swingAt += delay
+	sim.rescheduleWeaponAttack(aa.mh.swingAt)
+
+	if aa.IsDualWielding {
+		aa.oh.swingAt += delay
+		sim.rescheduleWeaponAttack(aa.oh.swingAt)
+	}
+}
+
+// PauseMeleeBy will prevent any swing from completing for the specified time.
+// This replicates a /stopattack and /startattack with a brief "pause" in the middle.
+// It's possible that no swing time is lost if the pauseTime is less than the remaining swing time.
+// Used by Rogue Gouge
+func (aa *AutoAttacks) PauseMeleeBy(sim *Simulation, pauseTime time.Duration) {
+	if !aa.AutoSwingMelee {
+		return
+	}
+
+	timeToResume := sim.CurrentTime + pauseTime
+	if aa.mh.swingAt < timeToResume {
+		aa.mh.swingAt = timeToResume
+		sim.rescheduleWeaponAttack(aa.mh.swingAt)
+	}
+	if aa.IsDualWielding && aa.oh.swingAt < timeToResume {
+		aa.oh.swingAt = timeToResume
+		sim.rescheduleWeaponAttack(aa.oh.swingAt)
+	}
+}
+
+// Prevents ranged windup until readyAt while the underlying swing timer keeps running.
+func (aa *AutoAttacks) DelayRangedUntil(sim *Simulation, readyAt time.Duration) {
+	if !aa.AutoSwingRanged || readyAt <= max(sim.CurrentTime, aa.ranged.pauseUntil) {
+		return
+	}
+	aa.ranged.dropRangedWindup(sim)
+	aa.ranged.pauseUntil = readyAt
+	aa.ranged.scheduleRangedSwing(sim)
+}
+
+// Restores an earlier pause boundary after early recovery, using the current haste for windup.
+func (aa *AutoAttacks) ResumeRangedAt(sim *Simulation, readyAt time.Duration) {
+	if !aa.AutoSwingRanged {
+		return
+	}
+	if resumeAt := max(sim.CurrentTime, readyAt); resumeAt < aa.ranged.pauseUntil {
+		aa.ranged.pauseUntil = resumeAt
+		aa.ranged.scheduleRangedSwing(sim)
+	}
+}
+
+// Reports when the melee swings are due, so a caller can restore them if a pause ends early.
+func (aa *AutoAttacks) SwingAt() (mhAt time.Duration, ohAt time.Duration) {
+	return aa.mh.swingAt, aa.oh.swingAt
+}
+
+// ResumeMeleeAt undoes the unused part of a PauseMeleeBy, restoring the swing
+// times it pushed out. The swing timer is treated as having kept running, so a
+// swing that came due during the pause fires as soon as it ends. Swings are
+// only ever moved earlier, never past their original time and never into the
+// past.
+func (aa *AutoAttacks) ResumeMeleeAt(sim *Simulation, mhAt time.Duration, ohAt time.Duration) {
+	if !aa.AutoSwingMelee {
+		return
+	}
+
+	if resumeAt := max(sim.CurrentTime, mhAt); resumeAt < aa.mh.swingAt {
+		aa.mh.swingAt = resumeAt
+		sim.rescheduleWeaponAttack(aa.mh.swingAt)
+	}
+
+	if aa.IsDualWielding {
+		if resumeAt := max(sim.CurrentTime, ohAt); resumeAt < aa.oh.swingAt {
+			aa.oh.swingAt = resumeAt
+			sim.rescheduleWeaponAttack(aa.oh.swingAt)
+		}
+	}
+}
+
+// Returns the time at which the next melee attack will occur.
+func (aa *AutoAttacks) NextAttackAt() time.Duration {
+	return min(aa.mh.swingAt, aa.oh.swingAt)
+}
+
+// Returns the earliest melee event or ranged timing value, including a due blocked ranged shot.
+func (aa *AutoAttacks) NextAnyAttackAt() time.Duration {
+	return min(aa.mh.swingAt, aa.oh.swingAt, aa.NextRangedAttackAt())
+}
+
+// Used to prevent artificial Haste breakpoints arising from APL evaluations after autos occurring at
+// locally optimal timings.
+func (aa *AutoAttacks) RandomizeMeleeTiming(sim *Simulation) {
+	if !aa.AutoSwingMelee || (aa.character != nil && aa.character.DistanceFromTarget > MaxMeleeRange) {
+		return
+	}
+
+	reactionTime := 100 * time.Millisecond
+	if aa.character != nil {
+		reactionTime = aa.character.ReactionTime
+	}
+
+	randomAutoOffset := time.Duration(sim.RandomFloat("Melee Timing")*float64(reactionTime.Milliseconds())) * time.Millisecond
+	aa.DelayMeleeBy(sim, randomAutoOffset)
+}
+
+// Returns whether a PPM-based effect procced.
+// Using NewPPMManager() is preferred; this function should only be used when
+// the attacker is not known at initialization time.
+func (aa *AutoAttacks) PPMProc(sim *Simulation, ppm float64, procMask ProcMask, label string, spell *Spell) bool {
+	if !aa.AutoSwingMelee && !aa.AutoSwingRanged {
+		return false
+	}
+
+	switch {
+	case spell.ProcMask.Matches(procMask &^ ProcMaskMeleeOH &^ ProcMaskRanged):
+		return sim.RandomFloat(label) < ppm*aa.mh.SwingSpeed/60.0
+	case spell.ProcMask.Matches(procMask & ProcMaskMeleeOH):
+		return sim.RandomFloat(label) < ppm*aa.offHandProcSpeed()/60.0
+	case spell.ProcMask.Matches(procMask & ProcMaskRanged):
+		return sim.RandomFloat(label) < ppm*aa.ranged.SwingSpeed/60.0
+	}
+	return false
+}
+
+// The swing speed a procs-per-minute rate is measured against for an off-hand hit. A hit with no
+// off-hand weapon behind it is measured against the main hand.
+func (aa *AutoAttacks) offHandProcSpeed() float64 {
+	if aa.oh.SwingSpeed == 0 {
+		return aa.mh.SwingSpeed
+	}
+	return aa.oh.SwingSpeed
+}
+
+func (unit *Unit) applyParryHaste() {
+	if !unit.PseudoStats.ParryHaste || !unit.AutoAttacks.AutoSwingMelee {
+		return
+	}
+
+	unit.RegisterAura(Aura{
+		Label:    "Parry Haste",
+		Duration: NeverExpires,
+		OnReset: func(aura *Aura, sim *Simulation) {
+			aura.Activate(sim)
+		},
+		OnSpellHitTaken: func(aura *Aura, sim *Simulation, spell *Spell, result *SpellResult) {
+			if !result.Outcome.Matches(OutcomeParry) {
+				return
+			}
+
+			remainingTime := aura.Unit.AutoAttacks.mh.swingAt - sim.CurrentTime
+			swingSpeed := aura.Unit.AutoAttacks.mh.curSwingDuration
+			minRemainingTime := time.Duration(float64(swingSpeed) * 0.2) // 20% of Swing Speed
+			defaultReduction := minRemainingTime * 2                     // 40% of Swing Speed
+
+			if remainingTime <= minRemainingTime {
+				return
+			}
+
+			parryHasteReduction := min(defaultReduction, remainingTime-minRemainingTime)
+			newReadyAt := aura.Unit.AutoAttacks.mh.swingAt - parryHasteReduction
+			if sim.Log != nil {
+				aura.Unit.Log(sim, "MH Swing reduced by %s due to parry haste, will now occur at %s", parryHasteReduction, newReadyAt)
+			}
+
+			aura.Unit.AutoAttacks.mh.swingAt = newReadyAt
+			sim.rescheduleWeaponAttack(newReadyAt)
+		},
+	})
+}

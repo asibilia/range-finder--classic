@@ -7,6 +7,12 @@
 		"src/**/*",
 		"tests/**/*",
 		"scripts/**/*",
+		// @goturbo/sim's TypeScript API, taken as source (no build step).
+		"../sim/src",
+		// Testchar as a character, and ensureSimBuild with the build's pin
+		// it checks, for the browser sim's tests.
+		"../sim/tests/helpers",
+		"../sim/scripts/pin.ts",
 		// Read by tests/repo-setup.test.ts.
 		"../../commit.config.ts"
 	],

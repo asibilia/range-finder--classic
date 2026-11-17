@@ -1,0 +1,381 @@
+package core
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/wowsims/forever/sim/core/proto"
+)
+
+type APLValueDotIsActive struct {
+	DefaultAPLValueImpl
+	dot *DotReference
+}
+
+func (rot *APLRotation) newValueDotIsActive(config *proto.APLValueDotIsActive, _ *proto.UUID) APLValue {
+	dot := rot.NewDotReference(rot.GetTargetUnit(config.TargetUnit), config.SpellId)
+	if dot.Get() == nil {
+		return nil
+	}
+
+	return &APLValueDotIsActive{
+		dot: dot,
+	}
+}
+func (value *APLValueDotIsActive) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeBool
+}
+func (value *APLValueDotIsActive) GetBool(sim *Simulation) bool {
+	return readDot(sim, value.dot.Get()).active
+}
+func (value *APLValueDotIsActive) String() string {
+	return fmt.Sprintf("Dot Is Active(%s)", value.dot.Get().Spell.ActionID)
+}
+
+type targetDots struct {
+	dots  []*Dot
+	spell *Spell
+}
+
+func (rot *APLRotation) newTargetDots(spellId *proto.ActionID) *targetDots {
+	spell := rot.GetAPLMultidotSpell(spellId)
+	if spell == nil {
+		return nil
+	}
+
+	units := rot.unit.Env.Encounter.AllTargetUnits
+	dots := make([]*Dot, 0, len(units))
+	for _, unit := range units {
+		dot := rot.GetAPLDot(rot.GetTargetUnit(&proto.UnitReference{
+			Type:  proto.UnitReference_Target,
+			Index: unit.Index,
+		}), spellId)
+
+		if dot != nil {
+			dots = append(dots, dot)
+		}
+	}
+
+	if len(dots) == 0 {
+		rot.ValidationMessage(proto.LogLevel_Warning, "Could not find a DoT for %s on Target(s)", ProtoToActionID(spellId))
+		return nil
+	}
+	return &targetDots{dots: dots, spell: spell}
+}
+
+type APLValueDotIsActiveOnAllTargets struct {
+	DefaultAPLValueImpl
+	*targetDots
+}
+
+func (rot *APLRotation) newValueDotIsActiveOnAllTargets(config *proto.APLValueDotIsActiveOnAllTargets, _ *proto.UUID) APLValue {
+	targets := rot.newTargetDots(config.SpellId)
+	if targets == nil {
+		return nil
+	}
+	return &APLValueDotIsActiveOnAllTargets{targetDots: targets}
+}
+func (value *APLValueDotIsActiveOnAllTargets) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeBool
+}
+func (value *APLValueDotIsActiveOnAllTargets) GetBool(sim *Simulation) bool {
+	for _, dot := range value.dots {
+		if !readDot(sim, dot).active && dot.Unit.IsEnabled() {
+			return false
+		}
+	}
+	return true
+}
+func (value *APLValueDotIsActiveOnAllTargets) String() string {
+	return fmt.Sprintf("Dot Is Active On All Targets(%s)", value.spell.ActionID)
+}
+
+type APLValueDotIsActiveOnAnyTarget struct {
+	DefaultAPLValueImpl
+	*targetDots
+}
+
+func (rot *APLRotation) newValueDotIsActiveOnAnyTarget(config *proto.APLValueDotIsActiveOnAnyTarget, _ *proto.UUID) APLValue {
+	targets := rot.newTargetDots(config.SpellId)
+	if targets == nil {
+		return nil
+	}
+	return &APLValueDotIsActiveOnAnyTarget{targetDots: targets}
+}
+func (value *APLValueDotIsActiveOnAnyTarget) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeBool
+}
+func (value *APLValueDotIsActiveOnAnyTarget) GetBool(sim *Simulation) bool {
+	for _, dot := range value.dots {
+		if dot.Unit.IsEnabled() && readDot(sim, dot).active {
+			return true
+		}
+	}
+	return false
+}
+func (value *APLValueDotIsActiveOnAnyTarget) String() string {
+	return fmt.Sprintf("Dot Is Active On Any Target(%s)", value.spell.ActionID)
+}
+
+type APLValueDotRemainingTime struct {
+	DefaultAPLValueImpl
+	dot *DotReference
+}
+
+func (rot *APLRotation) newValueDotRemainingTime(config *proto.APLValueDotRemainingTime, _ *proto.UUID) APLValue {
+	dot := rot.NewDotReference(rot.GetTargetUnit(config.TargetUnit), config.SpellId)
+	if dot.Get() == nil {
+		return nil
+	}
+	return &APLValueDotRemainingTime{
+		dot: dot,
+	}
+}
+func (value *APLValueDotRemainingTime) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeDuration
+}
+func (value *APLValueDotRemainingTime) GetDuration(sim *Simulation) time.Duration {
+	return readDot(sim, value.dot.Get()).remaining
+}
+func (value *APLValueDotRemainingTime) String() string {
+	return fmt.Sprintf("Dot Remaining Time(%s)", value.dot.Get().Spell.ActionID)
+}
+
+type APLValueDotLowestRemainingTime struct {
+	DefaultAPLValueImpl
+	*targetDots
+}
+
+func (rot *APLRotation) newValueDotLowestRemainingTime(config *proto.APLValueDotLowestRemainingTime, _ *proto.UUID) APLValue {
+	targets := rot.newTargetDots(config.SpellId)
+	if targets == nil {
+		return nil
+	}
+	return &APLValueDotLowestRemainingTime{targetDots: targets}
+}
+func (value *APLValueDotLowestRemainingTime) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeDuration
+}
+func (value *APLValueDotLowestRemainingTime) GetDuration(sim *Simulation) time.Duration {
+	duration := NeverExpires
+	for _, dot := range value.dots {
+		if !dot.Unit.IsEnabled() {
+			continue
+		}
+		if reading := readDot(sim, dot); reading.active {
+			duration = min(duration, reading.remaining)
+		} else {
+			return 0
+		}
+	}
+	return duration
+}
+func (value *APLValueDotLowestRemainingTime) String() string {
+	return fmt.Sprintf("Dot Lowest Remaining Time(%s)", value.spell.ActionID)
+}
+
+type APLValueDotTickFrequency struct {
+	DefaultAPLValueImpl
+	dot *DotReference
+}
+
+func (rot *APLRotation) newValueDotTickFrequency(config *proto.APLValueDotTickFrequency, _ *proto.UUID) APLValue {
+	dot := rot.NewDotReference(rot.GetTargetUnit(config.TargetUnit), config.SpellId)
+	if dot.Get() == nil {
+		return nil
+	}
+	return &APLValueDotTickFrequency{
+		dot: dot,
+	}
+}
+
+func (value *APLValueDotTickFrequency) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeDuration
+}
+func (value *APLValueDotTickFrequency) GetDuration(sim *Simulation) time.Duration {
+	dot := value.dot.Get()
+	reading := readDot(sim, dot)
+	return TernaryDuration(reading.active && !reading.landing, dot.tickPeriod, dot.CalcTickPeriod())
+}
+func (value *APLValueDotTickFrequency) String() string {
+	return fmt.Sprintf("Dot Tick Frequency(%s)", value.dot.Get().Spell.ActionID)
+}
+
+type APLValueDotTimeToNextTick struct {
+	DefaultAPLValueImpl
+	dot *DotReference
+}
+
+func (rot *APLRotation) newValueDotTimeToNextTick(config *proto.APLValueDotTimeToNextTick, _ *proto.UUID) APLValue {
+	dot := rot.NewDotReference(rot.GetTargetUnit(config.TargetUnit), config.SpellId)
+	if dot.Get() == nil {
+		return nil
+	}
+	return &APLValueDotTimeToNextTick{
+		dot: dot,
+	}
+}
+
+func (value *APLValueDotTimeToNextTick) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeDuration
+}
+func (value *APLValueDotTimeToNextTick) GetDuration(sim *Simulation) time.Duration {
+	dot := value.dot.Get()
+	if reading := readDot(sim, dot); reading.landing {
+		return reading.from + dot.CalcTickPeriod() - sim.CurrentTime
+	}
+	return dot.TimeUntilNextTick(sim)
+}
+func (value *APLValueDotTimeToNextTick) String() string {
+	return fmt.Sprintf("Time To Next Tick(%s)", value.dot.Get().Spell.ActionID)
+}
+
+type APLValueDotBaseDuration struct {
+	DefaultAPLValueImpl
+	baseDuration time.Duration
+	spell        *Spell
+}
+
+func (rot *APLRotation) newValueDotBaseDuration(config *proto.APLValueDotBaseDuration, _ *proto.UUID) APLValue {
+	dot := rot.GetAPLDot(rot.GetTargetUnit(&proto.UnitReference{
+		Type:  proto.UnitReference_Target,
+		Index: rot.unit.Index,
+	}), config.SpellId)
+
+	if dot == nil {
+		return nil
+	}
+	return &APLValueDotBaseDuration{
+		baseDuration: dot.BaseDuration(),
+		spell:        dot.Spell,
+	}
+}
+
+func (value *APLValueDotBaseDuration) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeDuration
+}
+func (value *APLValueDotBaseDuration) GetDuration(_ *Simulation) time.Duration {
+	return value.baseDuration
+}
+func (value *APLValueDotBaseDuration) String() string {
+	return fmt.Sprintf("Dot Base Duration(%s)", value.spell.ActionID)
+}
+
+// Disabled for now: combat restrictions in game keep addons from tracking a DoT's damage or tick rate increase,
+// so APLs cannot use these values.
+/*
+type APLValueDotIncreaseCheck struct {
+	DefaultAPLValueImpl
+	spell              *Spell
+	targetRef          UnitReference
+	baseName           string
+	useBaseValue       bool // if true, use the base value before any increases
+	baseValue          float64
+	baseValueDummyAura *Aura // Used to get the base value at encounter start
+}
+
+func (rot *APLRotation) newDotIncreaseValue(baseName string, config *proto.APLValueDotPercentIncrease) *APLValueDotIncreaseCheck {
+	spell := rot.GetAPLSpell(config.SpellId)
+	if spell == nil || spell.expectedTickDamageInternal == nil {
+		return nil
+	}
+	targetRef := rot.GetTargetUnit(config.TargetUnit)
+
+	var baseValueDummyAura *Aura
+	if config.UseBaseValue {
+		baseValueDummyAura = MakePermanent(rot.unit.GetOrRegisterAura(Aura{
+			Label:    "Dummy Aura - APL Dot Increase Base Value",
+			Duration: NeverExpires,
+		}))
+	}
+
+	return &APLValueDotIncreaseCheck{
+		spell:              spell,
+		targetRef:          targetRef,
+		baseName:           baseName,
+		useBaseValue:       config.UseBaseValue,
+		baseValueDummyAura: baseValueDummyAura,
+	}
+}
+
+func (value *APLValueDotIncreaseCheck) Type() proto.APLValueType {
+	return proto.APLValueType_ValueTypeFloat
+}
+
+func (value *APLValueDotIncreaseCheck) String() string {
+	return fmt.Sprintf("%s (%s)", value.baseName, value.spell.ActionID)
+}
+
+type APLValueDotPercentIncrease struct {
+	*APLValueDotIncreaseCheck
+}
+
+func (rot *APLRotation) newValueDotPercentIncrease(config *proto.APLValueDotPercentIncrease, _ *proto.UUID) APLValue {
+	parentImpl := rot.newDotIncreaseValue("Dot Percent Increase", config)
+	if parentImpl == nil {
+		return nil
+	}
+
+	return &APLValueDotPercentIncrease{APLValueDotIncreaseCheck: parentImpl}
+}
+
+func (value *APLValueDotPercentIncrease) Finalize(rot *APLRotation) {
+	if value.useBaseValue && value.baseValueDummyAura != nil {
+		value.baseValueDummyAura.ApplyOnEncounterStart(func(aura *Aura, sim *Simulation) {
+			value.baseValue = value.spell.ExpectedTickDamage(sim, value.targetRef.Get())
+		})
+	}
+}
+
+func (value *APLValueDotPercentIncrease) GetFloat(sim *Simulation) float64 {
+	target := value.targetRef.Get()
+	expectedDamage := TernaryFloat64(value.useBaseValue, value.baseValue, value.spell.ExpectedTickDamageFromCurrentSnapshot(sim, target))
+
+	if expectedDamage == 0 {
+		return 1
+	}
+
+	// Rounding this to effectively 3 decimal places as a percentage to avoid floating point errors
+	return math.Round((value.spell.ExpectedTickDamage(sim, target)/expectedDamage)*100000)/100000 - 1
+}
+
+type APLValueDotTickRatePercentIncrease struct {
+	*APLValueDotIncreaseCheck
+}
+
+func (rot *APLRotation) newValueDotTickRatePercentIncrease(config *proto.APLValueDotPercentIncrease, _ *proto.UUID) APLValue {
+	parentImpl := rot.newDotIncreaseValue("Dot Tick Rate Percent Increase", config)
+	if parentImpl == nil {
+		return nil
+	}
+
+	return &APLValueDotTickRatePercentIncrease{APLValueDotIncreaseCheck: parentImpl}
+}
+
+func (value *APLValueDotTickRatePercentIncrease) Finalize(rot *APLRotation) {
+	if value.useBaseValue && value.baseValueDummyAura != nil {
+		value.baseValueDummyAura.ApplyOnEncounterStart(func(aura *Aura, sim *Simulation) {
+			value.baseValue = value.getTickRate(false)
+		})
+	}
+}
+
+func (value *APLValueDotTickRatePercentIncrease) GetFloat(sim *Simulation) float64 {
+	currentTickrate := value.getTickRate(true)
+
+	if currentTickrate == 0 {
+		return 1
+	}
+
+	return currentTickrate/value.getTickRate(false) - 1
+}
+
+func (value *APLValueDotTickRatePercentIncrease) getTickRate(useSnapshot bool) float64 {
+	target := value.targetRef.Get()
+	dot := value.spell.Dot(target)
+	if useSnapshot {
+		return TernaryFloat64(value.useBaseValue, value.baseValue, TernaryFloat64(dot.IsActive(), dot.TickPeriod().Seconds(), 0))
+	}
+	return dot.CalcTickPeriod().Round(time.Millisecond).Seconds()
+}
+*/

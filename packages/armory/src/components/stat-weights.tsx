@@ -5,7 +5,10 @@
  * side (`1.15 4.04`). Stats worth far more (Weapon DPS) are said in words,
  * off the scale.
  */
+import type { ReactNode } from 'react'
+
 import { statWeightsData } from '../chart-data'
+import { withArticle } from '../format'
 import type { ResultsFile } from '../results-file'
 
 /** The bars' accessible name. */
@@ -19,22 +22,41 @@ function width(value: number, max: number): string {
 }
 
 /**
+ * Where the weights came from (`stat_weights[].source`), said under them:
+ * the shown fight's, else the first entry's that has one. Null when no
+ * entry says (simmed for the character, and the page says nothing new).
+ */
+function sourceWords(file: ResultsFile, fightId: string): string | null {
+    const source =
+        file.stat_weights.find((w) => w.fight_id === fightId)?.source ??
+        file.stat_weights.find((w) => w.source)?.source
+    if (!source) return null
+    if (source.kind === 'yours') return 'Stat weights: simmed for your gear.'
+    const { spec, class: className } = file.character
+    return `Stat weights: precomputed for ${withArticle(`${spec} ${className}`)} at level ${source.level_min}–${source.level_max}, not your gear.`
+}
+
+/**
  * The stat weights.
  *
  * @param file - The loaded results file.
  * @param fightId - The solid fight.
  * @param compareId - The dashed fight, or null.
+ * @param action - Shown under the weights (Refine), or nothing.
  */
 export function StatWeights({
     file,
     fightId,
     compareId = null,
+    action,
 }: {
     file: ResultsFile
     fightId: string
     compareId?: string | null
+    action?: ReactNode
 }) {
     const data = statWeightsData(file, fightId, compareId)
+    const sourceLine = sourceWords(file, fightId)
     return (
         <section className="mt-5.5">
             <h2 className="mb-1.5 text-xl leading-tight">
@@ -105,6 +127,12 @@ export function StatWeights({
                     ))}
                 </>
             )}
+            {sourceLine && (
+                <p className="mt-1.5 text-[0.78125rem] text-muted-foreground">
+                    {sourceLine}
+                </p>
+            )}
+            {action && <div className="mt-2">{action}</div>}
         </section>
     )
 }

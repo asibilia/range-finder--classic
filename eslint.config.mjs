@@ -38,6 +38,11 @@ export default [
         languageOptions: { globals: globals.browser },
     },
     {
+        // The sim pool's worker: a plain script, copied as is by sim:build.
+        files: ['packages/sim/src/worker.js'],
+        languageOptions: { sourceType: 'script', globals: globals.worker },
+    },
+    {
         ignores: [
             'node_modules/**',
             '**/node_modules/**',
@@ -51,6 +56,8 @@ export default [
             '.changeset/**',
             '.claude/**',
             '.luca/**',
+            // WoWSims, vendored verbatim: never ours to lint or format.
+            'packages/sim/upstream/**',
         ],
     },
 ]

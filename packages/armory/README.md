@@ -1,28 +1,48 @@
 # @goturbo/armory
 
-The armory planner: a web page that opens a results file the gear sim made
-offline and shows a character's gear, the sim's plan and its numbers. It is
-not the Turbo site, and nothing in it ships with the addon.
+The armory planner: a web page that shows a character's gear, the sim's
+plan and its numbers. It opens a results file the gear sim made offline, or
+sims a dropped `TurboCharExport.lua` (the export addon's SavedVariables
+file) on the player's own computer with the **browser sim**
+(`@goturbo/sim`, `packages/sim`: WoWSims built to WASM, run in Web
+Workers). It is not the Turbo site, and nothing in it ships with the addon.
 
 ## Run it
 
-From the repo root:
+From the repo root, with Go installed (the version in
+`packages/sim/upstream/go.mod`; it builds the browser sim):
 
 1. `bun install`
-2. `bun run dev:armory`
-3. Open the local address it prints (http://localhost:5173 unless that port
+2. `bun run sim:build` (writes the gitignored `packages/sim/build/`, which
+   the page serves at `/sim/`; run it again after the sim's Go changes)
+3. `bun run dev:armory`
+4. Open the local address it prints (http://localhost:5173 unless that port
    is taken).
-4. Press `Or look at a sample character`, or open a results file of your own.
+5. Press `Or look at a sample character`, open a results file of your own,
+   or drop a `TurboCharExport.lua` (in the game: `/tbexport`, then
+   `/reload`) to sim that character here.
 
-Files are read in the browser only; nothing is sent anywhere.
+Files are read in the browser only; nothing is sent anywhere. An export is
+simmed in the page's workers and never kept: the page fetches only its own
+files (the sim and its data).
+
+### Simming an export
+
+Dropping a `.lua` reads the export, checks it (its format; Enhancement
+Shaman only for now; buffs the sim can't model), runs the sim's gates, then
+sims worn gear and the max damage plan with the precomputed stat weights for
+the character's level band (`packages/sim/weights/`). With no weights file
+for the band it sims the weights on the device first, and says so with a
+time estimate. `Refine for your gear` sims the weights for the character's
+own gear. The file it makes is shown and kept like any results file.
 
 ### What the page keeps in your browser
 
 One thing: the text of the last results file you opened (picked or
-dropped) that read OK, in `localStorage` under the key
-`armory:last-results-file`, so a reload brings your character back. Opening
-another file replaces it; the bundled sample (`Or look at a sample
-character`) is never kept. While a kept file is shown the footer says
+dropped) or the browser sim made, if it read OK, in `localStorage` under the
+key `armory:last-results-file`, so a reload brings your character back. The
+export itself is never kept. Opening another file replaces it; the bundled
+sample (`Or look at a sample character`) is never kept. While a kept file is shown the footer says
 `This file is kept in this browser only.` with a `Forget this file` button,
 which clears the key and goes back to the new-visitor state.
 
@@ -44,10 +64,18 @@ It is not deployed anywhere, and `tests/deploy-guard.test.ts` fails if a script 
 
 Other scripts, all from the repo root: `bun run test:armory`,
 `bun run type-check:armory`, `bun run build:armory` (writes the gitignored
-`packages/armory/build/`; the page is `build/client/index.html`),
-`bun run preview:armory` (builds, then serves the build the way Cloudflare
-would, in a local Worker), `bun run armory:schema` (below) and
-`bun run armory:check-widths`.
+`packages/armory/build/`; the page is `build/client/index.html`, the sim's
+files are copied to `build/client/sim/`), `bun run preview:armory` (builds,
+then serves the build the way Cloudflare would, in a local Worker),
+`bun run armory:schema` (below), `bun run sim:record` and
+`bun run armory:check-widths`. `build:armory` and `preview:armory` need
+`bun run sim:build` first: without the sim's build they stop and say so.
+
+`sim:record` (`scripts/record-sim.ts`) runs the page's test scenarios
+through the real WASM and writes `tests/fixtures/sim-outputs.json`, which
+the page tests' fake pool answers from. Run it again when a change alters
+the requests the browser sim sends (its iterations, fights, gates or
+rotation); it takes a few minutes.
 
 `armory:check-widths` (`scripts/check-widths.ts`) is a manual check, not part
 of `bun run check`: it serves the build (run `bun run build:armory` first)

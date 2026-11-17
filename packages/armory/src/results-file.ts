@@ -384,6 +384,20 @@ const baseSchema = z.strictObject({
         z.strictObject({
             fight_id: z.string(),
             weights: z.array(z.strictObject({ stat, ep: z.number() })),
+            source: z
+                .discriminatedUnion('kind', [
+                    z.strictObject({
+                        kind: z.literal('precomputed'),
+                        level_min: z.int(),
+                        level_max: z.int(),
+                    }),
+                    z.strictObject({ kind: z.literal('yours') }),
+                ])
+                .optional()
+                .meta({
+                    description:
+                        "Where these weights came from. precomputed: simmed ahead of time for the character's class, spec and level band (level_min to level_max), not this gear; the page says so. yours: simmed for this character's gear. Absent: simmed for the character, and the page says nothing about it.",
+                }),
         })
     ),
     talents: z.strictObject({
@@ -625,6 +639,8 @@ export const resultsFileSchema = baseSchema
 export type ResultsFile = z.infer<typeof resultsFileSchema>
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
+/** One accuracy check: a gate, or a note that never blocks. */
+export type Check = { name: string; passed: boolean; detail: string }
 
 export type ReadOutcome =
     | { ok: true; file: ResultsFile }

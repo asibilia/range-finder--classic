@@ -12,4 +12,4 @@ blockExoticSubdeps = true
 
 [test]
 # Downloaded tools and local agent worktrees hold no tests of ours.
-pathIgnorePatterns = [".tools/**", ".claude/**"]
+pathIgnorePatterns = [".tools/**", ".claude/**", "packages/sim/upstream/**"]

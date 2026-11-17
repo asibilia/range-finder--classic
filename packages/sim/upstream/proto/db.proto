@@ -1,0 +1,116 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "./proto";
+import "common.proto";
+import "spell.proto";
+
+message SimDatabase {
+	repeated SimItem items = 1;
+	repeated ItemRandomSuffix random_suffixes = 5;
+	repeated SimEnchant enchants = 2;
+	reserved 3;
+	reserved "gems";
+	repeated ItemEffectRandPropPoints item_effect_rand_prop_points = 9;
+
+	repeated Consumable consumables = 7;
+	repeated SpellEffect spell_effects = 8;
+}
+
+// Contains only the Enchant info needed by the sim.
+message SimEnchant {
+	int32 effect_id = 1;
+	string name = 2; // Only needed for unit tests.
+	ItemType type = 3; // Only needed for unit tests.
+	repeated double stats = 4;
+	repeated ItemEffect enchant_effects = 5;
+	EnchantType enchant_type = 6;
+	repeated ItemType extra_types = 7;
+	repeated double pseudo_stats = 8; // Indexed by PseudoStat.
+	double weapon_damage = 9; // Flat damage on the enchanted weapon's minimum and maximum.
+	EnchantProcKind proc_kind = 10;
+}
+
+// Contains only the Item info needed by the sim.
+message SimItem {
+	int32 id = 1;
+	string name = 2;
+
+	ItemType type = 3;
+	ArmorType armor_type = 4;
+	WeaponType weapon_type = 5;
+	HandType hand_type = 6;
+	RangedWeaponType ranged_weapon_type = 7;
+	reserved 8, 9;
+	reserved "gem_sockets", "socketBonus";
+	double quality_modifier = 15; // Negative for caster weapons; used by Seal of Righteousness proc among others.
+
+	double weapon_speed = 10;
+
+	string set_name = 11;
+	int32 set_id = 12;
+
+	map<int32, ScalingItemProperties> scaling_options = 13; // keys are the all ItemLevelState variants that this item could potentially have
+	repeated ItemEffect item_effects = 14;
+
+	int32 limit_category = 16;
+	bool unique = 17;
+	repeated double pseudo_stats = 18; // Indexed by PseudoStat.
+	repeated Class class_allowlist = 19; // Empty means every class may use the item.
+	SpellSchool spell_school = 20; // The weapon's damage school; unset means physical.
+}
+
+message Consumable {
+	int32 id = 1;
+	ConsumableType type = 2;
+	repeated double stats = 3;
+	bool buffs_main_stat = 4;
+	string name = 5;
+	string icon = 6;
+	// The level the item requires, or its item level where it requires none or level 1 (most explosives).
+	int32 lvl = 19;
+	int32 category_id = 7;
+	repeated int32 effect_ids = 8;
+
+	// The item's on-use rows: the spell each casts and the item's cooldown and category for it.
+	repeated ItemEffect item_effects = 9;
+	// Empty when every class can use it.
+	repeated Class class_allowlist = 10;
+	Profession required_profession = 11;
+	int32 req_prof_rank = 20; // The skill in required_profession the item needs (ItemSparse.RequiredSkillRank).
+	// SpellEquippedItems of a temporary enchant's spell: the weapon subclasses and inventory types
+	// it can be applied to. Zero on consumables that enchant nothing.
+	int32 weapon_subclass_mask = 12;
+	int32 weapon_inventory_type_mask = 13;
+	// The SpellItemEnchantment row a temporary enchant applies to the weapon. Its enchant_effects name,
+	// by buff_id alone, the combat spells it casts off that weapon's hits, each at the chance its
+	// spell's row states. Absent on consumables that enchant nothing.
+	SimEnchant temporary_enchant = 14;
+	// Empty when every race can use it.
+	repeated Race race_allowlist = 15;
+	// The consumable's exclusive group: of the consumables a spec names only the first of each group
+	// applies, and consumables of different groups stack. The generator resolves it from the rows and
+	// ConsumableExclusiveGroups. An empty key stacks with everything.
+	string group_key = 16;
+	// The group's label in the settings.
+	string group_name = 17;
+	// The hit and crit percents an on-use grants to one channel alone, and an all-channel crit on each
+	// channel. Indexed by PseudoStat; ranged totals include the melee share.
+	repeated double pseudo_stats = 18;
+	// The world event the consumable belongs to, by name, which the settings list it under. Empty for
+	// one available all year.
+	string holiday = 21;
+	// The classes of a potion, which the settings offer it under, and of a miscellaneous consumable,
+	// which the settings split its row by. Empty on anything else.
+	repeated PotionClass potion_classes = 22;
+	// What the on-use grants only against a target of these mob types, which stats leaves out.
+	repeated MobTypeStats mob_type_stats = 23;
+	// What the on-use grants only while the encounter is in one of these zones, which stats leaves out.
+	repeated ZoneStats zone_stats = 24;
+}
+
+message ItemEffectRandPropPoints {
+	int32 ilvl = 1;
+	int32 rand_prop_points =2;
+}
+

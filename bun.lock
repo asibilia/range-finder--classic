@@ -34,6 +34,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "catalog:",
+        "@goturbo/sim": "workspace:*",
         "class-variance-authority": "catalog:",
         "cn": "catalog:",
         "lucide-react": "catalog:",
@@ -60,6 +61,17 @@
         "typescript": "catalog:",
         "vite": "catalog:",
         "wrangler": "catalog:",
+      },
+    },
+    "packages/sim": {
+      "name": "@goturbo/sim",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
       },
     },
     "packages/web": {
@@ -284,6 +296,8 @@
     "@goturbo/addon": ["@goturbo/addon@workspace:packages/addon"],
 
     "@goturbo/armory": ["@goturbo/armory@workspace:packages/armory"],
+
+    "@goturbo/sim": ["@goturbo/sim@workspace:packages/sim"],
 
     "@goturbo/web": ["@goturbo/web@workspace:packages/web"],
 

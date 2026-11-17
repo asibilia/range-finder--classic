@@ -1,0 +1,127 @@
+{
+ "export": {
+  "format": 7,
+  "saved_at": "2026-11-15T23:59:05.000Z",
+  "level": 32
+ },
+ "buffs": [
+  {
+   "name": "Warchief's Blessing",
+   "spell_id": 16609,
+   "source": null,
+   "how": "unknown",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_from_buffed_sheet",
+  "base_health": 670,
+  "base_mana": 733,
+  "notes": [
+   "base health 670 and base mana 733 solved from a buffed sheet (unknown buff: Warchief's Blessing; no clean calibration at level 32 yet): not checked",
+   "spell crit per Intellect 0.0333% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 80,
+  "agility": 75,
+  "stamina": 128,
+  "intellect": 88,
+  "spirit": 87,
+  "attackPower": 322,
+  "meleeCrit": 9.7649993896484,
+  "dodge": 9.9250001907349,
+  "meleeHit": 0,
+  "spellCrit": 7.2303996086121,
+  "armor": 744,
+  "health": 1770,
+  "mana": 1773
+ },
+ "unbuffed_sheet": {
+  "strength": 80,
+  "agility": 75,
+  "stamina": 128,
+  "intellect": 88,
+  "spirit": 87,
+  "attack_power": 322,
+  "armor": 744,
+  "health": 1770,
+  "mana": 1773,
+  "melee_crit_pct": 9.77,
+  "spell_crit_pct": 7.23,
+  "dodge_pct": 9.93,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 80.00 vs game 80.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 75.00 vs game 75.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 128.00 vs game 128.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 88.00 vs game 88.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 87.00 vs game 87.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 322.00 vs game 322.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.93 vs game 9.93 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 744.00 vs game 744.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 9.77 (base 1.7% less 0.04% x 7 weapon skill under the cap) vs game 9.76 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 7.23 vs game 7.23 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Warchief's Blessing (sim 1770 vs game 1770; base solved from this buffed sheet)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Warchief's Blessing (sim 1773 vs game 1773; base solved from this buffed sheet)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "unknown: Warchief's Blessing"
+  }
+ ]
+}

@@ -384,6 +384,61 @@ describe('the JSON Schema', () => {
     )
 })
 
+describe('stat_weights source', () => {
+    test("a source of { kind: 'precomputed', level_min: 30, level_max: 34 } or { kind: 'yours' } reads, and so does none", () => {
+        const precomputed = sample()
+        precomputed.stat_weights[0].source = {
+            kind: 'precomputed',
+            level_min: 30,
+            level_max: 34,
+        }
+        expect((readResultsFile(precomputed) as any).problems).toBeUndefined()
+        expect(readResultsFile(precomputed).ok).toBe(true)
+
+        const yours = sample()
+        yours.stat_weights[0].source = { kind: 'yours' }
+        expect((readResultsFile(yours) as any).problems).toBeUndefined()
+
+        expect(readResultsFile(sample()).ok).toBe(true)
+    })
+
+    test("a source of kind 'guess', or with an extra key, is refused with its path and Zod's message", () => {
+        const guess = sample()
+        guess.stat_weights[0].source = { kind: 'guess' }
+        const guessProblems = problemsOf(guess).filter((p) =>
+            p.startsWith('stat_weights.0.source')
+        )
+        expect(guessProblems.length).toBeGreaterThan(0)
+        for (const problem of guessProblems)
+            expect(problem).toMatch(/^stat_weights\.0\.source[.\w]*: \S/)
+
+        const extra = sample()
+        extra.stat_weights[0].source = {
+            kind: 'precomputed',
+            level_min: 30,
+            level_max: 34,
+            reference: 'testchar-l30.json',
+        }
+        const extraProblems = problemsOf(extra)
+        expect(
+            extraProblems.some(
+                (p) =>
+                    p.startsWith('stat_weights.0.source') &&
+                    p.includes('Unrecognized key')
+            )
+        ).toBe(true)
+    })
+
+    test('the committed JSON Schema describes the source union', () => {
+        const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))
+        const source = schema.properties.stat_weights.items.properties.source
+        expect(source).toBeDefined()
+        const text = JSON.stringify(source)
+        expect(text.includes('"precomputed"')).toBe(true)
+        expect(text.includes('"yours"')).toBe(true)
+    })
+})
+
 /** The descriptions of every property named `key` in the committed JSON Schema. */
 function descriptionsOf(key: string): string[] {
     const found: string[] = []

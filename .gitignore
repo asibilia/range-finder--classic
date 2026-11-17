@@ -75,3 +75,10 @@ tmp/
 .luca/lock.json
 .luca/ledger.jsonl
 .luca/telemetry/
+
+# the leak guard's machine words: names of this computer, never committed
+packages/sim/.machine-words
+
+# WoWSims, vendored verbatim: keep every file, whatever the patterns above
+# say (build/, out/, *.log ... match anywhere)
+!packages/sim/upstream/**

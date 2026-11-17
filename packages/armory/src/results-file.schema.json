@@ -1258,6 +1258,49 @@
               ],
               "additionalProperties": false
             }
+          },
+          "source": {
+            "description": "Where these weights came from. precomputed: simmed ahead of time for the character's class, spec and level band (level_min to level_max), not this gear; the page says so. yours: simmed for this character's gear. Absent: simmed for the character, and the page says nothing about it.",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "precomputed"
+                  },
+                  "level_min": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "level_max": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "level_min",
+                  "level_max"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "yours"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [

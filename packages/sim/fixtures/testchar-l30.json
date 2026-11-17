@@ -1,0 +1,807 @@
+{
+ "note": "Made-up character (placeholder Testchar, level 30). Fights at his level: solo vs 30, dungeon 30 s vs 31, dungeon 2 min vs 32. Offline runner: local/sim/lib.ts buildRequest + runSim, CLI built with -tags with_db, level profile below.",
+ "profile": {
+  "level": 30,
+  "race": "RaceOrc",
+  "class": "ClassShaman",
+  "strength": 55,
+  "agility": 34,
+  "stamina": 59,
+  "intellect": 52,
+  "spirit": 63,
+  "baseHealth": 600,
+  "baseMana": 475,
+  "baseAttackPower": 40,
+  "critPerAgility": 0.083,
+  "dodgePerAgility": 0.083,
+  "spellCritPerInt": 0.0275,
+  "baseMeleeCrit": 1.7,
+  "baseSpellCrit": 2.3,
+  "baseDodgePercent": 1.7,
+  "knownSpells": [],
+  "source": "PLACEHOLDER: base attributes interpolated between level 1 and 60, conversions guessed; replaced by the export"
+ },
+ "fights": [
+  {
+   "fight_id": "solo-hit-short",
+   "request": {
+    "raid": {
+     "parties": [
+      {
+       "players": [
+        {
+         "name": "Testchar",
+         "race": "RaceOrc",
+         "class": "ClassShaman",
+         "equipment": {
+          "items": [
+           {
+            "id": 252504
+           },
+           {},
+           {
+            "id": 5404
+           },
+           {
+            "id": 279848
+           },
+           {
+            "id": 252509
+           },
+           {
+            "id": 279875
+           },
+           {
+            "id": 4253
+           },
+           {
+            "id": 252429
+           },
+           {
+            "id": 252517
+           },
+           {
+            "id": 251963
+           },
+           {
+            "id": 6414
+           },
+           {
+            "id": 6748
+           },
+           {},
+           {},
+           {
+            "id": 273046
+           },
+           {},
+           {
+            "id": 263412
+           }
+          ]
+         },
+         "talentsString": "-050032302051",
+         "enhancementShaman": {
+          "options": {
+           "classOptions": {
+            "imbueMh": "WindfuryWeapon"
+           }
+          }
+         },
+         "consumables": {},
+         "buffs": {},
+         "weaponSkills": [],
+         "rotation": {
+          "type": "TypeAPL",
+          "prepullActions": [
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-3s"
+             }
+            }
+           }
+          ],
+          "priorityList": [
+           {
+            "action": {
+             "condition": {
+              "not": {
+               "val": {
+                "auraIsActive": {
+                 "auraId": {
+                  "spellId": 905
+                 },
+                 "includeReactionTime": true
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 17364
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "multidot": {
+              "spellId": {
+               "spellId": 8053
+              },
+              "maxDots": 1,
+              "maxOverlap": {
+               "const": {
+                "val": "0ms"
+               }
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 8046
+              }
+             }
+            }
+           }
+          ]
+         },
+         "distanceFromTarget": 5,
+         "inFrontOfTarget": true,
+         "reactionTimeMs": 100
+        }
+       ]
+      }
+     ],
+     "tanks": [
+      {
+       "type": "Player",
+       "index": 0
+      }
+     ],
+     "buffs": {}
+    },
+    "encounter": {
+     "duration": 30,
+     "durationVariation": 5,
+     "targets": [
+      {
+       "name": "Level 30 mob",
+       "level": 30,
+       "mobType": "MobTypeHumanoid",
+       "stats": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1050,
+        0,
+        10000000
+       ],
+       "minBaseDamage": 45,
+       "damageSpread": 0.3,
+       "swingSpeed": 2,
+       "tankIndex": 0
+      }
+     ]
+    },
+    "simOptions": {
+     "iterations": 2000,
+     "randomSeed": 23
+    }
+   },
+   "worn_dps": 107.79515740008307
+  },
+  {
+   "fight_id": "dungeon-short",
+   "request": {
+    "raid": {
+     "parties": [
+      {
+       "players": [
+        {
+         "name": "Testchar",
+         "race": "RaceOrc",
+         "class": "ClassShaman",
+         "equipment": {
+          "items": [
+           {
+            "id": 252504
+           },
+           {},
+           {
+            "id": 5404
+           },
+           {
+            "id": 279848
+           },
+           {
+            "id": 252509
+           },
+           {
+            "id": 279875
+           },
+           {
+            "id": 4253
+           },
+           {
+            "id": 252429
+           },
+           {
+            "id": 252517
+           },
+           {
+            "id": 251963
+           },
+           {
+            "id": 6414
+           },
+           {
+            "id": 6748
+           },
+           {},
+           {},
+           {
+            "id": 273046
+           },
+           {},
+           {
+            "id": 263412
+           }
+          ]
+         },
+         "talentsString": "-050032302051",
+         "enhancementShaman": {
+          "options": {
+           "classOptions": {
+            "imbueMh": "WindfuryWeapon"
+           }
+          }
+         },
+         "consumables": {},
+         "buffs": {},
+         "weaponSkills": [],
+         "rotation": {
+          "type": "TypeAPL",
+          "prepullActions": [
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-3s"
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 8160
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-2s"
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 6364
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-1s"
+             }
+            }
+           }
+          ],
+          "priorityList": [
+           {
+            "action": {
+             "condition": {
+              "not": {
+               "val": {
+                "auraIsActive": {
+                 "auraId": {
+                  "spellId": 905
+                 },
+                 "includeReactionTime": true
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "condition": {
+              "cmp": {
+               "op": "OpLe",
+               "lhs": {
+                "totemRemainingTime": {
+                 "totemType": "Earth"
+                }
+               },
+               "rhs": {
+                "const": {
+                 "val": "2s"
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 8160
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "condition": {
+              "cmp": {
+               "op": "OpLe",
+               "lhs": {
+                "totemRemainingTime": {
+                 "totemType": "Fire"
+                }
+               },
+               "rhs": {
+                "const": {
+                 "val": "2s"
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 6364
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 17364
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "multidot": {
+              "spellId": {
+               "spellId": 8053
+              },
+              "maxDots": 1,
+              "maxOverlap": {
+               "const": {
+                "val": "0ms"
+               }
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 8046
+              }
+             }
+            }
+           }
+          ]
+         },
+         "distanceFromTarget": 5,
+         "inFrontOfTarget": false,
+         "reactionTimeMs": 100
+        }
+       ]
+      }
+     ],
+     "tanks": [],
+     "buffs": {}
+    },
+    "encounter": {
+     "duration": 30,
+     "durationVariation": 5,
+     "targets": [
+      {
+       "name": "Level 31 mob",
+       "level": 31,
+       "mobType": "MobTypeHumanoid",
+       "stats": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1100,
+        0,
+        10000000
+       ],
+       "minBaseDamage": 0,
+       "damageSpread": 0.3,
+       "swingSpeed": 2,
+       "tankIndex": 0
+      }
+     ]
+    },
+    "simOptions": {
+     "iterations": 2000,
+     "randomSeed": 23
+    }
+   },
+   "worn_dps": 113.0409310104258
+  },
+  {
+   "fight_id": "dungeon-long",
+   "request": {
+    "raid": {
+     "parties": [
+      {
+       "players": [
+        {
+         "name": "Testchar",
+         "race": "RaceOrc",
+         "class": "ClassShaman",
+         "equipment": {
+          "items": [
+           {
+            "id": 252504
+           },
+           {},
+           {
+            "id": 5404
+           },
+           {
+            "id": 279848
+           },
+           {
+            "id": 252509
+           },
+           {
+            "id": 279875
+           },
+           {
+            "id": 4253
+           },
+           {
+            "id": 252429
+           },
+           {
+            "id": 252517
+           },
+           {
+            "id": 251963
+           },
+           {
+            "id": 6414
+           },
+           {
+            "id": 6748
+           },
+           {},
+           {},
+           {
+            "id": 273046
+           },
+           {},
+           {
+            "id": 263412
+           }
+          ]
+         },
+         "talentsString": "-050032302051",
+         "enhancementShaman": {
+          "options": {
+           "classOptions": {
+            "imbueMh": "WindfuryWeapon"
+           }
+          }
+         },
+         "consumables": {},
+         "buffs": {},
+         "weaponSkills": [],
+         "rotation": {
+          "type": "TypeAPL",
+          "prepullActions": [
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-3s"
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 8160
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-2s"
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 6364
+              }
+             }
+            },
+            "doAtValue": {
+             "const": {
+              "val": "-1s"
+             }
+            }
+           }
+          ],
+          "priorityList": [
+           {
+            "action": {
+             "condition": {
+              "not": {
+               "val": {
+                "auraIsActive": {
+                 "auraId": {
+                  "spellId": 905
+                 },
+                 "includeReactionTime": true
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 905
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "condition": {
+              "cmp": {
+               "op": "OpLe",
+               "lhs": {
+                "totemRemainingTime": {
+                 "totemType": "Earth"
+                }
+               },
+               "rhs": {
+                "const": {
+                 "val": "2s"
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 8160
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "condition": {
+              "cmp": {
+               "op": "OpLe",
+               "lhs": {
+                "totemRemainingTime": {
+                 "totemType": "Fire"
+                }
+               },
+               "rhs": {
+                "const": {
+                 "val": "2s"
+                }
+               }
+              }
+             },
+             "castSpell": {
+              "spellId": {
+               "spellId": 6364
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 17364
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "multidot": {
+              "spellId": {
+               "spellId": 8053
+              },
+              "maxDots": 1,
+              "maxOverlap": {
+               "const": {
+                "val": "0ms"
+               }
+              }
+             }
+            }
+           },
+           {
+            "action": {
+             "castSpell": {
+              "spellId": {
+               "spellId": 8046
+              }
+             }
+            }
+           }
+          ]
+         },
+         "distanceFromTarget": 5,
+         "inFrontOfTarget": false,
+         "reactionTimeMs": 100
+        }
+       ]
+      }
+     ],
+     "tanks": [],
+     "buffs": {}
+    },
+    "encounter": {
+     "duration": 120,
+     "durationVariation": 10,
+     "targets": [
+      {
+       "name": "Level 32 mob",
+       "level": 32,
+       "mobType": "MobTypeHumanoid",
+       "stats": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1150,
+        0,
+        10000000
+       ],
+       "minBaseDamage": 0,
+       "damageSpread": 0.3,
+       "swingSpeed": 2,
+       "tankIndex": 0
+      }
+     ]
+    },
+    "simOptions": {
+     "iterations": 2000,
+     "randomSeed": 23
+    }
+   },
+   "worn_dps": 84.55222582489709
+  }
+ ]
+}

@@ -7,9 +7,10 @@
  * run by `build-output.test.ts`.
  */
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { ESLint } from 'eslint'
+import ts from 'typescript'
 
 import commitConfig from '../../../commit.config'
 
@@ -83,6 +84,24 @@ describe('AGENTS.md', () => {
         const text = oneLine(readText('AGENTS.md'))
         expect(text).not.toContain('both packages')
         expect(text).toContain('every package is `"private": true`')
+    })
+
+    test('names the snake_case exception for Go files in packages/sim/upstream/ under the kebab-case rule', () => {
+        const text = readText('AGENTS.md')
+        const rule = text.indexOf('**kebab-case file names**')
+        expect(rule).toBeGreaterThanOrEqual(0)
+        // The text from the naming rule to the next heading.
+        const after = text.slice(rule)
+        const nextHeading = after.search(/\n#{1,3} /)
+        const below = oneLine(
+            nextHeading < 0 ? after : after.slice(0, nextHeading)
+        )
+        const exception = below
+            .split(/ - /)
+            .find((item) => item.includes('packages/sim/upstream/'))
+        expect(exception).toBeDefined()
+        expect(exception).toContain('snake_case')
+        expect(exception).toMatch(/\bGo\b/)
     })
 })
 
@@ -164,10 +183,41 @@ describe('the @goturbo/armory package', () => {
 
         const catalog = readPackage('package.json').workspaces?.catalog ?? {}
         for (const [name, version] of Object.entries(deps)) {
+            // The repo's own packages come from the workspace.
+            if (name.startsWith('@goturbo/')) {
+                expect(`${name}@${version}`).toBe(`${name}@workspace:*`)
+                continue
+            }
             expect(`${name}@${version}`).toBe(`${name}@catalog:`)
             expect(Object.keys(catalog)).toContain(name)
         }
         expect(catalog['zod']).toMatch(/^[\^~]?4\./)
+    })
+
+    test('depends on @goturbo/sim from the workspace, takes its source in tsconfig.app.json with no project reference, and builds with vite-plugin-sim', () => {
+        const pkg = readPackage('packages/armory/package.json')
+        expect(pkg.dependencies?.['@goturbo/sim']).toBe('workspace:*')
+
+        const tsconfig = (path: string) =>
+            ts.parseConfigFileTextToJson(path, readText(path)).config as {
+                include?: string[]
+                references?: { path: string }[]
+            }
+        const app = tsconfig('packages/armory/tsconfig.app.json')
+        expect(
+            (app.include ?? []).some((p) => p.startsWith('../sim/src'))
+        ).toBe(true)
+        const references = [
+            ...(app.references ?? []),
+            ...(tsconfig('packages/armory/tsconfig.json').references ?? []),
+        ]
+        expect(references.filter((r) => r.path.includes('sim'))).toEqual([])
+
+        const node = tsconfig('packages/armory/tsconfig.node.json')
+        expect(node.include).toContain('vite-plugin-sim.ts')
+        expect(readText('packages/armory/vite.config.ts')).toMatch(
+            /from '\.\/vite-plugin-sim(\.ts)?'/
+        )
     })
 
     test('the root package.json description names @goturbo/armory', () => {
@@ -214,6 +264,37 @@ describe('the root scripts', () => {
     test('type-check runs type-check:armory', () => {
         expect(scripts()['type-check:armory']).toBeDefined()
         expect(scripts()['type-check']).toContain('bun run type-check:armory')
+    })
+})
+
+describe('the runner reference folder', () => {
+    // Built from parts, so this file doesn't name the folder itself.
+    const folderName = ['browser', 'sim', 'reference'].join('-')
+
+    test('is gone from packages/armory, and no file in the repo names it', () => {
+        expect(existsSync(join(REPO_ROOT, 'packages/armory', folderName))).toBe(
+            false
+        )
+
+        const listed = Bun.spawnSync(
+            ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+            { cwd: REPO_ROOT }
+        )
+        expect(listed.exitCode).toBe(0)
+        const files = listed.stdout
+            .toString()
+            .split('\n')
+            .filter((f) => f.length > 0)
+        expect(files.length).toBeGreaterThan(0)
+
+        const self = relative(REPO_ROOT, import.meta.path)
+        const naming = files.filter((file) => {
+            if (file === self) return false
+            const path = join(REPO_ROOT, file)
+            if (!existsSync(path) || !statSync(path).isFile()) return false
+            return readFileSync(path, 'utf8').includes(folderName)
+        })
+        expect(naming).toEqual([])
     })
 })
 

@@ -1,0 +1,4 @@
+# Matches the leak guard (src/leak-scan.ts) allows, because they are innocent
+# upstream code, never machine details. One per line:
+# <repo-relative path><TAB><kind><TAB><reason>
+packages/sim/upstream/sim/siml/lsp/lsp_test.go	home path	upstream LSP test uses a made-up file URI under a sample home folder, not a real machine path

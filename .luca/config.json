@@ -2,9 +2,9 @@
     "checks": {
         "test": "bun test --isolate",
         "types": "bun run type-check && bun run lua:check",
-        "lint": "bun run lint && bun run syncpack:check && bun run lua:format:check && bun run lua:guard"
+        "lint": "bun run lint && bun run syncpack:check && bun run lua:format:check && bun run lua:guard && bun run sim:go"
     },
-    "prepare": "bun run tools:fetch",
+    "prepare": "bun run tools:fetch && bun run sim:build",
     "test_file_patterns": ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
     "test_setup_files": [],
     "rule_files": ["AGENTS.md"],

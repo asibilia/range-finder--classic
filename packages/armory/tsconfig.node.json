@@ -2,7 +2,7 @@
 	"extends": "./tsconfig.json",
 	// Build-time code: the Vite and React Router config. Runs under
 	// Node/Bun, never in the Worker or the browser.
-	"include": ["react-router.config.ts", "vite.config.ts"],
+	"include": ["react-router.config.ts", "vite.config.ts", "vite-plugin-sim.ts"],
 	"compilerOptions": {
 		"composite": true,
 		"types": ["bun"],
