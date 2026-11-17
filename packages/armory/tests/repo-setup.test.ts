@@ -85,6 +85,24 @@ describe('AGENTS.md', () => {
         expect(text).not.toContain('both packages')
         expect(text).toContain('every package is `"private": true`')
     })
+
+    test('names the snake_case exception for Go files in packages/sim/upstream/ under the kebab-case rule', () => {
+        const text = readText('AGENTS.md')
+        const rule = text.indexOf('**kebab-case file names**')
+        expect(rule).toBeGreaterThanOrEqual(0)
+        // The text from the naming rule to the next heading.
+        const after = text.slice(rule)
+        const nextHeading = after.search(/\n#{1,3} /)
+        const below = oneLine(
+            nextHeading < 0 ? after : after.slice(0, nextHeading)
+        )
+        const exception = below
+            .split(/ - /)
+            .find((item) => item.includes('packages/sim/upstream/'))
+        expect(exception).toBeDefined()
+        expect(exception).toContain('snake_case')
+        expect(exception).toMatch(/\bGo\b/)
+    })
 })
 
 describe('CONTEXT.md', () => {
