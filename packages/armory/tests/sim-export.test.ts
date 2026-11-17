@@ -224,7 +224,8 @@ function level45() {
         const character: TestcharCharacter = {
             ...plain,
             level: 45,
-            profile: { ...plain.profile, level: 45 },
+            // The reader sets base attack power to 2 × level − 20 (the runner's rule).
+            profile: { ...plain.profile, level: 45, baseAttackPower: 2 * 45 - 20 },
         }
         const sheet = sheetFromSim(
             await shared.sheet(
