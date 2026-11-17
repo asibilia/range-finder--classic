@@ -40,6 +40,12 @@ export type Character = {
     known_spells: number[]
     /** Weapon skills as the sim's `WeaponSkillValue` takes them. */
     weapon_skills?: { skill: string; value: number }[]
+    /**
+     * The level's weapon-skill cap (5 per level) less the main hand's
+     * weapon skill (rank plus modifier); 0 when the export has no row for
+     * it, and negative above the cap. The export reader always sets it.
+     */
+    weapon_skill_deficit?: number
     profile: LevelProfile
     /** The game's sheet at export. */
     sheet: ResultsFile['sheet']

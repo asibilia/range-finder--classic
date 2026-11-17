@@ -123,8 +123,8 @@ export const BASE_RATES: Readonly<
 }
 
 /**
- * Weapon skills by the game's name, as the sim's `WeaponSkill` names them.
- * Unarmed has no sim skill, so it's never sent.
+ * The runner's 10 melee weapon skills by the game's name, as the sim's
+ * `WeaponSkill` names them. Unarmed has no sim skill, so it's never sent.
  */
 export const WEAPON_SKILLS: Readonly<Record<string, string>> = {
     Axes: 'WeaponSkillAxes',
@@ -137,12 +137,20 @@ export const WEAPON_SKILLS: Readonly<Record<string, string>> = {
     Staves: 'WeaponSkillStaves',
     Daggers: 'WeaponSkillDaggers',
     'Fist Weapons': 'WeaponSkillFistWeapons',
-    Bows: 'WeaponSkillBows',
-    Crossbows: 'WeaponSkillCrossbows',
-    Guns: 'WeaponSkillGuns',
-    Thrown: 'WeaponSkillThrown',
-    Wands: 'WeaponSkillWands',
 }
+
+/** The imbues a main-hand tooltip line names, e.g. `Rockbiter 7 (29 min)`. */
+const TOOLTIP_IMBUE = /\b(Windfury|Flametongue|Rockbiter|Frostbrand)\b/
+
+/** The attributes and rates an export must carry, as the profile names them. */
+const REQUIRED_STATS = [
+    'strength',
+    'agility',
+    'stamina',
+    'intellect',
+    'spirit',
+    'critPerAgility',
+] as const
 
 /** Buffs that change nothing the sheet check reads, by name. */
 const NO_EFFECT_BUFFS = [
@@ -154,14 +162,6 @@ const NO_EFFECT_BUFFS = [
 ]
 /** Blessing of Kings and Greater Blessing of Kings: the sim's own. */
 const KINGS = [20217, 25898]
-
-const ATTRIBUTES = [
-    'strength',
-    'agility',
-    'stamina',
-    'intellect',
-    'spirit',
-] as const
 
 type Table = { [key: string]: SavedValue }
 
@@ -191,32 +191,48 @@ function raceEnum(race: string): string {
 }
 
 /**
- * The talent string the sim takes, from an export's traits: each tree's
- * ranks in the trees' order, trailing zeros and empty trees dropped.
+ * The talent string the sim takes, from an export's talent rows (its
+ * `talents.list`, or its traits when the list is empty): each tree's ranks
+ * in the trees' order, trailing zeros and empty trees dropped. A row is
+ * matched by its name (in lower case), then by its spell id.
  */
-export function talentString(
-    traits: SavedValue[],
-    trees: TalentTree[]
-): string {
+export function talentString(rows: SavedValue[], trees: TalentTree[]): string {
     const ranks = trees.map((tree) => tree.talents.map(() => 0))
-    for (const raw of traits) {
-        const trait = table(raw)
-        const definition = num(trait.definitionID)
-        const spell = num(trait.spellID)
+    const find = (match: (t: TalentTree['talents'][number]) => boolean) => {
         for (const [i, tree] of trees.entries()) {
-            const j = tree.talents.findIndex((t) =>
-                definition > 0 && t.definitionId
-                    ? t.definitionId === definition
-                    : t.spellId === spell
-            )
-            if (j < 0) continue
-            ranks[i]![j] = Math.min(num(trait.rank), tree.talents[j]!.maxPoints)
+            const j = tree.talents.findIndex(match)
+            if (j >= 0) return [i, j] as const
         }
+        return null
+    }
+    for (const raw of rows) {
+        const row = table(raw)
+        const rank = num(row.rank)
+        if (rank <= 0) continue
+        const name = str(row.name).toLowerCase()
+        const spell = num(row.spellID)
+        const at =
+            (name ? find((t) => t.fancyName.toLowerCase() === name) : null) ??
+            (spell > 0 ? find((t) => t.spellId === spell) : null)
+        if (!at) continue
+        const [i, j] = at
+        ranks[i]![j] = Math.min(rank, trees[i]!.talents[j]!.maxPoints)
     }
     return ranks
         .map((tree) => tree.join('').replace(/0+$/, ''))
         .join('-')
         .replace(/-+$/, '')
+}
+
+/**
+ * The addon's character key, or undefined when there's none or it's
+ * unusable: 32 hex digits with more than 4 distinct, as the addon's
+ * `goodKey` rule. An all-zero key or a WoW player GUID is never a key.
+ */
+export function usableKey(key: SavedValue | undefined): string | undefined {
+    if (typeof key !== 'string' || /[^0-9a-f-]/.test(key)) return undefined
+    const hex = key.replace(/-/g, '')
+    return hex.length === 32 && new Set(hex).size > 4 ? key : undefined
 }
 
 /** One worn item from the export: its id, enchant and random suffix. */
@@ -249,24 +265,67 @@ function readGear(gear: Table): Gear {
     return worn
 }
 
-function readImbue(enchants: Table): string | null {
-    for (const raw of list(enchants.mainHand)) {
+/**
+ * The main hand's imbue: the main hand's tooltip line first (`Windfury 1
+ * (29 min)`), then its enchant id, then the meter (any Windfury damage
+ * means Windfury Weapon), else none.
+ */
+function readImbue(db: Table): string | null {
+    const tooltip = list(table(table(db.gear)['16']).tooltip)
+        .map(str)
+        .join('\n')
+    const named = TOOLTIP_IMBUE.exec(tooltip)?.[1]
+    if (named) return `${named}Weapon`
+    for (const raw of list(table(db.weaponEnchants).mainHand)) {
         const enchant = table(raw)
         if (enchant.hasEnchant !== true) continue
         const imbue = IMBUES[num(enchant.enchantID)]
         if (imbue) return imbue
     }
-    return null
+    const windfury = list(table(db.meter).sessions).some((session) =>
+        list(table(session).spells).some(
+            (spell) =>
+                /^Windfury/.test(str(table(spell).name)) &&
+                num(table(spell).damage) > 0
+        )
+    )
+    return windfury ? 'WindfuryWeapon' : null
 }
+
+/** A skill row's value: its rank plus its modifier. */
+const skillValue = (row: Table) => num(row.rank) + num(row.modifier)
 
 function readWeaponSkills(skills: SavedValue[]) {
     const out: { skill: string; value: number }[] = []
     for (const raw of skills) {
         const skill = WEAPON_SKILLS[str(table(raw).name)]
         if (skill && !out.some((s) => s.skill === skill))
-            out.push({ skill, value: num(table(raw).rank) })
+            out.push({ skill, value: skillValue(table(raw)) })
     }
     return out
+}
+
+/** The main hand's gear entry and the skill row its weapon type names. */
+function mainHandSkill(db: Table, gear: Table) {
+    const mainHand = Object.values(gear)
+        .map(table)
+        .find((entry) => str(entry.slot) === 'mainHand')
+    const kind = str(mainHand?.subclass).replace(/^One-Handed /, '')
+    const skill = kind
+        ? list(db.skills)
+              .map(table)
+              .find((s) => str(s.name) === kind)
+        : undefined
+    return { mainHand, skill }
+}
+
+/**
+ * The level's weapon-skill cap less the main hand's weapon skill; 0 when
+ * no skill row matches, negative above the cap.
+ */
+function weaponSkillDeficit(db: Table, gear: Table, level: number): number {
+    const { skill } = mainHandSkill(db, gear)
+    return skill ? 5 * level - skillValue(skill) : 0
 }
 
 /** The main hand's weapon skill as the sheet shows it, when exported. */
@@ -274,14 +333,7 @@ function sheetWeaponSkill(
     db: Table,
     gear: Table
 ): ResultsFile['sheet']['weapon_skill'] {
-    const mainHand = Object.values(gear)
-        .map(table)
-        .find((entry) => str(entry.slot) === 'mainHand')
-    const kind = str(mainHand?.subclass).replace(/^One-Handed /, '')
-    if (!kind) return null
-    const skill = list(db.skills)
-        .map(table)
-        .find((s) => str(s.name) === kind)
+    const { mainHand, skill } = mainHandSkill(db, gear)
     if (!skill || num(skill.maxRank) < 1) return null
     return {
         weapon_type: str(mainHand?.subclass),
@@ -319,7 +371,10 @@ function readSheet(sheet: Table): ResultsFile['sheet'] {
     }
 }
 
-/** The level profile from the export's sheet, before calibration. */
+/**
+ * The level profile from the export's sheet, before calibration. It
+ * throws when the export lacks an attribute or crit per Agility.
+ */
 function readProfile(
     db: Table,
     level: number,
@@ -329,23 +384,25 @@ function readProfile(
     const sheet = table(db.sheet)
     const stat = table(sheet.stat)
     const conversion = table(sheet.conversion)
-    const apPer100 = table(conversion.apPer100)
     const critPer100 = table(conversion.critPer100)
-    const total = (name: string) => num(table(stat[name]).total)
-    // The naked attribute: the total less what gear and buffs add.
+    // The naked attribute: the total less what gear and buffs add; NaN
+    // when the export has no total.
     const naked = (name: string) => {
         const s = table(stat[name])
-        return num(s.total) - num(s.pos) - num(s.neg)
+        return typeof s.total === 'number'
+            ? s.total - num(s.pos) - num(s.neg)
+            : NaN
     }
-    const fromStats = ATTRIBUTES.reduce(
-        (sum, name) => sum + (total(name) * num(apPer100[name])) / 100,
-        0
-    )
-    const agility = total('agility')
-    const critPerAgility = num(critPer100.agility)
+    const agility = num(table(stat.agility).total)
+    const critPerAgility =
+        typeof critPer100.agility === 'number' ? critPer100.agility : NaN
     const dodgeFromAgility = num(conversion.dodgeFromAgility)
     const rates = BASE_RATES[cls] ?? BASE_RATES[SUPPORTED.class]!
-    return {
+    // Base dodge: 0.04% per point Defense is off the level's cap.
+    const defense = list(db.skills)
+        .map(table)
+        .find((s) => str(s.name) === 'Defense')
+    const profile: LevelProfile = {
         level,
         race: raceEnum(str(table(db.identity).race)),
         class: `Class${cls}`,
@@ -356,7 +413,8 @@ function readProfile(
         spirit: naked('spirit'),
         baseHealth: 0,
         baseMana: 0,
-        baseAttackPower: num(table(sheet.attackPower).base) - fromStats,
+        // The shaman's flat attack power: 2 per level less 20.
+        baseAttackPower: 2 * level - 20,
         critPerAgility,
         dodgePerAgility:
             agility > 0 && dodgeFromAgility > 0
@@ -364,8 +422,14 @@ function readProfile(
                 : critPerAgility,
         spellCritPerInt: num(critPer100.intellect),
         ...rates,
+        baseDodgePercent:
+            1.7 + (defense ? 0.04 * (skillValue(defense) - 5 * level) : 0),
         knownSpells,
     }
+    for (const name of REQUIRED_STATS)
+        if (!Number.isFinite(profile[name]))
+            throw new Error(`the export lacks ${name}`)
+    return profile
 }
 
 /**
@@ -490,7 +554,13 @@ export async function exportCharacter(
     if (!KNOWN_CLASSES.includes(cls))
         return { kind: 'unsupported', class: given, spec: '' }
     const trees = await talentTrees(pool, cls)
-    const talents = talentString(list(table(db.talents).traits), trees)
+    const talentRows = list(table(db.talents).list).filter(
+        (row) => num(table(row).rank) > 0
+    )
+    const talents = talentString(
+        talentRows.length > 0 ? talentRows : list(table(db.talents).traits),
+        trees
+    )
     const { stop } = supportedSpec(cls, talents, trees)
     if (stop) return stop
 
@@ -506,18 +576,21 @@ export async function exportCharacter(
     }
 
     const level = num(identity.level)
+    if (!level) throw new Error('the export has no level')
     const knownSpells = list(db.spells)
         .map((spell) => num(table(spell).spellID))
         .filter((id) => id > 0)
+    const profile = readProfile(db, level, cls, knownSpells)
     const gear = table(db.gear)
     const key =
-        str(identity.characterKey) || str(table(db.settings).characterKey)
+        usableKey(identity.characterKey) ??
+        usableKey(table(db.settings).characterKey)
     const sheet = readSheet(table(db.sheet))
     const weaponSkill = sheetWeaponSkill(db, gear)
     const savedAt = num(db.savedAt)
     const character: Character = {
         name: str(identity.name),
-        ...(/[1-9a-z]/i.test(key) ? { character_key: key } : {}),
+        ...(key ? { character_key: key } : {}),
         level,
         race: identity.race === 'Scourge' ? 'Undead' : str(identity.race),
         class: cls,
@@ -526,10 +599,11 @@ export async function exportCharacter(
         bags: list(db.bags)
             .map((item) => num(table(item).id))
             .filter((id) => id > 0),
-        imbue: readImbue(table(db.weaponEnchants)),
+        imbue: readImbue(db),
         known_spells: knownSpells,
         weapon_skills: readWeaponSkills(list(db.skills)),
-        profile: readProfile(db, level, cls, knownSpells),
+        weapon_skill_deficit: weaponSkillDeficit(db, gear, level),
+        profile,
         sheet: weaponSkill ? { ...sheet, weapon_skill: weaponSkill } : sheet,
         ...(modelled ? { sheet_buffs: modelled } : {}),
         export_saved_at: new Date(savedAt * 1000).toISOString(),
