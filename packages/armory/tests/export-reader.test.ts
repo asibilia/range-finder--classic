@@ -271,6 +271,41 @@ describe('parseSavedVariables', () => {
             expect(typeof value).toBe('object')
         expect(parseSavedVariables(crlf(text))).toEqual(vars)
     })
+
+    test('a ["__proto__"] key sets no prototype: ({}).polluted stays undefined and the parsed table has no polluted property through its prototype', () => {
+        const vars = parseSavedVariables(
+            'TurboCharExportDB = { ["__proto__"] = { ["polluted"] = true } }',
+        )
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+        expect((Object.prototype as Record<string, unknown>).polluted).toBe(
+            undefined,
+        )
+        const db = vars.TurboCharExportDB as Record<string, unknown>
+        expect(typeof db).toBe('object')
+        const proto = Object.getPrototypeOf(db) as object | null
+        expect(proto === null || proto === Object.prototype).toBe(true)
+        expect(db.polluted).toBeUndefined()
+        expect('polluted' in db).toBe(false)
+    })
+
+    test('["constructor"] and ["prototype"] keys, next to a ["__proto__"] key, parse without throwing and change neither Object.prototype nor the parsed table\'s prototype', () => {
+        const before = Object.getOwnPropertyNames(Object.prototype).sort()
+        const ctor = Object.prototype.constructor
+        const text =
+            'TurboCharExportDB = { ["constructor"] = 1, ["prototype"] = 2, ["__proto__"] = { ["x"] = 1 } }\nPlain = {}'
+        let vars: Record<string, unknown> = {}
+        expect(() => {
+            vars = parseSavedVariables(text)
+        }).not.toThrow()
+        expect(Object.getOwnPropertyNames(Object.prototype).sort()).toEqual(
+            before,
+        )
+        expect(Object.prototype.constructor).toBe(ctor)
+        const db = vars.TurboCharExportDB as object
+        const proto = Object.getPrototypeOf(db) as object | null
+        expect(proto === null || proto === Object.prototype).toBe(true)
+        expect(proto).toBe(Object.getPrototypeOf(vars.Plain as object))
+    })
 })
 
 describe('readExport', () => {
