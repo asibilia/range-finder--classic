@@ -11,6 +11,7 @@ import {
     openSample,
     readingValue,
     variant,
+    type User,
 } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
@@ -18,8 +19,6 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 
 import firstRun from '../src/sample-truncha-first-run.json'
 
-const SHOW_PLAN = "Show the sim's plan"
-const SHOW_WORN = 'Show what I wear'
 const ROLES = ['Damage', 'Survival', 'Healing', 'Utility'] as const
 const NOTHING_RESIMMED =
     'These pick from plans the sim already made. Nothing is re-simmed here.'
@@ -36,6 +35,49 @@ function paneStatus(): string {
         ['What you wear', "The sim's plan"].includes(element.textContent ?? '')
     )
     return bold?.parentElement?.textContent ?? ''
+}
+
+// The page before #112 switched views with these two buttons; #112 puts the
+// `View` switch's `Current` / `BIS` radios in their place. The helpers below
+// work on both, so these tests keep checking the plan view either way.
+const OLD_PLAN = "Show the sim's plan"
+const OLD_WORN = 'Show what I wear'
+
+/** A button with exactly this text (matched by text, which is reliable). */
+function oldButton(text: string): HTMLElement | undefined {
+    return screen
+        .queryAllByRole('button')
+        .find((button) => button.textContent === text)
+}
+
+function viewGroup(): HTMLElement | null {
+    return screen.queryByRole('group', { name: 'View' })
+}
+
+/** The control that shows the plan (`BIS`) or what you wear (`Current`). */
+function viewControl(name: 'Current' | 'BIS'): HTMLElement {
+    const group = viewGroup()
+    if (group) return within(group).getByRole('radio', { name })
+    const button = oldButton(name === 'BIS' ? OLD_PLAN : OLD_WORN)
+    if (!button) throw new Error(`no control for ${name}`)
+    return button
+}
+
+/** Whether the view control says the plan is shown. */
+function planChosen(): boolean {
+    const group = viewGroup()
+    if (group)
+        return (
+            within(group).getByRole('radio', {
+                name: 'BIS',
+            }) as HTMLInputElement
+        ).checked
+    return oldButton(OLD_WORN) !== undefined
+}
+
+/** Shows the sim's plan. */
+async function showPlan(user: User) {
+    await user.click(viewControl('BIS'))
 }
 
 /** The line that names the plan the mix picks. */
@@ -87,22 +129,22 @@ describe('the plan view', () => {
         expect(paneStatus()).toBe(
             'What you wear, from your export of 13 November'
         )
-        expect(screen.getByRole('button', { name: SHOW_PLAN })).toBeDefined()
+        expect(viewControl('BIS')).toBeDefined()
+        expect(planChosen()).toBe(false)
     })
 
     test("pressing Show the sim's plan shows Max damage and Ferine Leggings in Legs", async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         expect(paneStatus()).toBe("The sim's plan for your mix: max damage")
-        expect(screen.getByRole('button', { name: SHOW_WORN })).toBeDefined()
-        expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
+        expect(planChosen()).toBe(true)
         expect(within(slot('Legs')).getByText('Ferine Leggings')).toBeDefined()
     })
 
     test('in the plan view Totem is the same as what you wear, and Legs shows where Ferine Leggings come from and says what it replaces', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         const relic = screen.getByRole('button', {
             name: 'Totem: Unnamed totem (263412), same as what you wear',
@@ -137,13 +179,14 @@ describe('the plan view', () => {
 
         // The sample has both, so their absence below comes from the plans.
         await openSample()
-        expect(screen.getByRole('button', { name: SHOW_PLAN })).toBeDefined()
+        expect(viewControl('BIS')).toBeDefined()
         expect(screen.getByText('Stat Priority')).toBeDefined()
         cleanup()
 
         await openFile(noPlans)
 
-        expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
+        expect(viewGroup()).toBeNull()
+        expect(oldButton(OLD_PLAN)).toBeUndefined()
         expect(screen.queryByText('Stat Priority')).toBeNull()
         expect(screen.queryByRole('slider', { name: 'Damage' })).toBeNull()
     })
@@ -156,7 +199,7 @@ describe('the plan view', () => {
             within(fromWorn).getByRole('button', { name: 'Close' })
         )
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
         await user.click(slot('Legs'))
         const fromPlan = screen.getByRole('dialog', { name: 'Legs' })
 
@@ -183,7 +226,7 @@ describe('the plan view', () => {
             for (const plan of plans) plan.gear.trinket_1 = 999001
         })
         const user = await openFile(withTrinket)
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         const trinket = slot('Trinket 1')
         expect(within(trinket).getByText('Test Trinket')).toBeDefined()
@@ -382,11 +425,11 @@ describe('the role sliders', () => {
         expect(paneStatus()).toBe(
             "The sim's plan for your mix: damage and survival"
         )
+        expect(planChosen()).toBe(true)
         expect(screen.getByText(SWITCHED, { exact: false })).toBeDefined()
 
-        // The line's own Show what I wear goes back, as the mockup's does.
-        const line = screen.getByText(SWITCHED, { exact: false })
-        await user.click(within(line).getByRole('button', { name: SHOW_WORN }))
+        // Going back to what you wear clears the line.
+        await user.click(viewControl('Current'))
 
         expect(paneStatus()).toBe(
             'What you wear, from your export of 13 November'
@@ -398,7 +441,7 @@ describe('the role sliders', () => {
         const user = await openSample()
         expect(screen.getByText(NOTHING_RESIMMED)).toBeDefined()
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
         expect(screen.getByText(NOTHING_RESIMMED)).toBeDefined()
 
         toDamageAndSurvival()

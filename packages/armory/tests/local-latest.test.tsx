@@ -17,6 +17,7 @@ import {
     render,
     screen,
     waitFor,
+    within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -31,12 +32,42 @@ const UNREADABLE =
     "The latest file from this computer couldn't be read; showing the last one that could."
 const OPEN_ANOTHER = 'Open another file'
 const BACK = 'Back to the latest from this computer'
-const SHOW_PLAN = "Show the sim's plan"
-const SHOW_WORN = 'Show what I wear'
 const CHAIN = 'Chain, 4 pulls 20 s apart vs level 33'
 const REFRESH_MS = 10_000
 
 type Json = Record<string, unknown>
+
+/** A button with exactly this text. */
+function buttonWithText(text: string): HTMLElement | undefined {
+    return screen
+        .queryAllByRole('button')
+        .find((button) => button.textContent === text)
+}
+
+/**
+ * Shows the sim's plan: the `BIS` radio of the gear card's `View` switch
+ * (#112), or the page's old `Show the sim's plan` button before it.
+ */
+async function showPlan(user: ReturnType<typeof userEvent.setup>) {
+    const group = screen.queryByRole('group', { name: 'View' })
+    const control = group
+        ? within(group).getByRole('radio', { name: 'BIS' })
+        : buttonWithText("Show the sim's plan")
+    if (!control) throw new Error('no control for the plan view')
+    await user.click(control)
+}
+
+/** Whether the view control says the plan is shown. */
+function planChosen(): boolean {
+    const group = screen.queryByRole('group', { name: 'View' })
+    if (group)
+        return (
+            within(group).getByRole('radio', {
+                name: 'BIS',
+            }) as HTMLInputElement
+        ).checked
+    return buttonWithText('Show what I wear') !== undefined
+}
 
 /** A results file whose character is `name`, made at `madeAt`. */
 function resultsFile(name: string, madeAt = '2026-11-17T08:00:00Z'): Json {
@@ -370,8 +401,8 @@ describe('the page follows the local latest file', () => {
         await settle()
 
         await chooseFight(user, CHAIN)
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
-        await screen.findByRole('button', { name: SHOW_WORN })
+        await showPlan(user)
+        await waitFor(() => expect(planChosen()).toBe(true))
 
         const latestBefore = callsTo(LATEST).length
         const statusBefore = callsTo(STATUS).length
@@ -390,7 +421,7 @@ describe('the page follows the local latest file', () => {
 
         await waitForName('Newchar')
         expect(shownFight()).toBe(CHAIN)
-        expect(screen.getByRole('button', { name: SHOW_WORN })).toBeDefined()
+        expect(planChosen()).toBe(true)
     })
 
     test('a later 200 that does not read keeps the old character and says so', async () => {

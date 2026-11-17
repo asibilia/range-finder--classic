@@ -16,6 +16,7 @@ import {
     readingChange,
     renderApp,
     variant,
+    type User,
 } from './open-app'
 
 import { afterEach, describe, expect, test } from 'bun:test'
@@ -23,7 +24,20 @@ import { cleanup, screen, within } from '@testing-library/react'
 
 import { initials } from '../src/components/talents-dialog'
 
-const SHOW_PLAN = "Show the sim's plan"
+/**
+ * Shows the sim's plan: the `BIS` radio of the gear card's `View` switch
+ * (#112), or the page's old `Show the sim's plan` button before it.
+ */
+async function showPlan(user: User) {
+    const group = screen.queryByRole('group', { name: 'View' })
+    const control = group
+        ? within(group).getByRole('radio', { name: 'BIS' })
+        : screen
+              .queryAllByRole('button')
+              .find((button) => button.textContent === "Show the sim's plan")
+    if (!control) throw new Error('no control for the plan view')
+    await user.click(control)
+}
 // The readings' short labels (#111).
 const DPS_SOLO = 'Solo'
 const DPS_LONG = 'Dungeon'
@@ -49,7 +63,7 @@ describe('the gear pane', () => {
 
     test('in the plan view says what the labels and faded slots mean, and fades unchanged slots', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         expect(
             screen.getByText(
@@ -72,7 +86,7 @@ describe('the gear pane', () => {
 
     test('a plan item above your level carries a needs chip, and the slot name stays exact', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         const hands = screen.getByRole('button', {
             name: 'Hands: Gloves of the Greatfather, +21.6 EP',
@@ -93,7 +107,7 @@ describe('the gear pane', () => {
             description(screen.getByRole('button', { name: /^Head: / }))
         ).toBe('')
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
         expect(screen.queryByText('better in bags')).toBeNull()
     })
 
@@ -102,7 +116,7 @@ describe('the gear pane', () => {
         const user = await openSample()
         expect(screen.getByText(HINT)).toBeDefined()
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
         expect(screen.queryByText(HINT)).toBeNull()
     })
 })
@@ -112,7 +126,7 @@ describe('the readings', () => {
         const user = await openSample()
         expect(readingChange(DPS_LONG)).toBeNull()
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
 
         expect(readingChange(DPS_SOLO)).toBe('+14.7')
         expect(readingChange(DPS_LONG)).toBe('+8.7')
@@ -137,7 +151,7 @@ describe('the readings', () => {
             })
         )
         await chooseFight(user, 'Chain, 4 pulls 20 s apart vs level 33')
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showPlan(user)
         // The chain fight's readings: the plan has no result there.
         expect(readingChange('Resource Empty')).toBeNull()
         expect(readingChange('Health')).toBeNull()

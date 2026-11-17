@@ -41,7 +41,24 @@ const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
 const PROVISIONAL_TEXT =
     "The sim hasn't been checked against real fights yet. Treat these as estimates."
-const SHOW_PLAN = "Show the sim's plan"
+/**
+ * The control that shows the plan (`BIS`) or what you wear (`Current`): the
+ * gear card's `View` switch (#112), or the page's old buttons before it.
+ */
+function viewControl(name: 'Current' | 'BIS'): HTMLElement | undefined {
+    const group = screen.queryByRole('group', { name: 'View' })
+    if (group) return within(group).getByRole('radio', { name })
+    const text = name === 'BIS' ? "Show the sim's plan" : 'Show what I wear'
+    return screen
+        .queryAllByRole('button')
+        .find((button) => button.textContent === text)
+}
+
+async function chooseView(user: User, name: 'Current' | 'BIS') {
+    const control = viewControl(name)
+    if (!control) throw new Error(`no control for ${name}`)
+    await user.click(control)
+}
 
 /** The results entries of a file copy that match `gear` and `fight_id`. */
 function resultsOf(file: Json, gear: string, fightId: string): Result[] {
@@ -63,9 +80,9 @@ function chart(name: string): Element | null {
  */
 async function values(user: User, label: string): Promise<(string | null)[]> {
     const worn = readingValue(label)
-    await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+    await chooseView(user, 'BIS')
     const plan = readingValue(label)
-    await user.click(screen.getByRole('button', { name: 'Show what I wear' }))
+    await chooseView(user, 'Current')
     return [worn, plan]
 }
 
@@ -421,7 +438,7 @@ describe('a file with no plans', () => {
                 )
             })
         )
-        expect(screen.queryByRole('button', { name: SHOW_PLAN })).toBeNull()
+        expect(viewControl('BIS')).toBeUndefined()
         expect(readingValue(READ_DUNGEON)).toBe('75.4')
         expect(chart(TIME_CHART)).not.toBeNull()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()
