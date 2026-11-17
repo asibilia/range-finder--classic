@@ -9,7 +9,13 @@
  * The last file picked or dropped is kept in this browser and comes back on
  * reload (`remembered-file.ts`); the sample is never kept.
  */
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import {
+    type ReactNode,
+    type RefObject,
+    useEffect,
+    useRef,
+    useState,
+} from 'react'
 
 import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
@@ -22,6 +28,7 @@ import {
     type Wishlist,
     WishlistDialog,
 } from '@/components/item-picker'
+import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
 import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
@@ -50,32 +57,22 @@ import { itemName } from './item-name'
 import {
     initialPlannerState,
     pickedPlan,
+    pickFight,
     type PlannerAction,
     plannerReducer,
     type PlannerState,
+    showView,
     wornResult,
 } from './planner-state'
+import { readResults, readResultsText } from './read-results'
 import { forgetFile, recallFile, rememberFile } from './remembered-file'
-import { readResultsFile, type ResultsFile, type Slot } from './results-file'
+import type { ResultsFile, Slot } from './results-file'
 import { slotLabel } from './slot-labels'
 import { slotEntry } from './slot-view'
 import sample from './sample-truncha.json'
 
+/** The file shown, or why the last one didn't read (both null: nothing). */
 type Loaded = { file: ResultsFile | null; error: ReadError | null }
-
-function load(input: unknown): Loaded {
-    const outcome = readResultsFile(input)
-    if (outcome.ok) return { file: outcome.file, error: null }
-    if (outcome.reason === 'version')
-        return {
-            file: null,
-            error: { kind: 'version', version: outcome.version },
-        }
-    return {
-        file: null,
-        error: { kind: 'invalid', problems: outcome.problems },
-    }
-}
 
 /**
  * Reads a picked or dropped file's text as a results file. A file that
@@ -95,16 +92,7 @@ async function readFile(
             remembered: false,
         }
     }
-    let input: unknown
-    try {
-        input = JSON.parse(text)
-    } catch {
-        return {
-            loaded: { file: null, error: { kind: 'not-json' } },
-            remembered: false,
-        }
-    }
-    const loaded = load(input)
+    const loaded = readResultsText(text)
     return { loaded, remembered: loaded.file ? rememberFile(text) : false }
 }
 
@@ -137,12 +125,15 @@ function Header({
     file,
     headingRef,
     wishlistCount,
+    localAction,
     onOpenWishlist,
     onOpenPawn,
 }: {
     file: ResultsFile | null
     headingRef: RefObject<HTMLHeadingElement | null>
     wishlistCount: number
+    /** Dev only: the local latest file's button, or null. */
+    localAction: ReactNode
     onOpenWishlist: () => void
     onOpenPawn: () => void
 }) {
@@ -163,6 +154,7 @@ function Header({
                 </p>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-3">
+                {localAction}
                 {file && (
                     <Button
                         variant="ghost"
@@ -271,11 +263,16 @@ type Simmed = { character: Character; minutes: number }
  *
  * @param createPool - Makes the browser sim's pool, the first time an
  * export is dropped (tests pass a fake).
+ * @param localLatest - Dev only: open on the owner's latest results file
+ * from the dev server, and follow it (`components/latest-file.tsx`). Off
+ * in a build.
  */
 export function App({
     createPool = createSimPool,
+    localLatest = import.meta.env.DEV,
 }: {
     createPool?: () => SimPool
+    localLatest?: boolean
 } = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
@@ -376,7 +373,29 @@ export function App({
         }
     }
 
+    /**
+     * Shows the local latest file (dev only). A newer one found by a
+     * refresh keeps the fight and the plan view where it has them.
+     */
+    const showLatest = (next: ResultsFile, refresh: boolean) => {
+        setLoaded({ file: next, error: null })
+        setPlanner((current) => {
+            let state = initialPlannerState(next)
+            if (refresh && current) {
+                state = pickFight(next, state, current.fightId)
+                if (current.view === 'plan')
+                    state = showView(next, state, 'plan')
+            }
+            return state
+        })
+        setRemembered(false)
+        setForgotten(false)
+        setStop(null)
+        setSimmed(null)
+    }
+
     const openPicked = (picked: File) => {
+        latest.leave()
         stopRefine()
         if (isExport(picked)) {
             void simPicked(picked)
@@ -428,6 +447,7 @@ export function App({
     }
 
     const forget = () => {
+        latest.leave()
         stopRefine()
         forgetFile()
         open({ file: null, error: null })
@@ -471,9 +491,23 @@ export function App({
         } else if (recalled.kind === 'forgotten') setForgotten(true)
     }, [])
 
+    // Dev only: the local latest file overrides the kept one, after it.
+    const latest = useLocalLatest({
+        on: localLatest,
+        show: showLatest,
+        showError: (readError) => open({ file: null, error: readError }),
+        // An export's run or a Refine would replace the latest when done.
+        beforeFollow: () => {
+            if (simming || refining) cancel()
+        },
+        openPicked,
+    })
+
     // A file dropped anywhere on the page must not make the browser open it.
-    // With nothing loaded yet, the drop loads it, as the drop box does.
-    const waiting = loaded.file === null && simming === null
+    // With nothing loaded yet, or the local latest file shown, the drop
+    // loads it, as the drop box does.
+    const waiting =
+        (loaded.file === null && simming === null) || latest.following
     useEffect(() => {
         const onDragOver = (event: DragEvent) => event.preventDefault()
         const onDrop = (event: DragEvent) => {
@@ -541,9 +575,11 @@ export function App({
                     file={file}
                     headingRef={heading}
                     wishlistCount={wishlist.size}
+                    localAction={latest.action}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
                     onOpenPawn={() => setDialog({ kind: 'pawn' })}
                 />
+                {latest.lines}
                 {file?.provisional && (
                     <p
                         role="note"
@@ -581,7 +617,10 @@ export function App({
                                     stop={stop}
                                     phone={phone}
                                     onFile={openPicked}
-                                    onSample={() => open(load(sample))}
+                                    onSample={() => {
+                                        latest.leave()
+                                        open(readResults(sample))
+                                    }}
                                 />
                             )
                         }

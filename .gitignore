@@ -79,6 +79,9 @@ tmp/
 # the leak guard's machine words: names of this computer, never committed
 packages/sim/.machine-words
 
+# the armory's local config: the path of the owner's latest results file
+packages/armory/.local.json
+
 # WoWSims, vendored verbatim: keep every file, whatever the patterns above
 # say (build/, out/, *.log ... match anywhere)
 !packages/sim/upstream/**

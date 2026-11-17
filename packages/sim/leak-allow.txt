@@ -2,3 +2,4 @@
 # upstream code, never machine details. One per line:
 # <repo-relative path><TAB><kind><TAB><reason>
 packages/sim/upstream/sim/siml/lsp/lsp_test.go	home path	upstream LSP test uses a made-up file URI under a sample home folder, not a real machine path
+packages/armory/tests/export-reader.test.ts	other player	a made-up placeholder player GUID the reader must reject as a character key, not a real player

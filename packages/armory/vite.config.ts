@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
+import { latestPlugin } from './vite-plugin-latest'
 import { simPlugin } from './vite-plugin-sim'
 
 /**
@@ -70,5 +71,8 @@ export default defineConfig({
         reactRouter(),
         // The browser sim's files at /sim/ (packages/sim/build/).
         simPlugin(),
+        // Dev only: the owner's latest results file at /local/, from the
+        // untracked packages/armory/.local.json.
+        latestPlugin(),
     ],
 })

@@ -13,6 +13,7 @@ import { join } from 'node:path'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
+import { LOADER, LOCAL_LATEST, networkProblems } from './network-rule'
 import { nodeVersionProblem, readNodeVersion } from './node-version'
 
 const REPO_ROOT = join(import.meta.dir, '../../..')
@@ -32,8 +33,6 @@ const SIM_FILES = [
     'leftover_db.json',
     'item_first_seen.json',
 ]
-/** The one module allowed to fetch, from the repo root. */
-const LOADER = 'packages/sim/src/loader.ts'
 
 /**
  * Hosts that appear in the built JavaScript as names, never as requests:
@@ -58,8 +57,6 @@ const STORAGE =
     /\b(sessionStorage|indexedDB|document\.cookie|cookieStore|caches|openDatabase)\b/
 /** The one module allowed to touch localStorage, from the package root. */
 const REMEMBERED_FILE = 'src/remembered-file.ts'
-/** Ways of asking a server for something. */
-const NETWORK = /\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/
 
 let buildExitCode: number | null = null
 let buildOutput = ''
@@ -105,29 +102,6 @@ function storageProblems(path: string, code: string): string[] {
     const keys = code.match(/(['"`])armory:[^'"`]*\1/g) ?? []
     if (keys.length !== 1 || keys[0]!.slice(1, -1) !== REMEMBERED_FILE_KEY)
         problems.push(`${path} names a key other than ${REMEMBERED_FILE_KEY}`)
-    return problems
-}
-
-/**
- * How `code` (a source file without comments, at `path` from the repo
- * root) breaks the network rule: no XMLHttpRequest, WebSocket, EventSource
- * or sendBeacon anywhere, and `fetch` only in the sim's loader, where every
- * `fetch(` takes `new URL(`.
- */
-function networkProblems(path: string, code: string): string[] {
-    const problems: string[] = []
-    for (const [, name] of code.matchAll(new RegExp(NETWORK, 'g'))) {
-        if (name !== 'fetch') problems.push(`${path} uses ${name}`)
-        else if (path !== LOADER) problems.push(`${path} uses fetch`)
-    }
-    if (path === LOADER) {
-        const fetches = code.match(/\bfetch\b/g) ?? []
-        const calls = [...code.matchAll(/\bfetch\s*\(\s*(new\s+URL\s*\()?/g)]
-        if (calls.length !== fetches.length)
-            problems.push(`${path} names fetch without calling it`)
-        for (const [, url] of calls)
-            if (!url) problems.push(`${path} fetches something not new URL(`)
-    }
     return problems
 }
 
@@ -280,6 +254,38 @@ describe('the build', () => {
         }
         expect([...hosts].filter((h) => !NAME_ONLY_HOSTS.has(h))).toEqual([])
     })
+
+    test('carries no trace of the local latest file, though vite.config.ts registers its plugin', () => {
+        const config = readFileSync(join(PACKAGE_DIR, 'vite.config.ts'), 'utf8')
+        expect(config).toMatch(/\blatestPlugin\(/)
+        const traces = [
+            '/local/latest',
+            'local-latest',
+            'latest_results_file',
+            'vite-plugin-latest',
+            'Loaded from this computer',
+            // The page's dev-only header buttons: the wiring that makes them
+            // must fold away in a build, not only `src/local-latest.ts`.
+            'Open another file',
+            'Back to the latest from this computer',
+        ]
+        const files = readdirSync(CLIENT_DIR, {
+            recursive: true,
+            encoding: 'utf8',
+        })
+            .map((name) => join(CLIENT_DIR, name))
+            .filter((path) => statSync(path).isFile())
+        expect(files.length).toBeGreaterThan(0)
+        const found = files.flatMap((file) => {
+            const text = readFileSync(file).toString('latin1')
+            return traces
+                .filter((trace) => text.includes(trace))
+                .map(
+                    (trace) => `${file.slice(CLIENT_DIR.length + 1)}: ${trace}`
+                )
+        })
+        expect(found).toEqual([])
+    })
 })
 
 describe("the page's own code", () => {
@@ -347,6 +353,13 @@ describe("the page's own code", () => {
             [LOADER, loader + '\nconst get = fetch'],
             [LOADER, loader + '\nnew XMLHttpRequest()'],
             ['packages/sim/src/pool.ts', 'navigator.sendBeacon("/x")'],
+            [LOCAL_LATEST, 'await fetch(someVariable)'],
+            [LOCAL_LATEST, "await fetch('https://example.com/local/x')"],
+            [LOCAL_LATEST, 'const get = fetch'],
+            [
+                'packages/armory/src/app.tsx',
+                "await fetch('/local/latest.json')",
+            ],
         ]
         for (const [path, source] of bad)
             expect({
@@ -354,6 +367,14 @@ describe("the page's own code", () => {
                 source,
                 reported: networkProblems(path, source).length > 0,
             }).toEqual({ path, source, reported: true })
+
+        // src/local-latest.ts may fetch a '/local/' string, with options.
+        expect(
+            networkProblems(
+                LOCAL_LATEST,
+                "const answer = await fetch('/local/latest.json', { headers })"
+            )
+        ).toEqual([])
     })
 
     test('keeps only the last results file in the browser, under one localStorage key, from one module', () => {

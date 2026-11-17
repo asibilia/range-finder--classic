@@ -7,7 +7,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { hostname, userInfo } from 'node:os'
-import { basename, join, relative, sep } from 'node:path'
+import { basename, dirname, join, relative, sep } from 'node:path'
 
 export type Leak = { file: string; kind: string }
 
@@ -22,6 +22,12 @@ export type ScanOptions = {
     machineWordsFile?: string
     /** The computer's names. Defaults to its user name and host name. */
     machineNames?: string[]
+    /**
+     * The armory's untracked local config: its `latest_results_file` and
+     * that file's folder are machine words. Defaults to
+     * `packages/armory/.local.json`.
+     */
+    localConfigFile?: string
 }
 
 const PACKAGE_DIR = join(import.meta.dir, '..')
@@ -29,6 +35,7 @@ const REPO_ROOT = join(PACKAGE_DIR, '../..')
 const OWNER_JSON = join(PACKAGE_DIR, 'fixtures/owner.json')
 const MACHINE_WORDS = join(PACKAGE_DIR, '.machine-words')
 const LEAK_ALLOW = join(PACKAGE_DIR, 'leak-allow.txt')
+const LOCAL_CONFIG = join(REPO_ROOT, 'packages/armory/.local.json')
 
 /** Everyday names that would match innocent text (CI's user is `runner`). */
 const COMMON_NAMES = ['runner', 'root', 'user', 'admin', 'ubuntu', 'localhost']
@@ -80,6 +87,24 @@ function readMachineWords(file: string): string[] | undefined {
         .filter((line) => line.length > 0 && !line.startsWith('#'))
 }
 
+/** The local config's latest file and its folder, when the config names one. */
+function readLocalConfigWords(file: string): string[] {
+    if (!existsSync(file)) return []
+    let config: unknown
+    try {
+        config = JSON.parse(readFileSync(file, 'utf8'))
+    } catch {
+        return []
+    }
+    const latest =
+        typeof config === 'object' && config !== null
+            ? (config as { latest_results_file?: unknown }).latest_results_file
+            : undefined
+    if (typeof latest !== 'string' || latest.trim() === '') return []
+    const folder = dirname(latest)
+    return folder.length > 1 && folder !== '.' ? [latest, folder] : [latest]
+}
+
 function machineNames(options: ScanOptions): string[] {
     const names = options.machineNames ?? [userInfo().username, hostname()]
     return names.filter(
@@ -117,7 +142,8 @@ function listFiles(root: string): [string, string][] {
 }
 
 function isOwnFile(rel: string): boolean {
-    if (basename(rel) === '.machine-words') return true
+    const name = basename(rel)
+    if (name === '.machine-words' || name === '.local.json') return true
     return OWN_FILES.some((own) => rel === own || rel.endsWith(`/${own}`))
 }
 
@@ -146,7 +172,10 @@ export function scanForLeaks(
             'No packages/sim/.machine-words: skipped the machine-word check.'
         )
     const names = machineNames(options).map(escapeRegExp)
-    const wordPatterns = (words ?? []).map(escapeRegExp)
+    const wordPatterns = [
+        ...(words ?? []),
+        ...readLocalConfigWords(options.localConfigFile ?? LOCAL_CONFIG),
+    ].map(escapeRegExp)
     const allowed = readAllowed()
     const leaks: Leak[] = []
 
