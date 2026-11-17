@@ -9,9 +9,15 @@
  */
 import { describe, expect, test } from 'bun:test'
 
-import type { Sheet } from '@goturbo/sim'
+import {
+    PSEUDO_STAT,
+    type Sheet,
+    type SimPool,
+    type SimSheet,
+} from '@goturbo/sim'
 
-import { sheetChecks } from '../src/browser-sim'
+import { testcharCharacter } from '../../sim/tests/helpers/testchar'
+import { runGates, sheetChecks, type Character } from '../src/browser-sim'
 
 const SIM: Sheet = {
     strength: 80,
@@ -56,5 +62,73 @@ describe('the sheet meleeCrit check allows for low weapon skill', () => {
         expect(meleeCrit(10).detail).toMatch(
             /\b10 (weapon[- ]skill )?points?\b/i
         )
+    })
+})
+
+/** The sim's `turboSheet` answer: melee crit 5%, every other stat 0. */
+function simSheetAnswer(): SimSheet {
+    const pseudoStats: number[] = []
+    pseudoStats[PSEUDO_STAT.meleeCritPercent] = SIM.melee_crit_pct
+    return {
+        level: 30,
+        unreached_ranks: [],
+        player: { finalStats: { stats: [], pseudoStats } },
+    }
+}
+
+/**
+ * A pool with no sim behind it: every sheet call answers `simSheetAnswer`,
+ * and the level 60 sim answers a fixed DPS. The gates' melee-crit check
+ * then compares the character's game sheet with a sim crit of 5%.
+ */
+function stubPool(): SimPool {
+    return {
+        size: 1,
+        sim: () =>
+            Promise.resolve({
+                raidMetrics: { parties: [{ players: [{ dps: { avg: 1 } }] }] },
+            }),
+        sheet: () => Promise.resolve(simSheetAnswer()),
+        version: () =>
+            Promise.resolve({
+                upstream_commit: '',
+                patch_id: '',
+                go_version: '',
+            }),
+        weights: () => Promise.resolve(null),
+        data: (name) =>
+            Promise.resolve(
+                name === 'version.json' ? { l60_expected_dps: 1 } : {}
+            ),
+        stats: () => ({ calls: 0, iterations: 0, ms: 0 }),
+        batch() {},
+        onProgress: () => () => {},
+        cancel() {},
+        close() {},
+    }
+}
+
+/** The gates' `sheet meleeCrit` check for Testchar with this deficit. */
+async function gatedMeleeCrit(deficit: number) {
+    const pool = stubPool()
+    const testchar = await testcharCharacter(pool)
+    const character: Character = {
+        ...testchar,
+        sheet: { ...testchar.sheet, melee_crit_pct: GAME.melee_crit_pct },
+        weapon_skill_deficit: deficit,
+    }
+    const { checks } = await runGates(character, pool)
+    const check = checks.find((c) => c.name === 'sheet meleeCrit')
+    expect(check).toBeDefined()
+    return check!
+}
+
+describe('runGates passes the character’s weapon_skill_deficit to the sheet check', () => {
+    test('a character 10 under the skill cap passes sheet meleeCrit with a game crit 0.40% below the sim’s; at the cap it fails', async () => {
+        const [under, atCap] = await Promise.all([
+            gatedMeleeCrit(10),
+            gatedMeleeCrit(0),
+        ])
+        expect([under.passed, atCap.passed]).toEqual([true, false])
     })
 })
