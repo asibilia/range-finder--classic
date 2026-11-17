@@ -6,7 +6,8 @@
 import type { SimPool } from '@goturbo/sim'
 
 import type { ResultsFile, Slot, Stat } from '../results-file'
-import type { Character } from './character'
+import type { Character, GameStats } from './character'
+import { gameStats } from './game-stats'
 import { STAT_STEPS } from './weights'
 
 export type DbItem = {
@@ -178,7 +179,10 @@ export function fileItem(db: ItemDb, id: number): FileItem {
 export function owned(character: Character, id: number): boolean {
     return (
         Object.values(character.gear).some((piece) => piece?.id === id) ||
-        (character.bags ?? []).includes(id)
+        Object.values(character.unknown_gear ?? {}).some(
+            (piece) => piece.id === id
+        ) ||
+        (character.bags ?? []).some((item) => item.id === id)
     )
 }
 
@@ -265,6 +269,78 @@ function weaponSlots(item: DbItem): Slot[] {
 const ITEM_STATS = STAT_STEPS.filter((step) => step.index >= 0).sort(
     (a, b) => a.index - b.index
 )
+
+/** The item types of the armor and jewellery equip locations the game names. */
+const EQUIP_LOC_TYPE: Readonly<Record<string, number>> = {
+    INVTYPE_HEAD: ITEM_TYPE.head,
+    INVTYPE_NECK: ITEM_TYPE.neck,
+    INVTYPE_SHOULDER: ITEM_TYPE.shoulder,
+    INVTYPE_CLOAK: ITEM_TYPE.back,
+    INVTYPE_CHEST: ITEM_TYPE.chest,
+    INVTYPE_ROBE: ITEM_TYPE.chest,
+    INVTYPE_WRIST: ITEM_TYPE.wrist,
+    INVTYPE_HAND: ITEM_TYPE.hands,
+    INVTYPE_WAIST: ITEM_TYPE.waist,
+    INVTYPE_LEGS: ITEM_TYPE.legs,
+    INVTYPE_FEET: ITEM_TYPE.feet,
+    INVTYPE_FINGER: ITEM_TYPE.finger,
+    INVTYPE_TRINKET: ITEM_TYPE.trinket,
+}
+
+/**
+ * An item the sim lacks as the item data would have it, from what the game
+ * exported: its stats, and its type when it's armor or jewellery.
+ */
+export function gameDbItem(item: {
+    id: number
+    name: string
+    stats: Readonly<GameStats>
+    equip_loc?: string
+    required_level?: number
+    quality?: number
+}): DbItem {
+    const stats: Record<string, number> = {}
+    gameStats(item.stats).forEach((amount, index) => {
+        if (amount !== 0) stats[String(index)] = amount
+    })
+    const loc = item.equip_loc ?? ''
+    const type = Object.hasOwn(EQUIP_LOC_TYPE, loc)
+        ? EQUIP_LOC_TYPE[loc]
+        : undefined
+    return {
+        id: item.id,
+        name: item.name,
+        ...(type !== undefined ? { type } : {}),
+        ...(item.required_level !== undefined
+            ? { reqLvl: item.required_level }
+            : {}),
+        ...(item.quality !== undefined ? { quality: item.quality } : {}),
+        scalingOptions: { '0': { stats } },
+    }
+}
+
+/** An item the sim lacks as the results file has it: the game's words. */
+export function gameFileItem(item: {
+    id: number
+    name: string
+    quality?: number
+    item_level?: number
+    required_level?: number
+}): FileItem {
+    return {
+        item_id: item.id,
+        name: item.name || `Item ${item.id}`,
+        quality:
+            QUALITY[Math.max(0, Math.min(item.quality ?? 1, 5))] ?? 'common',
+        item_level: item.item_level || null,
+        required_level: Math.max(1, item.required_level || 1),
+        source: {
+            kind: 'unknown',
+            text: "Not in the sim's item data: stats as the game showed them",
+        },
+        data: 'forever',
+    }
+}
 
 /** An item's EP: its stats (and weapon DPS) by the given EP per stat. */
 export function itemEp(

@@ -40,6 +40,16 @@ const SLOTS = [
 
 type Slot = (typeof SLOTS)[number]
 type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
+/** One bag item, as the armory's `Character` keeps it. */
+type BagItem = {
+    id: number
+    name: string
+    quality: number
+    item_level: number
+    required_level: number
+    equip_loc: string
+    stats: Record<string, number>
+}
 
 export type TestcharCharacter = {
     name: string
@@ -48,7 +58,7 @@ export type TestcharCharacter = {
     class: string
     talents: string
     gear: Partial<Record<Slot, GearPiece | null>>
-    bags: number[]
+    bags: BagItem[]
     imbue: string | null
     known_spells: number[]
     profile: LevelProfile

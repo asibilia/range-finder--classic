@@ -2,9 +2,9 @@
  * The export reader: a `TurboCharExport.lua` (the export addon's
  * SavedVariables file) into the character `simCharacter` sims, or a stop.
  * The order: the format check, the known-class check, the class and spec
- * check, the buff check (none of them runs a sim), then one sheet run that
- * calibrates base health and mana, and spell crit per Intellect when the
- * game answered 0.
+ * check, the buff check, the unknown main hand check (none of them runs a
+ * sim), then one sheet run that calibrates base health and mana, and spell
+ * crit per Intellect when the game answered 0.
  */
 import {
     BONUS_STAT_COUNT,
@@ -16,12 +16,17 @@ import {
 
 import type { ResultsFile, Slot } from '../results-file'
 import type {
+    BagItem,
     Character,
+    GameStats,
     Gear,
     GearPiece,
     SheetBuffs,
     SimStop,
+    UnknownPiece,
 } from './character'
+import { gameStats } from './game-stats'
+import { loadItemDb } from './gear'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT } from './scenarios'
 import { FIGHT_ITERATIONS, FIGHT_SEED } from './session'
@@ -250,8 +255,23 @@ function gearPiece(entry: Table): GearPiece | null {
     return piece
 }
 
-function readGear(gear: Table): Gear {
+/** An item's game stats from the export: its numeric `ITEM_MOD_*` fields. */
+function readGameStats(value: SavedValue | undefined): GameStats {
+    const stats: GameStats = {}
+    for (const [key, amount] of Object.entries(table(value)))
+        if (typeof amount === 'number') stats[key] = amount
+    return stats
+}
+
+/**
+ * The worn gear the sim knows (`known`), and the items it lacks by slot,
+ * with the game stats they add as bonus stats (the runner's
+ * `characterFromExport`).
+ */
+function readGear(gear: Table, known: ReadonlyMap<number, unknown>) {
     const worn: Gear = {}
+    const unknown: Partial<Record<Slot, UnknownPiece>> = {}
+    const bonus = new Array<number>(BONUS_STAT_COUNT).fill(0)
     for (const [key, raw] of Object.entries(gear)) {
         const entry = table(raw)
         const name = str(entry.slot)
@@ -260,9 +280,34 @@ function readGear(gear: Table): Gear {
         )
         if (!slot) continue
         const piece = gearPiece(entry)
-        if (piece) worn[slot.slot] = piece
+        if (!piece) continue
+        if (known.has(piece.id)) {
+            worn[slot.slot] = piece
+            continue
+        }
+        const stats = readGameStats(entry.stats)
+        unknown[slot.slot] = { id: piece.id, name: str(entry.name), stats }
+        gameStats(stats).forEach((amount, i) => {
+            bonus[i] = (bonus[i] ?? 0) + amount
+        })
     }
-    return worn
+    return { worn, unknown, bonus }
+}
+
+/** The bag items, as the export has them. */
+function readBags(bags: SavedValue | undefined): BagItem[] {
+    return list(bags)
+        .map(table)
+        .filter((item) => num(item.id) > 0)
+        .map((item) => ({
+            id: num(item.id),
+            name: str(item.name),
+            quality: num(item.quality),
+            item_level: num(item.itemLevel),
+            required_level: num(item.reqLevel),
+            equip_loc: str(item.equipLoc),
+            stats: readGameStats(item.stats),
+        }))
 }
 
 /**
@@ -575,13 +620,21 @@ export async function exportCharacter(
         modelled = sheetBuffs(buffs, known)
     }
 
+    // Worn items the sim lacks become bonus stats; a main hand it lacks
+    // can't be simmed.
+    const gear = table(db.gear)
+    const { items } = await loadItemDb(pool)
+    const worn = readGear(gear, items)
+    const unknownMain = worn.unknown.main_hand
+    if (unknownMain)
+        return { kind: 'unknown_main_hand', item_id: unknownMain.id }
+
     const level = num(identity.level)
     if (!level) throw new Error('the export has no level')
     const knownSpells = list(db.spells)
         .map((spell) => num(table(spell).spellID))
         .filter((id) => id > 0)
     const profile = readProfile(db, level, cls, knownSpells)
-    const gear = table(db.gear)
     const key =
         usableKey(identity.characterKey) ??
         usableKey(table(db.settings).characterKey)
@@ -595,10 +648,12 @@ export async function exportCharacter(
         race: identity.race === 'Scourge' ? 'Undead' : str(identity.race),
         class: cls,
         talents,
-        gear: readGear(gear),
-        bags: list(db.bags)
-            .map((item) => num(table(item).id))
-            .filter((id) => id > 0),
+        gear: worn.worn,
+        ...(Object.keys(worn.unknown).length > 0
+            ? { unknown_gear: worn.unknown }
+            : {}),
+        bonus_stats: worn.bonus,
+        bags: readBags(db.bags),
         imbue: readImbue(db),
         known_spells: knownSpells,
         weapon_skills: readWeaponSkills(list(db.skills)),

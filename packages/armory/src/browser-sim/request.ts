@@ -3,10 +3,11 @@
  * imbue and rotation, against one mob at the fight's level. The same
  * character, fight and options always give the same request.
  */
-import { STAT, type RaidSimRequest } from '@goturbo/sim'
+import { BONUS_STAT_COUNT, STAT, type RaidSimRequest } from '@goturbo/sim'
 
 import { SLOTS } from '../results-file'
 import type { Character, Gear, SheetBuffs } from './character'
+import { gameStats } from './game-stats'
 import { rotationFor } from './rotation'
 import { allScenarios, mobArmor, type Scenario } from './scenarios'
 
@@ -46,13 +47,51 @@ function scenarioOf(character: Character, fight: string | Scenario) {
     return found
 }
 
-function equipment(gear: Gear) {
+/** The sim's equipment: never an item the sim's data lacks. */
+function equipment(character: Character, gear: Gear) {
     return {
         items: SLOTS.map((slot) => {
             const piece = gear[slot]
-            return piece ? { ...piece } : {}
+            const unknown = character.unknown_gear?.[slot]
+            return piece && piece.id !== unknown?.id ? { ...piece } : {}
         }),
     }
+}
+
+/**
+ * The character's bonus stats (worn items the sim lacks) in `gear`: a
+ * slot whose unknown item `gear` empties (null) or replaces takes its
+ * stats off, as the runner's `wearing()`. A slot `gear` leaves out keeps
+ * what's worn. Undefined when no stat is left.
+ */
+function gearBonus(
+    character: Character,
+    gear: Gear | undefined
+): number[] | undefined {
+    const bonus = [
+        ...(character.bonus_stats ??
+            new Array<number>(BONUS_STAT_COUNT).fill(0)),
+    ]
+    for (const slot of SLOTS) {
+        const unknown = character.unknown_gear?.[slot]
+        const piece = gear?.[slot]
+        if (!unknown || piece === undefined || piece?.id === unknown.id)
+            continue
+        gameStats(unknown.stats).forEach((amount, i) => {
+            bonus[i] = (bonus[i] ?? 0) - amount
+        })
+    }
+    return bonus.some((amount) => amount !== 0) ? bonus : undefined
+}
+
+/** Two stats arrays added, as the runner's `mergeStats`. */
+function mergeStats(a: number[] | undefined, b: number[] | undefined) {
+    if (!a) return b
+    if (!b) return a
+    return Array.from(
+        { length: Math.max(a.length, b.length) },
+        (_, i) => (a[i] ?? 0) + (b[i] ?? 0)
+    )
 }
 
 /** The request for one pull of `fight` (a fight id or a scenario). */
@@ -66,7 +105,7 @@ export function buildRequest(
         name: character.name,
         race: character.profile.race,
         class: character.profile.class,
-        equipment: equipment(options.gear ?? character.gear),
+        equipment: equipment(character, options.gear ?? character.gear),
         talentsString: character.talents,
         enhancementShaman: {
             options: {
@@ -91,16 +130,21 @@ export function buildRequest(
     }
     if (options.startingManaPct !== undefined)
         player.startingManaPercent = options.startingManaPct
-    if (options.bonusStats) player.bonusStats = options.bonusStats
-    if (options.sheetBuffs) {
-        const bonus = [...(options.bonusStats?.stats ?? [])]
-        options.sheetBuffs.stats.forEach(
-            (amount, i) => (bonus[i] = (bonus[i] ?? 0) + amount)
-        )
-        player.bonusStats = { ...options.bonusStats, stats: bonus }
-        if (options.sheetBuffs.kings)
-            player.buffs = { greaterBlessingOfKings: true }
-    }
+    // Worn items the sim lacks, the per-sim bonus and the export's buffs.
+    const bonus = mergeStats(
+        mergeStats(
+            gearBonus(character, options.gear),
+            options.bonusStats?.stats
+        ),
+        options.sheetBuffs?.stats
+    )
+    if (options.bonusStats || bonus)
+        player.bonusStats = {
+            ...options.bonusStats,
+            ...(bonus ? { stats: bonus } : {}),
+        }
+    if (options.sheetBuffs?.kings)
+        player.buffs = { greaterBlessingOfKings: true }
 
     const stats = new Array<number>(MOB_STATS).fill(0)
     stats[STAT.armor] = mobArmor(scenario.target_level)

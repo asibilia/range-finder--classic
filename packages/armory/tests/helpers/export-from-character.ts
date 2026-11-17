@@ -16,6 +16,7 @@ import {
     EXPORT_VARIABLE,
     IMBUES,
     WEAPON_SKILLS,
+    type BagItem,
     type Gear,
 } from '../../src/browser-sim'
 import type { TalentTree } from '../../src/browser-sim/talents'
@@ -45,7 +46,7 @@ export type ExportedCharacter = {
     class: string
     talents: string
     gear: Gear
-    bags?: number[]
+    bags?: BagItem[]
     imbue: string | null
     known_spells: number[]
     weapon_skills?: { skill: string; value: number }[]
@@ -196,7 +197,15 @@ export function exportFromCharacter(
         settings: { characterKey: key },
         talents: { traits: traits(character) },
         gear: gear(character),
-        bags: (character.bags ?? []).map((id) => ({ id })),
+        bags: (character.bags ?? []).map((item) => ({
+            id: item.id,
+            name: item.name,
+            quality: item.quality,
+            itemLevel: item.item_level,
+            reqLevel: item.required_level,
+            equipLoc: item.equip_loc,
+            stats: item.stats,
+        })),
         weaponEnchants: { mainHand: imbue(character), offHand: [] },
         spells: character.known_spells.map((id) => ({ spellID: id })),
         skills: skills(character),

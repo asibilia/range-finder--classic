@@ -12,6 +12,25 @@ export type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
 /** Gear by slot; a slot that's absent or null is empty. */
 export type Gear = Partial<Record<Slot, GearPiece | null>>
 
+/** Game stats as the export has them: `ITEM_MOD_*` keys to amounts. */
+export type GameStats = Record<string, number>
+
+/** A worn item the sim's item data lacks, as the game exported it. */
+export type UnknownPiece = { id: number; name: string; stats: GameStats }
+
+/** One item in the bags, as the export has it. */
+export type BagItem = {
+    id: number
+    name: string
+    /** The game's quality, 0 (poor) to 5 (legendary). */
+    quality: number
+    item_level: number
+    required_level: number
+    /** The game's equip location, e.g. `INVTYPE_HEAD`. */
+    equip_loc: string
+    stats: GameStats
+}
+
 /**
  * What the buffs up at export added to the game's sheet, as the sim
  * models them: their stats (indexed by the proto `Stat` enum, from
@@ -32,8 +51,18 @@ export type Character = {
     /** Talents in the sim's format: each tree's ranks, trees split by `-`. */
     talents: string
     gear: Gear
-    /** Item ids in the bags. */
-    bags?: number[]
+    /**
+     * Worn items the sim's item data lacks, by slot: left out of `gear`,
+     * their game stats are in `bonus_stats`.
+     */
+    unknown_gear?: Partial<Record<Slot, UnknownPiece>>
+    /**
+     * The game stats of worn items the sim lacks, indexed by the proto
+     * `Stat` enum (40 entries); every request adds them.
+     */
+    bonus_stats?: number[]
+    /** The items in the bags, as the export has them. */
+    bags?: BagItem[]
     /** The main hand's imbue as the sim names it, e.g. `WindfuryWeapon`. */
     imbue: string | null
     /** Spell ids the character has trained; empty means unknown. */
@@ -72,3 +101,4 @@ export type SimStop =
     | { kind: 'buffed'; buffs: string[] }
     | { kind: 'format'; format: number; accepted: number[] }
     | { kind: 'gates'; failed: Check[] }
+    | { kind: 'unknown_main_hand'; item_id: number }

@@ -4,11 +4,14 @@
  * `@goturbo/sim`'s pool.
  */
 export type {
+    BagItem,
     Character,
+    GameStats,
     Gear,
     GearPiece,
     SheetBuffs,
     SimStop,
+    UnknownPiece,
 } from './character'
 export { L60_TOLERANCE, NOTES, level60Check, sheetChecks } from './checks'
 export {

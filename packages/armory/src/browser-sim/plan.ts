@@ -9,12 +9,15 @@ import { SLOTS, type ResultsFile, type Slot, type Stat } from '../results-file'
 import type { Character, Gear } from './character'
 import {
     fileItem,
+    gameDbItem,
+    gameFileItem,
     isTwoHander,
     itemEp,
     leftOutReason,
     requiredLevel,
     slotsFor,
     type DbItem,
+    type FileItem,
     type ItemDb,
 } from './gear'
 
@@ -99,8 +102,7 @@ export function planMaxDamage(
     weaponGains: ReadonlyMap<number, number>
 ): GearPlan {
     const { bySlot, leftOut } = candidates(character, db)
-    const wornEp = (slot: Slot) =>
-        itemEp(db.items.get(character.gear[slot]?.id ?? -1), ep)
+    const wornEp = (slot: Slot) => itemEp(wornItem(character, db, slot), ep)
     const wornMain = db.items.get(character.gear.main_hand?.id ?? -1)
 
     const leftOutItems = new Map<number, LeftOut>()
@@ -147,7 +149,8 @@ export function planMaxDamage(
         )
         const kept = list.slice(0, ALTERNATIVES)
         if (pick && !kept.includes(pick)) kept.push(pick)
-        const wornId = character.gear[slot]?.id ?? null
+        const unknown = character.unknown_gear?.[slot]
+        const wornId = character.gear[slot]?.id ?? unknown?.id ?? null
         chosen.set(slot, pick ? pick.item.id : wornId === taken ? null : wornId)
         const weapon = slot === 'main_hand'
         const alternatives: Alternative[] = kept.map(({ item, gain }) => ({
@@ -155,9 +158,13 @@ export function planMaxDamage(
             gain_ep: weapon ? null : round(gain),
             gain_dps: weapon ? round(gain) : null,
         }))
+        const piece = character.gear[slot]
+        let worn: FileItem | null = null
+        if (piece) worn = fileItem(db, piece.id)
+        else if (unknown) worn = gameFileItem(unknown)
         return {
             slot,
-            worn: wornId === null ? null : fileItem(db, wornId),
+            worn,
             ...(slot === 'main_hand' && character.imbue
                 ? { imbue: spaced(character.imbue) }
                 : {}),
@@ -171,6 +178,8 @@ export function planMaxDamage(
     for (const slot of SLOTS) {
         const id = chosen.get(slot) ?? null
         const worn = character.gear[slot]
+        // A kept item the sim lacks is left out: its bonus stats stay.
+        if (id !== null && id === character.unknown_gear?.[slot]?.id) continue
         gear[slot] = id === null ? null : worn?.id === id ? worn : { id }
     }
 
@@ -190,27 +199,49 @@ export function planMaxDamage(
     }
 }
 
-/** Bag items that beat what's worn, by EP, in the best slot for each. */
+/**
+ * The item worn in a slot, as the item data has it: a worn item the sim
+ * lacks is read from its game stats (the runner's `wornEP`).
+ */
+function wornItem(
+    character: Character,
+    db: ItemDb,
+    slot: Slot
+): DbItem | undefined {
+    const piece = character.gear[slot]
+    if (piece) return db.items.get(piece.id)
+    const unknown = character.unknown_gear?.[slot]
+    return unknown ? gameDbItem(unknown) : undefined
+}
+
+/**
+ * Bag items that beat what's worn, by EP, in the best slot for each. A bag
+ * item the sim lacks is compared by its game stats.
+ */
 function bagUpgrades(
     character: Character,
     db: ItemDb,
     ep: ReadonlyMap<Stat, number>
 ): ResultsFile['bag_upgrades'] {
     const upgrades: ResultsFile['bag_upgrades'] = []
-    for (const id of new Set(character.bags ?? [])) {
-        const item = db.items.get(id)
-        if (!item || requiredLevel(item) > character.level) continue
+    const seen = new Set<number>()
+    for (const bag of character.bags ?? []) {
+        if (seen.has(bag.id)) continue
+        seen.add(bag.id)
+        const known = db.items.get(bag.id)
+        const item = known ?? gameDbItem(bag)
+        if (requiredLevel(item) > character.level) continue
         let best: { slot: Slot; gain: number } | null = null
         for (const slot of slotsFor(character, item)) {
             if (slot === 'main_hand' || slot === 'off_hand') continue
-            const worn = db.items.get(character.gear[slot]?.id ?? -1)
+            const worn = wornItem(character, db, slot)
             const gain = itemEp(item, ep) - itemEp(worn, ep)
             if (gain > 0 && (!best || gain > best.gain)) best = { slot, gain }
         }
         if (best)
             upgrades.push({
                 slot: best.slot,
-                item: fileItem(db, id),
+                item: known ? fileItem(db, bag.id) : gameFileItem(bag),
                 gain_ep: round(best.gain),
             })
     }

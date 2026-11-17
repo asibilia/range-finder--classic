@@ -54,6 +54,10 @@ export function stopLines(stop: SimStop): string[] {
                 lines.push(EXPORT_AGAIN)
             return lines
         }
+        case 'unknown_main_hand':
+            return [
+                `The sim doesn't know your main-hand weapon (item ${stop.item_id}).`,
+            ]
         default: {
             // A new kind of stop fails the type-check until it has words.
             const unworded: never = stop
