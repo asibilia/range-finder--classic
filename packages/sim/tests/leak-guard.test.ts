@@ -11,6 +11,7 @@ import {
     mkdirSync,
     mkdtempSync,
     readdirSync,
+    readFileSync,
     rmSync,
     writeFileSync,
 } from 'node:fs'
@@ -86,6 +87,28 @@ describe('the repo', () => {
         expect(existsSync(join(PACKAGE_DIR, 'fixtures'))).toBe(true)
         expect(scanForLeaks(roots)).toEqual([])
     }, 120_000)
+
+    test("scans the armory's src and tests folders and finds nothing", () => {
+        const roots = [
+            join(REPO_ROOT, 'packages/armory/src'),
+            join(REPO_ROOT, 'packages/armory/tests'),
+        ]
+        for (const root of roots) expect(existsSync(root)).toBe(true)
+        expect(scanForLeaks(roots)).toEqual([])
+    }, 120_000)
+
+    test('git ignores packages/armory/.local.json, and commits its example with a made-up path', () => {
+        const ignored = Bun.spawnSync(
+            ['git', 'check-ignore', '-q', 'packages/armory/.local.json'],
+            { cwd: REPO_ROOT }
+        )
+        expect(ignored.exitCode).toBe(0)
+        const example = join(REPO_ROOT, 'packages/armory/.local.example.json')
+        expect(existsSync(example)).toBe(true)
+        expect(JSON.parse(readFileSync(example, 'utf8'))).toEqual({
+            latest_results_file: '/path/to/latest.json',
+        })
+    })
 
     test('scans the ported runner in packages/armory/src/browser-sim/ and finds nothing', () => {
         const browserSim = join(REPO_ROOT, 'packages/armory/src/browser-sim')
@@ -198,6 +221,27 @@ describe('scanForLeaks on planted files', () => {
                 machineWordsFile: noWordsFile(),
             })
         ).toEqual([])
+    })
+
+    test("reports the local config's latest file and its folder as machine words, and skips the config itself", () => {
+        const latest = '/Volumes/Data/armory/latest.json'
+        const root = plant({
+            '.local.json': JSON.stringify({ latest_results_file: latest }),
+            'notes.txt': `opened ${latest} today`,
+            'folder.txt': 'look in /Volumes/Data/armory for it',
+        })
+        const found = scanForLeaks([root], {
+            owner: OWNER,
+            machineWordsFile: noWordsFile(),
+            machineNames: [],
+            localConfigFile: join(root, '.local.json'),
+        })
+        expect(
+            found.map((r) => [r.file.split(/[\\/]/).pop(), r.kind]).sort()
+        ).toEqual([
+            ['folder.txt', 'machine word'],
+            ['notes.txt', 'machine word'],
+        ])
     })
 
     test('skips the common machine name runner, matching others as whole words, ignoring case', () => {

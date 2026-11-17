@@ -280,6 +280,34 @@ describe('the build', () => {
         }
         expect([...hosts].filter((h) => !NAME_ONLY_HOSTS.has(h))).toEqual([])
     })
+
+    test('carries no trace of the local latest file, though vite.config.ts registers its plugin', () => {
+        const config = readFileSync(join(PACKAGE_DIR, 'vite.config.ts'), 'utf8')
+        expect(config).toMatch(/\blatestPlugin\(/)
+        const traces = [
+            '/local/latest',
+            'local-latest',
+            'latest_results_file',
+            'vite-plugin-latest',
+            'Loaded from this computer',
+        ]
+        const files = readdirSync(CLIENT_DIR, {
+            recursive: true,
+            encoding: 'utf8',
+        })
+            .map((name) => join(CLIENT_DIR, name))
+            .filter((path) => statSync(path).isFile())
+        expect(files.length).toBeGreaterThan(0)
+        const found = files.flatMap((file) => {
+            const text = readFileSync(file).toString('latin1')
+            return traces
+                .filter((trace) => text.includes(trace))
+                .map(
+                    (trace) => `${file.slice(CLIENT_DIR.length + 1)}: ${trace}`
+                )
+        })
+        expect(found).toEqual([])
+    })
 })
 
 describe("the page's own code", () => {
