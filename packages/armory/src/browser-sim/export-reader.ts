@@ -1,9 +1,10 @@
 /**
  * The export reader: a `TurboCharExport.lua` (the export addon's
  * SavedVariables file) into the character `simCharacter` sims, or a stop.
- * The order: the format check, the class and spec check, the buff check
- * (none of them runs a sim), then one sheet run that calibrates base health
- * and mana, and spell crit per Intellect when the game answered 0.
+ * The order: the format check, the known-class check, the class and spec
+ * check, the buff check (none of them runs a sim), then one sheet run that
+ * calibrates base health and mana, and spell crit per Intellect when the
+ * game answered 0.
  */
 import {
     BONUS_STAT_COUNT,
@@ -30,6 +31,22 @@ import { parseSavedVariables, type SavedValue } from './saved-variables'
 
 /** The export formats this reader takes. */
 export const EXPORT_FORMATS: readonly number[] = [7]
+
+/**
+ * The game's classes. An export's class is checked against them before it
+ * names any data file.
+ */
+export const KNOWN_CLASSES: readonly string[] = [
+    'Warrior',
+    'Paladin',
+    'Hunter',
+    'Rogue',
+    'Priest',
+    'Shaman',
+    'Mage',
+    'Warlock',
+    'Druid',
+]
 
 /** The SavedVariables table the export addon writes. */
 export const EXPORT_VARIABLE = 'TurboCharExportDB'
@@ -468,7 +485,10 @@ export async function exportCharacter(
         return { kind: 'format', format, accepted: [...EXPORT_FORMATS] }
 
     const identity = table(db.identity)
-    const cls = className(str(identity.class))
+    const given = str(identity.class)
+    const cls = className(given)
+    if (!KNOWN_CLASSES.includes(cls))
+        return { kind: 'unsupported', class: given, spec: '' }
     const trees = await talentTrees(pool, cls)
     const talents = talentString(list(table(db.talents).traits), trees)
     const { stop } = supportedSpec(cls, talents, trees)
