@@ -20,7 +20,24 @@ export type UnitMetrics = {
     secondsOomAvg?: number
     actions?: ActionMetrics[]
     pets?: UnitMetrics[]
-    timeline?: { tS?: number; mana?: number }[]
+    timeline?: { tS?: number; dps?: number; mana?: number }[]
+}
+
+type Timeline = ResultsFile['results'][number]['timeline']
+
+/**
+ * The sim's per-second series as the results file keeps it: DPS to two
+ * decimals and whole mana, as the runner's `results.ts` does. Null when
+ * the sim kept none.
+ */
+export function timelineOf(unit: UnitMetrics): Timeline {
+    const points = unit.timeline ?? []
+    if (points.length === 0) return null
+    return points.map((p) => ({
+        t_s: p.tS ?? 0,
+        dps: Math.round((p.dps ?? 0) * 100) / 100,
+        mana: Math.round(p.mana ?? 0),
+    }))
 }
 
 type RaidMetrics = { parties?: { players?: UnitMetrics[] }[] }

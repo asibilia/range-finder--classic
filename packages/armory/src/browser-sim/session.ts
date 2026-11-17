@@ -15,6 +15,7 @@ import {
     manaAtEnd,
     outOfMana,
     playerOf,
+    timelineOf,
     type Parts,
     type UnitMetrics,
 } from './sim-result'
@@ -27,8 +28,11 @@ export const FIGHT_SEED = 23
  */
 export const FIGHT_ITERATIONS = 4000
 export const PULL_ITERATIONS = 2000
-/** The timeline's bucket on a pull, to read the mana it ends with. */
-const PULL_BUCKET_MS = 1000
+/**
+ * The timeline's bucket: per second on a single fight (its chart), and on
+ * a pull, to read the mana it ends with.
+ */
+const TIMELINE_BUCKET_MS = 1000
 
 export type FightResult = Omit<ResultsFile['results'][number], 'gear'>
 
@@ -50,6 +54,7 @@ export async function simSingle(
             seed: FIGHT_SEED,
             iterations: FIGHT_ITERATIONS,
             gear,
+            timelineBucketMs: TIMELINE_BUCKET_MS,
         }),
         character.profile
     )
@@ -63,7 +68,7 @@ export async function simSingle(
             armor: sheet.armor,
             out_of_mana_s: outOfMana(player, scenario.duration_s),
             time_to_die_s: null,
-            timeline: null,
+            timeline: timelineOf(player),
             pulls: null,
             damage_split: damageSplit(damageByPart(player, names)),
         },
@@ -92,7 +97,7 @@ export async function simSession(
                 iterations: PULL_ITERATIONS,
                 gear,
                 startingManaPct: pull === 1 ? undefined : pct,
-                timelineBucketMs: PULL_BUCKET_MS,
+                timelineBucketMs: TIMELINE_BUCKET_MS,
             }),
             character.profile
         )
