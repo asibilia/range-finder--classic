@@ -56,11 +56,20 @@ const SHEET_STATS: { name: string; key: keyof Sheet; within: number }[] = [
 /** Rounding slack, so a tolerance of 0.06 takes a 0.06 gap. */
 const SLACK = 1e-9
 
-/** The sim's sheet against the game's, one check per stat. */
+/** Melee crit lost per point of weapon skill under the level's maximum. */
+const CRIT_PER_SKILL_POINT = 0.04
+
+/**
+ * The sim's sheet against the game's, one check per stat. The game's melee
+ * crit is less 0.04% per point of main-hand weapon skill under the level's
+ * maximum; the sim applies that in its attack table, not its sheet, so the
+ * check takes it off the sim's crit here.
+ */
 export function sheetChecks(
     game: Sheet,
     sim: Sheet,
-    calibratedSpellCrit: boolean
+    calibratedSpellCrit: boolean,
+    weaponSkillDeficit = 0
 ): Check[] {
     const checks = SHEET_STATS.map(({ name, key, within }): Check => {
         if (key === 'spell_crit_pct' && calibratedSpellCrit)
@@ -69,6 +78,14 @@ export function sheetChecks(
                 passed: true,
                 detail: 'Skipped: spell crit was calibrated from the export.',
             }
+        if (key === 'melee_crit_pct') {
+            const simCrit = sim[key] - CRIT_PER_SKILL_POINT * weaponSkillDeficit
+            return {
+                name: `sheet ${name}`,
+                passed: Math.abs(simCrit - game[key]) <= within + SLACK,
+                detail: `The sim says ${round2(simCrit)} (${sim[key]} less 0.04% × ${weaponSkillDeficit} points of weapon skill under the cap), the game ${game[key]} (within ±${within}).`,
+            }
+        }
         const gap = Math.abs(sim[key] - game[key])
         return {
             name: `sheet ${name}`,
@@ -162,4 +179,8 @@ export function stormstrikeRuleCheck(input: {
 
 function round(value: number): number {
     return Math.round(value * 10) / 10
+}
+
+function round2(value: number): number {
+    return Math.round(value * 100) / 100
 }

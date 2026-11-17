@@ -205,7 +205,8 @@ export async function runGates(
         ...sheetChecks(
             character.sheet,
             sheetFromSim(simmedSheet),
-            character.calibrated_spell_crit ?? false
+            character.calibrated_spell_crit ?? false,
+            character.weapon_skill_deficit ?? 0
         ),
         noSpellAboveLevelCheck(
             rotationSpells(character),
