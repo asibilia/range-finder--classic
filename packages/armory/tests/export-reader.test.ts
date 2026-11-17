@@ -472,6 +472,301 @@ describe("the export's class", () => {
     })
 })
 
+type Skill = { name: string; rank: number; modifier: number }
+type Talent = { name: string; rank: number; spellID?: number }
+
+type SmallExport = {
+    level?: number | null
+    characterKey?: string
+    subclass?: string
+    tooltip?: string[]
+    enchantId?: number
+    meter?: { name: string; damage: number }[]
+    skills?: Skill[]
+    talentList?: Talent[]
+    traits?: Talent[]
+    without?: string
+}
+
+/** An Enhancement build as traits: Stormstrike, Thundering Strikes 5 and Mental Dexterity 3. */
+const ENHANCEMENT_TRAITS: Talent[] = [
+    { name: 'Stormstrike', rank: 1, spellID: 17364 },
+    { name: 'Thundering Strikes', rank: 5, spellID: 16255 },
+    { name: 'Mental Dexterity', rank: 3, spellID: 415140 },
+]
+
+const lua = (value: string | number | boolean): string =>
+    typeof value === 'string' ? JSON.stringify(value) : String(value)
+
+function luaList(rows: Record<string, string | number | boolean>[]): string {
+    return rows
+        .map(
+            (row) =>
+                `{\n${Object.entries(row)
+                    .map(([k, v]) => `["${k}"] = ${lua(v)},`)
+                    .join('\n')}\n},`
+        )
+        .join('\n')
+}
+
+/**
+ * A small format-7 export, written by hand: a level-32 Orc Shaman with a
+ * main hand (`Two-Handed Maces` by default) at gear index 16, no buffs, and
+ * only the fields the reader reads. `without` leaves out one attribute.
+ */
+function smallExport(options: SmallExport = {}): string {
+    const level = options.level === undefined ? 32 : options.level
+    const attributes = {
+        strength: 100,
+        agility: 80,
+        stamina: 90,
+        intellect: 70,
+        spirit: 60,
+    }
+    const stat = Object.entries(attributes)
+        .filter(([name]) => name !== options.without)
+        .map(
+            ([name, total]) =>
+                `["${name}"] = { ["total"] = ${total}, ["pos"] = 0, ["neg"] = 0 },`
+        )
+        .join('\n')
+    const tooltip = (options.tooltip ?? ['Rage of the Storm', 'Soulbound'])
+        .map((line) => `${lua(line)},`)
+        .join('\n')
+    const enchants =
+        options.enchantId === undefined
+            ? ''
+            : luaList([
+                  {
+                      enchantID: options.enchantId,
+                      hasEnchant: true,
+                      enchantType: 3,
+                  },
+              ])
+    const meter = luaList(
+        (options.meter ?? []).map((spell) => ({ ...spell, overkill: 0 }))
+    )
+    const skills = luaList(
+        (options.skills ?? []).map((skill) => ({ ...skill, maxRank: 300 }))
+    )
+    return `TurboCharExportDB = {
+["formatVersion"] = 7,
+["savedAt"] = 1763251200,
+["identity"] = {
+["characterKey"] = ${lua(options.characterKey ?? '')},
+["class"] = "SHAMAN",
+["race"] = "Orc",
+["name"] = "Smallchar",
+["gameBuild"] = "70938",
+${level === null ? '' : `["level"] = ${level},`}
+},
+["talents"] = {
+["list"] = {
+${luaList(options.talentList ?? [])}
+},
+["traits"] = {
+${luaList(options.traits ?? ENHANCEMENT_TRAITS)}
+},
+},
+["buffs"] = {
+},
+["spells"] = {
+},
+["bags"] = {
+},
+["meter"] = {
+["sessions"] = {
+{
+["durationSeconds"] = 600,
+["spells"] = {
+${meter}
+},
+},
+},
+},
+["weaponEnchants"] = {
+["mainHand"] = {
+${enchants}
+},
+["offHand"] = {
+},
+},
+["gear"] = {
+[16] = {
+["equipLoc"] = "INVTYPE_2HWEAPON",
+["link"] = "|cnIQ3:|Hitem:280604::::::::32:1489::11:::::::|h[Rage of the Storm]|h|r",
+["id"] = 280604,
+["name"] = "Rage of the Storm",
+["tooltip"] = {
+${tooltip}
+},
+["subclass"] = ${lua(options.subclass ?? 'Two-Handed Maces')},
+["class"] = "Weapon",
+["slot"] = "mainHand",
+},
+},
+["skills"] = {
+${skills}
+},
+["sheet"] = {
+["stat"] = {
+${stat}
+},
+["conversion"] = {
+["apPer100"] = { ["strength"] = 200, ["agility"] = 0, ["stamina"] = 0, ["intellect"] = 0, ["spirit"] = 0 },
+["critPer100"] = { ["agility"] = 0.0846, ["intellect"] = 0.05, ["strength"] = 0, ["stamina"] = 0, ["spirit"] = 0 },
+["dodgeFromAgility"] = 0.0635,
+},
+["attackPower"] = { ["base"] = 300, ["pos"] = 0, ["neg"] = 0 },
+["armor"] = { ["base"] = 48, ["effective"] = 744 },
+["health"] = 1000,
+["mana"] = 900,
+["meleeCrit"] = 9.5,
+["spellCrit"] = 7.2,
+["dodge"] = 9.9,
+["meleeHit"] = 0,
+},
+}
+`
+}
+
+/** The character a small export reads into, with no sim run. */
+async function smallCharacter(options: SmallExport = {}): Promise<Character> {
+    return characterOf(
+        await exportCharacter(smallExport(options), dataOnly(pool(), []))
+    )
+}
+
+describe("the export reader matches the runner's characterFromExport", () => {
+    test('a main-hand tooltip line Rockbiter 7 (29 min) with main-hand enchant id 9999 gives imbue RockbiterWeapon', async () => {
+        const character = await smallCharacter({
+            tooltip: ['Rage of the Storm', 'Soulbound', 'Rockbiter 7 (29 min)'],
+            enchantId: 9999,
+        })
+        expect(character.imbue).toBe('RockbiterWeapon')
+    })
+
+    test('with no imbue in the tooltip and no enchant, a meter spell Windfury Attack with damage 120 gives imbue WindfuryWeapon; with damage 0, no imbue and the request has no Windfury', async () => {
+        const windfury = await smallCharacter({
+            meter: [
+                { name: 'Attack', damage: 5000 },
+                { name: 'Windfury Attack', damage: 120 },
+            ],
+        })
+        expect(windfury.imbue).toBe('WindfuryWeapon')
+
+        const character = await smallCharacter({
+            meter: [
+                { name: 'Attack', damage: 5000 },
+                { name: 'Windfury Attack', damage: 0 },
+            ],
+        })
+        expect(character.imbue ?? null).toBeNull()
+        const request = buildRequest(character, 'dungeon-long', {
+            seed: 1,
+            iterations: 1,
+        })
+        const shaman = playerOf(request).enhancementShaman as {
+            options: { classOptions: Json }
+        }
+        expect(shaman.options.classOptions).not.toHaveProperty('imbueMh')
+        expect(JSON.stringify(shaman)).not.toContain('Windfury')
+    })
+
+    test("a skill row Axes at rank 145 with modifier 5 gives { skill: 'WeaponSkillAxes', value: 150 } in weapon_skills", async () => {
+        const character = await smallCharacter({
+            skills: [{ name: 'Axes', rank: 145, modifier: 5 }],
+        })
+        expect(character.weapon_skills).toContainEqual({
+            skill: 'WeaponSkillAxes',
+            value: 150,
+        })
+    })
+
+    test('weapon_skill_deficit: level 32 with a Two-Handed Maces main hand at rank 153, modifier 0 gives 7; level 30 with Two-Handed Axes at rank 150, modifier 5 gives -5', async () => {
+        const maces = await smallCharacter({
+            level: 32,
+            subclass: 'Two-Handed Maces',
+            skills: [
+                { name: 'Axes', rank: 100, modifier: 0 },
+                { name: 'Two-Handed Maces', rank: 153, modifier: 0 },
+            ],
+        })
+        expect(maces.weapon_skill_deficit).toBe(7)
+        const axes = await smallCharacter({
+            level: 30,
+            subclass: 'Two-Handed Axes',
+            skills: [{ name: 'Two-Handed Axes', rank: 150, modifier: 5 }],
+        })
+        expect(axes.weapon_skill_deficit).toBe(-5)
+    })
+
+    test("weapon_skill_deficit is 0 when no skill row matches the main hand's weapon skill", async () => {
+        const character = await smallCharacter({
+            level: 32,
+            subclass: 'Two-Handed Maces',
+            skills: [{ name: 'Axes', rank: 100, modifier: 0 }],
+        })
+        expect(character.weapon_skill_deficit).toBe(0)
+    })
+
+    test('level 32 with a Defense row at rank 157 gives profile.baseDodgePercent 1.58, and no Defense row gives 1.7', async () => {
+        const defended = await smallCharacter({
+            level: 32,
+            skills: [{ name: 'Defense', rank: 157, modifier: 0 }],
+        })
+        expect(defended.profile.baseDodgePercent).toBeCloseTo(1.58, 6)
+        const none = await smallCharacter({ level: 32, skills: [] })
+        expect(none.profile.baseDodgePercent).toBeCloseTo(1.7, 6)
+    })
+
+    test('level 32 gives profile.baseAttackPower 44 (2 per level less 20), whatever the sheet says', async () => {
+        const character = await smallCharacter({ level: 32 })
+        expect(character.profile.baseAttackPower).toBe(44)
+    })
+
+    test('talents.list with Thundering Strikes rank 5, Mental Dexterity rank 3 and Stormstrike rank 1, and empty traits, gives the talent string -050030000001', async () => {
+        const character = await smallCharacter({
+            talentList: [
+                { name: 'Thundering Strikes', rank: 5 },
+                { name: 'Mental Dexterity', rank: 3 },
+                { name: 'Stormstrike', rank: 1 },
+            ],
+            traits: [],
+        })
+        expect(character.talents).toBe('-050030000001')
+    })
+
+    test('an export with no identity.level rejects with the export has no level', async () => {
+        await expect(
+            exportCharacter(smallExport({ level: null }), dataOnly(pool(), []))
+        ).rejects.toThrow('the export has no level')
+    })
+
+    test('an export with no agility rejects with the export lacks agility', async () => {
+        await expect(
+            exportCharacter(
+                smallExport({ without: 'agility' }),
+                dataOnly(pool(), [])
+            )
+        ).rejects.toThrow('the export lacks agility')
+    })
+
+    test('character keys: the all-zero key, aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa and Player-1-0000000A give none, while cf765509-937b-4147-8e33-677e3eef7065 is kept', async () => {
+        for (const key of [
+            '00000000-00000000-00000000-00000000',
+            'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+            'Player-1-0000000A',
+        ]) {
+            const character = await smallCharacter({ characterKey: key })
+            expect([key, character.character_key]).toEqual([key, undefined])
+        }
+        const real = 'cf765509-937b-4147-8e33-677e3eef7065'
+        const kept = await smallCharacter({ characterKey: real })
+        expect(kept.character_key).toBe(real)
+    })
+})
+
 describe('an export saved with buffs the sim can model', () => {
     test("an export saved with Mark of the Wild and Blessing of Kings up reads into a character whose sheet_buffs hold Mark of the Wild's stats and Kings, with the same base health and mana as the export with no buffs", async () => {
         const { on, character, markStats, sheet, plain, buffed } =
