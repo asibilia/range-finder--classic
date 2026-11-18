@@ -56,7 +56,7 @@ describe('the gear tiles', () => {
         expect(line?.parentElement).toBe(head.parentElement)
         expect(classes(line)).toContain('absolute')
         // Focus order: the slot, then its Best: link.
-        const buttons = [...gearPane().querySelectorAll('button')]
+        const buttons = [...gearPane().querySelectorAll<HTMLElement>('button')]
         expect(buttons.indexOf(link)).toBe(buttons.indexOf(head) + 1)
         // The slot's own name doesn't change.
         expect(head.getAttribute('aria-label')).toBe(HEAD)
