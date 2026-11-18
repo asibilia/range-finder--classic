@@ -48,6 +48,12 @@ export type Latest = {
     lines: ReactNode
     /** The footer's line (`Loaded from this computer, made Nov. 17`), or null. */
     footer: ReactNode
+    /**
+     * The export beside the latest file (`/local/latest-export.lua`), read
+     * each time a latest file shows, while it is followed; null when there
+     * is none.
+     */
+    exportText: string | null
 }
 
 /** The latest file's state, once one showed. */
@@ -60,6 +66,8 @@ type Shown = {
     note: string | null
     /** Why a newer latest file isn't shown, or null. */
     problem: string | null
+    /** The export beside it, or null. */
+    exportText: string | null
 }
 
 /** No latest file: nothing to leave, nothing added to the page. */
@@ -69,6 +77,7 @@ const INERT: Latest = {
     action: null,
     lines: null,
     footer: null,
+    exportText: null,
 }
 
 /** A plain text button, as the header's Wishlist. */
@@ -105,7 +114,19 @@ function useFollowedLatest(page: LatestPage): Latest {
                 line,
                 note: current?.following ? current.note : null,
                 problem: null,
+                exportText: current?.following ? current.exportText : null,
             }))
+            // The export beside it: the sim side keeps it only while it
+            // matches the latest file, so it is read again with each one.
+            const id = follow.current
+            void import('../local-latest')
+                .then((module) => module.latestExport())
+                .then((exportText) => {
+                    if (follow.current === id)
+                        setShown(
+                            (current) => current && { ...current, exportText }
+                        )
+                })
         },
         onReadError: page.showError,
         onProblem: (problem) =>
@@ -144,10 +165,12 @@ function useFollowedLatest(page: LatestPage): Latest {
             ),
             lines: null,
             footer: null,
+            exportText: null,
         }
     return {
         following: true,
         leave,
+        exportText: shown.exportText,
         action: (
             <>
                 <input

@@ -49,6 +49,7 @@ import {
     weightsIterations,
 } from './browser-sim'
 import { characterArt } from './character-art'
+import { type FightSettings, fightFor, fightOverride } from './fight-settings'
 import type { Item } from './gains'
 import {
     initialPlannerState,
@@ -251,7 +252,11 @@ function isExport(file: File): boolean {
 }
 
 /** A character simmed from an export dropped in this visit, for Refine. */
-type Simmed = { character: Character; minutes: number }
+/**
+ * The character behind the file shown, when this visit simmed it: Refine's
+ * estimate, and the export it came from (Run Simulator sims it again).
+ */
+type Simmed = { character: Character; minutes: number; exportText: string }
 
 /**
  * The armory planner's page. A render error in it is caught by the home
@@ -286,6 +291,12 @@ export function App({
     // The character behind the file shown, when this visit simmed it.
     const [simmed, setSimmed] = useState<Simmed | null>(null)
     const [refining, setRefining] = useState<SimCount | null>(null)
+    // Run Simulator's progress, while it runs.
+    const [running, setRunning] = useState<SimCount | null>(null)
+    // Where the fight settings are (Run Simulator sims them).
+    const [fightSettings, setFightSettings] = useState<FightSettings | null>(
+        null
+    )
     const [phone, setPhone] = useState(false)
 
     const pool = useRef<SimPool | null>(null)
@@ -310,11 +321,13 @@ export function App({
     const openSimmed = (
         outcome: Extract<SimExportOutcome, { kind: 'file' }>,
         size: number,
-        focus: boolean
+        focus: boolean,
+        exportText: string
     ) => {
         const kept = rememberFile(JSON.stringify(outcome.file))
         open({ file: outcome.file, error: null }, kept, focus)
         setSimmed({
+            exportText,
             character: outcome.character,
             minutes: estimateMinutes(
                 weightsIterations(outcome.character.level),
@@ -359,7 +372,8 @@ export function App({
             if (run.current !== id) return
             setSimming(null)
             setWeightsFirst(null)
-            if (outcome.kind === 'file') openSimmed(outcome, simPool.size, true)
+            if (outcome.kind === 'file')
+                openSimmed(outcome, simPool.size, true, text)
             else setStop(outcome)
         } catch (error) {
             if (run.current !== id || error instanceof SimCancelled) return
@@ -409,6 +423,7 @@ export function App({
         setSimming(null)
         setWeightsFirst(null)
         setRefining(null)
+        setRunning(null)
     }
 
     /** A Refine still running is stopped when its file goes away. */
@@ -435,10 +450,56 @@ export function App({
             setRefining(null)
             // A refined run that stops keeps the file shown.
             if (outcome.kind === 'file')
-                openSimmed(outcome, simPool.size, false)
+                openSimmed(outcome, simPool.size, false, simmed.exportText)
         } catch {
             // Cancelled, or the sim failed: the unrefined file stays.
             if (run.current === id) setRefining(null)
+        }
+    }
+
+    /**
+     * Run Simulator: sims the export behind the file shown again with the
+     * fight settings, and shows the new file on the fight they pick (the
+     * long dungeon fight takes them, see `scenariosFor`). A run that
+     * stops, fails or is cancelled keeps the file shown.
+     */
+    const runSimulator = async (text: string) => {
+        const file = loaded.file
+        if (!file || !fightSettings) return
+        const settings = fightSettings
+        const id = ++run.current
+        const simPool = getPool()
+        setRunning({ done: 0, planned: 0 })
+        try {
+            const outcome = await simExport(
+                text,
+                simPool,
+                (done, planned) => {
+                    if (run.current === id) setRunning({ done, planned })
+                },
+                {
+                    fight: fightOverride(
+                        file,
+                        settings,
+                        file.fights.find(
+                            (entry) => entry.fight_id === planner?.fightId
+                        )?.kind === 'chain'
+                    ),
+                }
+            )
+            if (run.current !== id) return
+            setRunning(null)
+            if (outcome.kind !== 'file') return
+            latest.leave()
+            openSimmed(outcome, simPool.size, false, text)
+            const next = outcome.file
+            const picked =
+                fightFor(next, settings)?.fight_id ?? next.default_fight_id
+            setPlanner((current) =>
+                current ? pickFight(next, current, picked) : current
+            )
+        } catch {
+            if (run.current === id) setRunning(null)
         }
     }
 
@@ -495,7 +556,7 @@ export function App({
         showError: (readError) => open({ file: null, error: readError }),
         // An export's run or a Refine would replace the latest when done.
         beforeFollow: () => {
-            if (simming || refining) cancel()
+            if (simming || refining || running) cancel()
         },
         openPicked,
     })
@@ -557,6 +618,10 @@ export function App({
         file !== null &&
         simmed !== null &&
         !file.stat_weights.some((entry) => entry.source?.kind === 'yours')
+    // The export Run Simulator sims: the one this visit simmed, else (dev)
+    // the one beside the latest file.
+    const exportText =
+        simmed?.exportText ?? (latest.following ? latest.exportText : null)
     const refineAction = refining ? (
         <SimProgress count={refining} onCancel={cancel} />
     ) : refinable && simmed ? (
@@ -650,10 +715,24 @@ export function App({
                             planShown={planShown}
                             wornOf={wornOf}
                             className={SIDE_PLACE}
+                            onRunSimulator={
+                                exportText !== null && !refining
+                                    ? () => void runSimulator(exportText)
+                                    : undefined
+                            }
+                            running={
+                                running && (
+                                    <SimProgress
+                                        count={running}
+                                        onCancel={cancel}
+                                    />
+                                )
+                            }
                             settings={
                                 <FightSettingsForm
                                     file={file}
                                     fightId={planner.fightId}
+                                    onSettings={setFightSettings}
                                     onPickFight={(fightId) =>
                                         dispatch({
                                             type: 'pick-fight',

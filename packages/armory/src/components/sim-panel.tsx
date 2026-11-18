@@ -7,11 +7,13 @@
  * loads it shows the same column dimmed and inert, under `These unlock once
  * a character is loaded.`
  *
- * Run Simulator isn't wired yet: a loaded results file carries no export,
- * so the browser can't re-sim it. The button is there, and disabled until
- * the page passes `onRunSimulator`.
+ * Run Simulator sims the export behind the file again with the fight
+ * settings (the page's `onRunSimulator`). With no export (a results file
+ * picked on its own, or a public build), the button is disabled and says
+ * why: `Bring in your export to run the sim here.` While it runs, the
+ * progress and Cancel take its place.
  */
-import type { ReactNode } from 'react'
+import { type ReactNode, useId } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,6 +21,9 @@ import { cn } from '@/lib/utils'
 import type { Plan } from '../plans'
 import type { Result, ResultsFile } from '../results-file'
 import { Readings } from './readings'
+
+/** Under Run Simulator when there is no export to sim. */
+export const NO_EXPORT_NOTE = 'Bring in your export to run the sim here.'
 
 /**
  * The card with a file loaded.
@@ -30,8 +35,9 @@ import { Readings } from './readings'
  * @param sliders - The role sliders (when the file has plans).
  * @param settings - The fight settings.
  * @param wornOf - What you wear's result on a fight (a bag item put on).
- * @param onRunSimulator - Runs the sim; until it is given, the Run
- * Simulator button is disabled.
+ * @param onRunSimulator - Runs the sim; absent when there is no export to
+ * sim, and the button is disabled with a note.
+ * @param running - The run's progress and Cancel, while it runs.
  * @param className - Where the page's grid places it.
  */
 export function SimPanel({
@@ -43,6 +49,7 @@ export function SimPanel({
     settings,
     wornOf,
     onRunSimulator,
+    running,
     className,
 }: {
     file: ResultsFile
@@ -53,8 +60,10 @@ export function SimPanel({
     settings?: ReactNode
     wornOf?: (fightId: string) => Result | null
     onRunSimulator?: () => void
+    running?: ReactNode
     className?: string
 }) {
+    const noExportId = useId()
     const fight =
         file.fights.find((entry) => entry.fight_id === fightId) ??
         file.fights[0]
@@ -79,14 +88,29 @@ export function SimPanel({
             >
                 {sliders}
                 {settings}
-                <Button
-                    variant="pill"
-                    className="h-auto self-end px-4 py-1.5 text-base"
-                    disabled={!onRunSimulator}
-                    onClick={onRunSimulator}
-                >
-                    Run Simulator
-                </Button>
+                {running ?? (
+                    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                        {!onRunSimulator && (
+                            <p
+                                id={noExportId}
+                                className="text-[0.78125rem] text-muted-foreground"
+                            >
+                                {NO_EXPORT_NOTE}
+                            </p>
+                        )}
+                        <Button
+                            variant="pill"
+                            className="h-auto px-4 py-1.5 text-base"
+                            disabled={!onRunSimulator}
+                            aria-describedby={
+                                onRunSimulator ? undefined : noExportId
+                            }
+                            onClick={onRunSimulator}
+                        >
+                            Run Simulator
+                        </Button>
+                    </div>
+                )}
             </div>
         </aside>
     )

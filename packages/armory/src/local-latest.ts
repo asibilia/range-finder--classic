@@ -7,7 +7,8 @@
  *
  * `followLatest` loads the latest file, then asks again every 10 s with
  * `If-Modified-Since`, and asks for the status file on load and on every
- * refresh. The file is never kept in this browser.
+ * refresh. The file is never kept in this browser. `latestExport` reads
+ * the export beside it (`/local/latest-export.lua`), for Run Simulator.
  */
 import type { ReadError } from '@/components/bring-in'
 
@@ -139,5 +140,24 @@ export function followLatest(handlers: LatestHandlers): () => void {
         stopped = true
         if (timer !== null) clearTimeout(timer)
         timer = null
+    }
+}
+
+/**
+ * The export the latest file was simmed from, served beside it at
+ * `/local/latest-export.lua` (the sim side publishes it only when it
+ * matches the latest file).
+ *
+ * @returns The export's text, or null when there is none (a 404 or a
+ * network error).
+ */
+export async function latestExport(): Promise<string | null> {
+    try {
+        const answer = await fetch('/local/latest-export.lua', {
+            cache: 'no-store',
+        })
+        return answer.ok ? await answer.text() : null
+    } catch {
+        return null
     }
 }

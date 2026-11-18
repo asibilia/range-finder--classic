@@ -94,15 +94,19 @@ function RangeRow({
  * @param file - The loaded results file.
  * @param fightId - The fight picked last (the chart and readings show it).
  * @param onPickFight - The settings picked another fight.
+ * @param onSettings - Hears the settings each time they change (Run
+ * Simulator sims them).
  */
 export function FightSettingsForm({
     file,
     fightId,
     onPickFight,
+    onSettings,
 }: {
     file: ResultsFile
     fightId: string
     onPickFight: (fightId: string) => void
+    onSettings?: (settings: FightSettings) => void
 }) {
     const fight =
         file.fights.find((entry) => entry.fight_id === fightId) ??
@@ -125,6 +129,11 @@ export function FightSettingsForm({
                 : settingsOf(file, fight)
         )
     }, [file, fight])
+
+    // The page hears where the controls are, for Run Simulator.
+    useEffect(() => {
+        if (settings) onSettings?.(settings)
+    }, [settings])
 
     if (!settings || !fight) return null
     const choices = settingsChoices(file)
