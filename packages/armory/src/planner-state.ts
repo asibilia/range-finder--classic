@@ -17,6 +17,9 @@ import type { Result, ResultsFile } from './results-file'
 /** `worn` shows what you wear; `plan` shows the plan the sliders picked. */
 export type View = 'worn' | 'plan'
 
+/** The bag items on, as item_ids, whether put on with Equip or Equip all. */
+export type BagItemsOn = readonly number[]
+
 /** The page's state for one loaded file. */
 export type PlannerState = {
     /** The fight the card shows. */
@@ -27,24 +30,12 @@ export type PlannerState = {
     /** True after a slider move switched the view to the plan. */
     switched: boolean
     /**
-     * The one bag upgrade put on with Equip (its item_id), or null (also
-     * after Equip all, which `bagAll` records). What you wear then shows that
-     * item in its slot and the bag upgrade's results. For every bag item on,
-     * however it was put on, read `bagItemsOn`.
+     * The bag upgrades worn, as item_ids: `[]` none, the one put on with
+     * Equip, or every bag upgrade after Equip all. What you wear then shows
+     * them in their slots, and their results (`wornResult`).
      */
-    bagWorn: number | null
-    /**
-     * True after Equip all: every bag upgrade is on, and what you wear shows
-     * `bag_upgrades_all`'s results. Absent otherwise.
-     */
-    bagAll?: true
+    bagOn: BagItemsOn
 }
-
-/**
- * The bag items on, as item_ids, whether put on with Equip or Equip all
- * (`bagItemsOn` gives it from the state); none: `[]`.
- */
-export type BagItemsOn = readonly number[]
 
 const SLIDER_VALUE = z.number().int().min(0).max(100)
 
@@ -88,7 +79,7 @@ export function initialPlannerState(file: ResultsFile): PlannerState {
         mix: defaultPlan(file.plans)?.mix ?? null,
         view: 'worn',
         switched: false,
-        bagWorn: null,
+        bagOn: [],
     }
 }
 
@@ -199,13 +190,12 @@ export function wearBagItem(
     state: PlannerState,
     itemId: number | null
 ): PlannerState {
-    const { bagAll: _bagAll, ...rest } = state
-    if (itemId === null) return { ...rest, bagWorn: null }
+    if (itemId === null) return { ...state, bagOn: [] }
     const upgrade = file.bag_upgrades.find(
         (candidate) => candidate.item.item_id === itemId
     )
     if (!upgrade?.results) return state
-    return { ...rest, bagWorn: itemId }
+    return { ...state, bagOn: [itemId] }
 }
 
 /**
@@ -258,24 +248,10 @@ export function wearAllBagItems(
     state: PlannerState
 ): PlannerState {
     if (!canWearAllBagItems(file)) return state
-    return { ...state, bagWorn: null, bagAll: true }
-}
-
-/**
- * The bag items put on, as item_ids: every bag upgrade after Equip all, the
- * one put on with Equip, or none.
- *
- * @param file - The loaded results file.
- * @param state - The current state (its `bagWorn` and `bagAll`).
- * @returns The item_ids, in the file's order.
- */
-export function bagItemsOn(
-    file: ResultsFile,
-    state: Pick<PlannerState, 'bagWorn' | 'bagAll'>
-): BagItemsOn {
-    if (state.bagAll && file.bag_upgrades_all)
-        return file.bag_upgrades.map((upgrade) => upgrade.item.item_id)
-    return state.bagWorn === null ? [] : [state.bagWorn]
+    return {
+        ...state,
+        bagOn: file.bag_upgrades.map((upgrade) => upgrade.item.item_id),
+    }
 }
 
 /**
@@ -355,34 +331,30 @@ export function pickedPlan(
 }
 
 /**
- * What you wear's result on a fight, with the bag items on (if any): after
- * Equip all, `bag_upgrades_all`'s result for that fight; after Equip, the
- * bag upgrade's; else worn's. With bag items on and no result for the
- * fight, null (not simmed).
+ * What you wear's result on a fight, with the bag items on (if any): with
+ * more than one on (Equip all), `bag_upgrades_all`'s result for that fight;
+ * with one (Equip), that bag upgrade's; else worn's. With bag items on and
+ * no result for the fight, null (not simmed).
  *
  * @param file - The loaded results file.
- * @param state - The current state (its `bagWorn` and `bagAll`).
+ * @param state - The current state (its `bagOn`).
  * @param fightId - The fight.
  * @returns The result, shaped like `results` (gear `worn`), or null.
  */
 export function wornResult(
     file: ResultsFile,
-    state: Pick<PlannerState, 'bagWorn' | 'bagAll'>,
+    state: Pick<PlannerState, 'bagOn'>,
     fightId: string
 ): Result | null {
-    if (state.bagAll && file.bag_upgrades_all) {
-        const found = file.bag_upgrades_all.results.find(
-            (result) => result.fight_id === fightId
-        )
-        return found ? { gear: 'worn', ...found } : null
-    }
-    if (state.bagWorn !== null) {
-        const upgrade = file.bag_upgrades.find(
-            (candidate) => candidate.item.item_id === state.bagWorn
-        )
-        const found = upgrade?.results?.find(
-            (result) => result.fight_id === fightId
-        )
+    const [only, ...more] = state.bagOn
+    if (only !== undefined) {
+        const results =
+            more.length > 0
+                ? file.bag_upgrades_all?.results
+                : file.bag_upgrades.find(
+                      (candidate) => candidate.item.item_id === only
+                  )?.results
+        const found = results?.find((result) => result.fight_id === fightId)
         return found ? { gear: 'worn', ...found } : null
     }
     return (

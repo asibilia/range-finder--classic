@@ -13,6 +13,7 @@ import {
     variant,
     type User,
 } from './open-app'
+import { gearPane, lineWith, squeeze } from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
@@ -91,6 +92,45 @@ function slot(prefix: string): HTMLElement {
     return screen.getByRole('button', { name: new RegExp(`^${prefix}: `) })
 }
 
+/** The sample with no plans, and only what you wear's results. */
+function noPlansFile() {
+    return variant((file) => {
+        file.plans = []
+        file.results = (file.results as { gear: string }[]).filter(
+            (result) => result.gear === 'worn'
+        )
+    })
+}
+
+/** Every slot button in the gear card (named `<Label>: …`). */
+function slotButtons(): HTMLElement[] {
+    return [...gearPane().querySelectorAll<HTMLElement>('button')].filter(
+        (button) =>
+            /^[A-Z][\w -]*: /.test(button.getAttribute('aria-label') ?? '')
+    )
+}
+
+/** Whether the page's text holds `text`, spaces aside. */
+function pageSays(text: string): boolean {
+    return squeeze(document.body.textContent).includes(squeeze(text))
+}
+
+/** Whether a button named exactly `name` is on the page. */
+function hasButton(name: string): boolean {
+    return screen.queryByRole('button', { name }) !== null
+}
+
+/** Whether any slot button shows a gap (`↓`) or `BIS` badge. */
+function anySlotBadge(): boolean {
+    return slotButtons().some(
+        (button) =>
+            button.querySelector('[data-size]') !== null ||
+            button.querySelector('[data-sim-best]') !== null ||
+            /↓|\bBIS\b/.test(button.textContent ?? '') ||
+            (button.getAttribute('aria-label') ?? '').includes("the sim's best")
+    )
+}
+
 afterEach(() => {
     cleanup()
 })
@@ -144,12 +184,7 @@ describe('the plan view', () => {
     })
 
     test('a file with no plans has no View switch and no Stat Priority', async () => {
-        const noPlans = variant((file) => {
-            file.plans = []
-            file.results = (file.results as { gear: string }[]).filter(
-                (result) => result.gear === 'worn'
-            )
-        })
+        const noPlans = noPlansFile()
 
         // The sample has both, so their absence below comes from the plans.
         await openSample()
@@ -162,6 +197,54 @@ describe('the plan view', () => {
         expect(hasViewSwitch()).toBe(false)
         expect(screen.queryByText('Stat Priority')).toBeNull()
         expect(screen.queryByRole('slider', { name: 'Damage' })).toBeNull()
+    })
+
+    test('a file with no plans shows no slot badge, no total line, no Best: line, no callout card and no reading gap line', async () => {
+        const noPlans = noPlansFile()
+
+        // The sample shows each of them, so their absence below comes from
+        // the plans.
+        await openSample()
+        expect(anySlotBadge()).toBe(true)
+        expect(lineWith("in total below the sim's best set")).not.toBeNull()
+        expect(hasButton('About the total')).toBe(true)
+        expect(screen.queryAllByText('Best:').length).toBeGreaterThan(0)
+        expect(hasButton("Defender's Leather Helm")).toBe(true)
+        expect(pageSays('Berylline Pads are in your bags')).toBe(true)
+        expect(hasButton('Equip')).toBe(true)
+        expect(document.querySelector('[data-reading-gap]')).not.toBeNull()
+        cleanup()
+        localStorage.clear()
+
+        await openFile(noPlans)
+
+        // What you wear still shows, with its readings.
+        expect(slotButtons().length).toBeGreaterThan(0)
+        expect(
+            screen.getByRole('button', {
+                name: "Head: Brawler's Leather Hood",
+            })
+        ).toBeDefined()
+        expect(readingValue('Solo')).toBe('103.7')
+
+        // No slot badge (`↓ N` or `BIS`).
+        expect(anySlotBadge()).toBe(false)
+        // No total line.
+        expect(lineWith("below the sim's best set")).toBeNull()
+        expect(lineWith("Every slot matches the sim's best set")).toBeNull()
+        expect(hasButton('About the total')).toBe(false)
+        // No `Best:` lines.
+        expect(screen.queryByText('Best:')).toBeNull()
+        expect(hasButton("Defender's Leather Helm")).toBe(false)
+        // No callout card, not even for the bag upgrade.
+        expect(pageSays('Berylline Pads are in your bags')).toBe(false)
+        expect(hasButton('Equip')).toBe(false)
+        expect(hasButton('Wear them')).toBe(false)
+        expect(hasButton('Add to wishlist')).toBe(false)
+        expect(hasButton('Other options')).toBe(false)
+        expect(pageSays('Best-in-slot for level')).toBe(false)
+        // No gap line under any reading.
+        expect(document.querySelector('[data-reading-gap]')).toBeNull()
     })
     test('the item picker opened from the plan view shows what it shows from the worn view', async () => {
         const user = await openSample()
