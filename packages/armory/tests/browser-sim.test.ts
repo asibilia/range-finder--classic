@@ -43,7 +43,7 @@ const MADE_UP_ID = 999_999_001
 
 const pools: SimPool[] = []
 function pool(): SimPool {
-    const made = createSimPool({ base: BASE })
+    const made = createSimPool({ base: BASE, size: 2 })
     pools.push(made)
     return made
 }

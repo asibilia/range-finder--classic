@@ -47,7 +47,7 @@ beforeAll(() => ensureSimBuild(), 600_000)
 
 const pools: SimPool[] = []
 function pool(): SimPool {
-    const made = createSimPool({ base: BASE })
+    const made = createSimPool({ base: BASE, size: 2 })
     pools.push(made)
     return made
 }

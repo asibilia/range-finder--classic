@@ -59,7 +59,7 @@ beforeAll(() => {
     started = performance.now()
 }, 600_000)
 
-const shared = createSimPool({ base: BASE })
+const shared = createSimPool({ base: BASE, size: 2 })
 afterAll(() => shared.close())
 
 /** The outcome of a run that made a file; a stop fails the test. */
