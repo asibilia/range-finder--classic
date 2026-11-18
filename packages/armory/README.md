@@ -279,7 +279,7 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   | --- | --- | --- |
   | `plans[].reach` `{damage, survival, healing, utility}` (0 to 100) | `Can reach 35 with this mix` / `No limit with this mix` under each slider, the track past it hatched, the slider stopping there, and the line `Raising one role lowers how far the others can go. ...` | No reach line, no hatching, sliders not stopped |
   | `sheet.weapon_skill` `{weapon_type, current, max}` (`weapon_type` is the game's skill name, `Two-Handed Axes`) | `Axe skill 148/150` on the sheet: the name said short (`src/weapon-skill.ts`; a name it doesn't know is shown as given) | The line is left out |
-  | `bag_upgrades[].results` (results per fight with the bag item on, no `gear`) | `Wear them` on the bag card; once worn the slot, the readings and the chart use them, and `Undo` takes it off | No `Wear them` button |
+  | `bag_upgrades[].results` (results per fight with the bag item on, no `gear`) | `Equip` on the callout card; once worn the slot, the readings and the chart use them, and `Undo` takes it off | No `Equip` button |
   | `results[].damage_split[].school` (`physical`, `fire`, `nature`, `frost`, `arcane`, `shadow`, `holy`) | The split coloured by school, and `Colour is the spell school.` | Coloured by order, no colour sentence |
   | `fights[].melee_miss_pct` | `With 0 hit, you miss 8.0% of melee swings at level 33.` under the enemy level (hit from the sheet) | The sentence is left out |
   | `slots[].imbue` (the worn weapon's imbue) | `... Guardian's Dualblade with Windfury Weapon.` in the header | The weapon alone |

@@ -575,6 +575,8 @@ export function App({
                         plan={plan}
                         planShown={planShown}
                         bagWorn={bagWorn}
+                        wishlist={wishlist}
+                        onToggleWishlist={toggleWishlist}
                         headingRef={heading}
                         onWearBag={(itemId) =>
                             dispatch({ type: 'wear-bag-item', item_id: itemId })

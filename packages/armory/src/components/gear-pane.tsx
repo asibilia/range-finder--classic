@@ -2,25 +2,27 @@
  * The gear pane, as the approved mockup lays it out: its heading row
  * (the character, which gear is shown, the switch between what you wear and the
  * plan) and the line under it, every slot around the character (six on the
- * left with the bag card under them, eight on the right, the weapons along
+ * left with the callout card under them, eight on the right, the weapons along
  * the bottom), and the middle with the figure and the character sheet.
  * Before a file loads the slots are disabled dashed outlines and the
  * middle holds `middle` (the new-visitor card).
  */
 import type { ReactNode, RefObject } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-import { formatGain } from '../gains'
 import { exportDay } from '../format'
+import type { Item } from '../gains'
 import { itemName } from '../item-name'
+import { nextStep } from '../next-step'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
 import { emptySlot, gapTotal, type GapTotal, slotShown } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
 import { InfoButton } from './info'
+import type { Wishlist } from './item-picker'
+import { NextStepCard } from './next-step-card'
 import { Segmented } from './segmented'
 import { SimBestIcon } from './sim-best-icon'
 import { SlotButton, type SlotSide } from './slot-button'
@@ -93,93 +95,6 @@ function ChestIcon() {
             <path d="M9 13 L15 13" />
         </svg>
     )
-}
-
-/** Plural slot words read `are in your bags`; the others `is`. */
-const PLURAL_WORDS = /s$/
-
-/**
- * The bag card under the left column, in the mockup's words: `Berylline
- * Pads are in your bags, +7.0 EP over the shoulders you wear. No dungeon
- * needed.` and `Wear them`; once worn, `You wear Berylline Pads now.
- * Serpent's Shoulders went to your bags.` and `Undo`. `Wear them` shows
- * only when the file has the bag item's results (`bag_upgrades[].results`).
- */
-function BagCard({
-    file,
-    bagWorn,
-    onWear,
-    onUndo,
-}: {
-    file: ResultsFile
-    bagWorn: number | null
-    onWear: (itemId: number) => void
-    onUndo: () => void
-}) {
-    const upgrade =
-        file.bag_upgrades.find(
-            (candidate) => candidate.item.item_id === bagWorn
-        ) ?? file.bag_upgrades[0]
-    if (!upgrade) return null
-    const named = (item: Parameters<typeof itemName>[0]) =>
-        itemName(item, upgrade.slot, file.character.class)
-    const worn =
-        file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
-    const word = slotWord(upgrade.slot)
-    const name = named(upgrade.item)
-    const on = bagWorn === upgrade.item.item_id
-    return (
-        <div
-            aria-live="polite"
-            className="mt-auto rounded-xl border border-dashed border-chart-2 bg-chart-2/5 px-3 py-2.5 text-[0.84375rem] text-muted-foreground"
-        >
-            {on ? (
-                <p>
-                    You wear <b className="text-foreground">{name}</b> now.
-                    {worn ? ` ${named(worn)} went to your bags.` : ''}
-                </p>
-            ) : (
-                <p>
-                    <b className="text-foreground">{name}</b>
-                    {` ${PLURAL_WORDS.test(word) ? 'are' : 'is'} in your bags, `}
-                    <span className="font-bold whitespace-nowrap text-gain-text">
-                        {formatGain({ value: upgrade.gain_ep, unit: 'EP' })}
-                    </span>
-                    {` over the ${word} you wear. No dungeon needed.`}
-                </p>
-            )}
-            {(on || upgrade.results) && (
-                <Button
-                    variant="outline"
-                    className="mt-2 h-auto rounded-full px-3 py-1.25 text-[0.84375rem] font-normal"
-                    onClick={() =>
-                        on ? onUndo() : onWear(upgrade.item.item_id)
-                    }
-                >
-                    {on ? 'Undo' : 'Wear them'}
-                </Button>
-            )}
-        </div>
-    )
-}
-
-/** What one item in a slot is called in the bag card (`the shoulders`). */
-function slotWord(slot: Slot): string {
-    const words: Partial<Record<Slot, string>> = {
-        head: 'helm',
-        neck: 'necklace',
-        shoulder: 'shoulders',
-        back: 'cloak',
-        chest: 'chest piece',
-        wrist: 'bracers',
-        hands: 'gloves',
-        waist: 'belt',
-        legs: 'leggings',
-        feet: 'boots',
-        main_hand: 'weapon',
-        off_hand: 'off hand',
-    }
-    return words[slot] ?? 'item'
 }
 
 /**
@@ -310,6 +225,9 @@ function GearHead({
     )
 }
 
+/** No wishlist given: nothing is on it. */
+const NO_WISHLIST: Wishlist = new Map()
+
 /** `12 slots`, `1 slot`. */
 function slotCount(count: number): string {
     return count === 1 ? '1 slot' : `${count} slots`
@@ -359,19 +277,22 @@ function TotalLine({ total }: { total: GapTotal }) {
  * @param file - The loaded file, or null before one loads.
  * @param plan - The plan the sliders pick, or null.
  * @param planShown - True to show the plan's gear instead of what you wear.
- * @param bagWorn - The bag upgrade put on with Wear them, or null.
+ * @param bagWorn - The bag upgrade put on with Equip, or null.
+ * @param wishlist - The wishlist, for the callout card's `On wishlist`.
  * @param middle - What sits in the middle before a file loads.
  * @param headingRef - The heading (`gear-heading`), focused when a picked
  * file loads.
  * @param onOpenTalents - Opens the talents dialog (the pill on the figure).
- * @param onWearBag - Wear them: puts a bag upgrade on.
+ * @param onWearBag - Equip: puts a bag upgrade on.
  * @param onUndoBag - Undo: takes it off again.
+ * @param onToggleWishlist - Add to wishlist (or take off) from the card.
  */
 export function GearPane({
     file,
     plan,
     planShown,
     bagWorn = null,
+    wishlist = NO_WISHLIST,
     middle,
     headingRef,
     onShowPlan,
@@ -380,11 +301,13 @@ export function GearPane({
     onOpenTalents = () => {},
     onWearBag = () => {},
     onUndoBag = () => {},
+    onToggleWishlist = () => {},
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
     bagWorn?: number | null
+    wishlist?: Wishlist
     middle?: ReactNode
     headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
@@ -393,7 +316,10 @@ export function GearPane({
     onOpenTalents?: () => void
     onWearBag?: (itemId: number) => void
     onUndoBag?: () => void
+    onToggleWishlist?: (item: Item, slot: Slot) => void
 }) {
+    // The callout card: in the Current view only.
+    const step = file && !planShown ? nextStep(file, plan, bagWorn) : null
     const slot = (name: Slot, side: SlotSide) => (
         <SlotButton
             key={name}
@@ -433,12 +359,16 @@ export function GearPane({
                         className="flex flex-col gap-2 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
                     >
                         {LEFT_SLOTS.map((name) => slot(name, 'left'))}
-                        {file && (
-                            <BagCard
+                        {file && step && (
+                            <NextStepCard
                                 file={file}
+                                step={step}
                                 bagWorn={bagWorn}
-                                onWear={onWearBag}
-                                onUndo={onUndoBag}
+                                wishlist={wishlist}
+                                onWearBag={onWearBag}
+                                onUndoBag={onUndoBag}
+                                onToggleWishlist={onToggleWishlist}
+                                onOpenSlot={onOpenSlot}
                             />
                         )}
                     </div>

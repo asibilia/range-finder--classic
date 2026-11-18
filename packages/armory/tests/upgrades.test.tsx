@@ -275,12 +275,18 @@ describe('gains on the slots', () => {
     })
 })
 
+/**
+ * The bag card's put-it-on button: `Equip` since #116 (was `Wear them`).
+ * next-step.test.tsx checks that no `Wear them` button is left.
+ */
+const EQUIP_BUTTON = /^(Equip|Wear them)$/
+
 describe('Wear them', () => {
     test('puts the bag item on: the slot, the numbers and the card change; Undo puts it back', async () => {
         const user = await openSample()
         expect(readingValue('Dungeon')).toBe('75.4')
 
-        await user.click(screen.getByRole('button', { name: 'Wear them' }))
+        await user.click(screen.getByRole('button', { name: EQUIP_BUTTON }))
 
         expect(
             screen.getByRole('button', { name: /^Shoulder: Berylline Pads, / })
@@ -303,7 +309,7 @@ describe('Wear them', () => {
             })
         ).toBeDefined()
         expect(readingValue('Dungeon')).toBe('75.4')
-        expect(screen.getByRole('button', { name: 'Wear them' })).toBeDefined()
+        expect(screen.getByRole('button', { name: EQUIP_BUTTON })).toBeDefined()
     })
 
     test('a bag upgrade without results (not simmed) has no Wear them button', async () => {
@@ -316,7 +322,9 @@ describe('Wear them', () => {
                     delete upgrade.results
             })
         )
-        expect(screen.queryByRole('button', { name: 'Wear them' })).toBeNull()
+        expect(
+            screen.queryByRole('button', { name: EQUIP_BUTTON }) !== null
+        ).toBe(false)
         expect(
             screen.getByText('are in your bags,', { exact: false })
         ).toBeDefined()

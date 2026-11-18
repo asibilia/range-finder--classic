@@ -388,7 +388,7 @@ const baseSchema = z.strictObject({
             gain_ep: z.number(),
             results: z.array(bagResult).nullable().optional().meta({
                 description:
-                    "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Wear them button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Wear them button).",
+                    "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Equip button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Equip button).",
             }),
         })
     ),

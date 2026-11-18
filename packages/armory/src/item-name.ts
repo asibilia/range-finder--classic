@@ -36,6 +36,22 @@ const RELIC_WORDS: Record<string, string> = {
 }
 
 /**
+ * What one item in a slot is called, in words: `shoulders`, `off-hand
+ * item`, `ring`, and the class's relic word (`totem` for a Shaman).
+ *
+ * @param slot - The slot.
+ * @param characterClass - The character's class.
+ * @returns The word.
+ *
+ * @example
+ * slotWord('relic', 'Shaman') // 'totem'
+ */
+export function slotWord(slot: Slot, characterClass: string): string {
+    if (slot === 'relic') return RELIC_WORDS[characterClass] ?? SLOT_WORDS.relic
+    return SLOT_WORDS[slot]
+}
+
+/**
  * The name the page shows for an item. The runner names an item it has no
  * name for `Item <id>`; that placeholder reads `Unnamed <slot word> (<id>)`.
  *
@@ -54,11 +70,7 @@ export function itemName(
     characterClass: string
 ): string {
     if (item.name !== `Item ${item.item_id}`) return item.name
-    const word =
-        slot === 'relic'
-            ? (RELIC_WORDS[characterClass] ?? SLOT_WORDS.relic)
-            : SLOT_WORDS[slot]
-    return `Unnamed ${word} (${item.item_id})`
+    return `Unnamed ${slotWord(slot, characterClass)} (${item.item_id})`
 }
 
 const KIND_PREFIX = /^(?:Crafted|Drop): /

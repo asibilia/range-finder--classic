@@ -494,6 +494,14 @@ describe('what the contract tells the runner', () => {
         expect(schema).not.toContain('Talents: your build')
     })
 
+    test("bag_upgrades[].results names the page's Equip button, not Wear them", () => {
+        const [bagResults] = descriptionsOf('results').filter((d) =>
+            d.startsWith('What you wear with this bag item put on')
+        )
+        expect(bagResults).toContain('Equip')
+        expect(bagResults).not.toContain('Wear them')
+    })
+
     test("weapon_type is the game's skill name", () => {
         const [weaponType] = descriptionsOf('weapon_type')
         expect(weaponType).toContain('"Two-Handed Axes"')
