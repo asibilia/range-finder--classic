@@ -27,7 +27,7 @@ function gearCard(): HTMLElement {
 }
 
 describe('the page layout (approved C2 mockup)', () => {
-    test('from 90rem the gear and the card sit side by side; the band follows, full width', async () => {
+    test("from 90rem the gear card and the right column sit side by side; the band is under the gear card only, the right column down both rows (the owner's layout v2)", async () => {
         await openSample()
 
         const gear = gearCard()
@@ -36,22 +36,41 @@ describe('the page layout (approved C2 mockup)', () => {
         })
         const body = gear.parentElement
         expect(body).not.toBeNull()
-        expect(card.parentElement).toBe(body)
-        expect(body!.className.split(/\s+/)).toEqual(
+        expect(card.parentElement === body).toBe(true)
+        const classes = (element: Element) => element.className.split(/\s+/)
+        expect(classes(body!)).toEqual(
             expect.arrayContaining([
                 'grid',
                 'min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]',
+                'min-[90rem]:grid-rows-[auto_1fr]',
             ])
         )
+        expect(classes(card)).toEqual(
+            expect.arrayContaining([
+                'min-[90rem]:col-start-2',
+                'min-[90rem]:row-span-2',
+            ])
+        )
+        // The band is in the same grid, under the gear card: its top
+        // border spans the gear card's column only.
         const band = screen.getByRole('region', { name: 'Across the fight' })
-        expect(band.parentElement).toBe(body!.parentElement)
+        expect(band.parentElement === body).toBe(true)
+        expect(classes(band)).toEqual(
+            expect.arrayContaining([
+                'border-t',
+                'min-[90rem]:col-start-1',
+                'min-[90rem]:row-start-2',
+                'md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]',
+            ])
+        )
+        // Narrower, one column: gear, the numbers, then the band.
         expect(
-            body!.compareDocumentPosition(band) &
+            card.compareDocumentPosition(band) &
                 Node.DOCUMENT_POSITION_FOLLOWING
         ).toBeTruthy()
-        expect(band.className).toContain(
-            'min-[90rem]:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)_minmax(0,0.9fr)]'
-        )
+        // The footer stays outside the grid, full width.
+        const footer = document.querySelector('footer')
+        expect(footer !== null && !body!.contains(footer)).toBe(true)
     })
 
     test("the doll's columns are the mockup's: two 268 px slot columns around the figure", async () => {

@@ -16,6 +16,7 @@ import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 import { BringIn, type ReadError } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
 import { FightBand } from '@/components/fight-band'
+import { FightSettingsForm } from '@/components/fight-settings-form'
 import { GearPane } from '@/components/gear-pane'
 import { InfoIcon } from '@/components/info'
 import {
@@ -94,6 +95,10 @@ async function readFile(
 /** The note shown when the kept file no longer reads and was forgotten. */
 export const FORGOTTEN_NOTE =
     'The results file this browser kept no longer reads, so it was forgotten.'
+
+/** The right column's place from 90rem: column 2, down both rows. */
+const SIDE_PLACE =
+    'min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1'
 
 /**
  * The page's header: `Armory` and the tagline under it (the character is
@@ -586,7 +591,12 @@ export function App({
                 )}
                 <div
                     data-slot="planner-body"
-                    className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
+                    // The owner's layout v2: the gear card, and under it the
+                    // band, on the left; Simulator Data and its card on the
+                    // right, down both rows (the band's row takes the slack,
+                    // so a tall right column never pushes the band down).
+                    // One column below 90rem: gear, numbers, band.
+                    className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem] min-[90rem]:grid-rows-[auto_1fr]"
                 >
                     <GearPane
                         file={file}
@@ -639,6 +649,19 @@ export function App({
                             plan={plan}
                             planShown={planShown}
                             wornOf={wornOf}
+                            className={SIDE_PLACE}
+                            settings={
+                                <FightSettingsForm
+                                    file={file}
+                                    fightId={planner.fightId}
+                                    onPickFight={(fightId) =>
+                                        dispatch({
+                                            type: 'pick-fight',
+                                            fight_id: fightId,
+                                        })
+                                    }
+                                />
+                            }
                             sliders={
                                 planner.mix && (
                                     <RoleSliders
@@ -658,21 +681,19 @@ export function App({
                             }
                         />
                     ) : (
-                        <LockedSimPanel />
+                        <LockedSimPanel className={SIDE_PLACE} />
+                    )}
+                    {file && planner && (
+                        <FightBand
+                            file={file}
+                            plan={plan}
+                            fightId={planner.fightId}
+                            wornOf={wornOf}
+                            weightsAction={refineAction}
+                            className="min-[90rem]:col-start-1 min-[90rem]:row-start-2"
+                        />
                     )}
                 </div>
-                {file && planner && (
-                    <FightBand
-                        file={file}
-                        plan={plan}
-                        fightId={planner.fightId}
-                        wornOf={wornOf}
-                        onPickFight={(fightId) =>
-                            dispatch({ type: 'pick-fight', fight_id: fightId })
-                        }
-                        weightsAction={refineAction}
-                    />
-                )}
                 <Footer
                     file={file}
                     remembered={remembered}
