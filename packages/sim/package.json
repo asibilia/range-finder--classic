@@ -18,7 +18,7 @@
     "sim:add-fixture": "bun scripts/add-fixture.ts",
     "sim:build": "bun scripts/build.ts",
     "sim:go": "bun scripts/go-check.ts",
-    "sim:test": "bun test --isolate",
+    "sim:test": "cd ../.. && bun run sim:test",
     "sim:weights": "cd ../.. && bun run sim:weights",
     "type-check": "bunx tsc -b"
   }

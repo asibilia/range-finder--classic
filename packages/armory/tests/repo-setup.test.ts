@@ -239,9 +239,12 @@ describe('commit.config.ts', () => {
 describe('the root scripts', () => {
     const scripts = () => readPackage('package.json').scripts ?? {}
 
-    test('test:armory is bun test --isolate packages/armory', () => {
+    test('test:armory is bun test --isolate --timeout=2000 packages/armory, and the package test script calls it', () => {
         expect(scripts()['test:armory']).toBe(
-            'bun test --isolate packages/armory'
+            'bun test --isolate --timeout=2000 packages/armory'
+        )
+        expect(readPackage('packages/armory/package.json').scripts?.test).toBe(
+            'cd ../.. && bun run test:armory'
         )
     })
 

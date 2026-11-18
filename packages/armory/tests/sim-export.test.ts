@@ -31,10 +31,13 @@ describe('bun run check', () => {
             scripts: Record<string, string>
         }
         expect(root.scripts.check).toContain('bun run check:all')
-        expect(root.scripts['check:all']).toContain('bun run test:armory')
-        expect(root.scripts['test:armory']).toBe(
-            'bun test --isolate packages/armory'
+        expect(root.scripts['check:all']).toContain(
+            'bun run test:armory && bun run test:slow'
         )
+        expect(root.scripts['test:armory']).toBe(
+            'bun test --isolate --timeout=2000 packages/armory'
+        )
+        expect(root.scripts['test:slow']).toEndWith(' .slow.test')
         expect(root.scripts['sim:record']).toBeDefined()
     })
 })
