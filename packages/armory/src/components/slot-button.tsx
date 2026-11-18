@@ -1,12 +1,14 @@
 /**
- * One gear slot, as the mockup draws it: a compact button with the item's
- * tile, its slot label (with chips: `needs 33`, `better in bags`), the
- * item's name on one line (cut off with an ellipsis) and a note on the next
- * (the worn item's source), and the gain pill on the edge facing the
- * figure. A slot with a gap has `Best: <item>` under the button instead,
- * the item's name a link-styled button that opens the picker on that item.
- * The full name is in the button's accessible name and in a tooltip. The
- * chips describe the button (`aria-describedby`) so the name stays exact.
+ * One gear slot, as the owner's design draws it: a dark glass tile that is
+ * one button, with the item's icon square, then three lines: the slot label
+ * (with its chips inline: `Feet · better in bags`), the item's name (bold,
+ * cut off with an ellipsis), and either `Best: <item>` (a slot with a gap)
+ * or the first part of the worn item's source. The gap or `BIS` badge sits
+ * inside the tile, on the edge facing the figure. The `Best:` item is a
+ * link-styled button laid over the third line from outside the slot's
+ * button, opening the picker on that item. The full name is in the
+ * button's accessible name and in a tooltip. The chips describe the button
+ * (`aria-describedby`) so the name stays exact.
  */
 import { useId } from 'react'
 
@@ -24,35 +26,47 @@ import type { SlotShown } from '../slot-view'
 import { SimBestIcon } from './sim-best-icon'
 import { SlotTile } from './slot-tile'
 
-/** Which side of the figure the slot sits on; the pill faces the figure. */
+/** Which side of the figure the slot sits on; the badge faces the figure. */
 export type SlotSide = 'left' | 'right' | 'bottom'
 
 /*
- * Where the pill sits. Around the figure (the gear pane's three-column
- * doll, `@min-[49rem]` of its container) it sits on the edge facing the
- * figure, in the gap between the columns; on a narrower doll it sits on
- * the slot's top edge, as the mockup does under 860 px.
+ * The tile's inner layout, as the owner's design draws it: 10 px in, the
+ * 38 px icon square, 10 px, then the three lines. The badge sits inside the
+ * tile, in a 60 px slot on the edge facing the figure: the right on the
+ * left column and the bottom row, the left (before the icon) on the right
+ * column, mirrored.
  */
-const PILL_PLACE: Record<SlotSide, string> = {
-    left: '-top-2.75 right-2.5 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:-right-7 @min-[49rem]/doll:-translate-y-1/2',
-    right: '-top-2.75 right-2.5 @min-[49rem]/doll:top-1/2 @min-[49rem]/doll:right-auto @min-[49rem]/doll:-left-7 @min-[49rem]/doll:-translate-y-1/2',
-    bottom: '-top-3 right-3.5',
+const BADGE_PLACE: Record<SlotSide, string> = {
+    left: 'right-2.5',
+    right: 'left-2.5',
+    bottom: 'right-2.5',
 }
 
-/** Room on the inner edge for the pill, so it never covers the name. */
-const ROOM_FOR_PILL: Record<SlotSide, string> = {
-    left: '@min-[49rem]/doll:pr-10.5',
-    right: '@min-[49rem]/doll:pl-10.5',
-    bottom: '',
+/** Room for the badge, so it never covers the name (wider for `DPS`). */
+function badgeRoom(side: SlotSide, gap: SlotGap): string {
+    const wide = gap.kind === 'gap' && gap.gain.unit === 'DPS'
+    if (side === 'right') return 'pl-20'
+    return wide ? 'pr-25' : 'pr-20'
+}
+
+/**
+ * Where the `Best:` line sits over the tile's third line: from the text
+ * column's left edge to its right edge (past the badge's slot).
+ */
+function bestPlace(side: SlotSide, gap: SlotGap): string {
+    if (side === 'right') return 'left-32 right-2.5'
+    const wide = gap.kind === 'gap' && gap.gain.unit === 'DPS'
+    return cn('left-14.5', wide ? 'right-25' : 'right-20')
 }
 
 const BADGE =
-    'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 font-mono text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]'
+    'h-5.5 items-center gap-0 rounded-sm px-2 py-0 font-mono text-xs leading-none font-bold'
 
 /**
- * The slot's badge: the gap to the plan's item (`↓ 16.7`, `↓ 6.0 DPS`),
- * filled for a big one and outlined for a small one; or a green `BIS` with
- * the `owned` icon when you wear the plan's item.
+ * The slot's badge: the gap to the plan's item (`↓ 16.7`, `↓ 6.0 DPS`) in
+ * JetBrains Mono, filled orange for a big one and outlined for a small one;
+ * or a green outlined `BIS` with the `owned` icon when you wear the plan's
+ * item. A small rounded rectangle inside the tile.
  *
  * @param gap - The gap, or `bis`.
  * @param className - Placement.
@@ -68,9 +82,10 @@ export function GapBadge({
         return (
             <Badge
                 variant="outline"
+                data-bis
                 className={cn(
                     BADGE,
-                    'items-center gap-1 border-owned bg-card text-owned',
+                    'gap-1 border-owned-border bg-transparent text-owned',
                     className
                 )}
             >
@@ -83,7 +98,11 @@ export function GapBadge({
         <Badge
             data-size={size}
             variant={size === 'big' ? 'gain' : 'gain-outline'}
-            className={cn(BADGE, className)}
+            className={cn(
+                BADGE,
+                size === 'small' && 'bg-transparent',
+                className
+            )}
         >
             <span aria-hidden="true">↓&nbsp;</span>
             {formatGap(gap.gain)}
@@ -115,8 +134,7 @@ export function SlotButton({
     onOpen?: (slot: Slot, focusItemId?: number) => void
 }) {
     const chipId = useId()
-    const { item, gap, note, chips, description } = shown
-    const big = gap?.kind === 'gap' && gainSize(gap.gain) === 'big'
+    const { item, gap, note, chips, description, best } = shown
     const empty = onOpen === undefined
     const describedBy = [
         ...chips.map((_, index) => `${chipId}-${index}`),
@@ -134,55 +152,57 @@ export function SlotButton({
             data-same={shown.sameAsWorn || undefined}
             onClick={() => onOpen?.(shown.slot)}
             className={cn(
-                'relative grid min-h-14.5 w-full grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-card py-1.75 pr-2.5 pl-2 text-left transition-[border-color,background-color,opacity] outline-none hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                gap && ROOM_FOR_PILL[side],
-                big && 'border-gain/50',
+                'glass relative grid min-h-15 w-full grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 rounded-lg px-2.5 py-1.25 text-left transition-[background-color,opacity] outline-none hover:bg-raised/70 focus-visible:ring-3 focus-visible:ring-ring/50',
+                gap && badgeRoom(side, gap),
                 shown.sameAsWorn && 'opacity-60',
-                empty && 'border-dashed bg-transparent',
-                !item && !empty && 'border-dashed'
+                empty &&
+                    'border border-dashed border-border bg-transparent shadow-none backdrop-blur-none'
             )}
         >
-            <SlotTile
-                slot={shown.slot}
-                quality={item?.quality ?? null}
-                empty={empty}
-            />
+            <SlotTile quality={item?.quality ?? null} empty={empty} />
             <span className="flex min-w-0 flex-col">
-                <span className="flex items-center gap-1.5 text-xs leading-tight text-muted-foreground">
+                <span className="truncate text-xs leading-4 text-muted-foreground">
                     {shown.label}
                     {chips.map((chip, index) => (
-                        <Badge
-                            key={chip}
-                            id={`${chipId}-${index}`}
-                            variant="outline"
-                            className={cn(
-                                'h-auto px-1.5 py-0 text-[0.65625rem] leading-normal font-normal',
-                                chip.startsWith('needs')
-                                    ? 'border-gain text-gain-text'
-                                    : 'border-chart-2 text-chart-2-text'
-                            )}
-                        >
-                            {chip}
-                        </Badge>
+                        <span key={chip}>
+                            <span aria-hidden="true">{' · '}</span>
+                            <span
+                                id={`${chipId}-${index}`}
+                                data-chip
+                                className={
+                                    chip.startsWith('needs')
+                                        ? 'text-gain-text'
+                                        : 'text-chart-2-text'
+                                }
+                            >
+                                {chip}
+                            </span>
+                        </span>
                     ))}
                 </span>
                 <span
                     data-slot-name
                     className={cn(
-                        'truncate text-sm leading-tight font-bold',
+                        'truncate text-base leading-4.75 font-bold',
                         !item && 'font-normal text-muted-foreground italic',
                         empty && 'not-italic'
                     )}
                 >
                     {shown.itemName ?? (empty ? 'Empty' : 'Nothing equipped')}
                 </span>
-                {note && (
-                    <span
-                        data-slot-note
-                        className="truncate text-xs leading-tight text-muted-foreground"
-                    >
-                        {note}
-                    </span>
+                {best && onOpen ? (
+                    // Room for the `Best:` line, laid over it from outside
+                    // the button (a button can't hold a button).
+                    <span aria-hidden="true" className="h-4" />
+                ) : (
+                    note && (
+                        <span
+                            data-slot-note
+                            className="truncate text-xs leading-4 text-muted-foreground"
+                        >
+                            {note}
+                        </span>
+                    )
                 )}
                 {description && (
                     <span id={`${chipId}-description`} className="sr-only">
@@ -193,7 +213,10 @@ export function SlotButton({
             {gap && (
                 <GapBadge
                     gap={gap}
-                    className={cn('absolute', PILL_PLACE[side])}
+                    className={cn(
+                        'absolute top-1/2 -translate-y-1/2',
+                        BADGE_PLACE[side]
+                    )}
                 />
             )}
         </button>
@@ -208,18 +231,26 @@ export function SlotButton({
     ) : (
         button
     )
-    const { best } = shown
-    if (!best || !onOpen) return withTooltip
+    if (!best || !onOpen || !gap) return withTooltip
+    // The `Best:` line is the tile's third line, but not inside the slot's
+    // button: a sibling laid over it, so both are focusable in order and the
+    // slot's name stays its own. Only the link takes clicks; the rest of
+    // the line clicks through to the slot.
     return (
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="relative min-w-0">
             {withTooltip}
-            <p className="flex min-w-0 items-center gap-1 px-2 text-xs leading-tight text-muted-foreground">
-                <SimBestIcon variant="best" />
+            <p
+                data-best-line
+                className={cn(
+                    'pointer-events-none absolute bottom-1.25 flex min-w-0 items-center gap-1 text-xs leading-4 text-muted-foreground',
+                    bestPlace(side, gap)
+                )}
+            >
                 <span className="shrink-0">Best:</span>
                 <button
                     type="button"
                     onClick={() => onOpen(shown.slot, best.itemId)}
-                    className="min-w-0 truncate rounded-sm text-left text-foreground underline underline-offset-2 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="pointer-events-auto min-w-0 truncate rounded-sm text-left text-muted-foreground underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                     {best.name}
                 </button>

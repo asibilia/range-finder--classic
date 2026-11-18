@@ -10,7 +10,7 @@ import {
     type SlotGap,
     slotGap,
 } from './gains'
-import { itemName, shortSource } from './item-name'
+import { firstSource, itemName, shortSource } from './item-name'
 import type { BagItemsOn } from './planner-state'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
@@ -29,11 +29,15 @@ export type SlotShown = {
      */
     gap: SlotGap | null
     /**
-     * What you wear, with a gap: the plan's item for the slot, shown under
-     * the button as `Best: <item>` (a link to the picker); null otherwise.
+     * What you wear, with a gap: the plan's item for the slot, shown as the
+     * tile's third line, `Best: <item>` (a link to the picker); null
+     * otherwise.
      */
     best: { itemId: number; name: string } | null
-    /** The line under the name, when there is no `best` line. */
+    /**
+     * The line under the name, when there is no `best` line: the first part
+     * of the item's source.
+     */
     note: string | undefined
     /**
      * Said to a screen reader after the name (the button's description),
@@ -217,7 +221,7 @@ function wornView(
         item: worn,
         gap,
         best: best && { itemId: best.item_id, name: named(best) },
-        note: best ? undefined : worn?.source.text,
+        note: best || !worn ? undefined : firstSource(worn.source.text),
         description: undefined,
         sameAsWorn: false,
     }
@@ -255,7 +259,7 @@ function planView(
         best: null,
         // The mockup's line under a swapped-in item: where it comes from.
         // What it replaces is said to a screen reader instead.
-        note: item ? shortSource(item.source.text) : undefined,
+        note: item ? shortSource(firstSource(item.source.text)) : undefined,
         description: `Replaces ${worn ? named(worn) : 'nothing'}`,
         sameAsWorn: false,
     }

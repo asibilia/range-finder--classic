@@ -90,3 +90,19 @@ export function shortSource(text: string): string {
         .map((part) => part.replace(KIND_PREFIX, ''))
         .join('; ')
 }
+
+/**
+ * A source's first part only, for the tile's third line, as the owner's
+ * design shows it: `Quest: Call of Fire (Horde); Quest: Call of Fire
+ * (Alliance)` reads `Quest: Call of Fire (Horde)`. The picker keeps every
+ * part.
+ *
+ * @param text - The item's `source.text`.
+ * @returns The text before the first `; `.
+ *
+ * @example
+ * firstSource('Reputation reward; Vendor: Rutherford Twing') // 'Reputation reward'
+ */
+export function firstSource(text: string): string {
+    return text.split('; ')[0] ?? text
+}
