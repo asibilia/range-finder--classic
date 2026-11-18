@@ -5,7 +5,8 @@
  * with that item's row focused. The DOM helper must be the first import.
  */
 import './dom'
-import { openSample, type User } from './open-app'
+import { openSample } from './open-app'
+import { gearPane, showBis, squeeze } from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
@@ -16,17 +17,6 @@ afterEach(() => {
     cleanup()
     localStorage.clear()
 })
-
-/** Text with every space taken out. */
-function squeeze(text: string | null | undefined): string {
-    return (text ?? '').replace(/\s+/g, '')
-}
-
-function gearPane(): HTMLElement {
-    const pane = document.querySelector<HTMLElement>('[data-slot="gear-pane"]')
-    if (!pane) throw new Error('no gear card')
-    return pane
-}
 
 /** The `Best:` button for the helm, or null (a plain error when missing). */
 function helmLink(): HTMLElement | null {
@@ -57,11 +47,6 @@ function firstThing(element: HTMLElement): Node | null {
         node = walker.nextNode()
     }
     return null
-}
-
-async function showBis(user: User) {
-    const group = within(gearPane()).getByRole('group', { name: 'View' })
-    await user.click(within(group).getByRole('radio', { name: 'BIS' }))
 }
 
 describe('Best: links', () => {

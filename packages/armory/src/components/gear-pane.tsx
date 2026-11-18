@@ -15,16 +15,11 @@ import { exportDay } from '../format'
 import type { Item } from '../gains'
 import { itemName } from '../item-name'
 import { nextStep } from '../next-step'
+import type { BagItemsOn } from '../planner-state'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
-import {
-    type BagItemsOn,
-    emptySlot,
-    gapTotal,
-    type GapTotal,
-    slotShown,
-} from '../slot-view'
+import { emptySlot, gapTotal, type GapTotal, slotShown } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
 import { InfoButton } from './info'
 import type { Wishlist } from './item-picker'
@@ -129,7 +124,7 @@ function GearHead({
     file,
     plan,
     planShown,
-    bagWorn,
+    bagOn,
     headingRef,
     onShowPlan,
     onShowWorn,
@@ -137,7 +132,7 @@ function GearHead({
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    bagWorn: BagItemsOn
+    bagOn: BagItemsOn
     headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
@@ -222,7 +217,7 @@ function GearHead({
                 ) : planShown ? (
                     'Faded slots stay as they are.'
                 ) : plan ? (
-                    <TotalLine total={gapTotal(file, plan, bagWorn)} />
+                    <TotalLine total={gapTotal(file, plan, bagOn)} />
                 ) : (
                     'The sim found no upgrade for any slot.'
                 )}
@@ -286,7 +281,7 @@ function TotalLine({ total }: { total: GapTotal }) {
  * @param file - The loaded file, or null before one loads.
  * @param plan - The plan the sliders pick, or null.
  * @param planShown - True to show the plan's gear instead of what you wear.
- * @param bagWorn - The bag upgrades put on with Equip or Equip all.
+ * @param bagOn - The bag upgrades put on with Equip or Equip all.
  * @param wishlist - The wishlist, for the callout card's `On wishlist`.
  * @param middle - What sits in the middle before a file loads.
  * @param headingRef - The heading (`gear-heading`), focused when a picked
@@ -301,7 +296,7 @@ export function GearPane({
     file,
     plan,
     planShown,
-    bagWorn = NO_BAG_ITEMS,
+    bagOn = NO_BAG_ITEMS,
     wishlist = NO_WISHLIST,
     middle,
     headingRef,
@@ -317,7 +312,7 @@ export function GearPane({
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    bagWorn?: BagItemsOn
+    bagOn?: BagItemsOn
     wishlist?: Wishlist
     middle?: ReactNode
     headingRef?: RefObject<HTMLHeadingElement | null>
@@ -331,14 +326,14 @@ export function GearPane({
     onToggleWishlist?: (item: Item, slot: Slot) => void
 }) {
     // The callout card: in the Current view only.
-    const step = file && !planShown ? nextStep(file, plan, bagWorn) : null
+    const step = file && !planShown ? nextStep(file, plan, bagOn) : null
     const slot = (name: Slot, side: SlotSide) => (
         <SlotButton
             key={name}
             side={side}
             shown={
                 file
-                    ? slotShown(file, name, plan, planShown, bagWorn)
+                    ? slotShown(file, name, plan, planShown, bagOn)
                     : emptySlot(name)
             }
             onOpen={file ? onOpenSlot : undefined}
@@ -354,7 +349,7 @@ export function GearPane({
                 file={file}
                 plan={plan}
                 planShown={planShown && plan !== null}
-                bagWorn={bagWorn}
+                bagOn={bagOn}
                 headingRef={headingRef}
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}
@@ -375,7 +370,7 @@ export function GearPane({
                             <NextStepCard
                                 file={file}
                                 step={step}
-                                bagWorn={bagWorn}
+                                bagOn={bagOn}
                                 wishlist={wishlist}
                                 onWearBag={onWearBag}
                                 onWearAllBags={onWearAllBags}

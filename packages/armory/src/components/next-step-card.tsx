@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils'
 import { formatGain, type Item } from '../gains'
 import { itemName, slotWord } from '../item-name'
 import type { BagUpgrade, NextStep, QuickFix } from '../next-step'
+import type { BagItemsOn } from '../planner-state'
 import type { ResultsFile, Slot } from '../results-file'
 import { slotLabel } from '../slot-labels'
-import type { BagItemsOn } from '../slot-view'
 import type { Wishlist } from './item-picker'
 import { SimBestIcon } from './sim-best-icon'
 
@@ -49,13 +49,13 @@ function Gain({ value, unit }: { value: number; unit: 'EP' | 'DPS' }) {
 function BagOne({
     file,
     upgrade,
-    bagWorn,
+    bagOn,
     onWear,
     onUndo,
 }: {
     file: ResultsFile
     upgrade: BagUpgrade
-    bagWorn: BagItemsOn
+    bagOn: BagItemsOn
     onWear: (itemId: number) => void
     onUndo: () => void
 }) {
@@ -65,7 +65,7 @@ function BagOne({
         file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
     const word = slotWord(upgrade.slot, file.character.class)
     const name = named(upgrade.item)
-    const on = bagWorn.includes(upgrade.item.item_id)
+    const on = bagOn.includes(upgrade.item.item_id)
     return (
         <div
             aria-live="polite"
@@ -305,13 +305,13 @@ function AllBis({ step }: { step: Extract<NextStep, { kind: 'all_bis' }> }) {
  * The card.
  *
  * @param step - What `nextStep` picked (not null).
- * @param bagWorn - The bag upgrades put on with Equip or Equip all.
+ * @param bagOn - The bag upgrades put on with Equip or Equip all.
  * @param wishlist - The wishlist (`On wishlist` for an item on it).
  */
 export function NextStepCard({
     file,
     step,
-    bagWorn,
+    bagOn,
     wishlist,
     onWearBag,
     onWearAllBags,
@@ -321,7 +321,7 @@ export function NextStepCard({
 }: {
     file: ResultsFile
     step: NextStep
-    bagWorn: BagItemsOn
+    bagOn: BagItemsOn
     wishlist: Wishlist
     onWearBag: (itemId: number) => void
     onWearAllBags: () => void
@@ -335,7 +335,7 @@ export function NextStepCard({
                 <BagOne
                     file={file}
                     upgrade={step.upgrade}
-                    bagWorn={bagWorn}
+                    bagOn={bagOn}
                     onWear={onWearBag}
                     onUndo={onUndoBag}
                 />

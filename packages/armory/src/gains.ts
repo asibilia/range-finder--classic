@@ -82,14 +82,3 @@ export function gainSize(gain: Gain): 'big' | 'small' {
 export function isUpgrade(gain: Gain | null): gain is Gain {
     return gain !== null && shownValue(gain) > 0
 }
-
-/** The slot's best upgrade: its first alternative, when it gains anything. */
-export function bestUpgrade(
-    entry: SlotEntry | undefined
-): { item: Item; gain: Gain } | null {
-    const first = entry?.alternatives[0]
-    if (!first) return null
-    const gain = gainOf(first)
-    if (!isUpgrade(gain)) return null
-    return { item: first.item, gain }
-}

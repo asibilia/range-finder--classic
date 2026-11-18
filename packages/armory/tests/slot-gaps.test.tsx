@@ -3,25 +3,26 @@
  * 4): in the `Current` view each slot says how far what you wear is below
  * the plan's item for that slot (`↓ 16.7`, `↓ 6.0 DPS`), or `BIS` when the
  * plan keeps it, and one line under the gear heading adds the gaps up.
+ * What you wear includes a bag item put on with `Equip` (section 0): the
+ * gaps, the total and the readings' gap lines are measured over it.
  * The DOM helper must be the first import.
  */
 import './dom'
-import { openFile, openSample, variant, type Json, type User } from './open-app'
+import { openFile, openSample, variant } from './open-app'
+import {
+    alternative,
+    button,
+    entry,
+    gearPane,
+    keepAllWorn,
+    lineWith,
+    maxDamage,
+    showBis,
+    squeeze,
+} from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, within } from '@testing-library/react'
-
-type Alt = {
-    item: { item_id: number; name: string }
-    gain_ep: number | null
-    gain_dps: number | null
-}
-type Entry = {
-    slot: string
-    worn: { item_id: number } | null
-    alternatives: Alt[]
-}
-type PlanJson = { gear: Record<string, number | null> }
 
 const TOTAL_ABOUT =
     'An estimate: the slot gaps added up. The DPS readings hold the exact numbers.'
@@ -30,17 +31,6 @@ afterEach(() => {
     cleanup()
     localStorage.clear()
 })
-
-/** Text with every space taken out, so `↓ 16.7` and `↓16.7` compare equal. */
-function squeeze(text: string | null | undefined): string {
-    return (text ?? '').replace(/\s+/g, '')
-}
-
-function gearPane(): HTMLElement {
-    const pane = document.querySelector<HTMLElement>('[data-slot="gear-pane"]')
-    if (!pane) throw new Error('no gear card')
-    return pane
-}
 
 /** The slot button whose name starts with `<label>: `. */
 function slot(label: string): HTMLElement {
@@ -72,55 +62,14 @@ function hasBisText(element: HTMLElement): boolean {
 }
 
 /**
- * The innermost element in the gear card whose text holds `text` (spaces
- * aside), or null.
+ * The gap line under the reading labelled `label` (`↓ 14.7 DPS below the
+ * sim's plan`), spaces taken out, or null when it has none.
  */
-function lineWith(text: string): HTMLElement | null {
-    const wanted = squeeze(text)
-    const holds = (element: Element) =>
-        squeeze(element.textContent).includes(wanted)
-    const found = [...gearPane().querySelectorAll<HTMLElement>('*')].filter(
-        (element) => holds(element) && ![...element.children].some(holds)
+function readingGapLine(label: string): string | null {
+    const line = document.querySelector(
+        `[data-reading="${CSS.escape(label)}"] [data-reading-gap]`
     )
-    return found[0] ?? null
-}
-
-function entries(file: Json): Entry[] {
-    return file.slots as Entry[]
-}
-
-function entry(file: Json, name: string): Entry {
-    const found = entries(file).find((candidate) => candidate.slot === name)
-    if (!found) throw new Error(`the sample has no ${name} slot`)
-    return found
-}
-
-function alternative(file: Json, slotName: string, itemId: number): Alt {
-    const found = entry(file, slotName).alternatives.find(
-        (candidate) => candidate.item.item_id === itemId
-    )
-    if (!found) throw new Error(`no alternative ${itemId} in ${slotName}`)
-    return found
-}
-
-/** The default plan (Max damage, the highest damage mix). */
-function maxDamage(file: Json): PlanJson {
-    const plan = (file.plans as PlanJson[])[0]
-    if (!plan) throw new Error('the sample has no plans')
-    return plan
-}
-
-/** Makes the default plan keep what you wear in every slot. */
-function keepAllWorn(file: Json) {
-    const gear = maxDamage(file).gear
-    for (const slotName of Object.keys(gear)) gear[slotName] = null
-    for (const each of entries(file))
-        gear[each.slot] = each.worn?.item_id ?? null
-}
-
-async function showBis(user: User) {
-    const group = within(gearPane()).getByRole('group', { name: 'View' })
-    await user.click(within(group).getByRole('radio', { name: 'BIS' }))
+    return line ? squeeze(line.textContent) : null
 }
 
 describe('slot gaps', () => {
@@ -328,5 +277,44 @@ describe('no plus signs, and nothing in the BIS view', () => {
         expect(
             screen.queryByRole('button', { name: 'About the total' })
         ).toBeNull()
+    })
+})
+
+describe('with a bag item on', () => {
+    test('after Equip on the sample, the Shoulder gap, the total and the Solo and Dungeon gap lines are measured over Berylline Pads', async () => {
+        const user = await openSample()
+        expect(
+            lineWith(
+                "↓ 195.2 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons."
+            )
+        ).not.toBeNull()
+        expect(readingGapLine('Solo')).toBe(
+            squeeze("↓ 14.7 DPS below the sim's plan")
+        )
+        expect(readingGapLine('Dungeon')).toBe(
+            squeeze("↓ 8.7 DPS below the sim's plan")
+        )
+
+        await user.click(button('Equip'))
+
+        // The plan's shoulder, Batwing Mantle, is 17.8 EP over Serpent's
+        // Shoulders, so 10.8 over the Pads (+7.0 EP).
+        const shoulder = screen.getByRole('button', {
+            name: "Shoulder: Berylline Pads, 10.8 EP below the sim's best",
+        })
+        expect(gaps(shoulder)).toEqual([squeeze('↓ 10.8')])
+        expect(
+            lineWith(
+                "↓ 188.2 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons."
+            )
+        ).not.toBeNull()
+        // The Pads' results (104.1 and 75.7 DPS) against the plan's 118.4
+        // and 84.1.
+        expect(readingGapLine('Solo')).toBe(
+            squeeze("↓ 14.3 DPS below the sim's plan")
+        )
+        expect(readingGapLine('Dungeon')).toBe(
+            squeeze("↓ 8.4 DPS below the sim's plan")
+        )
     })
 })

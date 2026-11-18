@@ -41,23 +41,15 @@ const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
 const PROVISIONAL_TEXT =
     "The sim hasn't been checked against real fights yet. Treat these as estimates."
-/**
- * The control that shows the plan (`BIS`) or what you wear (`Current`): the
- * gear card's `View` switch (#112), or the page's old buttons before it.
- */
-function viewControl(name: 'Current' | 'BIS'): HTMLElement | undefined {
-    const group = screen.queryByRole('group', { name: 'View' })
-    if (group) return within(group).getByRole('radio', { name })
-    const text = name === 'BIS' ? "Show the sim's plan" : 'Show what I wear'
-    return screen
-        .queryAllByRole('button')
-        .find((button) => button.textContent === text)
+/** Whether the gear card has its `View` switch. */
+function hasViewSwitch(): boolean {
+    return screen.queryByRole('group', { name: 'View' }) !== null
 }
 
+/** Chooses `BIS` (the plan) or `Current` (what you wear) in `View`. */
 async function chooseView(user: User, name: 'Current' | 'BIS') {
-    const control = viewControl(name)
-    if (!control) throw new Error(`no control for ${name}`)
-    await user.click(control)
+    const group = screen.getByRole('group', { name: 'View' })
+    await user.click(within(group).getByRole('radio', { name }))
 }
 
 /** The results entries of a file copy that match `gear` and `fight_id`. */
@@ -438,7 +430,7 @@ describe('a file with no plans', () => {
                 )
             })
         )
-        expect(viewControl('BIS')).toBeUndefined()
+        expect(hasViewSwitch()).toBe(false)
         expect(readingValue(READ_DUNGEON)).toBe('75.4')
         expect(chart(TIME_CHART)).not.toBeNull()
         expect(screen.getByText('DPS, what you wear')).toBeDefined()

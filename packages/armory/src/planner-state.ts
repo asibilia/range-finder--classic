@@ -27,17 +27,24 @@ export type PlannerState = {
     /** True after a slider move switched the view to the plan. */
     switched: boolean
     /**
-     * The bag upgrade put on with Equip (its item_id), or null. What you
-     * wear then shows that item in its slot and the bag upgrade's results.
+     * The one bag upgrade put on with Equip (its item_id), or null (also
+     * after Equip all, which `bagAll` records). What you wear then shows that
+     * item in its slot and the bag upgrade's results. For every bag item on,
+     * however it was put on, read `bagItemsOn`.
      */
     bagWorn: number | null
     /**
      * True after Equip all: every bag upgrade is on, and what you wear shows
-     * `bag_upgrades_all`'s results. Absent otherwise. `bagItemsOn` gives the
-     * list of bag items on, whichever way they were put on.
+     * `bag_upgrades_all`'s results. Absent otherwise.
      */
     bagAll?: true
 }
+
+/**
+ * The bag items on, as item_ids, whether put on with Equip or Equip all
+ * (`bagItemsOn` gives it from the state); none: `[]`.
+ */
+export type BagItemsOn = readonly number[]
 
 const SLIDER_VALUE = z.number().int().min(0).max(100)
 
@@ -202,18 +209,55 @@ export function wearBagItem(
 }
 
 /**
- * Puts every bag upgrade on together (Equip all). Only when the file has
- * their combined results (`bag_upgrades_all`). It replaces a single Equip.
+ * The bag upgrades the page offers: worth more than 0.0 EP and not in
+ * `left_out_items`.
+ *
+ * @param file - The loaded results file.
+ * @returns Them, biggest gain first.
+ */
+export function offeredBagUpgrades(
+    file: ResultsFile
+): ResultsFile['bag_upgrades'] {
+    const leftOut = new Set(
+        (file.left_out_items ?? []).map((item) => item.item_id)
+    )
+    return file.bag_upgrades
+        .filter(
+            (upgrade) =>
+                upgrade.gain_ep > 0 && !leftOut.has(upgrade.item.item_id)
+        )
+        .sort((a, b) => b.gain_ep - a.gain_ep)
+}
+
+/**
+ * Whether Equip all can put every bag upgrade on: the file has their
+ * combined results (`bag_upgrades_all`, which are for every bag upgrade in
+ * the file), and the page offers each of them (`offeredBagUpgrades`). The
+ * one rule for Equip all, for the action and the card's button alike.
+ *
+ * @param file - The loaded results file.
+ * @returns True when Equip all applies.
+ */
+export function canWearAllBagItems(file: ResultsFile): boolean {
+    return (
+        Boolean(file.bag_upgrades_all) &&
+        offeredBagUpgrades(file).length === file.bag_upgrades.length
+    )
+}
+
+/**
+ * Puts every bag upgrade on together (Equip all), when
+ * `canWearAllBagItems` says it applies. It replaces a single Equip.
  *
  * @param file - The loaded results file.
  * @param state - The current state.
- * @returns The new state, or `state` without `bag_upgrades_all`.
+ * @returns The new state, or `state` when Equip all doesn't apply.
  */
 export function wearAllBagItems(
     file: ResultsFile,
     state: PlannerState
 ): PlannerState {
-    if (!file.bag_upgrades_all) return state
+    if (!canWearAllBagItems(file)) return state
     return { ...state, bagWorn: null, bagAll: true }
 }
 
@@ -228,7 +272,7 @@ export function wearAllBagItems(
 export function bagItemsOn(
     file: ResultsFile,
     state: Pick<PlannerState, 'bagWorn' | 'bagAll'>
-): number[] {
+): BagItemsOn {
     if (state.bagAll && file.bag_upgrades_all)
         return file.bag_upgrades.map((upgrade) => upgrade.item.item_id)
     return state.bagWorn === null ? [] : [state.bagWorn]

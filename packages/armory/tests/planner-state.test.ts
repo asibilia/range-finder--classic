@@ -180,7 +180,7 @@ describe('actions from outside the page', () => {
 describe('wear a bag item', () => {
     const pads = sample.bag_upgrades[0]?.item.item_id ?? 0
 
-    test("Wear them puts the bag item on: worn results become the bag item's", () => {
+    test("Equip (wear-bag-item) puts the bag item on: worn results become the bag item's", () => {
         const state = applyPlannerAction(sample, initialPlannerState(sample), {
             type: 'wear-bag-item',
             item_id: pads,

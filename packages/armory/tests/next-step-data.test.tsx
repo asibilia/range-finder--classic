@@ -10,22 +10,20 @@
  */
 import './dom'
 import { openFile, readingValue, variant, type Json } from './open-app'
+import {
+    button,
+    hasButton,
+    huntingPants,
+    item,
+    keepAllWorn,
+    planGap,
+    shows,
+    type Item,
+} from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup } from '@testing-library/react'
 
-type Item = {
-    item_id: number
-    name: string
-    quality: string
-    item_level: number | null
-    required_level: number
-    source: { kind: string; text: string }
-    data: string
-}
-type Alt = { item: Item; gain_ep: number | null; gain_dps: number | null }
-type Entry = { slot: string; worn: Item | null; alternatives: Alt[] }
-type PlanJson = { gear: Record<string, number | null> }
 type ResultJson = { fight_id: string; dps: number }
 type BagJson = { slot: string; item: Item; gain_ep: number; results?: unknown }
 
@@ -37,89 +35,13 @@ function reset() {
 
 afterEach(reset)
 
-/** Text with every space taken out, so line breaks don't matter. */
-function squeeze(text: string | null | undefined): string {
-    return (text ?? '').replace(/\s+/g, '')
-}
-
-function gearPane(): HTMLElement {
-    const pane = document.querySelector<HTMLElement>('[data-slot="gear-pane"]')
-    if (!pane) throw new Error('no gear card')
-    return pane
-}
-
-/** Whether the gear card shows an element (not hidden) holding `text`. */
-function shows(text: string): boolean {
-    const wanted = squeeze(text)
-    return [...gearPane().querySelectorAll<HTMLElement>('*')].some(
-        (element) =>
-            squeeze(element.textContent).includes(wanted) &&
-            !element.closest('[hidden]')
+/** Whether the reading labelled `label` has a gap line under it. */
+function hasReadingGap(label: string): boolean {
+    return (
+        document.querySelector(
+            `[data-reading="${CSS.escape(label)}"] [data-reading-gap]`
+        ) !== null
     )
-}
-
-/** The button named `name`; a short error when there is none. */
-function button(name: string): HTMLElement {
-    const found = screen.queryByRole('button', { name })
-    if (!found) throw new Error(`no button named ${name}`)
-    return found
-}
-
-/** Whether a button named `name` is on the page. */
-function hasButton(name: string | RegExp): boolean {
-    return screen.queryByRole('button', { name }) !== null
-}
-
-function entries(file: Json): Entry[] {
-    return file.slots as Entry[]
-}
-
-function alternative(file: Json, slotName: string, itemId: number): Alt {
-    const entry = entries(file).find((each) => each.slot === slotName)
-    const found = entry?.alternatives.find(
-        (candidate) => candidate.item.item_id === itemId
-    )
-    if (!found) throw new Error(`no alternative ${itemId} in ${slotName}`)
-    return found
-}
-
-/** The default plan (Max damage, the highest damage mix). */
-function maxDamage(file: Json): PlanJson {
-    const plan = (file.plans as PlanJson[])[0]
-    if (!plan) throw new Error('the sample has no plans')
-    return plan
-}
-
-/** Makes the default plan keep what you wear in every slot (no gaps). */
-function keepAllWorn(file: Json) {
-    const gear = maxDamage(file).gear
-    for (const slotName of Object.keys(gear)) gear[slotName] = null
-    for (const each of entries(file))
-        gear[each.slot] = each.worn?.item_id ?? null
-}
-
-/** Puts an alternative in the plan for `slotName`, changed by `change`. */
-function planGap(
-    file: Json,
-    slotName: string,
-    itemId: number,
-    change: (alt: Alt) => void
-) {
-    maxDamage(file).gear[slotName] = itemId
-    change(alternative(file, slotName, itemId))
-}
-
-/** A made-up item of unknown source. */
-function item(itemId: number, name: string): Item {
-    return {
-        item_id: itemId,
-        name,
-        quality: 'uncommon',
-        item_level: null,
-        required_level: 25,
-        source: { kind: 'unknown', text: 'Source unknown' },
-        data: 'classic',
-    }
 }
 
 const WINDFURY = {
@@ -146,19 +68,6 @@ function quickFixFile(quickFixes: unknown[]): Json {
         file.quick_fixes = quickFixes
         keepAllWorn(file)
         huntingPants(file, 5)
-    })
-}
-
-/** The plan's Legs item becomes `Hunting Pants`, from a vendor. */
-function huntingPants(file: Json, gainEp: number) {
-    planGap(file, 'legs', 6690, (alt) => {
-        alt.item.name = 'Hunting Pants'
-        alt.item.source = {
-            kind: 'vendor',
-            text: 'Vendor: Harggan, The Hinterlands',
-        }
-        alt.gain_ep = gainEp
-        alt.gain_dps = null
     })
 }
 
@@ -308,5 +217,32 @@ describe('Equip all', () => {
         expect(hasButton(/^Hands: Toughened Leather Gloves/)).toBe(true)
         expect(readingValue('Dungeon')).toBe('75.4')
         expect(hasButton('Equip all 3')).toBe(true)
+    })
+
+    test('after Equip all, each slot reads its gap over its bag item, the total follows, and the DPS gap lines go as the combined set beats the plan', async () => {
+        const user = await openFile(threeBagsFile(true))
+        expect(hasReadingGap('Solo')).toBe(true)
+        expect(hasReadingGap('Dungeon')).toBe(true)
+
+        await user.click(button('Equip all 3'))
+
+        // The plan's items over each bag item: Batwing Mantle 17.8 - 7.0,
+        // Defender's Leather Helm 16.7 - 10.1, Gloves of the Greatfather
+        // 21.6 - 8.4.
+        expect(
+            [
+                "Shoulder: Berylline Pads, 10.8 EP below the sim's best",
+                "Head: Glinting Helm, 6.6 EP below the sim's best",
+                "Hands: Glinting Gloves, 13.2 EP below the sim's best",
+            ].filter((name) => !hasButton(name))
+        ).toEqual([])
+        expect(
+            shows(
+                "↓ 169.7 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons."
+            )
+        ).toBe(true)
+        // 150.5 DPS worn beats the plan's 118.4 and 84.1.
+        expect(hasReadingGap('Solo')).toBe(false)
+        expect(hasReadingGap('Dungeon')).toBe(false)
     })
 })

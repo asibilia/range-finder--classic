@@ -5,6 +5,7 @@
  */
 import './dom'
 import { openFile, openSample, variant } from './open-app'
+import { gearPane } from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
@@ -14,13 +15,6 @@ const SHOW_WORN = 'Show what I wear'
 const SWITCHED = "Switched the gear to the sim's plan for this mix."
 const WORN_STATUS = 'What you wear, from your export of 13 November'
 const PLAN_STATUS = "The sim's plan for your mix: max damage"
-
-/** The gear card. */
-function gearPane(): HTMLElement {
-    const pane = document.querySelector<HTMLElement>('[data-slot="gear-pane"]')
-    if (!pane) throw new Error('no gear card')
-    return pane
-}
 
 /**
  * What the gear pane says it shows, as `plan-view.test.tsx` reads it: the

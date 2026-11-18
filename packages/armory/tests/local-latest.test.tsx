@@ -8,6 +8,7 @@
  */
 import './dom'
 import { chooseFight, jsonFile, shownFight, variant } from './open-app'
+import { showBis } from './gear-card'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
@@ -37,36 +38,12 @@ const REFRESH_MS = 10_000
 
 type Json = Record<string, unknown>
 
-/** A button with exactly this text. */
-function buttonWithText(text: string): HTMLElement | undefined {
-    return screen
-        .queryAllByRole('button')
-        .find((button) => button.textContent === text)
-}
-
-/**
- * Shows the sim's plan: the `BIS` radio of the gear card's `View` switch
- * (#112), or the page's old `Show the sim's plan` button before it.
- */
-async function showPlan(user: ReturnType<typeof userEvent.setup>) {
-    const group = screen.queryByRole('group', { name: 'View' })
-    const control = group
-        ? within(group).getByRole('radio', { name: 'BIS' })
-        : buttonWithText("Show the sim's plan")
-    if (!control) throw new Error('no control for the plan view')
-    await user.click(control)
-}
-
-/** Whether the view control says the plan is shown. */
+/** Whether `BIS` (the plan) is chosen in the gear card's `View` switch. */
 function planChosen(): boolean {
-    const group = screen.queryByRole('group', { name: 'View' })
-    if (group)
-        return (
-            within(group).getByRole('radio', {
-                name: 'BIS',
-            }) as HTMLInputElement
-        ).checked
-    return buttonWithText('Show what I wear') !== undefined
+    const group = screen.getByRole('group', { name: 'View' })
+    return (
+        within(group).getByRole('radio', { name: 'BIS' }) as HTMLInputElement
+    ).checked
 }
 
 /** A results file whose character is `name`, made at `madeAt`. */
@@ -401,7 +378,7 @@ describe('the page follows the local latest file', () => {
         await settle()
 
         await chooseFight(user, CHAIN)
-        await showPlan(user)
+        await showBis(user)
         await waitFor(() => expect(planChosen()).toBe(true))
 
         const latestBefore = callsTo(LATEST).length

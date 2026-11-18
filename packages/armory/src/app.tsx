@@ -526,7 +526,7 @@ export function App({
     const closeDialog = () => setDialog(null)
     const plan = file && planner ? pickedPlan(file, planner) : null
     const planShown = planner?.view === 'plan'
-    const bagWorn = file && planner ? bagItemsOn(file, planner) : []
+    const bagOn = file && planner ? bagItemsOn(file, planner) : []
     const wornOf = (fightId: string) =>
         file && planner ? wornResult(file, planner, fightId) : null
     // Refine: only for a character simmed in this visit, until its weights
@@ -575,7 +575,7 @@ export function App({
                         file={file}
                         plan={plan}
                         planShown={planShown}
-                        bagWorn={bagWorn}
+                        bagOn={bagOn}
                         wishlist={wishlist}
                         onToggleWishlist={toggleWishlist}
                         headingRef={heading}
@@ -664,7 +664,7 @@ export function App({
                 />
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
-                        entry={slotEntry(file, dialog.slot, bagWorn)}
+                        entry={slotEntry(file, dialog.slot, bagOn)}
                         slot={dialog.slot}
                         focusItemId={dialog.focusItemId}
                         label={slotLabel(dialog.slot, file)}

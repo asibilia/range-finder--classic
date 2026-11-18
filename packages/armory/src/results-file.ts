@@ -528,20 +528,29 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
         }
     })
 
+    /**
+     * One result's ties to its fight, for `results`, `bag_upgrades[].results`
+     * and `bag_upgrades_all.results` alike: a fight in this file, a timeline
+     * only on a single fight, pulls only on a chain.
+     */
+    const checkResult = (
+        r: Pick<BagResult, 'fight_id' | 'timeline' | 'pulls'>,
+        at: PropertyKey[]
+    ) => {
+        const f = fights.get(r.fight_id)
+        if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
+        if (f?.kind === 'chain' && r.timeline !== null)
+            problem([...at, 'timeline'], 'Only a single fight has a timeline.')
+        if (f?.kind === 'single' && r.pulls !== null)
+            problem([...at, 'pulls'], 'Only a chain fight has pulls.')
+    }
+
     const pairs = new Set<string>()
     let repeated = false
     file.results.forEach((r, i) => {
-        const f = fights.get(r.fight_id)
-        if (f === undefined) problem(['results', i, 'fight_id'], NO_FIGHT)
+        checkResult(r, ['results', i])
         if (r.gear !== 'worn' && !planIds.has(r.gear))
             problem(['results', i, 'gear'], 'This names no plan in this file.')
-        if (f?.kind === 'chain' && r.timeline !== null)
-            problem(
-                ['results', i, 'timeline'],
-                'Only a single fight has a timeline.'
-            )
-        if (f?.kind === 'single' && r.pulls !== null)
-            problem(['results', i, 'pulls'], 'Only a chain fight has pulls.')
         const pair = JSON.stringify([r.gear, r.fight_id])
         if (pairs.has(pair)) repeated = true
         pairs.add(pair)
@@ -559,18 +568,9 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
 
     file.bag_upgrades.forEach((upgrade, i) => {
         const bagResults = upgrade.results ?? []
-        bagResults.forEach((r, j) => {
-            const f = fights.get(r.fight_id)
-            const at = ['bag_upgrades', i, 'results', j]
-            if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
-            if (f?.kind === 'chain' && r.timeline !== null)
-                problem(
-                    [...at, 'timeline'],
-                    'Only a single fight has a timeline.'
-                )
-            if (f?.kind === 'single' && r.pulls !== null)
-                problem([...at, 'pulls'], 'Only a chain fight has pulls.')
-        })
+        bagResults.forEach((r, j) =>
+            checkResult(r, ['bag_upgrades', i, 'results', j])
+        )
         if (repeats(bagResults.map((r) => r.fight_id)))
             problem(
                 ['bag_upgrades', i, 'results'],
@@ -580,18 +580,9 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
 
     const all = file.bag_upgrades_all
     if (all) {
-        all.results.forEach((r, j) => {
-            const f = fights.get(r.fight_id)
-            const at = ['bag_upgrades_all', 'results', j]
-            if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
-            if (f?.kind === 'chain' && r.timeline !== null)
-                problem(
-                    [...at, 'timeline'],
-                    'Only a single fight has a timeline.'
-                )
-            if (f?.kind === 'single' && r.pulls !== null)
-                problem([...at, 'pulls'], 'Only a chain fight has pulls.')
-        })
+        all.results.forEach((r, j) =>
+            checkResult(r, ['bag_upgrades_all', 'results', j])
+        )
         const ids = all.results.map((r) => r.fight_id)
         const onePerFight =
             ids.length === file.fights.length &&

@@ -9,61 +9,29 @@
  * .toBeNull()` passes on a DOM element.
  */
 import './dom'
-import { openFile, openSample, variant, type Json, type User } from './open-app'
+import { openFile, openSample, variant, type Json } from './open-app'
+import {
+    alternative,
+    button,
+    entries,
+    hasButton,
+    huntingPants,
+    item,
+    keepAllWorn,
+    lineWith,
+    planGap,
+    showBis,
+    shows,
+    type Item,
+} from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
-
-type Item = {
-    item_id: number
-    name: string
-    quality: string
-    item_level: number | null
-    required_level: number
-    source: { kind: string; text: string }
-    data: string
-}
-type Alt = { item: Item; gain_ep: number | null; gain_dps: number | null }
-type Entry = { slot: string; worn: Item | null; alternatives: Alt[] }
-type PlanJson = { gear: Record<string, number | null> }
+import { cleanup, screen, waitFor } from '@testing-library/react'
 
 afterEach(() => {
     cleanup()
     localStorage.clear()
 })
-
-/** Text with every space taken out, so line breaks don't matter. */
-function squeeze(text: string | null | undefined): string {
-    return (text ?? '').replace(/\s+/g, '')
-}
-
-function gearPane(): HTMLElement {
-    const pane = document.querySelector<HTMLElement>('[data-slot="gear-pane"]')
-    if (!pane) throw new Error('no gear card')
-    return pane
-}
-
-/**
- * The innermost element in the gear card whose text holds `text` (spaces
- * aside) and that isn't hidden, or null.
- */
-function lineWith(text: string): HTMLElement | null {
-    const wanted = squeeze(text)
-    const holds = (element: Element) =>
-        squeeze(element.textContent).includes(wanted)
-    const found = [...gearPane().querySelectorAll<HTMLElement>('*')].filter(
-        (element) =>
-            holds(element) &&
-            ![...element.children].some(holds) &&
-            !element.closest('[hidden]')
-    )
-    return found[0] ?? null
-}
-
-/** Whether the gear card shows a line holding `text`. */
-function shows(text: string): boolean {
-    return lineWith(text) !== null
-}
 
 /** Throws unless every line is shown, in this order. */
 function expectInOrder(lines: string[]) {
@@ -94,96 +62,14 @@ function showButtons(): string[] {
         .map((found) => found.textContent ?? '')
 }
 
-/** The button named `name`; a short error when there is none. */
-function button(name: string): HTMLElement {
-    const found = screen.queryByRole('button', { name })
-    if (!found) throw new Error(`no button named ${name}`)
-    return found
-}
-
-/** Whether a button named `name` is on the page. */
-function hasButton(name: string | RegExp): boolean {
-    return screen.queryByRole('button', { name }) !== null
-}
-
 /** Whether the header button named `name` (`Wishlist 1`) is there. */
 function hasHeaderButton(name: string): boolean {
     return screen.queryByRole('button', { name, hidden: true }) !== null
 }
 
-function entries(file: Json): Entry[] {
-    return file.slots as Entry[]
-}
-
-function entry(file: Json, name: string): Entry {
-    const found = entries(file).find((candidate) => candidate.slot === name)
-    if (!found) throw new Error(`the sample has no ${name} slot`)
-    return found
-}
-
-function alternative(file: Json, slotName: string, itemId: number): Alt {
-    const found = entry(file, slotName).alternatives.find(
-        (candidate) => candidate.item.item_id === itemId
-    )
-    if (!found) throw new Error(`no alternative ${itemId} in ${slotName}`)
-    return found
-}
-
-/** The default plan (Max damage, the highest damage mix). */
-function maxDamage(file: Json): PlanJson {
-    const plan = (file.plans as PlanJson[])[0]
-    if (!plan) throw new Error('the sample has no plans')
-    return plan
-}
-
-/** Makes the default plan keep what you wear in every slot (no gaps). */
-function keepAllWorn(file: Json) {
-    const gear = maxDamage(file).gear
-    for (const slotName of Object.keys(gear)) gear[slotName] = null
-    for (const each of entries(file))
-        gear[each.slot] = each.worn?.item_id ?? null
-}
-
-/** A made-up item of unknown source. */
-function item(itemId: number, name: string): Item {
-    return {
-        item_id: itemId,
-        name,
-        quality: 'uncommon',
-        item_level: null,
-        required_level: 25,
-        source: { kind: 'unknown', text: 'Source unknown' },
-        data: 'classic',
-    }
-}
-
 /** A bag upgrade without results (not simmed). */
 function bagUpgrade(slotName: string, it: Item, gainEp: number) {
     return { slot: slotName, item: it, gain_ep: gainEp }
-}
-
-/** Puts an alternative in the plan for `slotName`, changed by `change`. */
-function planGap(
-    file: Json,
-    slotName: string,
-    itemId: number,
-    change: (alt: Alt) => void
-) {
-    maxDamage(file).gear[slotName] = itemId
-    change(alternative(file, slotName, itemId))
-}
-
-/** The plan's Legs item becomes `Hunting Pants`, from a vendor, 5.0 EP. */
-function huntingPants(file: Json) {
-    planGap(file, 'legs', 6690, (alt) => {
-        alt.item.name = 'Hunting Pants'
-        alt.item.source = {
-            kind: 'vendor',
-            text: 'Vendor: Harggan, The Hinterlands',
-        }
-        alt.gain_ep = 5
-        alt.gain_dps = null
-    })
 }
 
 /**
@@ -224,11 +110,6 @@ const ROWS = [
     'Glinting Bracers · Wrist +5.5 EP',
     'Glinting Totem · Totem +4.2 EP',
 ]
-
-async function showBis(user: User) {
-    const group = within(gearPane()).getByRole('group', { name: 'View' })
-    await user.click(within(group).getByRole('radio', { name: 'BIS' }))
-}
 
 describe('one bag upgrade', () => {
     test('the sample reads the Berylline Pads sentence; Equip puts them on and Undo takes them off; no Wear them button', async () => {
@@ -438,6 +319,5 @@ describe('the BIS view', () => {
 
         expect(shows(BAG_ONE)).toBe(false)
         expect(hasButton('Equip')).toBe(false)
-        expect(hasButton('Wear them')).toBe(false)
     })
 })

@@ -5,10 +5,15 @@
  * best-in-slot. The first state that applies wins.
  */
 import { type Gain, type Item, shownValue, slotGap } from './gains'
+import {
+    type BagItemsOn,
+    canWearAllBagItems,
+    offeredBagUpgrades,
+} from './planner-state'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
 import { SLOTS_IN_ORDER } from './slot-labels'
-import { type BagItemsOn, slotEntry } from './slot-view'
+import { slotEntry } from './slot-view'
 
 export type BagUpgrade = ResultsFile['bag_upgrades'][number]
 
@@ -85,7 +90,7 @@ function worthyFixes(file: ResultsFile): QuickFix[] {
  *
  * @param file - The loaded results file.
  * @param plan - The plan the sliders pick, or null (no card).
- * @param bagWorn - The item_ids of the bag upgrades put on with Equip or
+ * @param bagOn - The item_ids of the bag upgrades put on with Equip or
  * Equip all. The card stays on its bag state with them on, and slot gaps
  * are taken with them on.
  * @returns The state, or null for no card.
@@ -93,7 +98,7 @@ function worthyFixes(file: ResultsFile): QuickFix[] {
 export function nextStep(
     file: ResultsFile,
     plan: Plan | null,
-    bagWorn: BagItemsOn = []
+    bagOn: BagItemsOn = []
 ): NextStep | null {
     if (!plan) return null
     const leftOut = new Set(
@@ -101,12 +106,10 @@ export function nextStep(
     )
     const counts = (item: Item) => !leftOut.has(item.item_id)
 
-    const bags = file.bag_upgrades
-        .filter((upgrade) => upgrade.gain_ep > 0 && counts(upgrade.item))
-        .sort((a, b) => b.gain_ep - a.gain_ep)
+    const bags = offeredBagUpgrades(file)
     const on =
-        bagWorn.length === 1
-            ? bags.find((upgrade) => upgrade.item.item_id === bagWorn[0])
+        bagOn.length === 1
+            ? bags.find((upgrade) => upgrade.item.item_id === bagOn[0])
             : undefined
     if (on) return { kind: 'bag_one', upgrade: on }
     const [first] = bags
@@ -116,13 +119,10 @@ export function nextStep(
             kind: 'bag_many',
             upgrades: bags,
             total: bags.reduce((sum, upgrade) => sum + upgrade.gain_ep, 0),
-            // The combined results are for every bag upgrade in the file.
-            canWearAll:
-                Boolean(file.bag_upgrades_all) &&
-                bags.length === file.bag_upgrades.length,
+            canWearAll: canWearAllBagItems(file),
             allOn:
-                bagWorn.length > 1 &&
-                bags.every((upgrade) => bagWorn.includes(upgrade.item.item_id)),
+                bagOn.length > 1 &&
+                bags.every((upgrade) => bagOn.includes(upgrade.item.item_id)),
         }
 
     const [fix, ...also] = worthyFixes(file)
@@ -139,7 +139,7 @@ export function nextStep(
     }[] = []
     let anyGap = false
     for (const slot of SLOTS_IN_ORDER) {
-        const gap = slotGap(slotEntry(file, slot, bagWorn), plan)
+        const gap = slotGap(slotEntry(file, slot, bagOn), plan)
         if (gap?.kind !== 'gap') continue
         anyGap = true
         if (counts(gap.item))

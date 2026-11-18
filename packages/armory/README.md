@@ -159,10 +159,14 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   `src/components/ui/` as our own source; the page's components are in
   `src/components/`. Dialogs (focus moves to Close, Tab stays inside,
   Escape closes, focus goes back), the fight length Select, the Sliders
-  (roles, starting mana, time between pulls) and the Tooltips (Provisional,
-  a slot's full item name) are Base UI's. The segmented controls (enemy
-  level, kind of fight, which talent build) are native radios in a
-  fieldset (`components/segmented.tsx`).
+  (roles, starting mana, time between pulls), the Tooltips (Provisional,
+  a slot's full item name) and the Popovers behind the "i" buttons are Base
+  UI's. An "i" button (`components/info.tsx`, on `components/ui/popover.tsx`)
+  is named `About <label>`, and its popover opens on hover, on click or tap,
+  and on Enter or Space; Escape closes it and focus stays on the button. The
+  segmented controls (the `Current` / `BIS` switch, enemy level, kind of
+  fight, which talent build) are native radios in a fieldset
+  (`components/segmented.tsx`).
 - **Charts: Recharts 3** inside shadcn's `chart` (`ChartContainer`,
   `ChartTooltip`, `ChartLegend`): the fight chart (DPS and mana on two axes,
   out-of-mana lines) and the pull chart. The damage split and the stat
@@ -172,20 +176,29 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   series. The drawings (`fight-plot.tsx`, `pull-plot.tsx`) load lazily
   (`React.lazy`), so the first load and the new-visitor screen carry no
   Recharts; a placeholder of the chart's height holds its place.
-- **The layout is the approved mockup's**, element for element at 1440 px
-  (`direction-c2-armory-planner.html`, `?roles=sliders`): the header (name,
-  `Orc Enhancement Shaman, level 30. Guardian's Dualblade with Windfury
-  Weapon.`, `Wishlist 0`, `Export Pawn string`); the gear pane with a column
-  on its right (what the sim says, what to gear for, the Talents button)
-  from 90rem, stacked below that; under both, a full-width band with the
-  fight chart, the damage split and stat weights, and the fight settings;
-  then a footer (the sample note, how sure the sim is). The gear pane's doll
-  lays out by the pane's own width (a container query): the mockup's two
-  268 px slot columns around the figure from 49rem, two columns below, one
-  on a phone. Slots are one line for the name (an ellipsis when long; the
-  full name in the button's name and a tooltip) and one for the note. The
-  bottom row reads the file: a shaman with nothing for the off hand shows
-  `Two-hand` and `Totem` (`src/slot-labels.ts`: the contract has no
+- **The layout is the approved mockup's** (`direction-c2-armory-planner.html`,
+  `?roles=sliders`), restyled to the owner's design (spec #109): the header
+  (`Armory`, the tagline `See your gear, what the sim would change, and how
+  a fight plays out.`, `Wishlist 0`, `Export Pawn string`); the gear pane,
+  headed by the character's name, `Level 30 Enhancement Shaman` and the
+  weapon line (`Guardian's Dualblade with Windfury Weapon.`), with the
+  `Current` / `BIS` switch, the total line (`↓ 195.2 EP in total below the
+  sim's best set, ...`), the callout card under the left slots (the one best
+  next step) and the talents pill on the figure; a column on its right
+  (Simulator Data: the readings `Solo`, `Dungeon`, `Resource Empty`,
+  `Health`, `Armor` and `Lifespan`, with how far what you wear is below the
+  sim's plan; Stat Priority: the role sliders) from 90rem, stacked below that; under
+  both, a full-width band with the fight chart, the damage split and stat
+  weights, and the fight settings; then a footer (the sample note, how sure
+  the sim is). The gear pane's doll lays out by the pane's own width (a
+  container query): the mockup's two 268 px slot columns around the figure
+  from 49rem, two columns below, one on a phone. Slots are one line for the
+  name (an ellipsis when long; the full name in the button's name and a
+  tooltip), with its gap to the plan (`↓ 16.7`) or `BIS`, and under the
+  button one line for the note: `Best: <item>` for a slot with a gap (a link
+  that opens the item picker on that item), else where the worn item comes
+  from. The bottom row reads the file: a shaman with nothing for the off
+  hand shows `Two-hand` and `Totem` (`src/slot-labels.ts`: the contract has no
   two-handed flag, so an empty off hand with no off-hand alternative, plan
   item or bag upgrade reads as a two-hander).
 - **The fight settings pick a pre-made fight** (`src/fight-settings.ts`):
@@ -272,9 +285,11 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   `talents.yours`), shown on the talents pill on the character: `22 pts`.
   When `talents.best.dps_gain` shows as 3.0 or more, the pill gets an
   orange dot and `↓ N DPS` beside it.
-- Six optional fields (schema version 1 still) carry what the mockup shows
-  beyond the first contract. Absent or null, the page leaves out only the
-  part that needs them:
+- Nine optional fields (schema version 1 still) carry what the mockup and
+  the owner's design (spec #109) show beyond the first contract: the first
+  six for the mockup, the last three for the callout card. Absent or null,
+  the page leaves out only the part that needs them. The gear sim's runner
+  doesn't write the last three yet; the page reads them when it does.
 
   | Field | Shown as | Absent or null |
   | --- | --- | --- |
@@ -283,7 +298,10 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   | `bag_upgrades[].results` (results per fight with the bag item on, no `gear`) | `Equip` on the callout card; once worn the slot, the readings and the chart use them, and `Undo` takes it off | No `Equip` button |
   | `results[].damage_split[].school` (`physical`, `fire`, `nature`, `frost`, `arcane`, `shadow`, `holy`) | The split coloured by school, and `Colour is the spell school.` | Coloured by order, no colour sentence |
   | `fights[].melee_miss_pct` | `With 0 hit, you miss 8.0% of melee swings at level 33.` under the enemy level (hit from the sheet) | The sentence is left out |
-  | `slots[].imbue` (the worn weapon's imbue) | `... Guardian's Dualblade with Windfury Weapon.` in the header | The weapon alone |
+  | `slots[].imbue` (the worn weapon's imbue) | `... Guardian's Dualblade with Windfury Weapon.` under the gear card's heading | The weapon alone |
+  | `character.professions` `[{name, skill, max}]` (`Leatherworking`, 165 of 225; matched by `name` only, `skill` and `max` unused for now) | On the callout card, an item crafted by you (a `crafted` item one of whose `source.text` parts reads `Crafted: Leatherworking`) is the first to go get: `You can make Totemic Leather Tunic with your Leatherworking, +6.0 EP on your chest piece.` | No "crafted by you": crafted items rank with the other crafted ones. An empty list: the same |
+  | `quick_fixes` `[{kind, slot, dps_gain, text}]` (`kind` is `imbue`, `empty_slot` or `weapon_skill`; `slot` any slot or null; the sim words `text`) | The callout card's quick fix, for the biggest fix worth 3.0 DPS or more: `<text> Putting it back is worth about +18.2 DPS.` (`Filling it ...` for an empty slot, `Training it up ...` for weapon skill), then `Also: <text> (+4.0 DPS).` for the others worth as much | No quick-fix state. An empty list: the same |
+  | `bag_upgrades_all` `{results}` (what you wear with every bag upgrade on together: one result per fight, no `gear`; only with two or more bag upgrades, each in a different slot) | `Equip all N` on the callout card with several bag upgrades; once worn, the slots, the readings and the chart use them, and `Undo` takes them all off | No `Equip all` button |
 
 ## The two samples
 
@@ -300,7 +318,7 @@ report, and the page shows a note that some numbers are made up.
   the stat weights of the 2-minute and chain fights (the solo fight's, but
   intellect 4.04 and mana per 5 3.89, as the mockup shows them), and the one
   `left_out_items` entry (Made-up Hood of Nowhere, item 99901, so the
-  left-out list in How sure is this? shows). The six
+  left-out list in How sure is this? shows). The mockup's six
   optional fields are the mockup's numbers: the slider reach (the mockup's
   limits at each plan's mix), Two-Handed Axes 148/150, the miss chances 5.5, 6.0 and
   8.0% at levels 31, 32 and 33, the spell schools, `Windfury Weapon`, and
@@ -310,6 +328,9 @@ report, and the page shows a note that some numbers are made up.
 - `src/sample-truncha-first-run.json` is shaped like the runner's first
   output: only the max damage plan, and every `timeline`, `pulls`,
   `time_to_die_s` and `out_of_mana_s` is null (not simmed), as is
-  `talents.best`; it has none of the six optional fields, and no
+  `talents.best`; it has none of the mockup's six optional fields, and no
   `left_out_items`. It opens on the
   same fight, with the same labels, as the full sample.
+
+Neither sample has the callout card's three fields (`character.professions`,
+`quick_fixes`, `bag_upgrades_all`); the tests build files with them.

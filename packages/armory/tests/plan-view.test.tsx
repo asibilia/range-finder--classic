@@ -37,47 +37,20 @@ function paneStatus(): string {
     return bold?.parentElement?.textContent ?? ''
 }
 
-// The page before #112 switched views with these two buttons; #112 puts the
-// `View` switch's `Current` / `BIS` radios in their place. The helpers below
-// work on both, so these tests keep checking the plan view either way.
-const OLD_PLAN = "Show the sim's plan"
-const OLD_WORN = 'Show what I wear'
-
-/** A button with exactly this text (matched by text, which is reliable). */
-function oldButton(text: string): HTMLElement | undefined {
-    return screen
-        .queryAllByRole('button')
-        .find((button) => button.textContent === text)
+/** Whether the gear card has its `View` switch. */
+function hasViewSwitch(): boolean {
+    return screen.queryByRole('group', { name: 'View' }) !== null
 }
 
-function viewGroup(): HTMLElement | null {
-    return screen.queryByRole('group', { name: 'View' })
-}
-
-/** The control that shows the plan (`BIS`) or what you wear (`Current`). */
-function viewControl(name: 'Current' | 'BIS'): HTMLElement {
-    const group = viewGroup()
-    if (group) return within(group).getByRole('radio', { name })
-    const button = oldButton(name === 'BIS' ? OLD_PLAN : OLD_WORN)
-    if (!button) throw new Error(`no control for ${name}`)
-    return button
-}
-
-/** Whether the view control says the plan is shown. */
-function planChosen(): boolean {
-    const group = viewGroup()
-    if (group)
-        return (
-            within(group).getByRole('radio', {
-                name: 'BIS',
-            }) as HTMLInputElement
-        ).checked
-    return oldButton(OLD_WORN) !== undefined
+/** The `View` switch's radio: `BIS` shows the plan, `Current` what you wear. */
+function viewRadio(name: 'Current' | 'BIS'): HTMLInputElement {
+    const group = screen.getByRole('group', { name: 'View' })
+    return within(group).getByRole('radio', { name }) as HTMLInputElement
 }
 
 /** Shows the sim's plan. */
 async function showPlan(user: User) {
-    await user.click(viewControl('BIS'))
+    await user.click(viewRadio('BIS'))
 }
 
 /** The line that names the plan the mix picks. */
@@ -123,22 +96,22 @@ afterEach(() => {
 })
 
 describe('the plan view', () => {
-    test("the sample opens on What you wear with a Show the sim's plan button", async () => {
+    test('the sample opens on What you wear, with Current chosen in the View switch', async () => {
         await openSample()
 
         expect(paneStatus()).toBe(
             'What you wear, from your export of 13 November'
         )
-        expect(viewControl('BIS')).toBeDefined()
-        expect(planChosen()).toBe(false)
+        expect(viewRadio('Current').checked).toBe(true)
+        expect(viewRadio('BIS').checked).toBe(false)
     })
 
-    test("pressing Show the sim's plan shows Max damage and Ferine Leggings in Legs", async () => {
+    test('choosing BIS shows Max damage and Ferine Leggings in Legs', async () => {
         const user = await openSample()
         await showPlan(user)
 
         expect(paneStatus()).toBe("The sim's plan for your mix: max damage")
-        expect(planChosen()).toBe(true)
+        expect(viewRadio('BIS').checked).toBe(true)
         expect(within(slot('Legs')).getByText('Ferine Leggings')).toBeDefined()
     })
 
@@ -152,9 +125,9 @@ describe('the plan view', () => {
         expect(within(relic).getByText('Same as you wear')).toBeDefined()
         expect(relic.querySelector('[data-size]')).toBeNull()
 
+        // The plan view's slots have no gap badge, so no gap in the name.
         const legs = screen.getByRole('button', {
-            // The gain left the plan view's badges with #113.
-            name: /^Legs: Ferine Leggings(, \+23\.6 EP)?$/,
+            name: 'Legs: Ferine Leggings',
         })
         // The line under the name is the new item's source, as the mockup
         // shows it (`Drop: ` left off); what it replaces is the button's
@@ -170,7 +143,7 @@ describe('the plan view', () => {
         ).toContain('sr-only')
     })
 
-    test('a file with no plans has no plan button and no Stat Priority', async () => {
+    test('a file with no plans has no View switch and no Stat Priority', async () => {
         const noPlans = variant((file) => {
             file.plans = []
             file.results = (file.results as { gear: string }[]).filter(
@@ -180,14 +153,13 @@ describe('the plan view', () => {
 
         // The sample has both, so their absence below comes from the plans.
         await openSample()
-        expect(viewControl('BIS')).toBeDefined()
+        expect(hasViewSwitch()).toBe(true)
         expect(screen.getByText('Stat Priority')).toBeDefined()
         cleanup()
 
         await openFile(noPlans)
 
-        expect(viewGroup()).toBeNull()
-        expect(oldButton(OLD_PLAN)).toBeUndefined()
+        expect(hasViewSwitch()).toBe(false)
         expect(screen.queryByText('Stat Priority')).toBeNull()
         expect(screen.queryByRole('slider', { name: 'Damage' })).toBeNull()
     })
@@ -237,7 +209,7 @@ describe('the plan view', () => {
 })
 
 describe('the role sliders', () => {
-    test('Stat Priority sits in the card after the readings and before Talents; the chart and damage split are in the band under the gear', async () => {
+    test('Stat Priority sits in the card after the readings; the chart and damage split are in the band under the gear', async () => {
         await openSample()
 
         const card = screen.getByRole('complementary', {
@@ -252,17 +224,11 @@ describe('the role sliders', () => {
         const readings = within(card).getByRole('heading', {
             name: 'Simulator Data',
         })
-        // The Talents button left the card for the pill on the character
-        // (#115); while it is still in the card, it follows the sliders.
-        const talents = within(card).queryByRole('button', {
-            name: /^Talents/,
-        })
         const follows = (a: Node, b: Node) =>
             Boolean(
                 a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
             )
         expect(follows(readings, sliders as Node)).toBe(true)
-        if (talents) expect(follows(sliders as Node, talents)).toBe(true)
 
         const band = screen.getByRole('region', { name: 'Across the fight' })
         expect(card.contains(band)).toBe(false)
@@ -421,7 +387,7 @@ describe('the role sliders', () => {
         expect(readingValue('Health')).toBe('1790')
     })
 
-    test('moving a slider on the worn view switches to the plan and says so, until Show what I wear', async () => {
+    test('moving a slider on the worn view switches to the plan and says so, until Current is chosen', async () => {
         const user = await openSample()
         expect(screen.queryByText(SWITCHED)).toBeNull()
 
@@ -430,11 +396,11 @@ describe('the role sliders', () => {
         expect(paneStatus()).toBe(
             "The sim's plan for your mix: damage and survival"
         )
-        expect(planChosen()).toBe(true)
+        expect(viewRadio('BIS').checked).toBe(true)
         expect(screen.getByText(SWITCHED, { exact: false })).toBeDefined()
 
         // Going back to what you wear clears the line.
-        await user.click(viewControl('Current'))
+        await user.click(viewRadio('Current'))
 
         expect(paneStatus()).toBe(
             'What you wear, from your export of 13 November'

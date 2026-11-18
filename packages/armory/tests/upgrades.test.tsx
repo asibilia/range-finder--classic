@@ -11,77 +11,59 @@ import {
     variant,
     type User,
 } from './open-app'
+import { alternative, squeeze } from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, within } from '@testing-library/react'
 
-function escaped(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/**
+ * A slot's name with its gap to the plan's item:
+ * `<base>, 21.6 EP below the sim's best`.
+ */
+function gapName(base: string, gap: string): string {
+    return `${base}, ${gap} below the sim's best`
 }
 
 /**
- * A slot's name with its gain: `<base>, +21.6 EP` before #113, or
- * `<base>, 21.6 EP below the sim's best` (the plan's item's gap) after it.
+ * The gap badge in `element` that reads `text` (`↓ 23.6`, spaces aside).
+ * Throws when there is none.
  */
-function slotName(base: string, oldGain: string, newGap = oldGain): RegExp {
-    const gap = newGap.replace(/^\+/, '')
-    return new RegExp(
-        `^${escaped(base)}, (${escaped(oldGain)}|${escaped(gap)} below the sim's best)$`
-    )
-}
-
-/** Text with every space taken out. */
-function squeeze(text: string | null | undefined): string {
-    return (text ?? '').replace(/\s+/g, '')
-}
-
-/**
- * The gain pill reading `oldText` (`+23.6 EP`), or, after #113, the gap
- * badge reading `newText` (`↓ 23.6`).
- */
-function gapPill(
-    element: HTMLElement,
-    oldText: string,
-    newText: string
-): HTMLElement {
+function gapBadge(element: HTMLElement, text: string): HTMLElement {
     const found = [
         ...element.querySelectorAll<HTMLElement>('[data-size]'),
-    ].find((candidate) =>
-        [squeeze(oldText), squeeze(newText)].includes(
-            squeeze(candidate.textContent)
-        )
-    )
-    if (!found) throw new Error(`no badge reading ${oldText} or ${newText}`)
+    ].find((candidate) => squeeze(candidate.textContent) === squeeze(text))
+    if (!found) throw new Error(`no gap badge reading ${text}`)
     return found
 }
 
-/**
- * Whether the slot `button` shows `text` as its note: inside the button
- * before #114, or (`Best: <item>`) on its own line under it after #114.
- */
-function slotNoteHas(button: HTMLElement, text: string): boolean {
-    const isSlot = (element: Element) =>
-        /^[A-Z][\w -]*: /.test(element.getAttribute('aria-label') ?? '')
-    const parent = button.parentElement
-    const near = [button, parent, parent?.parentElement]
-    return near.some(
-        (element) =>
-            element != null &&
-            [...element.querySelectorAll('button')].filter(isSlot).length <=
-                1 &&
-            squeeze(element.textContent).includes(squeeze(text))
-    )
+/** Whether `element` is a slot button (named `<Label>: …`). */
+function isSlot(element: Element): boolean {
+    return /^[A-Z][\w -]*: /.test(element.getAttribute('aria-label') ?? '')
 }
 
-const HANDS = slotName('Hands: Toughened Leather Gloves', '+21.6 EP')
-const NECK = slotName("Neck: Archmagister's Faceted Pendant", '+1.7 EP')
-const LEGS = slotName("Legs: Trapper's Leather Legguards", '+23.6 EP')
-const FINGER_1 = slotName('Finger 1: Seal of Sylvanas', '+19.2 EP')
-const FINGER_2 = slotName(
-    'Finger 2: Unnamed ring (6748)',
-    '+19.2 EP',
-    '15.5 EP'
-)
+/**
+ * The `Best: <item>` line under the slot `button`, spaces taken out, or
+ * null when the slot has none.
+ */
+function bestLine(button: HTMLElement): string | null {
+    for (let box = button.parentElement; box; box = box.parentElement) {
+        if ([...box.querySelectorAll('button')].filter(isSlot).length > 1)
+            return null
+        const line = [...box.querySelectorAll('p')].find((candidate) =>
+            squeeze(candidate.textContent).startsWith('Best:')
+        )
+        if (line) return squeeze(line.textContent)
+    }
+    return null
+}
+
+const HANDS = gapName('Hands: Toughened Leather Gloves', '21.6 EP')
+const NECK = gapName("Neck: Archmagister's Faceted Pendant", '1.7 EP')
+const LEGS = gapName("Legs: Trapper's Leather Legguards", '23.6 EP')
+const FINGER_1 = gapName('Finger 1: Seal of Sylvanas', '19.2 EP')
+const FINGER_2 = gapName('Finger 2: Unnamed ring (6748)', '15.5 EP')
+/** The plan's Back item, Sergeant Major's Cape. */
+const PLAN_BACK = 16315
 
 /** Clicks the slot button named `name` and returns the picker it opens. */
 async function openPicker(
@@ -117,8 +99,8 @@ function headerButton(name: string): HTMLElement {
     return screen.getByRole('button', { name, hidden: true })
 }
 
-function gainSize(slot: HTMLElement, gain: string, gap: string): string | null {
-    return gapPill(slot, gain, gap).getAttribute('data-size')
+function gapSize(slot: HTMLElement, gap: string): string | null {
+    return gapBadge(slot, gap).getAttribute('data-size')
 }
 
 async function closeDialog(user: User, dialog: HTMLElement) {
@@ -129,64 +111,49 @@ afterEach(() => {
     cleanup()
 })
 
-describe('gains on the slots', () => {
-    test('Legs shows +23.6 EP and Best: Ferine Leggings', async () => {
+describe('gaps on the slots', () => {
+    test('Legs shows ↓ 23.6 and Best: Ferine Leggings', async () => {
         await openSample()
         const legs = screen.getByRole('button', { name: LEGS })
 
-        expect(gapPill(legs, '+23.6 EP', '↓ 23.6')).toBeDefined()
-        expect(slotNoteHas(legs, 'Best: Ferine Leggings')).toBe(true)
+        expect(gapBadge(legs, '↓ 23.6')).toBeDefined()
+        expect(bestLine(legs)).toBe(squeeze('Best: Ferine Leggings'))
     })
 
-    test('Two-hand shows +6.0 DPS and Best: Corpsemaker', async () => {
+    test('Two-hand shows ↓ 6.0 DPS and Best: Corpsemaker', async () => {
         await openSample()
         const mainHand = screen.getByRole('button', {
-            name: slotName("Two-hand: Guardian's Dualblade", '+6.0 DPS'),
+            name: gapName("Two-hand: Guardian's Dualblade", '6.0 DPS'),
         })
 
-        expect(gapPill(mainHand, '+6.0 DPS', '↓ 6.0 DPS')).toBeDefined()
-        expect(slotNoteHas(mainHand, 'Best: Corpsemaker')).toBe(true)
+        expect(gapBadge(mainHand, '↓ 6.0 DPS')).toBeDefined()
+        expect(bestLine(mainHand)).toBe(squeeze('Best: Corpsemaker'))
     })
 
-    test('the Neck gain is drawn small and the Legs gain big', async () => {
+    test('the Neck gap is drawn small and the Legs gap big', async () => {
         await openSample()
 
         expect(
-            gainSize(
-                screen.getByRole('button', { name: NECK }),
-                '+1.7 EP',
-                '↓ 1.7'
-            )
+            gapSize(screen.getByRole('button', { name: NECK }), '↓ 1.7')
         ).toBe('small')
         expect(
-            gainSize(
-                screen.getByRole('button', { name: LEGS }),
-                '+23.6 EP',
-                '↓ 23.6'
-            )
+            gapSize(screen.getByRole('button', { name: LEGS }), '↓ 23.6')
         ).toBe('big')
     })
 
-    test('a Back first alternative with gain_ep 0 shows no gain and the worn source text', async () => {
+    test("the plan's Back item with gain_ep 0 shows no gap, no Best: line and the worn source text", async () => {
         const changed = variant((file) => {
-            const slots = file.slots as {
-                slot: string
-                alternatives: { gain_ep: number | null }[]
-            }[]
-            const back = slots.find((entry) => entry.slot === 'back')
-            if (!back) throw new Error('the sample has no back slot')
-            const first = back.alternatives[0]
-            if (!first) throw new Error('the sample back has no alternative')
-            first.gain_ep = 0
+            alternative(file, 'back', PLAN_BACK).gain_ep = 0
         })
 
-        // The unchanged sample shows the Back gain, so the copy's lack of
+        // The unchanged sample shows the Back gap, so the copy's lack of
         // one comes from the zero gain.
         await openSample()
         const before = screen.getByRole('button', {
-            name: slotName('Back: Unnamed cloak (279848)', '+6.2 EP'),
+            name: gapName('Back: Unnamed cloak (279848)', '6.2 EP'),
         })
-        expect(gapPill(before, '+6.2 EP', '↓ 6.2')).toBeDefined()
+        expect(gapBadge(before, '↓ 6.2')).toBeDefined()
+        expect(bestLine(before)).toBe(squeeze("Best: Sergeant Major's Cape"))
         cleanup()
 
         await openFile(changed)
@@ -195,22 +162,14 @@ describe('gains on the slots', () => {
         })
 
         expect(pills(slot)).toEqual([])
-        expect(within(slot).queryByText(/^Best: /)).toBeNull()
+        expect(bestLine(slot)).toBeNull()
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
 
-    test('a Back first alternative gaining 0.04 EP, shown as +0.0, shows no gain and the worn source text', async () => {
+    test("the plan's Back item gaining 0.04 EP, shown as 0.0, shows no gap, no Best: line and the worn source text", async () => {
         await openFile(
             variant((file) => {
-                const slots = file.slots as {
-                    slot: string
-                    alternatives: { gain_ep: number | null }[]
-                }[]
-                const first = slots.find((entry) => entry.slot === 'back')
-                    ?.alternatives[0]
-                if (!first)
-                    throw new Error('the sample back has no alternative')
-                first.gain_ep = 0.04
+                alternative(file, 'back', PLAN_BACK).gain_ep = 0.04
             })
         )
         const slot = screen.getByRole('button', {
@@ -218,33 +177,23 @@ describe('gains on the slots', () => {
         })
 
         expect(pills(slot)).toEqual([])
-        expect(within(slot).queryByText(/^Best: /)).toBeNull()
+        expect(bestLine(slot)).toBeNull()
         expect(within(slot).getByText('Source unknown')).toBeDefined()
     })
 
-    test('a Back first alternative with no gain_ep and no gain_dps shows no gain, here or in the picker', async () => {
+    test("the plan's Back item with no gain_ep and no gain_dps shows no gap, here or in the picker", async () => {
         const user = await openFile(
             variant((file) => {
-                const slots = file.slots as {
-                    slot: string
-                    alternatives: {
-                        gain_ep: number | null
-                        gain_dps: number | null
-                    }[]
-                }[]
-                const first = slots.find((entry) => entry.slot === 'back')
-                    ?.alternatives[0]
-                if (!first)
-                    throw new Error('the sample back has no alternative')
-                first.gain_ep = null
-                first.gain_dps = null
+                const cape = alternative(file, 'back', PLAN_BACK)
+                cape.gain_ep = null
+                cape.gain_dps = null
             })
         )
         const slot = screen.getByRole('button', {
             name: 'Back: Unnamed cloak (279848)',
         })
         expect(pills(slot)).toEqual([])
-        expect(within(slot).queryByText(/^Best: /)).toBeNull()
+        expect(bestLine(slot)).toBeNull()
 
         const dialog = await openPicker(
             user,
@@ -275,18 +224,12 @@ describe('gains on the slots', () => {
     })
 })
 
-/**
- * The bag card's put-it-on button: `Equip` since #116 (was `Wear them`).
- * next-step.test.tsx checks that no `Wear them` button is left.
- */
-const EQUIP_BUTTON = /^(Equip|Wear them)$/
-
-describe('Wear them', () => {
+describe('Equip', () => {
     test('puts the bag item on: the slot, the numbers and the card change; Undo puts it back', async () => {
         const user = await openSample()
         expect(readingValue('Dungeon')).toBe('75.4')
 
-        await user.click(screen.getByRole('button', { name: EQUIP_BUTTON }))
+        await user.click(screen.getByRole('button', { name: 'Equip' }))
 
         expect(
             screen.getByRole('button', { name: /^Shoulder: Berylline Pads, / })
@@ -309,10 +252,10 @@ describe('Wear them', () => {
             })
         ).toBeDefined()
         expect(readingValue('Dungeon')).toBe('75.4')
-        expect(screen.getByRole('button', { name: EQUIP_BUTTON })).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Equip' })).toBeDefined()
     })
 
-    test('a bag upgrade without results (not simmed) has no Wear them button', async () => {
+    test('a bag upgrade without results (not simmed) has no Equip button', async () => {
         await openFile(
             variant((file) => {
                 for (const upgrade of file.bag_upgrades as Record<
@@ -322,9 +265,8 @@ describe('Wear them', () => {
                     delete upgrade.results
             })
         )
-        expect(
-            screen.queryByRole('button', { name: EQUIP_BUTTON }) !== null
-        ).toBe(false)
+        const equip = screen.queryByRole('button', { name: 'Equip' })
+        expect(equip !== null).toBe(false)
         expect(
             screen.getByText('are in your bags,', { exact: false })
         ).toBeDefined()
