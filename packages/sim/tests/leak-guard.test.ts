@@ -86,7 +86,7 @@ describe('the repo', () => {
         ].filter((root) => existsSync(root))
         expect(existsSync(join(PACKAGE_DIR, 'fixtures'))).toBe(true)
         expect(scanForLeaks(roots)).toEqual([])
-    }, 120_000)
+    })
 
     test("scans the armory's src and tests folders and finds nothing", () => {
         const roots = [
@@ -95,7 +95,7 @@ describe('the repo', () => {
         ]
         for (const root of roots) expect(existsSync(root)).toBe(true)
         expect(scanForLeaks(roots)).toEqual([])
-    }, 120_000)
+    })
 
     test('git ignores packages/armory/.local.json, and commits its example with a made-up path', () => {
         const ignored = Bun.spawnSync(
@@ -115,7 +115,7 @@ describe('the repo', () => {
         expect(existsSync(browserSim)).toBe(true)
         expect(readdirSync(browserSim).length).toBeGreaterThan(0)
         expect(scanForLeaks([browserSim])).toEqual([])
-    }, 120_000)
+    })
 
     test("finds nothing in the owner's buffed export fixture or the armory's export writer helper", () => {
         const fixture = join(PACKAGE_DIR, 'fixtures/truncha-export-buffed.lua')
@@ -126,7 +126,7 @@ describe('the repo', () => {
         expect(scanForLeaks([join(PACKAGE_DIR, 'fixtures'), helpers])).toEqual(
             []
         )
-    }, 120_000)
+    })
 })
 
 describe('scanForLeaks on planted files', () => {

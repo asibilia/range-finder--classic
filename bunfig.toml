@@ -12,4 +12,7 @@ blockExoticSubdeps = true
 
 [test]
 # Downloaded tools and local agent worktrees hold no tests of ours.
-pathIgnorePatterns = [".tools/**", ".claude/**", "packages/sim/upstream/**"]
+# The slow tests (*.slow.test.ts) run only through `bun run test:slow`: a
+# command-line --path-ignore-patterns replaces this list, so that script
+# repeats the other entries without the slow one.
+pathIgnorePatterns = [".tools/**", ".claude/**", "packages/sim/upstream/**", "**/*.slow.test.ts"]

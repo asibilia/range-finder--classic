@@ -5,8 +5,8 @@
 import './dom'
 import { openFile, openSample, type User } from './open-app'
 
-import { afterEach, describe, expect, mock, test } from 'bun:test'
-import { cleanup, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, jest, mock, test } from 'bun:test'
+import { act, cleanup, screen, within } from '@testing-library/react'
 
 import sample from '../src/sample-truncha.json'
 import firstRun from '../src/sample-truncha-first-run.json'
@@ -79,10 +79,6 @@ function gridPlace(element: HTMLElement): { row: number; column: number } {
     }
 }
 
-function wait(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 function mockClipboard(writeText: (text: string) => Promise<void>) {
     Object.defineProperty(navigator, 'clipboard', {
         value: { writeText },
@@ -92,7 +88,11 @@ function mockClipboard(writeText: (text: string) => Promise<void>) {
 }
 
 afterEach(() => {
+    // The Copy test runs on fake timers: what it left pending runs before
+    // the page goes, and every test ends on real timers.
+    if (jest.isFakeTimers()) act(() => jest.runOnlyPendingTimers())
     cleanup()
+    jest.useRealTimers()
 })
 
 describe('the talents dialog', () => {
@@ -239,7 +239,15 @@ describe('the Pawn strings dialog', () => {
     })
 
     test('Copy writes the string and says Copied beside the button for 2.4 seconds', async () => {
-        const user = await openSample()
+        // user-event advances the timers on every step, so before the fake
+        // timers start (while the sample opens) there is nothing to advance.
+        const user = await openSample({
+            advanceTimers: (ms) => {
+                if (jest.isFakeTimers()) jest.advanceTimersByTime(ms)
+            },
+        })
+        // The note's 2.4 seconds pass on fake timers, not real ones.
+        jest.useFakeTimers()
         const writeText = mock((_text: string) => Promise.resolve())
         mockClipboard(writeText)
         const dialog = await openPawn(user)
@@ -249,10 +257,16 @@ describe('the Pawn strings dialog', () => {
         )
 
         expect(writeText).toHaveBeenCalledWith(SOLO_PAWN.text)
-        expect(await within(dialog).findByText('Copied')).toBeDefined()
-        await wait(2000)
+        // The note shows once the clipboard write's promise settles.
+        await act(async () => {})
         expect(within(dialog).getByText('Copied')).toBeDefined()
-        await wait(600)
+        act(() => {
+            jest.advanceTimersByTime(2000)
+        })
+        expect(within(dialog).getByText('Copied')).toBeDefined()
+        act(() => {
+            jest.advanceTimersByTime(400)
+        })
         expect(within(dialog).queryByText('Copied')).toBeNull()
         expect(
             within(dialog).getByRole('button', { name: 'Copy solo string' })

@@ -2,11 +2,22 @@
     "checks": {
         "test": "bun test --isolate",
         "types": "bun run type-check && bun run lua:check",
-        "lint": "bun run lint && bun run syncpack:check && bun run lua:format:check && bun run lua:guard && bun run sim:go"
+        "lint": "bun run lint && bun run syncpack:check && bun run lua:format:check && bun run lua:guard && bun run sim:go",
+        "slow_test": [
+            {
+                "run": "bun test --isolate --path-ignore-patterns='.tools/**' --path-ignore-patterns='.claude/**' --path-ignore-patterns='packages/sim/upstream/**' .slow.test",
+                "file_patterns": ["**/*.slow.test.ts"],
+                "run_files": "bun test --isolate --path-ignore-patterns='.tools/**' --path-ignore-patterns='.claude/**' --path-ignore-patterns='packages/sim/upstream/**' {files}"
+            }
+        ]
     },
     "prepare": "bun run tools:fetch && bun run sim:build",
     "test_file_patterns": ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
     "test_setup_files": [],
+    "test_case_timeout_ms": 2000,
+    "test_timeout_ms": 900000,
+    "test_concurrency": 1,
+    "prepare_concurrency": 1,
     "rule_files": ["AGENTS.md"],
     "muninn": {
         "vault": "rangefinder-classic"

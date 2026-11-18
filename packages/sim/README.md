@@ -59,7 +59,7 @@ must be installed.
 | --- | --- |
 | `bun run sim:build` | Builds `upstream/sim/wasm` to WASM with `-tags with_db` and `-trimpath` (no build machine paths in the module), gzipped, into the git-ignored `build/` (`lib.wasm.gz`), with Go's own `wasm_exec.js`, the item data JSON and `version.json` (its `upstream_commit`, read from `UPSTREAM.md`, and `patch_id` are also compiled in) |
 | `bun run sim:go` | `gofmt -l` over our own Go, `go vet ./sim/wasm/...`, and `go test -tags with_db` of the patched packages (`sim/core/spelldata`, `sim/shaman`) |
-| `bun run sim:test` | The package's tests (they build the sim when they need it) |
+| `bun run sim:test` | The package's tests (they build the sim when they need it): the fast files, with a 2-second limit per test; the `*.slow.test.ts` files (real WASM, Go) run only through the root `bun run test:slow` |
 | `bun run type-check:sim` | `tsc -b` on this package's composite `tsconfig.json` |
 | `bun run sim:add-fixture <export> <name>` | Adds an export as a fixture (see below) |
 

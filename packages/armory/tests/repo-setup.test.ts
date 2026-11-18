@@ -4,7 +4,7 @@
  * type-check, lint and test it, and its commit scope. These read the repo's
  * own files as the contract. The type-check, lint and test runs themselves
  * are left to `bun run check:all`; the build, which nothing else runs, is
- * run by `build-output.test.ts`.
+ * run by `build-output.slow.test.ts`.
  */
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync, statSync } from 'node:fs'
@@ -239,9 +239,12 @@ describe('commit.config.ts', () => {
 describe('the root scripts', () => {
     const scripts = () => readPackage('package.json').scripts ?? {}
 
-    test('test:armory is bun test --isolate packages/armory', () => {
+    test('test:armory is bun test --isolate --timeout=2000 packages/armory, and the package test script calls it', () => {
         expect(scripts()['test:armory']).toBe(
-            'bun test --isolate packages/armory'
+            'bun test --isolate --timeout=2000 packages/armory'
+        )
+        expect(readPackage('packages/armory/package.json').scripts?.test).toBe(
+            'bun run --cwd ../.. test:armory'
         )
     })
 

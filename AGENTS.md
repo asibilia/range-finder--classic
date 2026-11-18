@@ -24,7 +24,8 @@ file) on the player's own computer, with the **browser sim**
   npm/yarn/pnpm; their lockfiles are gitignored on purpose.
 - **`bun run check` before any PR.** It is what CI runs: `check:all`
   (type-check, ESLint + Prettier, syncpack, the sim's WASM build, its Go
-  checks and tests, the armory tests) and then `lua:all` (StyLua format
+  checks and tests, the armory tests, then the slow tests with
+  `test:slow`) and then `lua:all` (StyLua format
   check, LuaLS, the secret-read guard, and `bun test`). ESLint is the
   TypeScript formatter; `bun run lua:format` formats the Lua. **Go 1.27**
   (the version in `packages/sim/upstream/go.mod`) must be installed: the

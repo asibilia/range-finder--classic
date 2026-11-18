@@ -39,7 +39,7 @@
     "build": "bunx react-router build",
     "dev": "bunx react-router dev",
     "preview": "bunx react-router build && bunx vite preview",
-    "test": "bun test --isolate",
+    "test": "bun run --cwd ../.. test:armory",
     "type-check": "WRANGLER_SEND_METRICS=false WRANGLER_HIDE_BANNER=true bunx wrangler types && bunx react-router typegen && bunx tsc -b"
   }
 }

@@ -34,6 +34,97 @@ function readJson<T>(path: string): T {
     return JSON.parse(readText(path)) as T
 }
 
+const SLOW_RUN =
+    "bun test --isolate --path-ignore-patterns='.tools/**' --path-ignore-patterns='.claude/**' --path-ignore-patterns='packages/sim/upstream/**'"
+
+/** The committed test limits (spec #119, section 3). */
+const TEST_LIMITS = {
+    test_case_timeout_ms: 2000,
+    test_timeout_ms: 900000,
+    test_concurrency: 1,
+    prepare_concurrency: 1,
+    'checks.slow_test': [
+        {
+            run: `${SLOW_RUN} .slow.test`,
+            file_patterns: ['**/*.slow.test.ts'],
+            run_files: `${SLOW_RUN} {files}`,
+        },
+    ],
+    'test:armory': 'bun test --isolate --timeout=2000 packages/armory',
+    'sim:test': 'bun test --isolate --timeout=2000 packages/sim',
+    'test:slow': `${SLOW_RUN} .slow.test`,
+    'check:all':
+        'bun run type-check && bun run lint && bun run syncpack:check && bun run sim:build && bun run sim:go && bun run sim:test && bun run test:armory && bun run test:slow',
+    'bunfig.toml pathIgnorePatterns': [
+        '.tools/**',
+        '.claude/**',
+        'packages/sim/upstream/**',
+        '**/*.slow.test.ts',
+    ],
+}
+
+const CONFIG_LIMITS = [
+    'test_case_timeout_ms',
+    'test_timeout_ms',
+    'test_concurrency',
+    'prepare_concurrency',
+] as const
+const SCRIPT_LIMITS = [
+    'test:armory',
+    'sim:test',
+    'test:slow',
+    'check:all',
+] as const
+
+/**
+ * Checks the test limits that keep a test run inside its time and memory
+ * budget: Luca's config, the root scripts and bunfig.toml's ignore list.
+ *
+ * @param config - the parsed `.luca/config.json`
+ * @param scripts - the root `package.json` scripts
+ * @param bunfigText - the text of `bunfig.toml`
+ * @returns the name of each value that is missing or different, in the
+ *     order `test_case_timeout_ms`, `test_timeout_ms`, `test_concurrency`,
+ *     `prepare_concurrency`, `checks.slow_test`, `test:armory`, `sim:test`,
+ *     `test:slow`, `check:all`, `bunfig.toml pathIgnorePatterns`; `[]` when
+ *     all hold
+ *
+ * @example
+ * checkTestLimits({ ...config, test_concurrency: 4 }, scripts, bunfigText)
+ * // ['test_concurrency']
+ */
+export function checkTestLimits(
+    config: unknown,
+    scripts: Record<string, string>,
+    bunfigText: string
+): string[] {
+    const record = (value: unknown): Record<string, unknown> =>
+        typeof value === 'object' && value !== null
+            ? (value as Record<string, unknown>)
+            : {}
+    const same = (a: unknown, b: unknown) => Bun.deepEquals(a, b, true)
+    const luca = record(config)
+    const problems: string[] = CONFIG_LIMITS.filter(
+        (name) => !same(luca[name], TEST_LIMITS[name])
+    )
+    if (!same(record(luca.checks).slow_test, TEST_LIMITS['checks.slow_test']))
+        problems.push('checks.slow_test')
+    for (const name of SCRIPT_LIMITS)
+        if (scripts[name] !== TEST_LIMITS[name]) problems.push(name)
+
+    let ignore: unknown
+    try {
+        ignore = record(
+            record(Bun.TOML.parse(bunfigText)).test
+        ).pathIgnorePatterns
+    } catch {
+        ignore = undefined
+    }
+    if (!same(ignore, TEST_LIMITS['bunfig.toml pathIgnorePatterns']))
+        problems.push('bunfig.toml pathIgnorePatterns')
+    return problems
+}
+
 describe('the vendored upstream and the fixtures', () => {
     test('l60-test.in.json and l60-test.expected.json are in packages/sim/fixtures', () => {
         expect(existsSync(join(PACKAGE_DIR, 'fixtures/l60-test.in.json'))).toBe(
@@ -70,11 +161,11 @@ describe('the vendored upstream and the fixtures', () => {
             }
         )
         expect(check.stdout.toString().trim()).toBe('')
-    }, 60_000)
+    })
 })
 
 describe('bun run check and CI', () => {
-    test('the package and root scripts build, vet and test the sim before any test needs it', () => {
+    test('the package and root scripts build, vet and test the sim before any test needs it, sim:test with a 2000 ms limit and check:all ending in test:slow', () => {
         const sim = readJson<PackageJson>('packages/sim/package.json')
         expect(sim.name).toBe('@goturbo/sim')
         expect(sim.private).toBe(true)
@@ -91,15 +182,22 @@ describe('bun run check and CI', () => {
         ])
             expect(root.scripts?.[name]).toBeDefined()
         expect(root.scripts?.['sim:test']).toBe(
-            'bun test --isolate packages/sim'
+            'bun test --isolate --timeout=2000 packages/sim'
         )
+        expect(sim.scripts?.['sim:test']).toBe('bun run --cwd ../.. sim:test')
         expect(root.scripts?.['check:all']).toBe(
-            'bun run type-check && bun run lint && bun run syncpack:check && bun run sim:build && bun run sim:go && bun run sim:test && bun run test:armory'
+            'bun run type-check && bun run lint && bun run syncpack:check && bun run sim:build && bun run sim:go && bun run sim:test && bun run test:armory && bun run test:slow'
         )
 
         const luca = readJson<{
             prepare: string
-            checks: Record<string, string>
+            checks: Record<string, string> & {
+                slow_test?: {
+                    run: string
+                    file_patterns: string[]
+                    run_files: string
+                }[]
+            }
         }>('.luca/config.json')
         expect(luca.prepare).toBe('bun run tools:fetch && bun run sim:build')
         expect(luca.checks.lint).toEndWith('&& bun run sim:go')
@@ -240,5 +338,57 @@ describe('what reads packages/sim/upstream', () => {
         expect(covers.length).toBeGreaterThan(0)
         for (const pattern of covers)
             expect(pattern.replace(/^\.\//, '')).not.toMatch(/^(upstream|\*)/)
+    })
+})
+
+describe('checkTestLimits', () => {
+    const config = () => readJson<Record<string, unknown>>('.luca/config.json')
+    const scripts = () => readJson<PackageJson>('package.json').scripts ?? {}
+    const bunfigText = () => readText('bunfig.toml')
+
+    test("the repo's Luca config, root scripts and bunfig.toml hold every limit", () => {
+        expect(checkTestLimits(config(), scripts(), bunfigText())).toEqual([])
+    })
+
+    test('a config without test_concurrency gives ["test_concurrency"]', () => {
+        const { test_concurrency: _dropped, ...rest } = config()
+        expect(checkTestLimits(rest, scripts(), bunfigText())).toEqual([
+            'test_concurrency',
+        ])
+    })
+
+    test('test_case_timeout_ms 5000 gives ["test_case_timeout_ms"]', () => {
+        expect(
+            checkTestLimits(
+                { ...config(), test_case_timeout_ms: 5000 },
+                scripts(),
+                bunfigText()
+            )
+        ).toEqual(['test_case_timeout_ms'])
+    })
+
+    test('a check:all without bun run test:slow gives ["check:all"]', () => {
+        const all = scripts()
+        expect(
+            checkTestLimits(
+                config(),
+                {
+                    ...all,
+                    'check:all': all['check:all']!.replace(
+                        ' && bun run test:slow',
+                        ''
+                    ),
+                },
+                bunfigText()
+            )
+        ).toEqual(['check:all'])
+    })
+
+    test('a bunfig.toml without **/*.slow.test.ts gives ["bunfig.toml pathIgnorePatterns"]', () => {
+        const text = bunfigText().replace(', "**/*.slow.test.ts"', '')
+        expect(text).not.toContain('**/*.slow.test.ts')
+        expect(checkTestLimits(config(), scripts(), text)).toEqual([
+            'bunfig.toml pathIgnorePatterns',
+        ])
     })
 })

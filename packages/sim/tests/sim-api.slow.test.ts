@@ -99,8 +99,8 @@ const STAT = {
 let sim: Sim
 
 beforeAll(async () => {
-    // Always built: these check what the current Go code does.
-    ensureSimBuild({ always: true })
+    // Built when missing or stale; only wasm-build.slow.test.ts forces it.
+    ensureSimBuild()
     sim = await loadSim({ base: BASE })
 }, 600_000)
 

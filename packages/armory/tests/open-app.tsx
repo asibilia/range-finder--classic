@@ -19,6 +19,8 @@ import sample from '../src/sample-truncha.json'
 
 export type Json = Record<string, unknown>
 export type User = ReturnType<typeof userEvent.setup>
+/** Options for `userEvent.setup()`, such as `advanceTimers` for fake timers. */
+export type UserOptions = Parameters<typeof userEvent.setup>[0]
 
 /** A copy of `base` (the sample unless given), changed by `change`. */
 export function variant(
@@ -51,10 +53,15 @@ export async function chartsLoaded(): Promise<void> {
     )
 }
 
-/** Renders the page with nothing loaded. */
-export function renderApp(): User {
+/**
+ * Renders the page with nothing loaded.
+ *
+ * @param userOptions - Passed to `userEvent.setup()`: a test on fake timers
+ * passes `{ advanceTimers: jest.advanceTimersByTime }`.
+ */
+export function renderApp(userOptions?: UserOptions): User {
     render(<App />)
-    return userEvent.setup()
+    return userEvent.setup(userOptions)
 }
 
 /** Picks `file` with the page's file input. */
@@ -65,9 +72,11 @@ export async function pick(user: User, file: File): Promise<void> {
 /**
  * Renders the page, loads the bundled sample and waits for the gear card's
  * heading to name the character.
+ *
+ * @param userOptions - Passed to `userEvent.setup()`, as in `renderApp`.
  */
-export async function openSample(): Promise<User> {
-    const user = renderApp()
+export async function openSample(userOptions?: UserOptions): Promise<User> {
+    const user = renderApp(userOptions)
     await user.click(
         screen.getByRole('button', { name: 'Or look at a sample character' })
     )

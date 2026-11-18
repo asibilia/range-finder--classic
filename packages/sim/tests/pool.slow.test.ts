@@ -52,7 +52,7 @@ const dpsOf = (result: unknown) =>
 
 const open: Pool[] = []
 function pool(options: { size?: number } = {}): Pool {
-    const made = createSimPool({ base: BASE, ...options })
+    const made = createSimPool({ base: BASE, size: 2, ...options })
     open.push(made)
     return made
 }
@@ -271,7 +271,8 @@ describe('the pool size with no size given', () => {
             writable: true,
         })
         try {
-            return pool().size
+            // `size: undefined` takes the default size, which this tests.
+            return pool({ size: undefined }).size
         } finally {
             if (original)
                 Object.defineProperty(globalThis, 'navigator', original)
