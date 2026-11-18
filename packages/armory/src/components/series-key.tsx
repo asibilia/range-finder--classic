@@ -1,7 +1,8 @@
 /**
  * The legend swatches for the fight and pull charts: a short sample of each
- * series as it is drawn (solid or dashed line, filled area, faded bar), so
- * the legend reads like the chart. Used as shadcn `ChartConfig` icons.
+ * series as it is drawn (dashed line, filled area, faded bar, the fight
+ * chart's DPS as solid bars), so the legend reads like the chart. Used as
+ * shadcn `ChartConfig` icons.
  */
 import type { ComponentType } from 'react'
 
@@ -78,6 +79,21 @@ function barKey(color: string, faded: boolean) {
     }
 }
 
+/** One solid bar, as the fight chart draws DPS. */
+function wideBarKey(color: string) {
+    return function WideBarKey() {
+        return (
+            <svg
+                viewBox="0 0 6 10"
+                aria-hidden="true"
+                className="!h-2.5 !w-1.5"
+            >
+                <rect width="6" height="10" rx="0.5" fill={color} />
+            </svg>
+        )
+    }
+}
+
 /** Series colours: the plan's accent, what you wear (muted), mana. */
 export const SERIES_COLOR = {
     dps_plan: 'var(--chart-1)',
@@ -99,8 +115,8 @@ function withSimBest(Swatch: ComponentType) {
 
 /** Legend icons for the fight chart's four series. */
 export const FIGHT_KEYS: Record<string, ComponentType> = {
-    dps_worn: lineKey(SERIES_COLOR.dps_worn, false, true),
-    dps_plan: withSimBest(lineKey(SERIES_COLOR.dps_plan, false, false)),
+    dps_worn: wideBarKey(SERIES_COLOR.dps_worn),
+    dps_plan: withSimBest(wideBarKey(SERIES_COLOR.dps_plan)),
     mana_worn: lineKey(SERIES_COLOR.mana, true, true),
     mana_plan: areaKey(SERIES_COLOR.mana),
 }

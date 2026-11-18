@@ -1,8 +1,8 @@
 /**
- * `Best:` links (spec #109 section 6): in the `Current` view, under each
- * slot with a gap, `Best: <item>` names the plan's item after the `best`
- * icon, and the item's name is a button that opens the slot's item picker
- * with that item's row focused. The DOM helper must be the first import.
+ * `Best:` links (spec #109 section 6): in the `Current` view, each slot
+ * with a gap has `Best: <item>` as its tile's third line (no icon before
+ * it, owner decision C), and the item's name is a button that opens the
+ * slot's item picker with that item's row focused. The DOM helper must be the first import.
  */
 import './dom'
 import { openSample } from './open-app'
@@ -20,7 +20,7 @@ afterEach(() => {
 
 /** The `Best:` button for the helm, or null (a plain error when missing). */
 function helmLink(): HTMLElement | null {
-    return within(gearPane()).queryByRole('button', { name: HELM })
+    return within(gearPane()).queryByRole('button', { name: `Best: ${HELM}` })
 }
 
 /** The innermost element holding the link whose text starts with `Best:`. */
@@ -78,16 +78,17 @@ describe('Best: links', () => {
         })
     })
 
-    test('the Best: line starts with an aria-hidden SVG', async () => {
+    test('the Best: line has no icon before Best: (owner decision C): it starts with the text Best:', async () => {
         await openSample()
 
         const link = helmLink()
         expect(link).not.toBeNull()
         const line = bestLine(link!)
         expect(line).not.toBeNull()
-        const first = firstThing(line!) as Element | null
-        expect(first?.nodeName.toLowerCase()).toBe('svg')
-        expect(first?.getAttribute('aria-hidden')).toBe('true')
+        const first = firstThing(line!)
+        expect(first?.nodeType).toBe(Node.TEXT_NODE)
+        expect(squeeze(first?.textContent)).toBe('Best:')
+        expect(line!.querySelector('svg')).toBeNull()
     })
 
     test('in the BIS view no Best: button shows', async () => {

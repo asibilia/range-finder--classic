@@ -13,7 +13,7 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 const SHOW_PLAN = "Show the sim's plan"
 const SHOW_WORN = 'Show what I wear'
 const SWITCHED = "Switched the gear to the sim's plan for this mix."
-const WORN_STATUS = 'What you wear, from your export of 13 November'
+const WORN_STATUS = 'What you wear'
 const PLAN_STATUS = "The sim's plan for your mix: max damage"
 
 /**
@@ -63,6 +63,12 @@ describe('the View switch', () => {
         expect(radio('Current').checked).toBe(true)
         expect(radio('BIS').checked).toBe(false)
         expect(paneStatus()).toBe(WORN_STATUS)
+        // The owner's design has no status line: in the Current view it is
+        // there for screen readers only.
+        const status = [...gearPane().querySelectorAll('[aria-live]')].find(
+            (element) => element.textContent === WORN_STATUS
+        )
+        expect(status?.className.split(/\s+/)).toContain('sr-only')
     })
 
     test("choosing BIS shows the sim's plan, and Current goes back to what you wear", async () => {

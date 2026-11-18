@@ -481,6 +481,8 @@ type Talent = { name: string; rank: number; spellID?: number }
 type SmallExport = {
     level?: number | null
     characterKey?: string
+    /** `identity.sex`, the game's `UnitSex`; absent: no `sex`. */
+    sex?: number
     subclass?: string
     tooltip?: string[]
     enchantId?: number
@@ -561,6 +563,7 @@ function smallExport(options: SmallExport = {}): string {
 ["characterKey"] = ${lua(options.characterKey ?? '')},
 ["class"] = "SHAMAN",
 ["race"] = "Orc",
+${options.sex === undefined ? '' : `["sex"] = ${options.sex},`}
 ["name"] = "Smallchar",
 ["gameBuild"] = "70938",
 ${level === null ? '' : `["level"] = ${level},`}
@@ -774,6 +777,13 @@ describe("the export reader matches the runner's characterFromExport", () => {
         const real = 'cf765509-937b-4147-8e33-677e3eef7065'
         const kept = await smallCharacter({ characterKey: real })
         expect(kept.character_key).toBe(real)
+    })
+
+    test('identity.sex 2 gives gender male, 3 gives female, and 1 or no sex gives no gender', async () => {
+        expect((await smallCharacter({ sex: 2 })).gender).toBe('male')
+        expect((await smallCharacter({ sex: 3 })).gender).toBe('female')
+        expect(await smallCharacter({ sex: 1 })).not.toHaveProperty('gender')
+        expect(await smallCharacter()).not.toHaveProperty('gender')
     })
 })
 

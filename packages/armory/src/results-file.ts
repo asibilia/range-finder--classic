@@ -296,6 +296,10 @@ const baseSchema = z.strictObject({
         race: z.string(),
         class: z.string(),
         spec: z.string(),
+        gender: z.enum(['male', 'female']).optional().meta({
+            description:
+                "The character's gender, from the export's identity.sex (the game's numbers: 2 male, 3 female). The page picks the character art with it. Absent: unknown (no sex in the export, or 1), and the page shows either gender's art.",
+        }),
         professions: z
             .array(
                 z.strictObject({
@@ -357,7 +361,7 @@ const baseSchema = z.strictObject({
                 }),
                 imbue: z.string().min(1).nullable().optional().meta({
                     description:
-                        'The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. The page names the main hand\'s in the header: "Guardian\'s Dualblade with Windfury Weapon." Absent or null: none, or not exported (the header names the weapon alone).',
+                        'The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. Absent or null: none, or not exported.',
                 }),
                 alternatives: z
                     .array(
@@ -414,7 +418,7 @@ const baseSchema = z.strictObject({
         .optional()
         .meta({
             description:
-                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text says the fix and names the slot. Absent or an empty list: none.',
+                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text states the fix only and names the slot, with no DPS value and no worth wording: the page adds the worth sentence from dps_gain. Absent or an empty list: none.',
         }),
     plans: z.array(plan),
     results: z.array(result),
@@ -694,6 +698,7 @@ const FILE_DESCRIPTION = [
     "- Each slot's alternatives come best first; the slot's badge shows the gain of the plan's item for that slot.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
     '- character.professions names each profession as the game does (Leatherworking): the page matches them by name.',
+    "- character.gender comes from the export's identity.sex: 2 is male, 3 is female, anything else leaves it out.",
     '- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.',
 ].join('\n')
 

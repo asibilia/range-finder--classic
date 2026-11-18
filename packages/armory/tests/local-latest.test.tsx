@@ -27,8 +27,10 @@ import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
 
 const LATEST = '/local/latest.json'
 const STATUS = '/local/latest-status.json'
+const EXPORT = '/local/latest-export.lua'
+const NO_EXPORT = 'Bring in your export to run the sim here.'
 const LAST_MODIFIED = 'Tue, 17 Nov 2026 08:00:05 GMT'
-const LOADED_LINE = 'Loaded from this computer, made 17 November'
+const LOADED_LINE = 'Loaded from this computer, made Nov. 17'
 const UNREADABLE =
     "The latest file from this computer couldn't be read; showing the last one that could."
 const OPEN_ANOTHER = 'Open another file'
@@ -76,6 +78,7 @@ type Call = { path: string; ifModifiedSince: string | null }
 const server = {
     latest: notFound as Answer,
     status: notFound as Answer,
+    export: notFound as Answer,
     calls: [] as Call[],
 }
 
@@ -167,6 +170,7 @@ function callsTo(path: string): Call[] {
 beforeEach(() => {
     server.latest = notFound
     server.status = notFound
+    server.export = notFound
     server.calls = []
     held.clear()
     globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
@@ -179,6 +183,7 @@ beforeEach(() => {
         })
         if (path === LATEST) return server.latest()
         if (path === STATUS) return server.status()
+        if (path === EXPORT) return server.export()
         return notFound()
     }) as typeof fetch
     holdRefreshTimers()
@@ -197,7 +202,7 @@ afterEach(() => {
 
 /** Renders the page with the local latest file on. */
 function renderLocal() {
-    render(<App localLatest />)
+    render(<App localLatest runSimulator />)
     return userEvent.setup()
 }
 
@@ -211,7 +216,7 @@ function showsCharacter(name: string): boolean {
 }
 
 describe('the page opens on the local latest file', () => {
-    test('it overrides the remembered file and says it came from this computer', async () => {
+    test('it overrides the remembered file and says, in the footer, it came from this computer', async () => {
         const kept = JSON.stringify(resultsFile('Kept'))
         localStorage.setItem(REMEMBERED_FILE_KEY, kept)
         server.latest = json(resultsFile('Localchar'), {
@@ -220,7 +225,11 @@ describe('the page opens on the local latest file', () => {
         renderLocal()
 
         await waitForName('Localchar')
-        expect(await screen.findByText(LOADED_LINE)).toBeDefined()
+        const line = await screen.findByText(LOADED_LINE)
+        // In the footer, as the page's other small lines (the owner's
+        // design has no line under the header); not in the header.
+        expect(line.closest('footer')).not.toBeNull()
+        expect(line.closest('header')).toBeNull()
         expect(callsTo(LATEST)[0]?.ifModifiedSince ?? null).toBeNull()
         // The local file is never kept in this browser.
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBe(kept)
@@ -453,6 +462,36 @@ describe('opening another file while the latest shows', () => {
         await tick()
         await waitFor(() =>
             expect(callsTo(LATEST).length).toBeGreaterThan(resumed)
+        )
+    })
+})
+
+describe('Run Simulator with the latest file', () => {
+    test('with the export beside the latest file, Run Simulator is enabled and there is no note', async () => {
+        server.latest = json(resultsFile('Localchar'))
+        server.export = () =>
+            new Response('TurboCharExportDB = {}', { status: 200 })
+        renderLocal()
+        await waitForName('Localchar')
+        await waitFor(() => {
+            const run = screen.getByRole('button', { name: 'Run Simulator' })
+            if (run.hasAttribute('disabled'))
+                throw new Error('Run Simulator is still disabled')
+        })
+        expect(screen.queryByText(NO_EXPORT)).toBeNull()
+        expect(callsTo(EXPORT).length).toBeGreaterThan(0)
+    })
+
+    test('with no export (a 404), Run Simulator is disabled and says to bring the export in', async () => {
+        server.latest = json(resultsFile('Localchar'))
+        renderLocal()
+        await waitForName('Localchar')
+        await settle()
+        expect(callsTo(EXPORT).length).toBeGreaterThan(0)
+        const run = screen.getByRole('button', { name: 'Run Simulator' })
+        expect(run.hasAttribute('disabled')).toBe(true)
+        expect(screen.getByText(NO_EXPORT).id).toBe(
+            run.getAttribute('aria-describedby') ?? ''
         )
     })
 })

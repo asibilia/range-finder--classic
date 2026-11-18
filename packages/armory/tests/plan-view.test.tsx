@@ -106,7 +106,9 @@ function noPlansFile() {
 function slotButtons(): HTMLElement[] {
     return [...gearPane().querySelectorAll<HTMLElement>('button')].filter(
         (button) =>
-            /^[A-Z][\w -]*: /.test(button.getAttribute('aria-label') ?? '')
+            /^(?!Best: |Next: )[A-Z][\w -]*: /.test(
+                button.getAttribute('aria-label') ?? ''
+            )
     )
 }
 
@@ -139,9 +141,7 @@ describe('the plan view', () => {
     test('the sample opens on What you wear, with Current chosen in the View switch', async () => {
         await openSample()
 
-        expect(paneStatus()).toBe(
-            'What you wear, from your export of 13 November'
-        )
+        expect(paneStatus()).toBe('What you wear')
         expect(viewRadio('Current').checked).toBe(true)
         expect(viewRadio('BIS').checked).toBe(false)
     })
@@ -209,7 +209,7 @@ describe('the plan view', () => {
         expect(lineWith("in total below the sim's best set")).not.toBeNull()
         expect(hasButton('About the total')).toBe(true)
         expect(screen.queryAllByText('Best:').length).toBeGreaterThan(0)
-        expect(hasButton("Defender's Leather Helm")).toBe(true)
+        expect(hasButton("Best: Defender's Leather Helm")).toBe(true)
         expect(pageSays('Berylline Pads are in your bags')).toBe(true)
         expect(hasButton('Equip')).toBe(true)
         expect(document.querySelector('[data-reading-gap]')).not.toBeNull()
@@ -235,7 +235,7 @@ describe('the plan view', () => {
         expect(hasButton('About the total')).toBe(false)
         // No `Best:` lines.
         expect(screen.queryByText('Best:')).toBeNull()
-        expect(hasButton("Defender's Leather Helm")).toBe(false)
+        expect(hasButton("Best: Defender's Leather Helm")).toBe(false)
         // No callout card, not even for the bag upgrade.
         expect(pageSays('Berylline Pads are in your bags')).toBe(false)
         expect(hasButton('Equip')).toBe(false)
@@ -485,9 +485,7 @@ describe('the role sliders', () => {
         // Going back to what you wear clears the line.
         await user.click(viewRadio('Current'))
 
-        expect(paneStatus()).toBe(
-            'What you wear, from your export of 13 November'
-        )
+        expect(paneStatus()).toBe('What you wear')
         expect(screen.queryByText(SWITCHED, { exact: false })).toBeNull()
     })
 

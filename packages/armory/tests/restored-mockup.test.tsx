@@ -119,8 +119,8 @@ describe('the readings', () => {
         expect(readingChange(DPS_LONG)).toBe('+8.7')
         expect(readingChange('Health')).toBe('-65')
         expect(readingChange('Armor')).toBe('+58')
-        expect(readingChange('Resource Empty')).toBe('+9 s later')
-        expect(readingChange('Lifespan')).toBe('-3 s')
+        expect(readingChange('Resource Empty')).toBe('+9.00 s later')
+        expect(readingChange('Lifespan')).toBe('-3.00 s')
     })
 
     test('a plan not simmed on the fight has no change to say', async () => {
@@ -286,7 +286,7 @@ describe('the mockup details', () => {
             name: 'Across the fight',
         })
         expect(heading.parentElement?.textContent).toBe(
-            `Across the fightDungeon, 2 minutes vs level 33Provisional${'Sim numbers are estimates until matched to real fights.'}Sample file`
+            `Across the fightDungeon vs a level 33 mob (+3), 2 minutesProvisional${'Sim numbers are estimates until matched to real fights.'}Sample file`
         )
     })
 })

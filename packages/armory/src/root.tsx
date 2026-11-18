@@ -5,6 +5,9 @@
 import type { ReactNode } from 'react'
 import { Links, Meta, Outlet, Scripts } from 'react-router'
 
+// JetBrains Mono (OFL), self-hosted: Vite bundles its latin woff2 files.
+import '@fontsource/jetbrains-mono/latin-400.css'
+import '@fontsource/jetbrains-mono/latin-700.css'
 import './styles.css'
 
 /**

@@ -1,8 +1,9 @@
 /**
- * The talents pill on the character (spec #109 section 7): a target-and-arrow
- * icon and `<points> pts`, opening the talents dialog. When the file's best
+ * The talents pill (spec #109 section 7): the owner's light pill at the
+ * character sheet's top right, a target-and-arrow icon and `<points> pts`,
+ * opening the talents dialog. When the file's best
  * build is 3.0 DPS or more up (as shown, one decimal), the pill gets an
- * orange dot and `↓ N DPS` sits beside it.
+ * orange dot and `↓ N DPS` sits before it.
  */
 import { Button } from '@/components/ui/button'
 
@@ -68,13 +69,24 @@ export function TalentsPill({
             ? `Talents, ${talents.points} points`
             : `Talents, ${talents.points} points, a better build is ${gain} DPS up`
     return (
-        <div data-slot="talents-pill" className="mt-2 flex items-center gap-2">
+        <div
+            data-slot="talents-pill"
+            className="mb-2.5 flex items-center justify-end gap-2"
+        >
+            {gain !== null && (
+                <span
+                    aria-hidden="true"
+                    className="font-mono text-sm text-primary"
+                >
+                    {`↓ ${gain} DPS`}
+                </span>
+            )}
             <Button
-                variant="outline"
+                variant="pill"
                 aria-label={name}
                 data-better={gain === null ? undefined : 'true'}
                 onClick={onOpen}
-                className="relative h-auto gap-1.5 rounded-full px-3 py-1 text-sm font-normal"
+                className="relative h-8 gap-1.5 px-3.5 text-sm"
             >
                 <TargetIcon />
                 <span className="font-mono">{`${talents.points} pts`}</span>
@@ -85,14 +97,6 @@ export function TalentsPill({
                     />
                 )}
             </Button>
-            {gain !== null && (
-                <span
-                    aria-hidden="true"
-                    className="font-mono text-sm text-primary"
-                >
-                    {`↓ ${gain} DPS`}
-                </span>
-            )}
         </div>
     )
 }

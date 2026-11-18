@@ -38,7 +38,9 @@ function gapBadge(element: HTMLElement, text: string): HTMLElement {
 
 /** Whether `element` is a slot button (named `<Label>: …`). */
 function isSlot(element: Element): boolean {
-    return /^[A-Z][\w -]*: /.test(element.getAttribute('aria-label') ?? '')
+    return /^(?!Best: |Next: )[A-Z][\w -]*: /.test(
+        element.getAttribute('aria-label') ?? ''
+    )
 }
 
 /**

@@ -3,7 +3,10 @@
  * (the character, which gear is shown, the switch between what you wear and the
  * plan) and the line under it, every slot around the character (six on the
  * left with the callout card under them, eight on the right, the weapons along
- * the bottom), and the middle with the figure and the character sheet.
+ * the bottom), and the middle with the talents pill and the character sheet
+ * at its foot. The character art, when the manifest has a picture for the
+ * character's race and class, fills the card behind the tiles; else the
+ * card stays plain.
  * Before a file loads the slots are disabled dashed outlines and the
  * middle holds `middle` (the new-visitor card).
  */
@@ -11,9 +14,8 @@ import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
 
-import { exportDay } from '../format'
+import { characterArt } from '../character-art'
 import type { Item } from '../gains'
-import { itemName } from '../item-name'
 import { nextStep } from '../next-step'
 import type { BagItemsOn } from '../planner-state'
 import type { Plan } from '../plans'
@@ -28,57 +30,6 @@ import { Segmented } from './segmented'
 import { SimBestIcon } from './sim-best-icon'
 import { SlotButton, type SlotSide } from './slot-button'
 import { TalentsPill } from './talents-pill'
-
-/** The placeholder figure (the approved mockup's own drawing). */
-function Figure({ faded }: { faded: boolean }) {
-    return (
-        <figure className="flex flex-col items-center">
-            <svg
-                viewBox="0 0 150 190"
-                aria-hidden="true"
-                className={cn(
-                    'mt-1 h-67.5 w-52.5 text-foreground/80',
-                    faded && 'opacity-30'
-                )}
-            >
-                <ellipse
-                    cx="75"
-                    cy="178"
-                    rx="46"
-                    ry="6"
-                    className="fill-muted stroke-border"
-                />
-                <g
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                >
-                    <circle cx="75" cy="34" r="13" />
-                    <path d="M52 56 Q75 46 98 56 L104 96 Q75 104 46 96 Z" />
-                    <path d="M58 100 L56 170 L68 170 L75 112 L82 170 L94 170 L92 100" />
-                    <path d="M52 60 L36 100" />
-                    <path d="M98 60 L112 92" />
-                </g>
-                <g
-                    fill="none"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    className="stroke-chart-1"
-                >
-                    <path d="M30 168 L118 22" />
-                    <path
-                        d="M108 20 Q130 26 126 48 Q114 40 102 36 Z"
-                        className="fill-chart-1/25"
-                    />
-                </g>
-            </svg>
-            <figcaption className="-mt-0.5 text-[0.71875rem] text-muted-foreground">
-                Character model goes here
-            </figcaption>
-        </figure>
-    )
-}
 
 /** A chestpiece outline (an original drawing), for the switch's `Current`. */
 function ChestIcon() {
@@ -99,26 +50,11 @@ function ChestIcon() {
 }
 
 /**
- * The weapon line under the character, as the mockup writes it:
- * `Guardian's Dualblade with Windfury Weapon.` The weapon is the main
- * hand's worn item; `with ...` is its imbue (`slots[].imbue`), left out
- * when the file has none.
- *
- * @param file - The loaded results file.
- * @returns The line, or null with no main hand worn.
- */
-export function weaponLine(file: ResultsFile): string | null {
-    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
-    if (!mainHand?.worn) return null
-    const weapon = itemName(mainHand.worn, 'main_hand', file.character.class)
-    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
-    return `${weapon}${imbue}.`
-}
-
-/**
- * The heading row (the character's name, or `Gear` before a file loads;
- * then `Level 30 Enhancement Shaman` and the weapon line) and the line
- * under it.
+ * The heading row, as the owner's design draws it: the character's name
+ * (or `Gear` before a file loads) and `Level 30 Enhancement Shaman` on one
+ * line, the Current/BIS switch on its right; then the total line under it.
+ * Which gear shows is said in words too (for screen readers in the Current
+ * view, where the switch already shows it).
  */
 function GearHead({
     file,
@@ -137,7 +73,6 @@ function GearHead({
     onShowPlan: () => void
     onShowWorn: () => void
 }) {
-    const weapon = file ? weaponLine(file) : null
     const status = !file ? (
         'No character loaded yet.'
     ) : planShown && plan ? (
@@ -146,43 +81,37 @@ function GearHead({
             {` for your mix: ${plan.label.toLowerCase()}`}
         </>
     ) : (
-        <>
-            <b className="font-bold text-foreground">What you wear</b>
-            {`, from your export of ${exportDay(file.export_saved_at)}`}
-        </>
+        <b className="font-bold">What you wear</b>
     )
+    const quiet = file !== null && !(planShown && plan)
     return (
         <div>
             <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
-                <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-0.5">
                     <h2
                         id="gear-heading"
                         ref={headingRef}
                         tabIndex={-1}
-                        className="text-[1.375rem] leading-tight outline-none"
+                        className="text-xl outline-none"
                     >
                         {file ? file.character.name : 'Gear'}
                     </h2>
                     {file && (
-                        <>
-                            <p className="mt-0.5 text-sm text-muted-foreground">
-                                Level{' '}
-                                <b className="font-bold text-foreground">
-                                    {file.character.level}
-                                </b>{' '}
-                                {`${file.character.spec} ${file.character.class}`}
-                            </p>
-                            {weapon && (
-                                <p className="text-sm text-muted-foreground">
-                                    {weapon}
-                                </p>
-                            )}
-                        </>
+                        <p className="text-base text-muted-foreground">
+                            Level{' '}
+                            <b className="font-bold text-foreground">
+                                {file.character.level}
+                            </b>{' '}
+                            {`${file.character.spec} ${file.character.class}`}
+                        </p>
                     )}
                 </div>
                 <span
                     aria-live="polite"
-                    className="text-sm text-muted-foreground"
+                    className={cn(
+                        'text-sm text-muted-foreground',
+                        quiet && 'sr-only'
+                    )}
                 >
                     {status}
                 </span>
@@ -211,7 +140,7 @@ function GearHead({
                     </div>
                 )}
             </div>
-            <p className="mt-1 mb-3.5 flex min-h-4.75 flex-wrap items-center gap-x-1.5 text-[0.8125rem] text-muted-foreground">
+            <p className="mt-3.5 mb-3.5 flex min-h-6 flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                 {!file ? (
                     'Every slot fills in from your export.'
                 ) : planShown ? (
@@ -238,29 +167,37 @@ function slotCount(count: number): string {
 }
 
 /**
- * The total line (spec section 4): `↓ 195.2 EP in total below the sim's
- * best set, across 12 slots, plus 6.0 DPS on weapons.`, its number in
- * monospace, and an "i" saying it is an estimate.
+ * The total line (spec section 4), as the owner's design draws it: the gap
+ * in an orange badge, `[↓ 195.2 EP]`, then `in total below the sim's best
+ * set, across 12 slots, plus 6.0 DPS on weapons.`, and an "i" saying it is
+ * an estimate.
  */
 function TotalLine({ total }: { total: GapTotal }) {
-    const number = (value: number) => (
-        <span className="font-mono font-bold text-foreground">
-            {`↓ ${value.toFixed(1)}`}
+    const badge = (value: number, unit: 'EP' | 'DPS') => (
+        <span
+            data-total-badge
+            className="inline-flex items-center rounded-sm bg-primary px-1.5 py-px font-mono text-sm font-bold text-primary-foreground"
+        >
+            {`↓ ${value.toFixed(1)} ${unit}`}
         </span>
     )
     const hasEp = total.epSlots > 0
     const hasDps = total.dpsSlots > 0
     const line = hasEp ? (
-        <span>
-            {number(total.ep)}
-            {` EP in total below the sim's best set, across ${slotCount(total.epSlots)}`}
-            {hasDps ? `, plus ${total.dps.toFixed(1)} DPS on weapons.` : '.'}
-        </span>
+        <>
+            {badge(total.ep, 'EP')}{' '}
+            <span>
+                {`in total below the sim's best set, across ${slotCount(total.epSlots)}`}
+                {hasDps
+                    ? `, plus ${total.dps.toFixed(1)} DPS on weapons.`
+                    : '.'}
+            </span>
+        </>
     ) : hasDps ? (
-        <span>
-            {number(total.dps)}
-            {" DPS below the sim's best set, on weapons."}
-        </span>
+        <>
+            {badge(total.dps, 'DPS')}{' '}
+            <span>below the sim&apos;s best set, on weapons.</span>
+        </>
     ) : (
         <span>Every slot matches the sim&apos;s best set.</span>
     )
@@ -286,7 +223,7 @@ function TotalLine({ total }: { total: GapTotal }) {
  * @param middle - What sits in the middle before a file loads.
  * @param headingRef - The heading (`gear-heading`), focused when a picked
  * file loads.
- * @param onOpenTalents - Opens the talents dialog (the pill on the figure).
+ * @param onOpenTalents - Opens the talents dialog (the pill on the sheet).
  * @param onWearBag - Equip: puts a bag upgrade on.
  * @param onWearAllBags - Equip all: puts every bag upgrade on.
  * @param onUndoBag - Undo: takes them off again.
@@ -339,12 +276,33 @@ export function GearPane({
             onOpen={file ? onOpenSlot : undefined}
         />
     )
+    const art = file
+        ? characterArt(
+              file.character.race,
+              file.character.class,
+              file.character.gender
+          )
+        : null
     return (
         <section
             aria-labelledby="gear-heading"
             data-slot="gear-pane"
-            className="rounded-[1.125rem] border bg-card px-5.5 pt-4 pb-4.5 text-card-foreground"
+            className="relative isolate overflow-hidden rounded-[1.125rem] border bg-card px-5.5 pt-5 pb-4.5 text-card-foreground"
         >
+            {/* The owner's design: the art fills the card, centred and
+                cropped to it, behind the tiles' glass. Decorative; its
+                size from the manifest, so nothing shifts as it loads. */}
+            {art && (
+                <img
+                    data-slot="character-art"
+                    src={art.url}
+                    width={art.width}
+                    height={art.height}
+                    alt=""
+                    decoding="async"
+                    className="pointer-events-none absolute inset-0 -z-10 size-full object-cover"
+                />
+            )}
             <GearHead
                 file={file}
                 plan={plan}
@@ -355,15 +313,15 @@ export function GearPane({
                 onShowWorn={onShowWorn}
             />
             {/* Ours: the doll lays out by the pane's own width (a container
-                query), not the window's: the mockup's three columns around
-                the figure (two 16.75rem slot columns, 2.125rem gaps for the
-                pills) from 49rem, two columns under the figure from 30rem,
-                else one. */}
+                query), not the window's: the owner's design's three columns
+                around the middle (two 16.75rem slot columns, 0.875rem gaps)
+                from 49rem, two columns under the middle from 30rem, else
+                one. */}
             <div className="@container/doll">
-                <div className="grid grid-cols-1 gap-x-3.5 gap-y-2.5 @min-[30rem]/doll:grid-cols-2 @min-[49rem]/doll:grid-cols-[16.75rem_minmax(0,1fr)_16.75rem] @min-[49rem]/doll:gap-x-8.5 @min-[49rem]/doll:gap-y-0">
+                <div className="grid grid-cols-1 gap-x-3.5 gap-y-3 @min-[30rem]/doll:grid-cols-2 @min-[49rem]/doll:grid-cols-[16.75rem_minmax(0,1fr)_16.75rem] @min-[49rem]/doll:gap-y-0">
                     <div
                         data-slot="slots-left"
-                        className="flex flex-col gap-2 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
+                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
                     >
                         {LEFT_SLOTS.map((name) => slot(name, 'left'))}
                         {file && step && (
@@ -382,26 +340,32 @@ export function GearPane({
                     </div>
                     <div
                         data-slot="doll-middle"
-                        className="order-first flex min-w-0 flex-col items-center @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
-                    >
-                        <Figure faded={file === null} />
-                        {file && (
-                            <TalentsPill
-                                talents={file.talents}
-                                onOpen={onOpenTalents}
-                            />
+                        className={cn(
+                            'order-first flex min-w-0 flex-col items-center @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2',
+                            file ? 'justify-end' : 'justify-center'
                         )}
-                        {file ? <CharacterSheet file={file} /> : middle}
+                    >
+                        {file ? (
+                            <div className="flex w-full max-w-76 flex-col">
+                                <TalentsPill
+                                    talents={file.talents}
+                                    onOpen={onOpenTalents}
+                                />
+                                <CharacterSheet file={file} />
+                            </div>
+                        ) : (
+                            middle
+                        )}
                     </div>
                     <div
                         data-slot="slots-right"
-                        className="flex flex-col gap-2 @min-[30rem]/doll:col-start-2 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:col-start-3 @min-[49rem]/doll:row-start-1"
+                        className="flex flex-col gap-3 @min-[30rem]/doll:col-start-2 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:col-start-3 @min-[49rem]/doll:row-start-1"
                     >
                         {RIGHT_SLOTS.map((name) => slot(name, 'right'))}
                     </div>
                     <div
                         data-slot="slots-bottom"
-                        className="mt-5 flex flex-wrap justify-center gap-x-7.5 gap-y-4 @min-[30rem]/doll:col-span-2 @min-[49rem]/doll:col-span-3 @min-[49rem]/doll:flex-nowrap [&>*]:w-full [&>*]:min-w-0 @min-[30rem]/doll:[&>*]:w-67 @min-[49rem]/doll:[&>*]:shrink"
+                        className="mt-6 flex flex-wrap justify-center gap-x-7.5 gap-y-4 @min-[30rem]/doll:col-span-2 @min-[49rem]/doll:col-span-3 @min-[49rem]/doll:flex-nowrap [&>*]:w-full [&>*]:min-w-0 @min-[30rem]/doll:[&>*]:w-67 @min-[49rem]/doll:[&>*]:shrink"
                     >
                         {bottomSlots(file).map((name) => slot(name, 'bottom'))}
                     </div>

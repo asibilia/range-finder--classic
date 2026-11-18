@@ -1,13 +1,16 @@
 /**
- * Simulator Data (spec #109, section 2): six readings in three columns.
- * The top row is the DPS of a short and a long single fight (`Solo` and
- * `Dungeon` in the sample) whatever fight is picked, then `Resource Empty`
- * (when you run out of mana); the bottom row is `Health`, `Armor` and
- * `Lifespan` (time to die vs an elite), for the fight picked in the fight
- * settings. Each reading is its label (with an "i" where it has one), its
- * number with a small unit and, under it, how far what you wear is below
- * the sim's plan (`↓ 14.7`), when it is. In the plan view the numbers are
- * the plan's, each with its change from what you wear (`+8.7`).
+ * Simulator Data (spec #109, section 2, and the owner's design): six
+ * readings in three columns. The top row is the DPS of a short and a long
+ * single fight (`Solo` and `Dungeon` in the sample) whatever fight is
+ * picked, then `Resource Empty` (when you run out of mana); the bottom row
+ * is `Health`, `Armor` and `Lifespan` (time to die vs an elite), for the
+ * fight picked in the fight settings. Each reading is its label (with an
+ * "i" where it has one), its number in bold JetBrains Mono with a small
+ * unit and, under it, its gap from the sim's plan (owner decision A):
+ * orange `↓ 14.7` when what you wear is below the plan, green `+ 32.8` when
+ * it beats it, nothing when they match. Resource Empty and Lifespan are
+ * written in hundredths (decision B). In the plan view the numbers are the
+ * plan's, each with its change from what you wear (`+8.7`).
  */
 import { useId } from 'react'
 
@@ -22,6 +25,7 @@ import { cn } from '@/lib/utils'
 import {
     fightDetail,
     type GapReading,
+    READING_DECIMALS,
     readingGap,
     shortLabel,
     shortLength,
@@ -45,11 +49,13 @@ type Reading = {
     label: string
     fightId: string
     unit?: 'DPS' | 'sec'
+    /** What its gap is read out in: `DPS`, `sec`, `health`, `armor`. */
+    spokenUnit: string
     tone: Tone
     /** What its "i" says, when it has one. */
     info?: string
-    /** Which gap below the plan it shows, when it has one. */
-    gap?: GapReading
+    /** Which gap from the plan it shows. */
+    gap: GapReading
     read: (result: Result) => string
     /** The change from what you wear, or null when there is none to say. */
     change: (plan: Result, worn: Result) => string | null
@@ -64,6 +70,7 @@ function dps(fight: Fight, label: string, level: number): Reading {
         label,
         fightId: fight.fight_id,
         unit: 'DPS',
+        spokenUnit: 'DPS',
         tone: 'dps',
         info: fightDetail(fight, level),
         gap: 'dps',
@@ -90,6 +97,11 @@ function dpsReadings(fights: Fight[], level: number): Reading[] {
     )
 }
 
+/** Seconds in hundredths (owner decision B): `15.20`. */
+function hundredths(value: number): string {
+    return value.toFixed(READING_DECIMALS.resource)
+}
+
 function forFight(fight: Fight): Reading[] {
     const fightId = fight.fight_id
     return [
@@ -97,6 +109,7 @@ function forFight(fight: Fight): Reading[] {
             label: 'Resource Empty',
             fightId,
             unit: 'sec',
+            spokenUnit: 'sec',
             tone: 'good',
             info: RESOURCE_INFO,
             gap: 'resource',
@@ -105,26 +118,30 @@ function forFight(fight: Fight): Reading[] {
                     ? NOT_SIMMED
                     : result.out_of_mana_s === 'never'
                       ? 'Never'
-                      : String(Math.floor(result.out_of_mana_s)),
+                      : hundredths(result.out_of_mana_s),
             change: (plan, worn) => {
                 const a = seconds(plan.out_of_mana_s)
                 const b = seconds(worn.out_of_mana_s)
                 if (a === null || b === null) return null
-                const change = signed(Math.floor(a) - Math.floor(b), 0)
+                const change = signed(a - b, READING_DECIMALS.resource)
                 return change && `${change} s ${a > b ? 'later' : 'sooner'}`
             },
         },
         {
             label: 'Health',
             fightId,
+            spokenUnit: 'health',
             tone: 'good',
+            gap: 'health',
             read: (result) => String(result.health),
             change: (plan, worn) => signed(plan.health - worn.health, 0),
         },
         {
             label: 'Armor',
             fightId,
+            spokenUnit: 'armor',
             tone: 'good',
+            gap: 'armor',
             read: (result) => String(result.armor),
             change: (plan, worn) => signed(plan.armor - worn.armor, 0),
         },
@@ -132,20 +149,20 @@ function forFight(fight: Fight): Reading[] {
             label: 'Lifespan',
             fightId,
             unit: 'sec',
+            spokenUnit: 'sec',
             tone: 'good',
             info: `How long you'd last against a level ${fight.target_level} elite in this fight.`,
             gap: 'lifespan',
             read: (result) =>
                 result.time_to_die_s === null
                     ? NOT_SIMMED
-                    : String(Math.round(result.time_to_die_s)),
+                    : hundredths(result.time_to_die_s),
             change: (plan, worn) => {
                 if (plan.time_to_die_s === null || worn.time_to_die_s === null)
                     return null
                 const change = signed(
-                    Math.round(plan.time_to_die_s) -
-                        Math.round(worn.time_to_die_s),
-                    0
+                    plan.time_to_die_s - worn.time_to_die_s,
+                    READING_DECIMALS.lifespan
                 )
                 return change && `${change} s`
             },
@@ -220,19 +237,39 @@ export function Provisional({ text = PROVISIONAL_TEXT }: { text?: string }) {
 }
 
 /**
- * How far what you wear is below the plan: `↓ 14.7` and the `best` icon,
- * read out as `14.7 DPS below the sim's plan`.
+ * A reading's gap from the plan (owner decision A): below it, orange
+ * `↓ 14.7` and the `best` icon, read out as `14.7 DPS below the sim's
+ * plan`; above it, green `+ 32.8` and the `owned` icon, read out as `32.8
+ * DPS above the sim's plan`.
  */
-function GapLine({ gap, unit }: { gap: string; unit: 'DPS' | 'sec' }) {
+function GapLine({
+    gap,
+    decimals,
+    unit,
+}: {
+    /** The signed gap: above zero, what you wear is below the plan. */
+    gap: number
+    decimals: number
+    unit: string
+}) {
+    const below = gap > 0
     return (
         <dd
-            data-reading-gap
-            className="flex min-h-4.5 items-center gap-1 text-[0.78125rem] font-bold text-primary"
+            data-reading-gap={below ? 'below' : 'above'}
+            className={cn(
+                'flex min-h-4.5 items-center gap-1.5 font-mono text-xs font-bold',
+                below ? 'text-primary' : 'text-owned'
+            )}
         >
-            <span aria-hidden="true">↓</span>{' '}
-            <span className="font-mono">{gap}</span>
-            <span className="sr-only">{` ${unit} below the sim's plan`}</span>
-            <SimBestIcon variant="best" />
+            <span aria-hidden="true">{below ? '↓' : '+'}</span>{' '}
+            <span>{Math.abs(gap).toFixed(decimals)}</span>
+            <span className="sr-only">
+                {` ${unit} ${below ? 'below' : 'above'} the sim's plan`}
+            </span>
+            <SimBestIcon
+                variant={below ? 'best' : 'owned'}
+                className="ml-0.5 size-3.5"
+            />
         </dd>
     )
 }
@@ -280,16 +317,15 @@ export function Readings({
 
     return (
         <section aria-labelledby={headingId}>
-            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <h2 id={headingId} className="text-xl leading-tight">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <h2 id={headingId} className="text-xl">
                     Simulator Data
                 </h2>
-                <span className="text-[0.8125rem] text-muted-foreground">
-                    {showPlan
-                        ? "for the sim's plan, vs what you wear"
-                        : 'for what you wear'}
-                </span>
-                {file.provisional && <Provisional />}
+                {showPlan && (
+                    <span className="text-sm text-muted-foreground">
+                        for the sim&apos;s plan
+                    </span>
+                )}
             </div>
             <dl
                 aria-live="polite"
@@ -308,16 +344,16 @@ export function Readings({
                             ? reading.change(planResult, worn)
                             : null
                     const gap =
-                        !showPlan && reading.gap && planResult && worn
+                        !showPlan && planResult && worn
                             ? readingGap(reading.gap, worn, planResult)
                             : null
                     return (
                         <div
                             key={`${reading.fightId}:${reading.label}`}
                             data-reading={reading.label}
-                            className="border-b pt-2.5 pr-2 pb-2.25"
+                            className="border-b pt-3.5 pr-2 pb-3"
                         >
-                            <dt className="flex min-h-5 items-center gap-1 text-[0.78125rem] leading-tight text-muted-foreground">
+                            <dt className="flex min-h-5 items-center gap-1 text-sm text-muted-foreground">
                                 {reading.label}
                                 {reading.info && (
                                     <InfoButton
@@ -326,20 +362,20 @@ export function Readings({
                                     />
                                 )}
                             </dt>
-                            <dd className="mt-0.75">
+                            <dd className="mt-1 flex min-h-8.5 items-baseline">
                                 <span
                                     data-reading-value
                                     className={cn(
                                         'tabular-nums',
                                         words
                                             ? 'text-lg'
-                                            : 'font-mono text-[1.625rem] leading-tight whitespace-nowrap'
+                                            : 'font-mono text-stat font-bold whitespace-nowrap'
                                     )}
                                 >
                                     {value}
                                 </span>
                                 {reading.unit && result && !words && (
-                                    <small className="ml-0.75 text-[0.8125rem] text-muted-foreground">
+                                    <small className="ml-1.5 font-mono text-sm text-muted-foreground">
                                         {reading.unit}
                                     </small>
                                 )}
@@ -348,7 +384,7 @@ export function Readings({
                                 <dd
                                     data-reading-change
                                     className={cn(
-                                        'min-h-4.5 text-[0.78125rem] font-bold',
+                                        'min-h-4.5 font-mono text-xs font-bold',
                                         change?.startsWith('-')
                                             ? 'text-muted-foreground'
                                             : reading.tone === 'dps'
@@ -358,14 +394,11 @@ export function Readings({
                                 >
                                     {change ?? ''}
                                 </dd>
-                            ) : gap !== null && reading.unit ? (
+                            ) : gap !== null ? (
                                 <GapLine
-                                    gap={
-                                        reading.gap === 'dps'
-                                            ? gap.toFixed(1)
-                                            : String(gap)
-                                    }
-                                    unit={reading.unit}
+                                    gap={gap}
+                                    decimals={READING_DECIMALS[reading.gap]}
+                                    unit={reading.spokenUnit}
                                 />
                             ) : (
                                 <dd aria-hidden="true" className="min-h-4.5" />

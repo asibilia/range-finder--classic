@@ -1,7 +1,8 @@
 /**
  * The Vite plugin that serves the owner's latest results file in dev
- * (`vite-plugin-latest.ts`): `/local/latest.json` and
- * `/local/latest-status.json`, read through an untracked config. This runs
+ * (`vite-plugin-latest.ts`): `/local/latest.json`,
+ * `/local/latest-status.json` and `/local/latest-export.lua`, read through
+ * an untracked config. This runs
  * the plugin in a real Vite dev server in middleware mode (no port), with a
  * temporary config and files, never the owner's.
  */
@@ -234,13 +235,39 @@ describe('vite-plugin-latest in dev', () => {
         expect((await get(dev, '/local/../x')).status).toBe(404)
     }, 60_000)
 
-    test('answers 403 to a request whose Host is not localhost', async () => {
-        const { config } = localSetup()
+    test('serves the export beside the latest file at /local/latest-export.lua (no-store, as text), 404 without it', async () => {
+        const { config, dir } = localSetup()
         const dev = await startServer(config)
-        const { status } = await get(dev, '/local/latest.json', {
-            host: 'example.com',
-        })
-        expect(status).toBe(403)
+        expect((await get(dev, '/local/latest-export.lua')).status).toBe(404)
+
+        const text = 'TurboCharExportDB = {}\n'
+        writeFileSync(join(dir, 'latest-export.lua'), text)
+        const present = await get(dev, '/local/latest-export.lua')
+        expect(present.status).toBe(200)
+        expect(present.body.toString()).toBe(text)
+        expect(present.headers['cache-control']).toBe('no-store')
+    }, 60_000)
+
+    test('the export answers 404 without a latest file, even when a file of that name exists elsewhere', async () => {
+        const dir = folder()
+        writeFileSync(join(dir, 'latest-export.lua'), 'x')
+        const config = join(folder(), '.local.json')
+        writeFileSync(
+            config,
+            JSON.stringify({ latest_results_file: join(dir, 'latest.json') })
+        )
+        const dev = await startServer(config)
+        expect((await get(dev, '/local/latest-export.lua')).status).toBe(404)
+    }, 60_000)
+
+    test('answers 403 to a request whose Host is not localhost', async () => {
+        const { config, dir } = localSetup()
+        writeFileSync(join(dir, 'latest-export.lua'), 'x')
+        const dev = await startServer(config)
+        for (const path of ['/local/latest.json', '/local/latest-export.lua']) {
+            const { status } = await get(dev, path, { host: 'example.com' })
+            expect(status).toBe(403)
+        }
     }, 60_000)
 })
 

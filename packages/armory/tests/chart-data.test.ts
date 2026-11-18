@@ -7,6 +7,8 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     averageWords,
+    bucketSeconds,
+    dpsBuckets,
     fightChartData,
     pullChartData,
     splitParts,
@@ -40,18 +42,32 @@ describe('the fight chart data', () => {
     const worn = result(sample, 'worn', 'dungeon-long')
     const plan = result(sample, 'max-damage', 'dungeon-long')
 
-    test('joins what you wear and the plan on time: 25 points, 4 series', () => {
+    test("joins what you wear and the plan on time: 25 points, 4 series, DPS as each point's 15-second group average", () => {
         const data = fightChartData(long, worn, plan)!
         expect(data.withPlan).toBe(true)
         expect(data.duration_s).toBe(120)
         expect(data.points).toHaveLength(25)
+        const mean = (values: number[]) =>
+            values.reduce((sum, value) => sum + value, 0) / values.length
+        const first = (timeline: { dps: number }[]) =>
+            mean(timeline.slice(0, 3).map((point) => point.dps))
+        const group = {
+            start_s: 0,
+            end_s: 15,
+            dps_worn: first(worn.timeline!),
+            dps_plan: first(plan.timeline!),
+        }
         expect(data.points[0]).toEqual({
             t_s: 0,
-            dps_worn: worn.timeline![0]!.dps,
+            dps_worn: group.dps_worn,
             mana_worn: 1660,
-            dps_plan: plan.timeline![0]!.dps,
+            dps_plan: group.dps_plan,
             mana_plan: plan.timeline![0]!.mana,
+            bar: group,
         })
+        // Only a group's first point carries it, so it is drawn once.
+        expect(data.points[1]!.bar).toBeUndefined()
+        expect(data.points[1]!.dps_worn).toBe(group.dps_worn)
         expect(data.points.map((point) => point.t_s)).toEqual(
             Array.from({ length: 25 }, (_, index) => index * 5)
         )
@@ -108,10 +124,10 @@ describe('the fight chart data', () => {
         )
         expect(averages.spacing_s).toBe(5)
         expect(averageWords(averages, 'Max damage')).toBe(
-            `Average about ${averages.worn.toFixed(1)} DPS in what you wear, ${averages.plan!.toFixed(1)} with the sim's plan (max damage). Points every 5 seconds.`
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear, ${averages.plan!.toFixed(1)} with the sim's plan (max damage). Bars every 5 seconds.`
         )
         expect(averageWords({ ...averages, plan: null }, null)).toBe(
-            `Average about ${averages.worn.toFixed(1)} DPS in what you wear. Points every 5 seconds.`
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear. Bars every 5 seconds.`
         )
         const uneven = {
             ...worn,
@@ -128,13 +144,74 @@ describe('the fight chart data', () => {
         })
     })
 
+    test('bucket seconds: the smallest of 5, 10, 15, 20, 30, 60, 120 at least a tenth of the fight (2 min: 15 s; 30 s: 5 s)', () => {
+        expect(bucketSeconds(120)).toBe(15)
+        expect(bucketSeconds(30)).toBe(5)
+        expect(bucketSeconds(50)).toBe(5)
+        expect(bucketSeconds(51)).toBe(10)
+        expect(bucketSeconds(180)).toBe(20)
+        expect(bucketSeconds(300)).toBe(30)
+        expect(bucketSeconds(600)).toBe(60)
+        expect(bucketSeconds(1200)).toBe(120)
+        expect(bucketSeconds(3600)).toBe(120)
+    })
+
+    test('2 minutes in 15-second groups: 8 groups, the end point in the last, each the average of its points', () => {
+        const data = fightChartData(long, worn, plan)!
+        expect(data.bar_s).toBe(15)
+        expect(data.bars).toHaveLength(8)
+        expect(data.bars.map((bar) => bar.start_s)).toEqual([
+            0, 15, 30, 45, 60, 75, 90, 105,
+        ])
+        expect(data.bars.at(-1)!.end_s).toBe(120)
+        const dps = worn.timeline!.map((point) => point.dps)
+        // 105, 110, 115 and the end point at 120.
+        const last = dps.slice(21)
+        expect(last).toHaveLength(4)
+        expect(data.bars.at(-1)!.dps_worn).toBeCloseTo(
+            last.reduce((sum, value) => sum + value, 0) / 4,
+            9
+        )
+        expect(data.points.filter((point) => point.bar)).toHaveLength(8)
+    })
+
+    test('30 seconds of 1-second points in 5-second groups: 6 groups of 5 points', () => {
+        const points = Array.from({ length: 30 }, (_, t_s) => ({
+            t_s,
+            dps_worn: t_s,
+        }))
+        const { groups } = dpsBuckets(points, 30, bucketSeconds(30))
+        expect(groups).toHaveLength(6)
+        expect(groups[0]).toEqual({ start_s: 0, end_s: 5, dps_worn: 2 })
+        expect(groups[5]).toEqual({ start_s: 25, end_s: 30, dps_worn: 27 })
+    })
+
+    test('a partial last group ends at the fight end and is averaged over its own points; a series with no points there is absent', () => {
+        // A 23-second fight in 5-second groups: the last is 20 to 23 s.
+        const points = [
+            { t_s: 0, dps_worn: 10, dps_plan: 1 },
+            { t_s: 4, dps_worn: 30, dps_plan: 3 },
+            { t_s: 20, dps_worn: 50 },
+            { t_s: 22, dps_worn: 70 },
+        ]
+        const { groups, groupOf } = dpsBuckets(points, 23, 5)
+        expect(groups).toEqual([
+            { start_s: 0, end_s: 5, dps_worn: 20, dps_plan: 2 },
+            { start_s: 20, end_s: 23, dps_worn: 60 },
+        ])
+        expect(groupOf).toEqual([0, 0, 1, 1])
+    })
+
     test('without a plan timeline: only what you wear, no plan marker', () => {
         const data = fightChartData(long, worn, { ...plan, timeline: null })!
         expect(data.withPlan).toBe(false)
+        const average =
+            worn.timeline!.slice(0, 3).reduce((sum, p) => sum + p.dps, 0) / 3
         expect(data.points[0]).toEqual({
             t_s: 0,
-            dps_worn: worn.timeline![0]!.dps,
+            dps_worn: average,
             mana_worn: 1660,
+            bar: { start_s: 0, end_s: 15, dps_worn: average },
         })
         expect(data.markers.map((marker) => marker.who)).toEqual(['worn'])
     })
@@ -281,13 +358,27 @@ describe('the stat weights', () => {
 
 describe('fight words and axis ticks', () => {
     test('a single fight reads as the mockup words it; a chain keeps its label', () => {
-        expect(fightWords(fight(sample, 'dungeon-long'))).toBe(
-            'Dungeon, 2 minutes vs level 33'
+        const level = sample.character.level
+        expect(fightWords(fight(sample, 'dungeon-long'), level)).toBe(
+            'Dungeon vs a level 33 mob (+3), 2 minutes'
         )
-        expect(fightWords(fight(sample, 'solo-hit-short'))).toBe(
-            'Solo, 30 seconds vs level 31'
+        expect(fightWords(fight(sample, 'solo-hit-short'), level)).toBe(
+            'Solo vs a level 31 mob (+1), 30 seconds'
         )
-        expect(fightWords(fight(sample, 'chain-4'))).toBe(
+        expect(fightWords(fight(sample, 'solo-hit-short'), 31)).toBe(
+            'Solo vs a level 31 mob (your level), 30 seconds'
+        )
+        // The level is said once, however the file labels its fights.
+        expect(
+            fightWords(
+                {
+                    ...fight(sample, 'dungeon-long'),
+                    label: 'Dungeon vs a level 33 mob (+3)',
+                },
+                level
+            )
+        ).toBe('Dungeon vs a level 33 mob (+3), 2 minutes')
+        expect(fightWords(fight(sample, 'chain-4'), level)).toBe(
             fight(sample, 'chain-4').label
         )
     })

@@ -44,6 +44,7 @@ import {
     chainFor,
     DEFAULT_FIGHT,
     fightEntry,
+    type FightOverride,
     scenariosFor,
     type Scenario,
 } from './scenarios'
@@ -134,16 +135,20 @@ export function supportedSpec(
     return { spec }
 }
 
-/** Every fight in `gear`: the three single fights, then the chain. */
+/**
+ * Every fight in `gear`: the three single fights, then the chain (`fight`:
+ * the page's settings for them).
+ */
 async function simAll(
     pool: SimPool,
     character: Character,
     gear: Gear,
     sheet: Sheet,
     names: (id: number) => string | undefined,
-    spellNames: SpellNames
+    spellNames: SpellNames,
+    fight?: FightOverride
 ): Promise<{ singles: SimmedFight[]; chain: FightResult }> {
-    const fights = scenariosFor(character.level)
+    const fights = scenariosFor(character.level, fight)
     const [singles, chain] = await Promise.all([
         Promise.all(
             fights.map((fight) =>
@@ -161,7 +166,7 @@ async function simAll(
         simSession(
             pool,
             character,
-            chainFor(character.level),
+            chainFor(character.level, fight?.gap_s),
             gear,
             sheet,
             names,
@@ -258,12 +263,15 @@ export function characterCalls(character: Character): number {
  * makes a results file, or stops. `onProgress` hears `(done, planned)`:
  * `planned` starts at `characterCalls` and only comes down, as the run
  * learns it needs fewer calls, so the fraction done never goes back.
+ * `fight` (Run Simulator) sims the long dungeon fight and the chain with
+ * the page's settings (`scenariosFor`); absent, the fixed fights.
  */
 export async function simCharacter(
     character: Character,
     weights: StatWeights,
     pool: SimPool,
-    onProgress: (done: number, planned: number) => void
+    onProgress: (done: number, planned: number) => void,
+    fight?: FightOverride
 ): Promise<SimOutcome> {
     const trees = await talentTrees(pool, character.class)
     const { spec, stop } = supportedSpec(
@@ -274,8 +282,8 @@ export async function simCharacter(
     if (stop) return stop
 
     const level = character.level
-    const fights = scenariosFor(level)
-    const chain = chainFor(level)
+    const fights = scenariosFor(level, fight)
+    const chain = chainFor(level, fight?.gap_s)
     const longFight = fights.find((f) => f.fight_id === DEFAULT_FIGHT)!
     let callsPlanned = characterCalls(character)
     let callsDone = 0
@@ -408,7 +416,8 @@ export async function simCharacter(
                     planned.gear,
                     planSheet,
                     names,
-                    spellNames
+                    spellNames,
+                    fight
                 )
                 return { planned, planSims }
             }
@@ -459,6 +468,7 @@ export async function simCharacter(
                 race: character.race,
                 class: character.class,
                 spec,
+                ...(character.gender ? { gender: character.gender } : {}),
             },
             sheet_buffed: character.sheet_buffs !== undefined,
             sheet: fileSheet(character.sheet),

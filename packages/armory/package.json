@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@base-ui/react": "catalog:",
+    "@fontsource/jetbrains-mono": "catalog:",
     "@goturbo/sim": "workspace:*",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",

@@ -13,9 +13,10 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
-import { BringIn, type ReadError } from '@/components/bring-in'
+import { BringIn, type ReadError, stopLines } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
 import { FightBand } from '@/components/fight-band'
+import { FightSettingsForm } from '@/components/fight-settings-form'
 import { GearPane } from '@/components/gear-pane'
 import { InfoIcon } from '@/components/info'
 import {
@@ -26,7 +27,11 @@ import {
 import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
-import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
+import {
+    COMING_SOON_NOTE,
+    LockedSimPanel,
+    SimPanel,
+} from '@/components/sim-panel'
 import {
     PHONE_QUERY,
     SIM_CREDIT,
@@ -47,6 +52,8 @@ import {
     type SimStop,
     weightsIterations,
 } from './browser-sim'
+import { characterArt } from './character-art'
+import { type FightSettings, fightFor, fightOverride } from './fight-settings'
 import type { Item } from './gains'
 import {
     initialPlannerState,
@@ -94,7 +101,9 @@ async function readFile(
 export const FORGOTTEN_NOTE =
     'The results file this browser kept no longer reads, so it was forgotten.'
 
-const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
+/** The right column's place from 90rem: column 2, down both rows. */
+const SIDE_PLACE =
+    'min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1'
 
 /**
  * The page's header: `Armory` and the tagline under it (the character is
@@ -118,10 +127,10 @@ function Header({
     return (
         <header className="flex flex-wrap items-end gap-6">
             <div>
-                <h1 className="text-[2.625rem] leading-none tracking-[0.01em]">
+                <h1 className="text-display leading-none tracking-[0.01em]">
                     Armory
                 </h1>
-                <p className="mt-1.5 text-muted-foreground">
+                <p className="mt-2.5 text-muted-foreground">
                     See your gear, what the sim would change, and how a fight
                     plays out.
                 </p>
@@ -145,8 +154,8 @@ function Header({
                     </Button>
                 )}
                 <Button
-                    variant="outline"
-                    className={PILL}
+                    variant="pill"
+                    className="h-auto px-4 py-1.5 text-base"
                     aria-haspopup="dialog"
                     disabled={!file}
                     onClick={onOpenPawn}
@@ -159,23 +168,35 @@ function Header({
 }
 
 /**
- * The footer, where the mockup has its own: the sample note (a sample file
- * has made-up numbers), how sure the sim is (its checks), the line on
- * the art, and the sim's credit while it runs and once a file loads.
+ * The footer, where the mockup has its own: where the file came from (kept
+ * in this browser, or dev only, loaded from this computer), the sample note
+ * (a sample file has made-up numbers), how sure the sim is (its checks), the
+ * line on the art, and the sim's credit while it runs and once a file loads.
  */
 function Footer({
     file,
     remembered,
     credit,
+    localLine,
     onForget,
 }: {
     file: ResultsFile | null
     remembered: boolean
     credit: boolean
+    /** Dev only: `Loaded from this computer, made Nov. 17`, or null. */
+    localLine: ReactNode
     onForget: () => void
 }) {
+    const art = file
+        ? characterArt(
+              file.character.race,
+              file.character.class,
+              file.character.gender
+          )
+        : null
     return (
         <footer className="mt-7 flex flex-col gap-2 text-[0.78125rem] text-muted-foreground">
+            {localLine}
             {file && remembered && (
                 <p>
                     This file is kept in this browser only.{' '}
@@ -202,10 +223,17 @@ function Footer({
                         <span>Sim numbers are provisional.</span>{' '}
                     </>
                 )}
-                <span>
-                    Not affiliated with the game&apos;s publisher; all art here
-                    is original placeholder.
-                </span>
+                {art ? (
+                    <span>
+                        Not affiliated with the game&apos;s publisher. Character
+                        art is the owner&apos;s own.
+                    </span>
+                ) : (
+                    <span>
+                        Not affiliated with the game&apos;s publisher; all art
+                        here is original placeholder.
+                    </span>
+                )}
             </p>
             {file && (
                 <Checks checks={file.checks} leftOut={file.left_out_items} />
@@ -228,7 +256,11 @@ function isExport(file: File): boolean {
 }
 
 /** A character simmed from an export dropped in this visit, for Refine. */
-type Simmed = { character: Character; minutes: number }
+/**
+ * The character behind the file shown, when this visit simmed it: Refine's
+ * estimate, and the export it came from (Run Simulator sims it again).
+ */
+type Simmed = { character: Character; minutes: number; exportText: string }
 
 /**
  * The armory planner's page. A render error in it is caught by the home
@@ -239,13 +271,18 @@ type Simmed = { character: Character; minutes: number }
  * @param localLatest - Dev only: open on the owner's latest results file
  * from the dev server, and follow it (`components/latest-file.tsx`). Off
  * in a build.
+ * @param runSimulator - Whether Run Simulator may run the browser sim. Off
+ * until the browser reads the current export formats (8 to 10): the button
+ * shows, disabled, with `Coming soon: running the sim here.` Tests turn it on.
  */
 export function App({
     createPool = createSimPool,
     localLatest = import.meta.env.DEV,
+    runSimulator: runSimulatorOn = false,
 }: {
     createPool?: () => SimPool
     localLatest?: boolean
+    runSimulator?: boolean
 } = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
@@ -263,6 +300,14 @@ export function App({
     // The character behind the file shown, when this visit simmed it.
     const [simmed, setSimmed] = useState<Simmed | null>(null)
     const [refining, setRefining] = useState<SimCount | null>(null)
+    // Run Simulator's progress, while it runs.
+    const [running, setRunning] = useState<SimCount | null>(null)
+    // Why the last Run Simulator didn't replace the file, or null.
+    const [runProblem, setRunProblem] = useState<string | null>(null)
+    // Where the fight settings are (Run Simulator sims them).
+    const [fightSettings, setFightSettings] = useState<FightSettings | null>(
+        null
+    )
     const [phone, setPhone] = useState(false)
 
     const pool = useRef<SimPool | null>(null)
@@ -287,11 +332,13 @@ export function App({
     const openSimmed = (
         outcome: Extract<SimExportOutcome, { kind: 'file' }>,
         size: number,
-        focus: boolean
+        focus: boolean,
+        exportText: string
     ) => {
         const kept = rememberFile(JSON.stringify(outcome.file))
         open({ file: outcome.file, error: null }, kept, focus)
         setSimmed({
+            exportText,
             character: outcome.character,
             minutes: estimateMinutes(
                 weightsIterations(outcome.character.level),
@@ -336,7 +383,8 @@ export function App({
             if (run.current !== id) return
             setSimming(null)
             setWeightsFirst(null)
-            if (outcome.kind === 'file') openSimmed(outcome, simPool.size, true)
+            if (outcome.kind === 'file')
+                openSimmed(outcome, simPool.size, true, text)
             else setStop(outcome)
         } catch (error) {
             if (run.current !== id || error instanceof SimCancelled) return
@@ -386,6 +434,7 @@ export function App({
         setSimming(null)
         setWeightsFirst(null)
         setRefining(null)
+        setRunning(null)
     }
 
     /** A Refine still running is stopped when its file goes away. */
@@ -412,10 +461,66 @@ export function App({
             setRefining(null)
             // A refined run that stops keeps the file shown.
             if (outcome.kind === 'file')
-                openSimmed(outcome, simPool.size, false)
+                openSimmed(outcome, simPool.size, false, simmed.exportText)
         } catch {
             // Cancelled, or the sim failed: the unrefined file stays.
             if (run.current === id) setRefining(null)
+        }
+    }
+
+    /**
+     * Run Simulator: sims the export behind the file shown again with the
+     * fight settings, and shows the new file on the fight they pick (the
+     * long dungeon fight takes them, see `scenariosFor`). A run that
+     * stops, fails or is cancelled keeps the file shown.
+     */
+    const runSimulator = async (text: string) => {
+        const file = loaded.file
+        if (!file || !fightSettings) return
+        const settings = fightSettings
+        const id = ++run.current
+        const simPool = getPool()
+        setRunning({ done: 0, planned: 0 })
+        setRunProblem(null)
+        try {
+            const outcome = await simExport(
+                text,
+                simPool,
+                (done, planned) => {
+                    if (run.current === id) setRunning({ done, planned })
+                },
+                {
+                    fight: fightOverride(
+                        file,
+                        settings,
+                        file.fights.find(
+                            (entry) => entry.fight_id === planner?.fightId
+                        )?.kind === 'chain'
+                    ),
+                }
+            )
+            if (run.current !== id) return
+            setRunning(null)
+            if (outcome.kind !== 'file') {
+                setRunProblem(
+                    `The sim stopped: ${stopLines(outcome).join(' ')}`
+                )
+                return
+            }
+            latest.leave()
+            openSimmed(outcome, simPool.size, false, text)
+            const next = outcome.file
+            const picked =
+                fightFor(next, settings)?.fight_id ?? next.default_fight_id
+            setPlanner((current) =>
+                current ? pickFight(next, current, picked) : current
+            )
+        } catch (error) {
+            if (run.current !== id || error instanceof SimCancelled) return
+            setRunning(null)
+            setRunProblem(
+                `The sim failed: ${error instanceof Error ? error.message : String(error)}`
+            )
         }
     }
 
@@ -472,7 +577,7 @@ export function App({
         showError: (readError) => open({ file: null, error: readError }),
         // An export's run or a Refine would replace the latest when done.
         beforeFollow: () => {
-            if (simming || refining) cancel()
+            if (simming || refining || running) cancel()
         },
         openPicked,
     })
@@ -534,6 +639,10 @@ export function App({
         file !== null &&
         simmed !== null &&
         !file.stat_weights.some((entry) => entry.source?.kind === 'yours')
+    // The export Run Simulator sims: the one this visit simmed, else (dev)
+    // the one beside the latest file.
+    const exportText =
+        simmed?.exportText ?? (latest.following ? latest.exportText : null)
     const refineAction = refining ? (
         <SimProgress count={refining} onCancel={cancel} />
     ) : refinable && simmed ? (
@@ -544,7 +653,7 @@ export function App({
 
     return (
         <TooltipProvider>
-            <main className="mx-auto flex max-w-360 flex-col px-4 pt-5.5 pb-9 sm:px-6 lg:px-10">
+            <main className="mx-auto flex max-w-360 flex-col px-4 pt-7.5 pb-9 sm:px-6 lg:px-10">
                 <Header
                     file={file}
                     wishlistCount={wishlist.size}
@@ -556,9 +665,9 @@ export function App({
                 {file?.provisional && (
                     <p
                         role="note"
-                        className="mt-3 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-sm"
+                        className="mt-4.5 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-base"
                     >
-                        <InfoIcon className="mt-0.5 size-4 text-muted-foreground" />
+                        <InfoIcon className="mt-0.75 size-4 text-muted-foreground" />
                         <span>
                             The sim isn&apos;t checked against real fights yet.
                             Use these numbers to compare gear, not as a promise
@@ -568,7 +677,12 @@ export function App({
                 )}
                 <div
                     data-slot="planner-body"
-                    className="mt-4.5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
+                    // The owner's layout v2: the gear card, and under it the
+                    // band, on the left; Simulator Data and its card on the
+                    // right, down both rows (the band's row takes the slack,
+                    // so a tall right column never pushes the band down).
+                    // One column below 90rem: gear, numbers, band.
+                    className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem] min-[90rem]:grid-rows-[auto_1fr]"
                 >
                     <GearPane
                         file={file}
@@ -621,6 +735,39 @@ export function App({
                             plan={plan}
                             planShown={planShown}
                             wornOf={wornOf}
+                            className={SIDE_PLACE}
+                            onRunSimulator={
+                                runSimulatorOn &&
+                                exportText !== null &&
+                                !refining
+                                    ? () => void runSimulator(exportText)
+                                    : undefined
+                            }
+                            runNote={
+                                runSimulatorOn ? undefined : COMING_SOON_NOTE
+                            }
+                            running={
+                                running && (
+                                    <SimProgress
+                                        count={running}
+                                        onCancel={cancel}
+                                    />
+                                )
+                            }
+                            runProblem={runProblem}
+                            settings={
+                                <FightSettingsForm
+                                    file={file}
+                                    fightId={planner.fightId}
+                                    onSettings={setFightSettings}
+                                    onPickFight={(fightId) =>
+                                        dispatch({
+                                            type: 'pick-fight',
+                                            fight_id: fightId,
+                                        })
+                                    }
+                                />
+                            }
                             sliders={
                                 planner.mix && (
                                     <RoleSliders
@@ -640,25 +787,24 @@ export function App({
                             }
                         />
                     ) : (
-                        <LockedSimPanel />
+                        <LockedSimPanel className={SIDE_PLACE} />
+                    )}
+                    {file && planner && (
+                        <FightBand
+                            file={file}
+                            plan={plan}
+                            fightId={planner.fightId}
+                            wornOf={wornOf}
+                            weightsAction={refineAction}
+                            className="min-[90rem]:col-start-1 min-[90rem]:row-start-2"
+                        />
                     )}
                 </div>
-                {file && planner && (
-                    <FightBand
-                        file={file}
-                        plan={plan}
-                        fightId={planner.fightId}
-                        wornOf={wornOf}
-                        onPickFight={(fightId) =>
-                            dispatch({ type: 'pick-fight', fight_id: fightId })
-                        }
-                        weightsAction={refineAction}
-                    />
-                )}
                 <Footer
                     file={file}
                     remembered={remembered}
                     credit={file !== null || simming !== null}
+                    localLine={latest.footer}
                     onForget={forget}
                 />
                 {file && dialog?.kind === 'picker' && (

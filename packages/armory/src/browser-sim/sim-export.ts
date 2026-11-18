@@ -12,7 +12,7 @@ import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'
 import { calibrate, CALIBRATION_CALLS, exportCharacter } from './export-reader'
 import { buildRequest } from './request'
-import { DEFAULT_FIGHT, scenariosFor } from './scenarios'
+import { DEFAULT_FIGHT, type FightOverride, scenariosFor } from './scenarios'
 import { FIGHT_SEED } from './session'
 import {
     characterCalls,
@@ -40,6 +40,12 @@ export type SimExportOptions = WeightsOptions & {
      * the weights first, with its estimate in whole minutes.
      */
     onWeightsFirst?: (minutes: number) => void
+    /**
+     * Run Simulator: the page's fight settings, for the long dungeon fight
+     * and the chain (`scenariosFor`). Absent: the fixed fights, as before.
+     * Weights simmed on the device keep the fixed fights.
+     */
+    fight?: FightOverride
 }
 
 /** The warm-up sim that times the device before weights are simmed. */
@@ -295,7 +301,8 @@ async function precomputed(
 async function simWithWeights(
     run: Run,
     character: Character,
-    weights: StatWeights
+    weights: StatWeights,
+    fight?: FightOverride
 ): Promise<SimExportOutcome> {
     const outcome = await simCharacter(
         character,
@@ -303,7 +310,8 @@ async function simWithWeights(
         run.pool,
         (done, planned) => {
             if (planned > 0) run.expect(planned - done)
-        }
+        },
+        fight
     )
     run.check()
     if (outcome.kind !== 'file') return outcome
@@ -369,7 +377,7 @@ export async function simExport(
             weights = await simYourWeights(run, character, options)
             run.check()
         }
-        return await simWithWeights(run, character, weights)
+        return await simWithWeights(run, character, weights, options.fight)
     } finally {
         run.end()
     }

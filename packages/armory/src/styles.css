@@ -79,12 +79,10 @@
 }
 
 @theme inline {
-    --font-sans:
-        system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-        sans-serif;
+    --font-sans: system-ui, sans-serif;
     --font-heading: var(--font-sans);
-    --font-mono:
-        ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    /* JetBrains Mono (OFL), self-hosted: imported in root.tsx. */
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
@@ -111,6 +109,18 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    /* Ours, from the owner's design: surfaces, borders and the light pill. */
+    --color-subtle-foreground: var(--subtle-foreground);
+    --color-glass: var(--glass);
+    --color-sunken: var(--sunken);
+    --color-raised: var(--raised);
+    --color-tint: var(--tint);
+    --color-border-strong: var(--border-strong);
+    --color-border-muted: var(--border-muted);
+    --color-pill: var(--pill);
+    --color-pill-foreground: var(--pill-foreground);
+    --color-pill-muted-foreground: var(--pill-muted-foreground);
+    --color-mana: var(--mana);
     /* Ours: the gain pills, and item quality on the slot tiles. */
     --color-gain: var(--gain);
     --color-gain-foreground: var(--gain-foreground);
@@ -119,66 +129,117 @@
     --color-good-text: var(--good-text);
     /* Ours: the green of BIS, the owned icon and the all-best card. */
     --color-owned: var(--owned);
+    --color-owned-border: var(--owned-border);
+    --color-owned-surface: var(--owned-surface);
     --color-quality-poor: var(--quality-poor);
     --color-quality-common: var(--quality-common);
     --color-quality-uncommon: var(--quality-uncommon);
     --color-quality-rare: var(--quality-rare);
     --color-quality-epic: var(--quality-epic);
     --color-quality-legendary: var(--quality-legendary);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
+    /* Ours: the enemy level's con colours (`src/con-colour.ts`). */
+    --color-con-red: var(--con-red);
+    --color-con-orange: var(--con-orange);
+    --color-con-yellow: var(--con-yellow);
+    --color-con-green: var(--con-green);
+    --color-con-grey: var(--con-grey);
+    /* The owner's radii (sm 6, md 8, lg 10, xl 14 px). */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    /*
+     * The owner's type scale: `text-xs` to `text-xl`, plus `text-stat` (the
+     * Simulator Data numbers) and `text-display`.
+     */
+    --text-xs: 12px;
+    --text-xs--line-height: 16px;
+    --text-sm: 13px;
+    --text-sm--line-height: 18px;
+    --text-base: 14px;
+    --text-base--line-height: 21px;
+    --text-lg: 16px;
+    --text-lg--line-height: 24px;
+    --text-xl: 20px;
+    --text-xl--line-height: 28px;
+    --text-stat: 28px;
+    --text-stat--line-height: 34px;
+    --text-display: 40px;
+    --text-display--line-height: 44px;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    --tracking-tight: -0.01em;
+    --tracking-wide: 0.12em;
 }
 
 /*
- * The one theme (dark): shadcn's neutral dark, the owner's orange accent,
- * then our tokens. Colours are `oklch(L C H)` or a `var()` to one (only
- * --border and --input carry an alpha); tests/contrast.test.ts checks them.
+ * The one theme (dark), the owner's design tokens. Colours are
+ * `oklch(L C H)` (with an alpha only where the design has one) or a
+ * `var()` to one; tests/contrast.test.ts checks them. The hex value each
+ * came from is beside it.
  */
 :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
+    --background: oklch(0.159 0 0); /* #0D0D0D */
+    --foreground: oklch(1 0 0); /* #FFFFFF */
+    --muted-foreground: oklch(0.798 0 0); /* #BDBDBD */
+    --subtle-foreground: oklch(0.633 0 0); /* #8A8A8A */
+    --card: oklch(0.191 0 0); /* #141414 */
+    --card-foreground: var(--foreground);
+    --popover: var(--card);
+    --popover-foreground: var(--foreground);
+    /* Glass: with the `glass` utility's blur, shadow and top border. */
+    --glass: oklch(0.213 0 0 / 70%); /* #191919B3 */
+    --sunken: oklch(0.178 0 0); /* #111111 */
+    --raised: oklch(0.285 0 0); /* #2A2A2A */
+    --tint: oklch(1 0 0 / 5%); /* #FFFFFF0D */
+    --border: oklch(0.301 0 0); /* #2E2E2E */
+    --border-strong: oklch(0.348 0 0); /* #3A3A3A */
+    --border-muted: oklch(0.409 0 0 / 30%); /* #4A4A4A4D */
+    /* The light pill: with the `pill` utility's gradient, blur and shadow. */
+    --pill: oklch(0.967 0 0 / 85%); /* #F4F4F4D9 */
+    --pill-foreground: oklch(0.191 0 0); /* #141414 */
+    --pill-muted-foreground: oklch(0.596 0 0); /* #7F7F7F */
     /* The accent: the owner's #F0782D. */
-    --primary: oklch(0.701 0.17 48.3);
-    --primary-foreground: oklch(0.145 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.701 0.17 48.3); /* #F0782D */
+    --primary-foreground: oklch(0.191 0 0); /* #141414 */
+    --secondary: var(--raised);
+    --secondary-foreground: var(--foreground);
+    --muted: var(--raised);
+    --accent: var(--raised);
+    --accent-foreground: var(--foreground);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --radius: 0.625rem;
+    --input: var(--border-strong);
+    --ring: var(--subtle-foreground);
+    --radius: 10px;
+    /* Mana. */
+    --mana: oklch(0.68 0.125 236.6); /* #3BA3DB */
     /*
      * Chart colours. 1 is DPS and the sim's plan (the accent), 2 is mana,
      * 3 to 5 (and 1, 2 again) colour the damage split by part order. What
      * you wear is drawn in --muted-foreground.
      */
-    --chart-1: oklch(0.76 0.15 50);
-    --chart-2: oklch(0.72 0.12 235);
+    --chart-1: var(--primary);
+    --chart-2: var(--mana);
     --chart-3: oklch(0.7 0.12 295);
     --chart-4: oklch(0.75 0.11 165);
     --chart-5: oklch(0.58 0.09 250);
     /* The chart and gain colours as text on --background and --card. */
     --chart-1-text: var(--chart-1);
     --chart-2-text: var(--chart-2);
-    --gain: oklch(0.78 0.14 55);
-    --gain-foreground: oklch(0.22 0.05 45);
-    --gain-text: var(--gain);
-    --good-text: oklch(0.85 0.1 165);
+    --gain: var(--primary);
+    --gain-foreground: var(--primary-foreground);
+    --gain-text: var(--primary);
+    --good-text: var(--owned);
     /* The green of BIS, the owned icon and the all-best card. */
-    --owned: oklch(0.78 0.15 150);
+    --owned: oklch(0.76 0.139 155.3); /* #5CCB8A */
+    --owned-border: oklch(0.65 0.13 154.9); /* #3FA66B */
+    --owned-surface: oklch(0.247 0.035 156.4); /* #12261A */
     /*
      * The spell schools the damage split is coloured by (a further part of
      * the same school is drawn darker).
@@ -192,10 +253,59 @@
     --school-holy: oklch(0.9 0.11 95);
     --quality-poor: oklch(0.65 0 0);
     --quality-common: oklch(0.85 0 0);
-    --quality-uncommon: oklch(0.75 0.17 145);
-    --quality-rare: oklch(0.7 0.15 255);
+    --quality-uncommon: oklch(0.65 0.13 154.9); /* #3FA66B */
+    --quality-rare: oklch(0.655 0.156 262.5); /* #5B8DEF */
     --quality-epic: oklch(0.72 0.17 305);
     --quality-legendary: oklch(0.78 0.16 60);
+    /*
+     * The enemy level's con colours, the game's (GetQuestDifficultyColor):
+     * text on the segmented control and on the picked segment's 15% tint of
+     * its colour, so each passes 4.5:1 on both. Red and grey are a little
+     * lighter than the game's to pass on the tint.
+     */
+    --con-red: oklch(0.639 0.251 28.5); /* game #FF1A1A is L 0.634 */
+    --con-orange: oklch(0.734 0.173 44.9); /* #FF8040 */
+    --con-yellow: oklch(0.875 0.179 92.7); /* #FFD100 */
+    --con-green: oklch(0.71 0.201 143.1); /* #40BF40 */
+    --con-grey: oklch(0.623 0 0); /* game #808080 is L 0.598 */
+    /* The owner's spacing steps (Tailwind's own spacing scale is kept). */
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 8px;
+    --space-4: 10px;
+    --space-5: 14px;
+    --space-6: 20px;
+    --space-7: 28px;
+    --space-8: 40px;
+}
+
+/*
+ * Glass, from the owner's design: a see-through dark surface with a soft
+ * shadow and a top border only.
+ */
+@utility glass {
+    background-color: var(--glass);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 3px #00000033;
+    border-width: 1px 0 0;
+    border-style: solid;
+    border-color: var(--border);
+}
+
+/*
+ * The light pill, from the owner's design: a frosted light button with a
+ * soft top highlight, dark text.
+ */
+@utility pill {
+    background-color: var(--pill);
+    background-image: linear-gradient(180deg, #ffffff1a 0%, #bebebe00 100%);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 3px #00000033;
+    border-width: 1px 0 0;
+    border-style: solid;
+    border-color: #ffffff4d;
+    border-radius: 9999px;
+    color: var(--pill-foreground);
 }
 
 @layer base {
@@ -207,6 +317,6 @@
         @apply font-sans;
     }
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-base text-foreground;
     }
 }

@@ -1,18 +1,25 @@
 /**
- * A segmented control, as the mockup draws one (`31 | 32 | 33`, `PvE |
- * PvP`): a radio group of native radios inside a fieldset with its legend,
+ * A segmented control, as the owner's design draws one (`Current | BIS`,
+ * `31 | 32 | 33`, `PvE | PvP`): a radio group of native radios inside a fieldset with its legend,
  * so arrow keys move between the options and a screen reader hears a group.
  */
 import { type ReactNode, useId } from 'react'
 
 import { cn } from '@/lib/utils'
 
-/** One option; `icon` is drawn before the label, hidden from screen readers. */
+/**
+ * One option; `icon` is drawn before the label, hidden from screen readers.
+ * `className` colours its label (the enemy levels' con colours), and
+ * `pickedClassName` replaces the raised pill when it is picked (a tint of
+ * that colour).
+ */
 export type SegmentOption = {
     value: string
     label: string
     icon?: ReactNode
     disabled?: boolean
+    className?: string
+    pickedClassName?: string
 }
 
 /**
@@ -46,7 +53,9 @@ export function Segmented({
             <legend className={hideLegend ? 'sr-only' : 'mb-1 text-sm'}>
                 {legend}
             </legend>
-            <div className="inline-flex rounded-full border bg-background p-0.75">
+            {/* The owner's design: 38px tall, the picked option a raised
+                dark pill (no outline), the others muted text. */}
+            <div className="inline-flex h-9.5 items-center rounded-full border bg-background p-0.75">
                 {options.map((option) => {
                     const id = `${name}-${option.value}`
                     return (
@@ -64,11 +73,12 @@ export function Segmented({
                             <label
                                 htmlFor={id}
                                 className={cn(
-                                    'cursor-pointer rounded-full px-3.25 py-1 text-sm text-muted-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
-                                    option.icon &&
-                                        'inline-flex items-center gap-1.5',
+                                    'inline-flex h-full cursor-pointer items-center rounded-full px-3.25 text-[0.9375rem] text-muted-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
+                                    option.icon && 'gap-2 px-3',
+                                    option.className,
                                     value === option.value &&
-                                        'bg-secondary text-foreground shadow-[inset_0_0_0_1px_var(--ring)]',
+                                        (option.pickedClassName ??
+                                            'bg-secondary text-foreground'),
                                     option.disabled &&
                                         'cursor-not-allowed opacity-50'
                                 )}

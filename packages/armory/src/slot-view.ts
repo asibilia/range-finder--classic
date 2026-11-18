@@ -10,7 +10,8 @@ import {
     type SlotGap,
     slotGap,
 } from './gains'
-import { itemName, shortSource } from './item-name'
+import { firstSource, itemName, shortSource } from './item-name'
+import { type NextItem, nextAlternative } from './next-item'
 import type { BagItemsOn } from './planner-state'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
@@ -29,11 +30,23 @@ export type SlotShown = {
      */
     gap: SlotGap | null
     /**
-     * What you wear, with a gap: the plan's item for the slot, shown under
-     * the button as `Best: <item>` (a link to the picker); null otherwise.
+     * What you wear, with a gap: the plan's item for the slot, shown as the
+     * tile's third line, `Best: <item>` (a link to the picker); null
+     * otherwise.
      */
     best: { itemId: number; name: string } | null
-    /** The line under the name, when there is no `best` line. */
+    /**
+     * What you wear, on a slot that is the sim's best for now (`BIS`) or
+     * empty with nothing from the plan: the alternative that needs a level
+     * above the character's (`nextAlternative`), shown as the tile's third
+     * line, `Next: <item> at level N` (a link to the picker); null
+     * otherwise.
+     */
+    next: NextItem | null
+    /**
+     * The line under the name, when there is no `best` line: the first part
+     * of the item's source.
+     */
     note: string | undefined
     /**
      * Said to a screen reader after the name (the button's description),
@@ -66,6 +79,7 @@ export function emptySlot(slot: Slot): SlotShown {
         itemName: null,
         gap: null,
         best: null,
+        next: null,
         note: undefined,
         description: undefined,
         sameAsWorn: false,
@@ -154,6 +168,19 @@ export function slotShown(
         file.bag_upgrades.some((candidate) => candidate.slot === slot)
     )
         chips.push('better in bags')
+    // Best for now, or empty with nothing from the plan: what comes next.
+    const nextUp =
+        !(planShown && plan) &&
+        (shown.gap?.kind === 'bis' ||
+            (!entry?.worn && (plan?.gear[slot] ?? null) === null))
+            ? nextAlternative(entry, file.character.level)
+            : null
+    const next: NextItem | null = nextUp && {
+        itemId: nextUp.item.item_id,
+        name: named(nextUp.item),
+        level: nextUp.item.required_level,
+    }
+    if (next) shown.note = undefined
     const shownName = shown.item ? named(shown.item) : null
     const name = shownName ?? 'Nothing equipped'
     const suffix = shown.sameAsWorn
@@ -163,6 +190,7 @@ export function slotShown(
         slot,
         label,
         ...shown,
+        next,
         itemName: shownName,
         chips,
         name: `${label}: ${name}${suffix}`,
@@ -217,7 +245,7 @@ function wornView(
         item: worn,
         gap,
         best: best && { itemId: best.item_id, name: named(best) },
-        note: best ? undefined : worn?.source.text,
+        note: best || !worn ? undefined : firstSource(worn.source.text),
         description: undefined,
         sameAsWorn: false,
     }
@@ -255,7 +283,7 @@ function planView(
         best: null,
         // The mockup's line under a swapped-in item: where it comes from.
         // What it replaces is said to a screen reader instead.
-        note: item ? shortSource(item.source.text) : undefined,
+        note: item ? shortSource(firstSource(item.source.text)) : undefined,
         description: `Replaces ${worn ? named(worn) : 'nothing'}`,
         sameAsWorn: false,
     }

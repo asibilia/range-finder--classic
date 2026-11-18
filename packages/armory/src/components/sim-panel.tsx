@@ -1,16 +1,34 @@
 /**
- * The column on the right of the gear (below it under 90rem), holding what
- * the approved mockup keeps there, with no card around it: Simulator Data
- * (the readings) and Stat Priority (the role sliders); the talents pill sits
- * on the character (`talents-pill.tsx`). Before a file loads it shows the
- * same column dimmed and inert, under `These unlock once a character is
- * loaded.`
+ * The column on the right of the gear (below it under 90rem), as the
+ * owner's design (layout v2) has it: Simulator Data (the readings) open on
+ * top, then ONE glass card holding Stat Priority (the role sliders), the
+ * fight settings and a light `Run Simulator` pill at its bottom right. The
+ * talents pill sits on the character (`talents-pill.tsx`). Before a file
+ * loads it shows the same column dimmed and inert, under `These unlock once
+ * a character is loaded.`
+ *
+ * Run Simulator sims the export behind the file again with the fight
+ * settings (the page's `onRunSimulator`). It ships off for now: the page
+ * passes no handler and the button shows disabled with `Coming soon:
+ * running the sim here.` (`runNote`). Turned on, with no export (a results
+ * file picked on its own, or a public build) it is disabled and says why:
+ * `Bring in your export to run the sim here.` While it runs, the progress
+ * and Cancel take its place.
  */
-import type { ReactNode } from 'react'
+import { type ReactNode, useId } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 import type { Plan } from '../plans'
 import type { Result, ResultsFile } from '../results-file'
 import { Readings } from './readings'
+
+/** Under Run Simulator when there is no export to sim. */
+export const NO_EXPORT_NOTE = 'Bring in your export to run the sim here.'
+
+/** Shown, with the button disabled, while running the sim here isn't switched on yet. */
+export const COMING_SOON_NOTE = 'Coming soon: running the sim here.'
 
 /**
  * The card with a file loaded.
@@ -20,6 +38,13 @@ import { Readings } from './readings'
  * @param plan - The plan the sliders pick, or null (no plans).
  * @param planShown - The gear shows the plan (its readings are drawn large).
  * @param sliders - The role sliders (when the file has plans).
+ * @param settings - The fight settings.
+ * @param wornOf - What you wear's result on a fight (a bag item put on).
+ * @param onRunSimulator - Runs the sim; absent when there is no export to
+ * sim, and the button is disabled with a note.
+ * @param running - The run's progress and Cancel, while it runs.
+ * @param runProblem - Why the last run didn't replace the file, or null.
+ * @param className - Where the page's grid places it.
  */
 export function SimPanel({
     file,
@@ -27,15 +52,29 @@ export function SimPanel({
     plan,
     planShown,
     sliders,
+    settings,
     wornOf,
+    onRunSimulator,
+    runNote = NO_EXPORT_NOTE,
+    running,
+    runProblem,
+    className,
 }: {
     file: ResultsFile
     fightId: string
     plan: Plan | null
     planShown: boolean
     sliders?: ReactNode
+    settings?: ReactNode
     wornOf?: (fightId: string) => Result | null
+    onRunSimulator?: () => void
+    /** The note beside the disabled button: why it can't run. */
+    runNote?: string
+    running?: ReactNode
+    runProblem?: string | null
+    className?: string
 }) {
+    const noExportId = useId()
     const fight =
         file.fights.find((entry) => entry.fight_id === fightId) ??
         file.fights[0]
@@ -43,7 +82,7 @@ export function SimPanel({
         <aside
             aria-label="The sim's numbers"
             data-slot="sim-panel"
-            className="flex flex-col gap-5"
+            className={cn('flex min-w-0 flex-col gap-5', className)}
         >
             {fight && (
                 <Readings
@@ -54,7 +93,41 @@ export function SimPanel({
                     wornOf={wornOf}
                 />
             )}
-            {sliders}
+            <div
+                data-slot="sim-card"
+                className="glass flex flex-col gap-7 rounded-xl px-3.5 pt-4 pb-3.5"
+            >
+                {sliders}
+                {settings}
+                {runProblem && !running && (
+                    <p role="alert" className="text-sm text-gain-text">
+                        {runProblem}
+                    </p>
+                )}
+                {running ?? (
+                    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                        {!onRunSimulator && (
+                            <p
+                                id={noExportId}
+                                className="text-[0.78125rem] text-muted-foreground"
+                            >
+                                {runNote}
+                            </p>
+                        )}
+                        <Button
+                            variant="pill"
+                            className="h-auto px-4 py-1.5 text-base"
+                            disabled={!onRunSimulator}
+                            aria-describedby={
+                                onRunSimulator ? undefined : noExportId
+                            }
+                            onClick={onRunSimulator}
+                        >
+                            Run Simulator
+                        </Button>
+                    </div>
+                )}
+            </div>
         </aside>
     )
 }
@@ -75,13 +148,15 @@ const PLACEHOLDER_ROLES = ['Damage', 'Survival', 'Healing', 'Utility']
  * readings and the sliders will be. Only its first
  * line is read out; the rest is hidden from screen readers and can't be
  * focused.
+ *
+ * @param className - Where the page's grid places it.
  */
-export function LockedSimPanel() {
+export function LockedSimPanel({ className }: { className?: string }) {
     return (
         <section
             aria-label="What unlocks with a character"
             data-slot="sim-panel"
-            className="flex flex-col gap-5"
+            className={cn('flex min-w-0 flex-col gap-5', className)}
         >
             <p className="border-l-2 border-chart-2 py-0.5 pl-2.5 text-[0.84375rem]">
                 These unlock once a character is loaded.
@@ -110,7 +185,7 @@ export function LockedSimPanel() {
                         ))}
                     </div>
                 </div>
-                <div className="flex flex-col gap-3">
+                <div className="glass flex flex-col gap-3 rounded-xl px-3.5 pt-4 pb-3.5">
                     <p className="text-xl leading-tight">Stat Priority</p>
                     {PLACEHOLDER_ROLES.map((role) => (
                         <div key={role} className="flex flex-col gap-2">

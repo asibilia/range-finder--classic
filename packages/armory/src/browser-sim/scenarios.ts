@@ -21,6 +21,42 @@ export type Scenario = {
     totems: boolean
     pulls: number
     gap_s: number
+    /** The share of max mana the fight starts with; absent: full. */
+    starting_mana_pct?: number
+}
+
+/**
+ * The page's fight settings for a run (Run Simulator): the long dungeon
+ * fight (`dungeon-long`, the one the page opens on) is simmed against this
+ * level, for this long, from this share of max mana; the chain waits
+ * `gap_s` between pulls. Absent: the fixed fights.
+ */
+export type FightOverride = {
+    target_level: number
+    duration_s: number
+    /** 1 to 100; absent or 100: full mana. */
+    starting_mana_pct?: number
+    /** The chain's gap between pulls; absent: its own (12 s). */
+    gap_s?: number
+}
+
+/** `30 s`, `2 min`, `90 s`: a length as the fights' labels say it. */
+function lengthLabel(duration_s: number): string {
+    return duration_s % 60 === 0 && duration_s >= 60
+        ? `${duration_s / 60} min`
+        : `${duration_s} s`
+}
+
+/** The long dungeon fight with the page's settings. */
+function withOverride(scenario: Scenario, fight: FightOverride): Scenario {
+    const pct = fight.starting_mana_pct
+    return {
+        ...scenario,
+        label: `Dungeon, ${lengthLabel(fight.duration_s)} vs level ${fight.target_level}`,
+        target_level: fight.target_level,
+        duration_s: fight.duration_s,
+        ...(pct !== undefined && pct < 100 ? { starting_mana_pct: pct } : {}),
+    }
 }
 
 export const SINGLE_FIGHTS = [
@@ -36,9 +72,12 @@ export function mobArmor(level: number): number {
     return Math.max(0, 50 * level - 450)
 }
 
-/** The three single fights at `level`. */
-export function scenariosFor(level: number): Scenario[] {
-    return [
+/**
+ * The three single fights at `level`; with `fight`, the long dungeon fight
+ * takes the page's settings.
+ */
+export function scenariosFor(level: number, fight?: FightOverride): Scenario[] {
+    const fixed: Scenario[] = [
         {
             fight_id: 'solo-hit-short',
             label: `Solo, 30 s vs level ${level}`,
@@ -76,6 +115,12 @@ export function scenariosFor(level: number): Scenario[] {
             gap_s: 0,
         },
     ]
+    if (!fight) return fixed
+    return fixed.map((scenario) =>
+        scenario.fight_id === DEFAULT_FIGHT
+            ? withOverride(scenario, fight)
+            : scenario
+    )
 }
 
 /** The level the runner's fixed fights were made for: its character's, 30. */
@@ -126,11 +171,14 @@ export function sanityFights(level: number): {
     }
 }
 
-/** The chain: 10 pulls of 25 s, 12 s apart, being hit, no drinking. */
-export function chainFor(level: number): Scenario {
+/**
+ * The chain: 10 pulls of 25 s, 12 s apart (or `gap_s`), being hit, no
+ * drinking.
+ */
+export function chainFor(level: number, gap_s = 12): Scenario {
     return {
         fight_id: CHAIN_FIGHT,
-        label: `Chain, 10 pulls 12 s apart vs level ${level}`,
+        label: `Chain, 10 pulls ${gap_s} s apart vs level ${level}`,
         kind: 'chain',
         target_level: level,
         duration_s: 25,
@@ -138,7 +186,7 @@ export function chainFor(level: number): Scenario {
         being_hit: true,
         totems: false,
         pulls: 10,
-        gap_s: 12,
+        gap_s,
     }
 }
 
@@ -156,7 +204,7 @@ export function fightEntry(scenario: Scenario): ResultsFile['fights'][number] {
         target_level: scenario.target_level,
         duration_s: scenario.duration_s,
         setup: {
-            starting_mana_pct: 100,
+            starting_mana_pct: scenario.starting_mana_pct ?? 100,
             being_hit: scenario.being_hit,
             pulls: scenario.pulls,
             gap_s: scenario.gap_s,

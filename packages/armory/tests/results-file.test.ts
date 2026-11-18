@@ -829,6 +829,30 @@ describe('the optional mockup fields (schema version 1)', () => {
     })
 })
 
+describe('character.gender', () => {
+    test("a gender of male or female reads, no gender reads, and 'other' is refused at character.gender", () => {
+        for (const gender of ['male', 'female']) {
+            const f = sample()
+            f.character.gender = gender
+            const outcome = readResultsFile(f) as any
+            expect(outcome.problems).toBeUndefined()
+            expect(outcome.file.character.gender).toBe(gender)
+        }
+
+        const without = sample()
+        delete without.character.gender
+        const outcome = readResultsFile(without) as any
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.character.gender).toBeUndefined()
+
+        const other = sample()
+        other.character.gender = 'other'
+        expect(
+            problemsOf(other).some((p) => p.startsWith('character.gender: '))
+        ).toBe(true)
+    })
+})
+
 describe('character.professions', () => {
     test("a list with Leatherworking 165 of 225 reads, and a skill of 'high' is refused at character.professions.0.skill", () => {
         const f = sample()

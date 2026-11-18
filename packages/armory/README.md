@@ -46,17 +46,20 @@ sim's session keeps on your computer, and follow it as it changes:
    usable config, or no latest file, the dev server warns once at start
    (`armory: no local latest file (...)`) and the page works as without it.
 
-The dev server (`vite-plugin-latest.ts`, `apply: 'serve'`) serves two
+The dev server (`vite-plugin-latest.ts`, `apply: 'serve'`) serves three
 paths, reading the config on each request: `/local/latest.json` (the
 latest file, with `Last-Modified`; `If-Modified-Since` gets a 304 when it
-hasn't changed) and `/local/latest-status.json`. Any other `/local/` path is
+hasn't changed), `/local/latest-status.json`, and `/local/latest-export.lua`
+(the export the latest file was made from, which the sim side writes beside
+it only when the two match; a 404 when it isn't there). All three are dev
+only and never reach a build. Any other `/local/` path is
 a 404, no part of a URL reaches the file system, and a request whose `Host`
 isn't `localhost` or `127.0.0.1` gets a 403.
 
 The page (`src/components/latest-file.tsx`, which loads
 `src/local-latest.ts`) shows the latest file in place of the one kept in
 this browser, without keeping it, and says `Loaded from this computer, made
-17 November` under the header. Every 10 s it asks again, with
+Nov. 17` in the footer. Every 10 s it asks again, with
 `If-Modified-Since`, and reads the status file:
 
 - A newer file shows, keeping the fight and the plan view where it has
@@ -255,6 +258,22 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   (`src/error-boundary.tsx`).
 - **Tests** stay on `bun test --isolate` with happy-dom (`tests/dom.js`);
   `tests/build-output.test.ts` builds the page and checks it.
+
+### Character art
+
+The gear card shows a picture for the character's race, class and gender
+behind the tiles (the owner's own art). The page reads only the manifest,
+`public/art/art.json` (`{ race, class, gender, url, width, height, bytes }`,
+checked by `src/character-art.ts`, imported at build time), and follows each
+entry's `url`. With no picture for that gender, it shows the other gender's;
+with none for the pair, the plain card.
+
+Add one with `bun run art:add <file> --race <Race> --class <Class> --gender
+<male|female>` (needs `cwebp`: `brew install webp`): a 1024 px wide WebP at
+quality 78 (about 40 KB) named `public/art/<race>-<class>-<gender>.webp`,
+and its manifest entry. The script's `ART_TARGET` is the one setting: moving
+the art to a storage bucket later changes it (and the entries' URLs), and
+puts the bucket's host on the build guard's list; no page code changes.
 
 ## The results file contract
 

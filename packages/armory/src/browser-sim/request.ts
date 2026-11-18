@@ -134,8 +134,11 @@ export function buildRequest(
         inFrontOfTarget: scenario.in_front ?? scenario.being_hit,
         reactionTimeMs: 100,
     }
-    if (options.startingManaPct !== undefined)
-        player.startingManaPercent = options.startingManaPct
+    // A pull's own share (a chain's later pulls), else the fight's.
+    const startingManaPct =
+        options.startingManaPct ?? scenario.starting_mana_pct
+    if (startingManaPct !== undefined)
+        player.startingManaPercent = startingManaPct
     // Worn items the sim lacks, the per-sim bonus and the export's buffs.
     const bonus = mergeStats(
         mergeStats(gearBonus(gear, lacked), options.bonusStats?.stats),

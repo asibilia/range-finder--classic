@@ -106,7 +106,7 @@ function wornOnLongFight(change: (result: Result) => void): Json {
 }
 
 describe('the header', () => {
-    test('with the sample, the only h1 is Armory and the gear card is headed by the character, level, spec, class and weapon', async () => {
+    test('with the sample, the only h1 is Armory and the gear card is headed by the character, level, spec and class (no weapon line)', async () => {
         await load(sample)
 
         expect(
@@ -123,9 +123,8 @@ describe('the header', () => {
         const text = card?.textContent ?? ''
         const who = text.indexOf('Level 30 Enhancement Shaman')
         expect(who).toBeGreaterThan(text.indexOf('Truncha'))
-        expect(
-            text.indexOf("Guardian's Dualblade with Windfury Weapon.")
-        ).toBeGreaterThan(who)
+        // The owner's design has no weapon line under the name.
+        expect(text).not.toContain("Guardian's Dualblade with Windfury Weapon.")
         expect(screen.getByText(SUBTITLE)).toBeDefined()
     })
 
@@ -193,7 +192,7 @@ describe('the Simulator Data card', () => {
             expect(text).not.toContain(old)
     })
 
-    test('reads Solo, Dungeon, Resource Empty, Health, Armor and Lifespan with their numbers, units and gaps below the plan', async () => {
+    test('reads Solo, Dungeon, Resource Empty, Health, Armor and Lifespan with their numbers, units and a gap from the plan under every one', async () => {
         await load(sample)
 
         expect(readingLabels()).toEqual([
@@ -206,43 +205,71 @@ describe('the Simulator Data card', () => {
         ])
         expect(readingValue('Solo')).toBe('103.7')
         expect(readingValue('Dungeon')).toBe('75.4')
-        expect(readingValue('Resource Empty')).toBe('48')
+        // Resource Empty and Lifespan in hundredths (owner decision B).
+        expect(readingValue('Resource Empty')).toBe('48.00')
         expect(readingValue('Health')).toBe('1375')
         expect(readingValue('Armor')).toBe('952')
-        expect(readingValue('Lifespan')).toBe('34')
+        expect(readingValue('Lifespan')).toBe('34.00')
 
         expect(cell('Solo').textContent).toContain('DPS')
         expect(cell('Dungeon').textContent).toContain('DPS')
         expect(cell('Resource Empty').textContent).toContain('sec')
         expect(cell('Lifespan').textContent).toContain('sec')
+        // The owner's design: bold JetBrains Mono at the stat size.
         expect(
             cell('Solo')
                 .querySelector('[data-reading-value]')
                 ?.className.split(/\s+/)
-        ).toContain('font-mono')
+        ).toEqual(
+            expect.arrayContaining(['font-mono', 'font-bold', 'text-stat'])
+        )
 
-        const gaps: [string, RegExp][] = [
+        // Below the plan: orange ↓ N with the `best` icon.
+        const below: [string, RegExp][] = [
             ['Solo', /↓\s*14\.7/],
             ['Dungeon', /↓\s*8\.7/],
-            ['Resource Empty', /↓\s*9(?!\d)/],
+            ['Resource Empty', /↓\s*9\.00/],
+            ['Armor', /↓\s*58(?!\d)/],
         ]
-        for (const [label, shown] of gaps) {
+        for (const [label, shown] of below) {
             const gap = gapLine(label)
             expect(gap).not.toBeNull()
             expect(gap!.textContent).toMatch(shown)
+            expect(gap!.className.split(/\s+/)).toContain('text-primary')
             expect(holdsBestIcon(gap!)).toBe(true)
         }
-        expect(gapLine('Lifespan')).toBeNull()
-        expect(cell('Lifespan').textContent).not.toContain('↓')
+        // Beating the plan (owner decision A): green + N with the `owned`
+        // icon. The sample's max damage plan has less health and a
+        // shorter life than what you wear.
+        const above: [string, RegExp][] = [
+            ['Health', /\+\s*65(?!\d)/],
+            ['Lifespan', /\+\s*3\.00/],
+        ]
+        for (const [label, shown] of above) {
+            const gap = gapLine(label)
+            expect(gap).not.toBeNull()
+            expect(gap!.textContent).toMatch(shown)
+            expect(gap!.textContent).not.toContain('↓')
+            expect(gap!.className.split(/\s+/)).toContain('text-owned')
+            expect(gap!.querySelector('[data-sim-best="owned"]')).not.toBeNull()
+            expect(holdsBestIcon(gap!)).toBe(false)
+        }
     })
 
-    test("each gap line reads out as N DPS or N sec below the sim's plan, without the arrow or the icon", async () => {
+    test("each gap line reads out as N DPS, sec, health or armor below or above the sim's plan, without the arrow, the plus or the icon", async () => {
         await load(sample)
 
         expect(spoken(gapLine('Solo')!)).toBe("14.7 DPS below the sim's plan")
         expect(spoken(gapLine('Dungeon')!)).toBe("8.7 DPS below the sim's plan")
         expect(spoken(gapLine('Resource Empty')!)).toBe(
-            "9 sec below the sim's plan"
+            "9.00 sec below the sim's plan"
+        )
+        expect(spoken(gapLine('Armor')!)).toBe("58 armor below the sim's plan")
+        expect(spoken(gapLine('Health')!)).toBe(
+            "65 health above the sim's plan"
+        )
+        expect(spoken(gapLine('Lifespan')!)).toBe(
+            "3.00 sec above the sim's plan"
         )
         for (const svg of gapLine('Solo')!.querySelectorAll('svg'))
             expect(svg.closest('[aria-hidden="true"]')).not.toBeNull()
@@ -264,8 +291,8 @@ describe('the Simulator Data card', () => {
         expect(cell('Resource Empty').textContent).not.toContain('↓')
     })
 
-    test('Health and Armor have no gap line and no info button', async () => {
-        // A plan with more health and armor than what you wear: still no gap.
+    test('Health and Armor have a gap line (owner decision A) and no info button', async () => {
+        // A plan with more health and armor than what you wear.
         await load(
             wornOnLongFight((result) => {
                 result.health = 1000
@@ -273,14 +300,60 @@ describe('the Simulator Data card', () => {
             })
         )
 
+        expect(gapLine('Health')!.textContent).toMatch(/↓\s*310(?!\d)/)
+        expect(gapLine('Armor')!.textContent).toMatch(/↓\s*510(?!\d)/)
         for (const label of ['Health', 'Armor']) {
-            expect(gapLine(label)).toBeNull()
-            expect(cell(label).textContent).not.toContain('↓')
             expect(cell(label).querySelector('button')).toBeNull()
             expect(
                 screen.queryByRole('button', { name: `About ${label}` })
             ).toBeNull()
         }
+    })
+})
+
+describe('the sliders (owner decision D)', () => {
+    test('Stat Priority and the fight settings draw a white fill on a grey track, not orange', async () => {
+        await load(sample)
+
+        const ranges = document.querySelectorAll('[data-slot="slider-range"]')
+        expect(ranges.length).toBeGreaterThan(0)
+        for (const range of ranges) {
+            const classes = range.className.split(/\s+/)
+            expect(classes).toContain('bg-foreground')
+            expect(classes).not.toContain('bg-primary')
+        }
+        for (const track of document.querySelectorAll(
+            '[data-slot="slider-track"]'
+        ))
+            expect(track.className.split(/\s+/)).toContain('bg-border-strong')
+    })
+})
+
+describe('a reading that matches the plan', () => {
+    test('has no gap line: what you wear and the plan the same, or not simmed', async () => {
+        await load(
+            variant((file) => {
+                const plan = (file.results as Result[]).find(
+                    (result) =>
+                        result.gear === 'max-damage' &&
+                        result.fight_id === 'dungeon-long'
+                )!
+                for (const result of file.results as Result[])
+                    if (
+                        result.gear === 'worn' &&
+                        result.fight_id === 'dungeon-long'
+                    ) {
+                        result.health = plan.health
+                        result.armor = plan.armor
+                        result.time_to_die_s = null
+                    }
+            })
+        )
+
+        expect(gapLine('Health')).toBeNull()
+        expect(gapLine('Armor')).toBeNull()
+        expect(readingValue('Lifespan')).toBe('Not simmed')
+        expect(gapLine('Lifespan')).toBeNull()
     })
 })
 

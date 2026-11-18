@@ -53,6 +53,8 @@ export type Character = {
     race: string
     /** The game's name, e.g. `Shaman`. */
     class: string
+    /** From the export's `identity.sex` (2 male, 3 female); absent: unknown. */
+    gender?: 'male' | 'female'
     /** Talents in the sim's format: each tree's ranks, trees split by `-`. */
     talents: string
     /** The worn items the sim knows; `wornGear` adds the ones it lacks. */
