@@ -1,7 +1,7 @@
 /**
  * The fight chart (spec section 9, as the approved mockup frames it): the
  * out-of-mana sentence above it with its times coloured, ONE combined chart
- * (DPS as thin bars and mana on two axes, drawn by `fight-plot.tsx`), and
+ * (DPS as bars, about ten groups, and mana on two axes, drawn by `fight-plot.tsx`), and
  * the averages and the bars' spacing under it. The drawing is loaded lazily, so Recharts isn't in the first
  * load; until it arrives a placeholder of the same height holds its place.
  */
@@ -82,7 +82,7 @@ export function FightChart({
             {averages && (
                 <p className="text-xs text-muted-foreground">
                     {averageWords(
-                        // The footnote names the bars' spacing, grouped or not.
+                        // The footnote names how long each bar group is.
                         { ...averages, spacing_s: data.bar_s },
                         data.withPlan ? planLabel : null
                     )}

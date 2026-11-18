@@ -14,13 +14,30 @@ type Result = ResultsFile['results'][number]
 /** Who a series belongs to: what you wear, or the sim's plan. */
 export type Who = 'worn' | 'plan'
 
-/** One moment of the fight chart; plan values are absent without a plan. */
+/**
+ * One bar group of the fight chart: a stretch of the fight and each
+ * series' average DPS over the points in it (absent when it has none).
+ */
+export type BarGroup = {
+    start_s: number
+    end_s: number
+    dps_worn?: number
+    dps_plan?: number
+}
+
+/**
+ * One moment of the fight chart; plan values are absent without a plan.
+ * DPS is its bar group's average (what the bars draw); mana is the
+ * moment's own. The first moment of each group carries the group, so the
+ * bars are drawn once per group.
+ */
 export type FightPoint = {
     t_s: number
     dps_worn?: number
     mana_worn?: number
     dps_plan?: number
     mana_plan?: number
+    bar?: BarGroup
 }
 
 /** A dashed out-of-mana line and its label. */
@@ -37,37 +54,39 @@ export type ManaMarker = {
 /** Everything the fight chart draws. */
 export type FightChartData = {
     points: FightPoint[]
+    /** The bar groups, in time order. */
+    bars: BarGroup[]
     withPlan: boolean
     markers: ManaMarker[]
     duration_s: number
-    /**
-     * Seconds each bar group covers: the points' spacing, or a multiple of
-     * it when the points are grouped (see `barGrouping`); null when the
-     * points aren't evenly spaced and aren't grouped.
-     */
-    bar_s: number | null
+    /** Seconds each bar group covers (`bucketSeconds`). */
+    bar_s: number
 }
 
-/** The fight chart's plot width at a 1440 px window, in pixels. */
-export const FIGHT_PLOT_PX = 540
-/**
- * The narrowest bar group: two bars of at least 1 px and a hairline gap.
- * Narrower, and the points are grouped.
- */
-export const MIN_GROUP_PX = 2.5
+/** The bar group lengths the fight chart picks from, in seconds. */
+export const BUCKET_STEPS_S = [5, 10, 15, 20, 30, 60, 120] as const
+
+/** About how many bar groups the fight chart draws. */
+export const BUCKET_COUNT = 10
 
 /**
- * How many points make one bar group, so that at `FIGHT_PLOT_PX` each of
- * the group's two bars is at least about 1 px wide.
+ * How many seconds each of the fight chart's bar groups covers: the
+ * smallest of 5, 10, 15, 20, 30, 60 and 120 that is at least a tenth of
+ * the fight, so a fight has at most ten groups (120 for fights past 20
+ * minutes, which then have more).
  *
- * @param spacing_s - Seconds between points.
  * @param duration_s - The fight's length.
- * @returns 1 (no grouping) or more.
+ * @returns The seconds per group.
+ *
+ * @example
+ * ```ts
+ * bucketSeconds(120) // 15: 8 groups
+ * bucketSeconds(30) // 5: 6 groups
+ * ```
  */
-export function barGrouping(spacing_s: number, duration_s: number): number {
-    if (spacing_s <= 0) return 1
-    const groups = duration_s / spacing_s
-    return Math.max(1, Math.ceil((groups * MIN_GROUP_PX) / FIGHT_PLOT_PX))
+export function bucketSeconds(duration_s: number): number {
+    const wanted = duration_s / BUCKET_COUNT
+    return BUCKET_STEPS_S.find((step) => step >= wanted) ?? 120
 }
 
 /** The mean of the values present, or undefined when none is. */
@@ -78,24 +97,56 @@ function meanOf(values: (number | undefined)[]): number | undefined {
 }
 
 /**
- * The points in groups of `bar_s` seconds (from 0): each group at its start
- * time, each series the mean of the group's values.
+ * The points in bar groups of `bucket_s` seconds from 0, each group the
+ * average DPS of each series over its own points. A point at the very end
+ * of the fight (t = the length, a whole number of groups) joins the last
+ * group rather than starting one of its own; a last group shorter than
+ * the rest (a length that isn't a whole number of groups) ends at the
+ * fight's end and is averaged over its own points.
+ *
+ * @param points - The chart's points, in time order.
+ * @param duration_s - The fight's length.
+ * @param bucket_s - Seconds per group (`bucketSeconds`).
+ * @returns The groups that have points, in time order, and for each point
+ * the index of its group.
+ *
+ * @example
+ * ```ts
+ * dpsBuckets([{ t_s: 0, dps_worn: 100 }, { t_s: 5, dps_worn: 110 }], 120, 15)
+ * // groups: [{ start_s: 0, end_s: 15, dps_worn: 105 }]
+ * ```
  */
-function grouped(points: FightPoint[], bar_s: number): FightPoint[] {
-    const groups = new Map<number, FightPoint[]>()
-    for (const point of points) {
-        const start = Math.floor(point.t_s / bar_s) * bar_s
-        groups.set(start, [...(groups.get(start) ?? []), point])
-    }
-    const keys = ['dps_worn', 'mana_worn', 'dps_plan', 'mana_plan'] as const
-    return [...groups.entries()].map(([t_s, members]) => {
-        const point: FightPoint = { t_s }
-        for (const key of keys) {
-            const value = meanOf(members.map((member) => member[key]))
-            if (value !== undefined) point[key] = value
-        }
-        return point
+export function dpsBuckets(
+    points: FightPoint[],
+    duration_s: number,
+    bucket_s: number
+): { groups: BarGroup[]; groupOf: number[] } {
+    const count = Math.max(1, Math.ceil(duration_s / bucket_s - 1e-9))
+    const members = new Map<number, FightPoint[]>()
+    const indexOf = points.map((point) =>
+        Math.min(Math.floor(point.t_s / bucket_s + 1e-9), count - 1)
+    )
+    points.forEach((point, at) => {
+        const index = indexOf[at] ?? 0
+        members.set(index, [...(members.get(index) ?? []), point])
     })
+    const order = [...members.keys()].sort((a, b) => a - b)
+    const groups = order.map((index): BarGroup => {
+        const inside = members.get(index) ?? []
+        const group: BarGroup = {
+            start_s: index * bucket_s,
+            end_s: Math.min((index + 1) * bucket_s, duration_s),
+        }
+        const worn = meanOf(inside.map((point) => point.dps_worn))
+        const plan = meanOf(inside.map((point) => point.dps_plan))
+        if (worn !== undefined) group.dps_worn = worn
+        if (plan !== undefined) group.dps_plan = plan
+        return group
+    })
+    return {
+        groups,
+        groupOf: indexOf.map((index) => order.indexOf(index)),
+    }
 }
 
 /**
@@ -142,17 +193,27 @@ export function fightChartData(
     times.sort((a, b) => a.at_s - b.at_s)
     const lastT = sorted.at(-1)?.t_s ?? 0
     const duration_s = Math.max(fight.duration_s, lastT)
-    // DPS is drawn as thin bars, two to a group: too many points for the
-    // plot's width and they're grouped, so no bar is under about 1 px.
-    const gaps = sorted
-        .slice(1)
-        .map((point, index) => point.t_s - (sorted[index]?.t_s ?? 0))
-    const spacing = gaps.length > 0 ? Math.min(...gaps) : 0
-    const even =
-        spacing > 0 && gaps.every((gap) => Math.abs(gap - spacing) < 1e-9)
-    const per = barGrouping(spacing, duration_s)
-    const points = per > 1 ? grouped(sorted, spacing * per) : sorted
-    const bar_s = per > 1 ? spacing * per : even ? spacing : null
+    // DPS is drawn as wide bars, two to a group, one group per
+    // `bucketSeconds` of the fight: each point shows its group's average,
+    // and the first point of each group carries the group to draw.
+    const bar_s = bucketSeconds(duration_s)
+    const { groups, groupOf } = dpsBuckets(sorted, duration_s, bar_s)
+    const drawn = new Set<number>()
+    const points = sorted.map((point, at) => {
+        const index = groupOf[at] ?? -1
+        const group = groups[index]
+        if (!group) return point
+        const shown: FightPoint = { ...point }
+        delete shown.dps_worn
+        delete shown.dps_plan
+        if (group.dps_worn !== undefined) shown.dps_worn = group.dps_worn
+        if (group.dps_plan !== undefined) shown.dps_plan = group.dps_plan
+        if (!drawn.has(index)) {
+            drawn.add(index)
+            shown.bar = group
+        }
+        return shown
+    })
     // As the mockup places them: with two markers the earlier label reads
     // leftwards from its line (top row) and the later one rightwards (second
     // row), so they never overlap. A label that would run off the chart
@@ -174,6 +235,7 @@ export function fightChartData(
     }))
     return {
         points,
+        bars: groups,
         withPlan: planTimeline !== null,
         markers,
         duration_s,

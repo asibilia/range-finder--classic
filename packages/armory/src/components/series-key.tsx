@@ -1,7 +1,7 @@
 /**
  * The legend swatches for the fight and pull charts: a short sample of each
  * series as it is drawn (dashed line, filled area, faded bar, the fight
- * chart's DPS as thin bars), so the legend reads like the chart. Used as
+ * chart's DPS as solid bars), so the legend reads like the chart. Used as
  * shadcn `ChartConfig` icons.
  */
 import type { ComponentType } from 'react'
@@ -79,31 +79,16 @@ function barKey(color: string, faded: boolean) {
     }
 }
 
-/** Two thin bars, as the fight chart draws DPS. */
-function thinBarKey(color: string, faded: boolean) {
-    return function ThinBarKey() {
+/** One solid bar, as the fight chart draws DPS. */
+function wideBarKey(color: string) {
+    return function WideBarKey() {
         return (
             <svg
-                viewBox="0 0 7 10"
+                viewBox="0 0 6 10"
                 aria-hidden="true"
-                className="!h-2.5 !w-1.75"
+                className="!h-2.5 !w-1.5"
             >
-                <rect
-                    x="0"
-                    y="2"
-                    width="3"
-                    height="8"
-                    fill={color}
-                    fillOpacity={faded ? 0.7 : 1}
-                />
-                <rect
-                    x="4"
-                    y="0"
-                    width="3"
-                    height="10"
-                    fill={color}
-                    fillOpacity={faded ? 0.7 : 1}
-                />
+                <rect width="6" height="10" rx="0.5" fill={color} />
             </svg>
         )
     }
@@ -130,8 +115,8 @@ function withSimBest(Swatch: ComponentType) {
 
 /** Legend icons for the fight chart's four series. */
 export const FIGHT_KEYS: Record<string, ComponentType> = {
-    dps_worn: thinBarKey(SERIES_COLOR.dps_worn, true),
-    dps_plan: withSimBest(thinBarKey(SERIES_COLOR.dps_plan, false)),
+    dps_worn: wideBarKey(SERIES_COLOR.dps_worn),
+    dps_plan: withSimBest(wideBarKey(SERIES_COLOR.dps_plan)),
     mana_worn: lineKey(SERIES_COLOR.mana, true, true),
     mana_plan: areaKey(SERIES_COLOR.mana),
 }

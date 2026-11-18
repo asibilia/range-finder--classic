@@ -1,9 +1,10 @@
 /**
  * The fight chart's drawing (Recharts 3 inside shadcn's `ChartContainer`):
- * DPS on the left axis as very thin bars, one group per time point (the
- * plan's in the accent, then what you wear's, faded, side by side, a
- * hairline between groups), mana on the right axis (the plan a filled
- * area, what you wear a dashed line) drawn over the bars, a dashed line at
+ * DPS on the left axis as wide bars, one group per stretch of the fight
+ * (`bucketSeconds`: about ten groups), what you wear's light grey then the
+ * plan's orange side by side, a small gap between groups; mana on the
+ * right axis (the plan a filled area behind the bars with its line over
+ * them, what you wear a dashed line over them), a dashed line at
  * each out-of-mana time with its label, time in m:ss, and a legend. Its
  * own module, loaded only once a file with a timeline is shown
  * (`React.lazy` in `fight-chart.tsx`), so the first load and the
@@ -12,10 +13,12 @@
 import {
     Area,
     Bar,
+    type BarShapeProps,
     CartesianGrid,
     ComposedChart,
     Line,
     ReferenceLine,
+    useXAxisScale,
     XAxis,
     YAxis,
 } from 'recharts'
@@ -31,6 +34,7 @@ import {
 import { cn } from '@/lib/utils'
 
 import {
+    type BarGroup,
     type FightChartData,
     type ManaMarker,
     timeTicks,
@@ -52,6 +56,76 @@ const CONFIG = Object.fromEntries(
         { label, icon: FIGHT_KEYS[key] },
     ])
 ) satisfies ChartConfig
+
+/** How much of a group's stretch its bars fill; the rest is the gap. */
+const GROUP_FILL = 0.74
+
+/** The gap between a group's two bars, in pixels. */
+const BAR_GAP_PX = 2
+
+/**
+ * One series' bar in a group, drawn once per group (on the group's first
+ * point) across the group's stretch of the time axis: what you wear's on
+ * the left, the plan's on the right, each half of the filled part; alone,
+ * a bar is centred. Recharts gives the bar's height; its x and width come
+ * from the time axis.
+ */
+function GroupBar({
+    who,
+    paired,
+    fill,
+    y,
+    height,
+    payload,
+}: {
+    who: 'worn' | 'plan'
+    paired: boolean
+    fill: string
+    y: number
+    height: number
+    payload?: { bar?: BarGroup }
+}) {
+    const scale = useXAxisScale()
+    const group = payload?.bar
+    if (!scale || !group || !(height > 0)) return null
+    const from = Number(scale(group.start_s))
+    const to = Number(scale(group.end_s))
+    const filled = Math.max(1, (to - from) * GROUP_FILL)
+    const left = from + (to - from - filled) / 2
+    const width = paired ? Math.max(1, (filled - BAR_GAP_PX) / 2) : filled / 2
+    const x = !paired
+        ? left + filled / 4
+        : who === 'worn'
+          ? left
+          : left + width + BAR_GAP_PX
+    return (
+        <rect
+            data-bar={who}
+            data-start={group.start_s}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            fill={fill}
+        />
+    )
+}
+
+/** A Recharts bar shape for one series. */
+function groupShape(who: 'worn' | 'plan', paired: boolean, fill: string) {
+    return function GroupShape(props: BarShapeProps) {
+        return (
+            <GroupBar
+                who={who}
+                paired={paired}
+                fill={fill}
+                y={props.y}
+                height={props.height}
+                payload={props.payload as { bar?: BarGroup } | undefined}
+            />
+        )
+    }
+}
 
 /** An out-of-mana label, above the chart, beside its dashed line. */
 function MarkerLabel({
@@ -121,9 +195,6 @@ export default function FightPlot({
                 aria-describedby={describedBy}
                 accessibilityLayer
                 margin={{ top: 50, right: 4, bottom: 0, left: 4 }}
-                // Two bars to a group, touching; a hairline between groups.
-                barGap={0}
-                barCategoryGap={0.5}
             >
                 <CartesianGrid vertical={false} strokeDasharray="2 4" />
                 <XAxis
@@ -133,9 +204,6 @@ export default function FightPlot({
                     ticks={timeTicks(data.duration_s)}
                     tickFormatter={minutesSeconds}
                     tickLine={false}
-                    // Half a group's room at each end, so the first and
-                    // last bars stay inside the plot.
-                    padding="gap"
                     // Even spacing when the chart is too narrow for every
                     // tick (a phone): every other one, not a ragged few.
                     interval="equidistantPreserveStart"
@@ -178,16 +246,51 @@ export default function FightPlot({
                         dataKey="mana_plan"
                         name={SERIES_LABELS.mana_plan}
                         type="linear"
+                        stroke="none"
+                        fill={SERIES_COLOR.mana}
+                        fillOpacity={0.2}
+                        isAnimationActive={false}
+                        // The area behind the bars (Recharts' default
+                        // order), so the bars stay crisp; its line is
+                        // drawn over them below.
+                    />
+                )}
+                <Bar
+                    yAxisId="dps"
+                    dataKey="dps_worn"
+                    name={SERIES_LABELS.dps_worn}
+                    fill={SERIES_COLOR.dps_worn}
+                    shape={groupShape(
+                        'worn',
+                        data.withPlan,
+                        SERIES_COLOR.dps_worn
+                    )}
+                    isAnimationActive={false}
+                />
+                {data.withPlan && (
+                    <Bar
+                        yAxisId="dps"
+                        dataKey="dps_plan"
+                        name={SERIES_LABELS.dps_plan}
+                        fill={SERIES_COLOR.dps_plan}
+                        shape={groupShape('plan', true, SERIES_COLOR.dps_plan)}
+                        isAnimationActive={false}
+                    />
+                )}
+                {data.withPlan && (
+                    <Line
+                        yAxisId="mana"
+                        dataKey="mana_plan"
+                        type="linear"
                         stroke={SERIES_COLOR.mana}
                         strokeWidth={1.8}
-                        fill={SERIES_COLOR.mana}
-                        fillOpacity={0.15}
+                        dot={false}
                         isAnimationActive={false}
-                        // Mana over the bars (Recharts draws areas under
-                        // bars by default): tried both on the screenshot,
-                        // and the mana lines read unbroken this way while
-                        // the bars only tint a little under the faint area.
-                        zIndex={350}
+                        // The plan's mana line over the bars; the area
+                        // above is its legend entry and tooltip row.
+                        legendType="none"
+                        tooltipType="none"
+                        zIndex={400}
                     />
                 )}
                 <Line
@@ -202,23 +305,6 @@ export default function FightPlot({
                     dot={false}
                     isAnimationActive={false}
                     zIndex={400}
-                />
-                {data.withPlan && (
-                    <Bar
-                        yAxisId="dps"
-                        dataKey="dps_plan"
-                        name={SERIES_LABELS.dps_plan}
-                        fill={SERIES_COLOR.dps_plan}
-                        isAnimationActive={false}
-                    />
-                )}
-                <Bar
-                    yAxisId="dps"
-                    dataKey="dps_worn"
-                    name={SERIES_LABELS.dps_worn}
-                    fill={SERIES_COLOR.dps_worn}
-                    fillOpacity={0.7}
-                    isAnimationActive={false}
                 />
                 {data.markers.map((marker) => (
                     <ReferenceLine

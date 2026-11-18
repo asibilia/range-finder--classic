@@ -67,7 +67,7 @@ describe('the fight chart', () => {
         expect(count('svg[role="img"]')).toBe(1)
     })
 
-    test('draws DPS as thin bars (two per point, no dots), the plan mana area, the worn mana dashed, and two markers', async () => {
+    test('draws DPS as wide bars (8 groups of 15 s, worn then plan, no dots), the plan mana area and line, the worn mana dashed, and two markers', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -77,21 +77,42 @@ describe('the fight chart', () => {
             />
         )
         await chartsLoaded()
-        // Bars: DPS plan and DPS worn at each of the 25 points. Line: mana
-        // worn. Area: mana plan. No dots.
-        expect(count('.recharts-bar-rectangle')).toBe(50)
-        expect(count('.recharts-line-curve')).toBe(1)
+        // Bars: one worn and one plan bar in each of 8 groups (2 minutes in
+        // 15 s). Lines: mana worn (dashed) and the plan's mana line over
+        // the bars. Area: mana plan. No dots.
+        const worn = [...document.querySelectorAll('rect[data-bar="worn"]')]
+        const planBars = [...document.querySelectorAll('rect[data-bar="plan"]')]
+        expect(worn).toHaveLength(8)
+        expect(planBars).toHaveLength(8)
+        expect(worn.map((bar) => bar.getAttribute('data-start'))).toEqual([
+            '0',
+            '15',
+            '30',
+            '45',
+            '60',
+            '75',
+            '90',
+            '105',
+        ])
+        expect(new Set(worn.map((bar) => bar.getAttribute('fill')))).toEqual(
+            new Set(['var(--muted-foreground)'])
+        )
+        expect(
+            new Set(planBars.map((bar) => bar.getAttribute('fill')))
+        ).toEqual(new Set(['var(--chart-1)']))
+        // Side by side, worn on the left, a gap before the next group.
+        const at = (bar: Element, name: string) =>
+            Number(bar.getAttribute(name))
+        expect(at(worn[0]!, 'x') + at(worn[0]!, 'width')).toBeLessThan(
+            at(planBars[0]!, 'x')
+        )
+        expect(at(planBars[0]!, 'x') + at(planBars[0]!, 'width')).toBeLessThan(
+            at(worn[1]!, 'x')
+        )
+        expect(at(worn[0]!, 'width')).toBeGreaterThan(4)
+        expect(count('.recharts-line-curve')).toBe(2)
         expect(count('.recharts-area-area')).toBe(1)
         expect(count('.recharts-dot')).toBe(0)
-        const fills = new Set(
-            [...document.querySelectorAll('.recharts-bar-rectangle path')].map(
-                (bar) => bar.getAttribute('fill')
-            )
-        )
-        expect([...fills].sort()).toEqual([
-            'var(--chart-1)',
-            'var(--muted-foreground)',
-        ])
         expect(
             document
                 .querySelector('.recharts-line-curve[stroke-dasharray="4 3"]')
@@ -120,7 +141,7 @@ describe('the fight chart', () => {
         ).toBeGreaterThan(0)
         expect(
             screen.getByText(
-                /^Average about \d+\.\d DPS in what you wear, \d+\.\d with the sim's plan \(max damage\)\. Bars every 5 seconds\.$/
+                /^Average about \d+\.\d DPS in what you wear, \d+\.\d with the sim's plan \(max damage\)\. Bars every 15 seconds\.$/
             )
         ).toBeDefined()
     })
@@ -144,15 +165,15 @@ describe('the fight chart', () => {
 
         const dpsPlan = keyItem("DPS, sim's plan")
         expect(dpsPlan.querySelector('circle[stroke-dasharray]')).not.toBeNull()
-        // The swatch stays: two thin bars.
-        expect(dpsPlan.querySelectorAll('rect')).toHaveLength(2)
+        // The swatch is a bar, as drawn.
+        expect(dpsPlan.querySelectorAll('rect')).toHaveLength(1)
         expect(
             keyItem('DPS, what you wear').querySelectorAll('rect')
-        ).toHaveLength(2)
+        ).toHaveLength(1)
         expect(keyItem("Mana, sim's plan").querySelector('circle')).toBeNull()
     })
 
-    test('without the plan: one bar per point, the mana line, no area, one marker, no plan legend', async () => {
+    test('without the plan: one bar per group, the mana line, no area, one marker, no plan legend', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -161,7 +182,8 @@ describe('the fight chart', () => {
             />
         )
         await chartsLoaded()
-        expect(count('.recharts-bar-rectangle')).toBe(25)
+        expect(count('rect[data-bar="worn"]')).toBe(8)
+        expect(count('rect[data-bar="plan"]')).toBe(0)
         expect(count('.recharts-line-curve')).toBe(1)
         expect(count('.recharts-area-area')).toBe(0)
         expect(count('.recharts-reference-line-line')).toBe(1)
@@ -171,7 +193,7 @@ describe('the fight chart', () => {
 })
 
 describe('the fight chart on a long fight', () => {
-    test('a 5-minute fight with a point every second groups its bars by 2 seconds and says so', async () => {
+    test('a 5-minute fight with a point every second groups its bars by 30 seconds (10 groups) and says so', async () => {
         const worn = result('worn', 'dungeon-long')
         const plan = result('max-damage', 'dungeon-long')
         const perSecond = (base: typeof worn) => ({
@@ -192,9 +214,11 @@ describe('the fight chart on a long fight', () => {
             />
         )
         await chartsLoaded()
-        // 151 groups (0, 2, ... 300), two bars each.
-        expect(count('.recharts-bar-rectangle')).toBe(302)
-        expect(screen.getByText(/Bars every 2 seconds\.$/)).toBeDefined()
+        // 10 groups (0, 30, ... 270; the end point joins the last), two
+        // bars each.
+        expect(count('rect[data-bar="worn"]')).toBe(10)
+        expect(count('rect[data-bar="plan"]')).toBe(10)
+        expect(screen.getByText(/Bars every 30 seconds\.$/)).toBeDefined()
     })
 })
 
