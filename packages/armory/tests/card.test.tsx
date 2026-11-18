@@ -551,7 +551,7 @@ describe('the damage split and stat weights', () => {
         const section = heading.closest('section') as HTMLElement
         expect(
             within(section).getByText(
-                'Solo, 30 seconds vs level 31, what you wear. Colour is the spell school.'
+                'Solo vs a level 31 mob (+1), 30 seconds, what you wear. Colour is the spell school.'
             )
         ).toBeDefined()
         const lines = [...section.querySelectorAll('li')].map((line) =>

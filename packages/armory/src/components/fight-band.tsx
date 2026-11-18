@@ -87,7 +87,7 @@ export function FightBand({
                         Across the fight
                     </h2>
                     <span className="text-[0.8125rem] text-muted-foreground">
-                        {fightWords(fight)}
+                        {fightWords(fight, file.character.level)}
                     </span>
                     {file.provisional && (
                         <Provisional text={BAND_PROVISIONAL_TEXT} />
@@ -122,7 +122,7 @@ export function FightBand({
                 {referenceWorn && (
                     <DamageSplit
                         worn={referenceWorn}
-                        fightLabel={fightWords(reference)}
+                        fightLabel={fightWords(reference, file.character.level)}
                     />
                 )}
                 <StatWeights

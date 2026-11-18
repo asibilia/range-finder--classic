@@ -38,7 +38,7 @@ import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { App } from '../src/app'
 import { buildRequest, level60Check } from '../src/browser-sim'
-import { NO_EXPORT_NOTE } from '../src/components/sim-panel'
+import { COMING_SOON_NOTE, NO_EXPORT_NOTE } from '../src/components/sim-panel'
 import { readResultsFile } from '../src/results-file'
 import sample from '../src/sample-truncha.json'
 import { exportFromCharacter } from './helpers/export-from-character'
@@ -232,7 +232,7 @@ function luaFile(text: string): File {
 }
 
 function renderWith(pool: FakePool) {
-    render(<App createPool={() => pool} />)
+    render(<App createPool={() => pool} runSimulator />)
     return userEvent.setup()
 }
 
@@ -569,7 +569,7 @@ describe('no weights file for the band', () => {
                 return answered
             },
         }
-        render(<App createPool={() => pool} />)
+        render(<App createPool={() => pool} runSimulator />)
         const user = userEvent.setup()
         await pickFile(user, luaFile(text))
 
@@ -705,6 +705,19 @@ async function asFixedLongFight(
 }
 
 describe('Run Simulator', () => {
+    test('off by default: the button is disabled and says it is coming soon, even with an export brought in', async () => {
+        const pool = fakePool()
+        render(<App createPool={() => pool} />)
+        const user = userEvent.setup()
+        await pickFile(user, luaFile(await testcharExport()))
+        await characterLoaded()
+
+        const run = screen.getByRole('button', { name: 'Run Simulator' })
+        expect((run as HTMLButtonElement).disabled).toBe(true)
+        expect(screen.getByText(COMING_SOON_NOTE)).toBeDefined()
+        expect(screen.queryByText(NO_EXPORT_NOTE)).toBeNull()
+    })
+
     test('with the export brought in, it sims the export again for the enemy level picked, with progress, and the new file replaces the shown one on that fight', async () => {
         const { user, pool } = await simmedTestchar()
         const level = (await testchar()).level

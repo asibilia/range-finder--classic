@@ -358,13 +358,27 @@ describe('the stat weights', () => {
 
 describe('fight words and axis ticks', () => {
     test('a single fight reads as the mockup words it; a chain keeps its label', () => {
-        expect(fightWords(fight(sample, 'dungeon-long'))).toBe(
-            'Dungeon, 2 minutes vs level 33'
+        const level = sample.character.level
+        expect(fightWords(fight(sample, 'dungeon-long'), level)).toBe(
+            'Dungeon vs a level 33 mob (+3), 2 minutes'
         )
-        expect(fightWords(fight(sample, 'solo-hit-short'))).toBe(
-            'Solo, 30 seconds vs level 31'
+        expect(fightWords(fight(sample, 'solo-hit-short'), level)).toBe(
+            'Solo vs a level 31 mob (+1), 30 seconds'
         )
-        expect(fightWords(fight(sample, 'chain-4'))).toBe(
+        expect(fightWords(fight(sample, 'solo-hit-short'), 31)).toBe(
+            'Solo vs a level 31 mob (your level), 30 seconds'
+        )
+        // The level is said once, however the file labels its fights.
+        expect(
+            fightWords(
+                {
+                    ...fight(sample, 'dungeon-long'),
+                    label: 'Dungeon vs a level 33 mob (+3)',
+                },
+                level
+            )
+        ).toBe('Dungeon vs a level 33 mob (+3), 2 minutes')
+        expect(fightWords(fight(sample, 'chain-4'), level)).toBe(
             fight(sample, 'chain-4').label
         )
     })

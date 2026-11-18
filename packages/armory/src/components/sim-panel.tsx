@@ -25,6 +25,9 @@ import { Readings } from './readings'
 /** Under Run Simulator when there is no export to sim. */
 export const NO_EXPORT_NOTE = 'Bring in your export to run the sim here.'
 
+/** Shown, with the button disabled, while running the sim here isn't switched on yet. */
+export const COMING_SOON_NOTE = 'Coming soon: running the sim here.'
+
 /**
  * The card with a file loaded.
  *
@@ -50,6 +53,7 @@ export function SimPanel({
     settings,
     wornOf,
     onRunSimulator,
+    runNote = NO_EXPORT_NOTE,
     running,
     runProblem,
     className,
@@ -62,6 +66,8 @@ export function SimPanel({
     settings?: ReactNode
     wornOf?: (fightId: string) => Result | null
     onRunSimulator?: () => void
+    /** The note beside the disabled button: why it can't run. */
+    runNote?: string
     running?: ReactNode
     runProblem?: string | null
     className?: string
@@ -103,7 +109,7 @@ export function SimPanel({
                                 id={noExportId}
                                 className="text-[0.78125rem] text-muted-foreground"
                             >
-                                {NO_EXPORT_NOTE}
+                                {runNote}
                             </p>
                         )}
                         <Button

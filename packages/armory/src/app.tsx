@@ -27,7 +27,11 @@ import {
 import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
-import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
+import {
+    COMING_SOON_NOTE,
+    LockedSimPanel,
+    SimPanel,
+} from '@/components/sim-panel'
 import {
     PHONE_QUERY,
     SIM_CREDIT,
@@ -267,13 +271,18 @@ type Simmed = { character: Character; minutes: number; exportText: string }
  * @param localLatest - Dev only: open on the owner's latest results file
  * from the dev server, and follow it (`components/latest-file.tsx`). Off
  * in a build.
+ * @param runSimulator - Whether Run Simulator may run the browser sim. Off
+ * until the browser reads the current export formats (8 to 10): the button
+ * shows, disabled, with `Coming soon: running the sim here.` Tests turn it on.
  */
 export function App({
     createPool = createSimPool,
     localLatest = import.meta.env.DEV,
+    runSimulator: runSimulatorOn = false,
 }: {
     createPool?: () => SimPool
     localLatest?: boolean
+    runSimulator?: boolean
 } = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
@@ -728,9 +737,14 @@ export function App({
                             wornOf={wornOf}
                             className={SIDE_PLACE}
                             onRunSimulator={
-                                exportText !== null && !refining
+                                runSimulatorOn &&
+                                exportText !== null &&
+                                !refining
                                     ? () => void runSimulator(exportText)
                                     : undefined
+                            }
+                            runNote={
+                                runSimulatorOn ? undefined : COMING_SOON_NOTE
                             }
                             running={
                                 running && (

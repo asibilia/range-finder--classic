@@ -5,7 +5,7 @@
  * Pure functions, so each chart is tested on the series it is given apart
  * from how Recharts draws it.
  */
-import { lengthWords, minutesSeconds } from './format'
+import { lengthWords, minutesSeconds, mobWords } from './format'
 import type { ResultsFile, Stat } from './results-file'
 
 type Fight = ResultsFile['fights'][number]
@@ -596,17 +596,17 @@ export function statWeightsData(
 }
 
 /**
- * A fight in the mockup's words, for headings and notes: `Dungeon, 2
- * minutes vs level 33` (the label's first part, the length in words and the
- * level). A chain fight keeps its label.
+ * A fight in the owner's design's words, for headings and notes, with the
+ * level said once: `Dungeon vs a level 36 mob (+2), 2 minutes`. A chain
+ * fight keeps its label.
  *
  * @param fight - The fight.
+ * @param level - The character's level.
  * @returns The words.
  */
-export function fightWords(fight: Fight): string {
-    const kind = fight.label.split(',')[0]?.trim()
-    if (fight.kind !== 'single' || !kind) return fight.label
-    return `${kind}, ${lengthWords(fight.duration_s)} vs level ${fight.target_level}`
+export function fightWords(fight: Fight, level: number): string {
+    if (fight.kind !== 'single') return fight.label
+    return `${mobWords(fight, level)}, ${lengthWords(fight.duration_s)}`
 }
 
 /**

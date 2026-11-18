@@ -132,15 +132,25 @@ export function shortLabel(fight: Fight): string {
  * @param level - The character's level.
  * @returns The sentence.
  */
-export function fightDetail(fight: Fight, level: number): string {
+/**
+ * The fight's kind and its mob, with the level said once:
+ * `Dungeon vs a level 36 mob (+2)`, `Solo vs a level 34 mob (your level)`.
+ *
+ * @param fight - The fight.
+ * @param level - The character's level.
+ * @returns The words.
+ */
+export function mobWords(fight: Fight, level: number): string {
     const difference = fight.target_level - level
     const relative =
         difference === 0
             ? 'your level'
             : `${difference > 0 ? '+' : '-'}${Math.abs(difference)}`
-    const parts = [
-        `${shortLabel(fight)} vs a level ${fight.target_level} mob (${relative})`,
-    ]
+    return `${shortLabel(fight)} vs a level ${fight.target_level} mob (${relative})`
+}
+
+export function fightDetail(fight: Fight, level: number): string {
+    const parts = [mobWords(fight, level)]
     if (fight.setup)
         parts.push(fight.setup.being_hit ? 'mob hitting you' : 'behind a tank')
     parts.push(

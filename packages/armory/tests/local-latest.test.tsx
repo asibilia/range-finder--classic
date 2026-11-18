@@ -202,7 +202,7 @@ afterEach(() => {
 
 /** Renders the page with the local latest file on. */
 function renderLocal() {
-    render(<App localLatest />)
+    render(<App localLatest runSimulator />)
     return userEvent.setup()
 }
 
