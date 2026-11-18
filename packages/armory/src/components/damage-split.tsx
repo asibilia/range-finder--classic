@@ -1,7 +1,8 @@
 /**
  * Where the damage comes from (spec section 9), as the mockup draws it:
  * one 100% stacked bar of what you wear's split, and a two-column legend
- * with each part's swatch and share (`Melee 33%`). Coloured by spell
+ * of each part's name and share (`Melee 33%`) in the bar's order, with no
+ * colour squares (the owner's design). Coloured by spell
  * school when the file has one for every part (and says so), else by
  * order.
  */
@@ -60,15 +61,12 @@ export function DamageSplit({
             </div>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-0.75 text-[0.8125rem]">
                 {parts.map((part, index) => (
+                    // The owner's design: no colour squares; the legend
+                    // reads in the bar's order.
                     <li
                         key={`${index}-${part.name}`}
                         className="flex items-center gap-1.75"
                     >
-                        <span
-                            aria-hidden="true"
-                            className="size-2.25 shrink-0 rounded-[2px]"
-                            style={{ background: part.color }}
-                        />
                         {part.name}
                         <span className="ml-auto text-muted-foreground tabular-nums">
                             <span className="sr-only"> </span>

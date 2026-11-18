@@ -67,7 +67,7 @@ describe('the fight chart', () => {
         expect(count('svg[role="img"]')).toBe(1)
     })
 
-    test('draws DPS lines, the plan mana area, the worn mana dashed, and two markers', async () => {
+    test('draws DPS as thin bars (two per point, no dots), the plan mana area, the worn mana dashed, and two markers', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -77,9 +77,21 @@ describe('the fight chart', () => {
             />
         )
         await chartsLoaded()
-        // Lines: DPS worn, DPS plan, mana worn. Area: mana plan.
-        expect(count('.recharts-line-curve')).toBe(3)
+        // Bars: DPS plan and DPS worn at each of the 25 points. Line: mana
+        // worn. Area: mana plan. No dots.
+        expect(count('.recharts-bar-rectangle')).toBe(50)
+        expect(count('.recharts-line-curve')).toBe(1)
         expect(count('.recharts-area-area')).toBe(1)
+        expect(count('.recharts-dot')).toBe(0)
+        const fills = new Set(
+            [...document.querySelectorAll('.recharts-bar-rectangle path')].map(
+                (bar) => bar.getAttribute('fill')
+            )
+        )
+        expect([...fills].sort()).toEqual([
+            'var(--chart-1)',
+            'var(--muted-foreground)',
+        ])
         expect(
             document
                 .querySelector('.recharts-line-curve[stroke-dasharray="4 3"]')
@@ -108,7 +120,7 @@ describe('the fight chart', () => {
         ).toBeGreaterThan(0)
         expect(
             screen.getByText(
-                /^Average about \d+\.\d DPS in what you wear, \d+\.\d with the sim's plan \(max damage\)\. Points every 5 seconds\.$/
+                /^Average about \d+\.\d DPS in what you wear, \d+\.\d with the sim's plan \(max damage\)\. Bars every 5 seconds\.$/
             )
         ).toBeDefined()
     })
@@ -132,12 +144,15 @@ describe('the fight chart', () => {
 
         const dpsPlan = keyItem("DPS, sim's plan")
         expect(dpsPlan.querySelector('circle[stroke-dasharray]')).not.toBeNull()
-        // The swatch stays.
-        expect(dpsPlan.querySelector('line')).not.toBeNull()
+        // The swatch stays: two thin bars.
+        expect(dpsPlan.querySelectorAll('rect')).toHaveLength(2)
+        expect(
+            keyItem('DPS, what you wear').querySelectorAll('rect')
+        ).toHaveLength(2)
         expect(keyItem("Mana, sim's plan").querySelector('circle')).toBeNull()
     })
 
-    test('without the plan: two lines, no area, one marker, no plan legend', async () => {
+    test('without the plan: one bar per point, the mana line, no area, one marker, no plan legend', async () => {
         render(
             <FightChart
                 fight={fight('dungeon-long')}
@@ -146,11 +161,40 @@ describe('the fight chart', () => {
             />
         )
         await chartsLoaded()
-        expect(count('.recharts-line-curve')).toBe(2)
+        expect(count('.recharts-bar-rectangle')).toBe(25)
+        expect(count('.recharts-line-curve')).toBe(1)
         expect(count('.recharts-area-area')).toBe(0)
         expect(count('.recharts-reference-line-line')).toBe(1)
         expect(screen.queryByText("DPS, sim's plan")).toBeNull()
         expect(screen.queryByText("Mana, sim's plan")).toBeNull()
+    })
+})
+
+describe('the fight chart on a long fight', () => {
+    test('a 5-minute fight with a point every second groups its bars by 2 seconds and says so', async () => {
+        const worn = result('worn', 'dungeon-long')
+        const plan = result('max-damage', 'dungeon-long')
+        const perSecond = (base: typeof worn) => ({
+            ...base,
+            out_of_mana_s: null,
+            timeline: Array.from({ length: 301 }, (_, t_s) => ({
+                t_s,
+                dps: 100 + (t_s % 7),
+                mana: 2000 - t_s,
+            })),
+        })
+        render(
+            <FightChart
+                fight={{ ...fight('dungeon-long'), duration_s: 300 }}
+                worn={perSecond(worn)}
+                plan={perSecond(plan)}
+                planLabel="Max damage"
+            />
+        )
+        await chartsLoaded()
+        // 151 groups (0, 2, ... 300), two bars each.
+        expect(count('.recharts-bar-rectangle')).toBe(302)
+        expect(screen.getByText(/Bars every 2 seconds\.$/)).toBeDefined()
     })
 })
 
@@ -235,6 +279,9 @@ describe('the damage split', () => {
         ])
         expect(legend()[0]).toBe('Melee 33%')
         expect(legend()[5]).toBe('Lightning Shield 9%')
+        // The owner's design: no colour squares in the legend.
+        for (const item of document.querySelectorAll('li'))
+            expect(item.querySelector('[style*="background"]')).toBeNull()
         expect(
             screen.getByText(
                 'Solo, 30 seconds vs level 31, what you wear. Colour is the spell school.'

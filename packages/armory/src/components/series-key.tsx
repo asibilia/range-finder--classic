@@ -1,7 +1,8 @@
 /**
  * The legend swatches for the fight and pull charts: a short sample of each
- * series as it is drawn (solid or dashed line, filled area, faded bar), so
- * the legend reads like the chart. Used as shadcn `ChartConfig` icons.
+ * series as it is drawn (dashed line, filled area, faded bar, the fight
+ * chart's DPS as thin bars), so the legend reads like the chart. Used as
+ * shadcn `ChartConfig` icons.
  */
 import type { ComponentType } from 'react'
 
@@ -78,6 +79,36 @@ function barKey(color: string, faded: boolean) {
     }
 }
 
+/** Two thin bars, as the fight chart draws DPS. */
+function thinBarKey(color: string, faded: boolean) {
+    return function ThinBarKey() {
+        return (
+            <svg
+                viewBox="0 0 7 10"
+                aria-hidden="true"
+                className="!h-2.5 !w-1.75"
+            >
+                <rect
+                    x="0"
+                    y="2"
+                    width="3"
+                    height="8"
+                    fill={color}
+                    fillOpacity={faded ? 0.7 : 1}
+                />
+                <rect
+                    x="4"
+                    y="0"
+                    width="3"
+                    height="10"
+                    fill={color}
+                    fillOpacity={faded ? 0.7 : 1}
+                />
+            </svg>
+        )
+    }
+}
+
 /** Series colours: the plan's accent, what you wear (muted), mana. */
 export const SERIES_COLOR = {
     dps_plan: 'var(--chart-1)',
@@ -99,8 +130,8 @@ function withSimBest(Swatch: ComponentType) {
 
 /** Legend icons for the fight chart's four series. */
 export const FIGHT_KEYS: Record<string, ComponentType> = {
-    dps_worn: lineKey(SERIES_COLOR.dps_worn, false, true),
-    dps_plan: withSimBest(lineKey(SERIES_COLOR.dps_plan, false, false)),
+    dps_worn: thinBarKey(SERIES_COLOR.dps_worn, true),
+    dps_plan: withSimBest(thinBarKey(SERIES_COLOR.dps_plan, false)),
     mana_worn: lineKey(SERIES_COLOR.mana, true, true),
     mana_plan: areaKey(SERIES_COLOR.mana),
 }

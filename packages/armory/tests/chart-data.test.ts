@@ -7,6 +7,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     averageWords,
+    barGrouping,
     fightChartData,
     pullChartData,
     splitParts,
@@ -108,10 +109,10 @@ describe('the fight chart data', () => {
         )
         expect(averages.spacing_s).toBe(5)
         expect(averageWords(averages, 'Max damage')).toBe(
-            `Average about ${averages.worn.toFixed(1)} DPS in what you wear, ${averages.plan!.toFixed(1)} with the sim's plan (max damage). Points every 5 seconds.`
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear, ${averages.plan!.toFixed(1)} with the sim's plan (max damage). Bars every 5 seconds.`
         )
         expect(averageWords({ ...averages, plan: null }, null)).toBe(
-            `Average about ${averages.worn.toFixed(1)} DPS in what you wear. Points every 5 seconds.`
+            `Average about ${averages.worn.toFixed(1)} DPS in what you wear. Bars every 5 seconds.`
         )
         const uneven = {
             ...worn,
@@ -126,6 +127,47 @@ describe('the fight chart data', () => {
             plan: null,
             spacing_s: null,
         })
+    })
+
+    test('bars: 5-second points over 2 minutes stay ungrouped (bar_s 5); 1-second points over 5 minutes group by 2 seconds, each group the mean', () => {
+        expect(barGrouping(5, 120)).toBe(1)
+        expect(barGrouping(1, 120)).toBe(1)
+        expect(barGrouping(1, 180)).toBe(1)
+        expect(barGrouping(1, 300)).toBe(2)
+        expect(fightChartData(long, worn, plan)!.bar_s).toBe(5)
+
+        const perSecond = {
+            ...worn,
+            timeline: Array.from({ length: 300 }, (_, t_s) => ({
+                t_s,
+                dps: t_s % 2 === 0 ? 100 : 200,
+                mana: 1000,
+            })),
+        }
+        const data = fightChartData(
+            { ...long, duration_s: 300 },
+            perSecond,
+            null
+        )!
+        expect(data.bar_s).toBe(2)
+        expect(data.points).toHaveLength(150)
+        expect(data.points[1]).toEqual({
+            t_s: 2,
+            dps_worn: 150,
+            mana_worn: 1000,
+        })
+    })
+
+    test('uneven points, too few to group, give no bar spacing', () => {
+        const uneven = {
+            ...worn,
+            timeline: [
+                { t_s: 0, dps: 10, mana: 1 },
+                { t_s: 5, dps: 20, mana: 1 },
+                { t_s: 12, dps: 30, mana: 1 },
+            ],
+        }
+        expect(fightChartData(long, uneven, null)!.bar_s).toBeNull()
     })
 
     test('without a plan timeline: only what you wear, no plan marker', () => {

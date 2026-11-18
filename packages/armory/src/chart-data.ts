@@ -40,6 +40,62 @@ export type FightChartData = {
     withPlan: boolean
     markers: ManaMarker[]
     duration_s: number
+    /**
+     * Seconds each bar group covers: the points' spacing, or a multiple of
+     * it when the points are grouped (see `barGrouping`); null when the
+     * points aren't evenly spaced and aren't grouped.
+     */
+    bar_s: number | null
+}
+
+/** The fight chart's plot width at a 1440 px window, in pixels. */
+export const FIGHT_PLOT_PX = 540
+/**
+ * The narrowest bar group: two bars of at least 1 px and a hairline gap.
+ * Narrower, and the points are grouped.
+ */
+export const MIN_GROUP_PX = 2.5
+
+/**
+ * How many points make one bar group, so that at `FIGHT_PLOT_PX` each of
+ * the group's two bars is at least about 1 px wide.
+ *
+ * @param spacing_s - Seconds between points.
+ * @param duration_s - The fight's length.
+ * @returns 1 (no grouping) or more.
+ */
+export function barGrouping(spacing_s: number, duration_s: number): number {
+    if (spacing_s <= 0) return 1
+    const groups = duration_s / spacing_s
+    return Math.max(1, Math.ceil((groups * MIN_GROUP_PX) / FIGHT_PLOT_PX))
+}
+
+/** The mean of the values present, or undefined when none is. */
+function meanOf(values: (number | undefined)[]): number | undefined {
+    const present = values.filter((value) => value !== undefined)
+    if (present.length === 0) return undefined
+    return present.reduce((sum, value) => sum + value, 0) / present.length
+}
+
+/**
+ * The points in groups of `bar_s` seconds (from 0): each group at its start
+ * time, each series the mean of the group's values.
+ */
+function grouped(points: FightPoint[], bar_s: number): FightPoint[] {
+    const groups = new Map<number, FightPoint[]>()
+    for (const point of points) {
+        const start = Math.floor(point.t_s / bar_s) * bar_s
+        groups.set(start, [...(groups.get(start) ?? []), point])
+    }
+    const keys = ['dps_worn', 'mana_worn', 'dps_plan', 'mana_plan'] as const
+    return [...groups.entries()].map(([t_s, members]) => {
+        const point: FightPoint = { t_s }
+        for (const key of keys) {
+            const value = meanOf(members.map((member) => member[key]))
+            if (value !== undefined) point[key] = value
+        }
+        return point
+    })
 }
 
 /**
@@ -76,7 +132,7 @@ export function fightChartData(
         row.dps_plan = point.dps
         row.mana_plan = point.mana
     }
-    const points = [...byTime.values()].sort((a, b) => a.t_s - b.t_s)
+    const sorted = [...byTime.values()].sort((a, b) => a.t_s - b.t_s)
 
     const times: { who: Who; at_s: number }[] = []
     if (typeof worn.out_of_mana_s === 'number')
@@ -84,8 +140,19 @@ export function fightChartData(
     if (planTimeline && typeof plan?.out_of_mana_s === 'number')
         times.push({ who: 'plan', at_s: plan.out_of_mana_s })
     times.sort((a, b) => a.at_s - b.at_s)
-    const lastT = points.at(-1)?.t_s ?? 0
+    const lastT = sorted.at(-1)?.t_s ?? 0
     const duration_s = Math.max(fight.duration_s, lastT)
+    // DPS is drawn as thin bars, two to a group: too many points for the
+    // plot's width and they're grouped, so no bar is under about 1 px.
+    const gaps = sorted
+        .slice(1)
+        .map((point, index) => point.t_s - (sorted[index]?.t_s ?? 0))
+    const spacing = gaps.length > 0 ? Math.min(...gaps) : 0
+    const even =
+        spacing > 0 && gaps.every((gap) => Math.abs(gap - spacing) < 1e-9)
+    const per = barGrouping(spacing, duration_s)
+    const points = per > 1 ? grouped(sorted, spacing * per) : sorted
+    const bar_s = per > 1 ? spacing * per : even ? spacing : null
     // As the mockup places them: with two markers the earlier label reads
     // leftwards from its line (top row) and the later one rightwards (second
     // row), so they never overlap. A label that would run off the chart
@@ -110,6 +177,7 @@ export function fightChartData(
         withPlan: planTimeline !== null,
         markers,
         duration_s,
+        bar_s,
     }
 }
 function average(values: number[]): number | null {
@@ -481,7 +549,7 @@ export function fightWords(fight: Fight): string {
 
 /**
  * The line under a chart, as the mockup words it: `Average about 75.4 DPS
- * in what you wear, 84.5 with the sim's plan (max damage). Points every 5
+ * in what you wear, 84.5 with the sim's plan (max damage). Bars every 5
  * seconds.`
  *
  * @param averages - The chart's averages.
@@ -502,6 +570,6 @@ export function averageWords(
     const spacing =
         averages.spacing_s === null
             ? ''
-            : ` Points every ${averages.spacing_s} ${averages.spacing_s === 1 ? 'second' : 'seconds'}.`
+            : ` Bars every ${averages.spacing_s} ${averages.spacing_s === 1 ? 'second' : 'seconds'}.`
     return `Average about ${averages.worn.toFixed(1)} ${unit} in what you wear${plan}.${spacing}`
 }

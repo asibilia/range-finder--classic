@@ -1,14 +1,17 @@
 /**
  * The fight chart's drawing (Recharts 3 inside shadcn's `ChartContainer`):
- * DPS on the left axis (the plan a solid accent line, what you wear a
- * thinner faded one), mana on the right axis (the plan a filled area, what
- * you wear a dashed line), a dashed line at each out-of-mana time with its
- * label, time in m:ss, and a legend. Its own module, loaded only once a
- * file with a timeline is shown (`React.lazy` in `fight-chart.tsx`), so the
- * first load and the new-visitor screen don't carry Recharts.
+ * DPS on the left axis as very thin bars, one group per time point (the
+ * plan's in the accent, then what you wear's, faded, side by side, a
+ * hairline between groups), mana on the right axis (the plan a filled
+ * area, what you wear a dashed line) drawn over the bars, a dashed line at
+ * each out-of-mana time with its label, time in m:ss, and a legend. Its
+ * own module, loaded only once a file with a timeline is shown
+ * (`React.lazy` in `fight-chart.tsx`), so the first load and the
+ * new-visitor screen don't carry Recharts.
  */
 import {
     Area,
+    Bar,
     CartesianGrid,
     ComposedChart,
     Line,
@@ -118,6 +121,9 @@ export default function FightPlot({
                 aria-describedby={describedBy}
                 accessibilityLayer
                 margin={{ top: 50, right: 4, bottom: 0, left: 4 }}
+                // Two bars to a group, touching; a hairline between groups.
+                barGap={0}
+                barCategoryGap={0.5}
             >
                 <CartesianGrid vertical={false} strokeDasharray="2 4" />
                 <XAxis
@@ -127,6 +133,9 @@ export default function FightPlot({
                     ticks={timeTicks(data.duration_s)}
                     tickFormatter={minutesSeconds}
                     tickLine={false}
+                    // Half a group's room at each end, so the first and
+                    // last bars stay inside the plot.
+                    padding="gap"
                     // Even spacing when the chart is too narrow for every
                     // tick (a phone): every other one, not a ragged few.
                     interval="equidistantPreserveStart"
@@ -174,6 +183,11 @@ export default function FightPlot({
                         fill={SERIES_COLOR.mana}
                         fillOpacity={0.15}
                         isAnimationActive={false}
+                        // Mana over the bars (Recharts draws areas under
+                        // bars by default): tried both on the screenshot,
+                        // and the mana lines read unbroken this way while
+                        // the bars only tint a little under the faint area.
+                        zIndex={350}
                     />
                 )}
                 <Line
@@ -187,30 +201,25 @@ export default function FightPlot({
                     strokeDasharray="4 3"
                     dot={false}
                     isAnimationActive={false}
-                />
-                <Line
-                    yAxisId="dps"
-                    dataKey="dps_worn"
-                    name={SERIES_LABELS.dps_worn}
-                    type="linear"
-                    stroke={SERIES_COLOR.dps_worn}
-                    strokeOpacity={0.7}
-                    strokeWidth={1.6}
-                    dot={false}
-                    isAnimationActive={false}
+                    zIndex={400}
                 />
                 {data.withPlan && (
-                    <Line
+                    <Bar
                         yAxisId="dps"
                         dataKey="dps_plan"
                         name={SERIES_LABELS.dps_plan}
-                        type="linear"
-                        stroke={SERIES_COLOR.dps_plan}
-                        strokeWidth={2.4}
-                        dot={{ r: 2, fill: SERIES_COLOR.dps_plan }}
+                        fill={SERIES_COLOR.dps_plan}
                         isAnimationActive={false}
                     />
                 )}
+                <Bar
+                    yAxisId="dps"
+                    dataKey="dps_worn"
+                    name={SERIES_LABELS.dps_worn}
+                    fill={SERIES_COLOR.dps_worn}
+                    fillOpacity={0.7}
+                    isAnimationActive={false}
+                />
                 {data.markers.map((marker) => (
                     <ReferenceLine
                         key={marker.who}
