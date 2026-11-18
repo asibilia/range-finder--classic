@@ -298,7 +298,7 @@ function GearHead({
                 {!file ? (
                     'Every slot fills in from your export.'
                 ) : planShown ? (
-                    'Labels show the gain over what you wear. Faded slots stay as they are.'
+                    'Faded slots stay as they are.'
                 ) : plan ? (
                     <TotalLine total={gapTotal(file, plan, bagWorn)} />
                 ) : (

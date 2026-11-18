@@ -71,15 +71,12 @@ describe('the gear pane', () => {
         )
     })
 
-    test('in the plan view says what the labels and faded slots mean, and fades unchanged slots', async () => {
+    test('in the plan view says what faded slots mean, and fades unchanged slots', async () => {
         const user = await openSample()
         await showPlan(user)
 
-        expect(
-            screen.getByText(
-                'Labels show the gain over what you wear. Faded slots stay as they are.'
-            )
-        ).toBeDefined()
+        expect(screen.getByText('Faded slots stay as they are.')).toBeDefined()
+        expect(screen.queryByText(/Labels show the gain/)).toBeNull()
         expect(
             screen
                 .getByRole('button', {
