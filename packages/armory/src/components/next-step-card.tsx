@@ -26,15 +26,15 @@ const ROWS_FOLDED = 3
 /** Plural slot words read `are in your bags`; the others `is`. */
 const PLURAL_WORDS = /s$/
 
-const CARD =
-    'mt-auto rounded-xl border border-dashed px-3 py-2.5 text-[0.84375rem] text-muted-foreground'
+/** The owner's plain glass box: no dashed border, no tint. */
+const CARD = 'glass rounded-lg px-2.5 py-2.5 text-base text-muted-foreground'
 
-const BUTTON =
-    'mt-2 h-auto rounded-full px-3 py-1.25 text-[0.84375rem] font-normal'
+/** The owner's light pill. */
+const BUTTON = 'mt-2.5 h-7.5 px-4 text-base'
 
 function Gain({ value, unit }: { value: number; unit: 'EP' | 'DPS' }) {
     return (
-        <span className="font-bold whitespace-nowrap text-gain-text">
+        <span className="font-mono font-bold whitespace-nowrap text-gain-text">
             {formatGain({ value, unit })}
         </span>
     )
@@ -67,18 +67,16 @@ function BagOne({
     const name = named(upgrade.item)
     const on = bagOn.includes(upgrade.item.item_id)
     return (
-        <div
-            aria-live="polite"
-            className={cn(CARD, 'border-chart-2 bg-chart-2/5')}
-        >
+        <div aria-live="polite" className={CARD}>
             {on ? (
                 <p>
-                    You wear <b className="text-foreground">{name}</b> now.
+                    You wear <b className="font-bold text-foreground">{name}</b>{' '}
+                    now.
                     {worn ? ` ${named(worn)} went to your bags.` : ''}
                 </p>
             ) : (
                 <p>
-                    <b className="text-foreground">{name}</b>
+                    <b className="font-bold text-foreground">{name}</b>
                     {` ${PLURAL_WORDS.test(word) ? 'are' : 'is'} in your bags, `}
                     <Gain value={upgrade.gain_ep} unit="EP" />
                     {` over the ${word} you wear. No dungeon needed.`}
@@ -86,7 +84,7 @@ function BagOne({
             )}
             {(on || upgrade.results) && (
                 <Button
-                    variant="outline"
+                    variant="pill"
                     className={BUTTON}
                     onClick={() =>
                         on ? onUndo() : onWear(upgrade.item.item_id)
@@ -122,10 +120,7 @@ function BagMany({
     const hidden = upgrades.length - ROWS_FOLDED
     const rows = open ? upgrades : upgrades.slice(0, ROWS_FOLDED)
     return (
-        <div
-            aria-live="polite"
-            className={cn(CARD, 'border-chart-2 bg-chart-2/5')}
-        >
+        <div aria-live="polite" className={CARD}>
             {allOn ? (
                 <p>
                     {`You wear ${upgrades.length} bag items now. What they replaced went to your bags.`}
@@ -140,7 +135,7 @@ function BagMany({
             <ul className="mt-1.5 flex flex-col gap-0.5">
                 {rows.map((upgrade) => (
                     <li key={upgrade.item.item_id}>
-                        <b className="text-foreground">
+                        <b className="font-bold text-foreground">
                             {itemName(
                                 upgrade.item,
                                 upgrade.slot,
@@ -152,25 +147,27 @@ function BagMany({
                     </li>
                 ))}
             </ul>
-            {hidden > 0 && (
-                <Button
-                    variant="link"
-                    className="mt-1 h-auto p-0 text-[0.84375rem] font-normal"
-                    aria-expanded={open}
-                    onClick={() => setOpen((was) => !was)}
-                >
-                    {open ? 'Show fewer' : `Show ${hidden} more`}
-                </Button>
-            )}
-            {(allOn || canWearAll) && (
-                <div>
-                    <Button
-                        variant="outline"
-                        className={BUTTON}
-                        onClick={() => (allOn ? onUndo() : onWearAll())}
-                    >
-                        {allOn ? 'Undo' : `Equip all ${upgrades.length}`}
-                    </Button>
+            {(hidden > 0 || allOn || canWearAll) && (
+                <div className="flex flex-wrap gap-x-2">
+                    {hidden > 0 && (
+                        <Button
+                            variant="pill"
+                            className={BUTTON}
+                            aria-expanded={open}
+                            onClick={() => setOpen((was) => !was)}
+                        >
+                            {open ? 'Show fewer' : `Show ${hidden} more`}
+                        </Button>
+                    )}
+                    {(allOn || canWearAll) && (
+                        <Button
+                            variant="pill"
+                            className={BUTTON}
+                            onClick={() => (allOn ? onUndo() : onWearAll())}
+                        >
+                            {allOn ? 'Undo' : `Equip all ${upgrades.length}`}
+                        </Button>
+                    )}
                 </div>
             )}
         </div>
@@ -201,7 +198,7 @@ function QuickFixes({
         .map((other) => `${other.text} (${worth(other)})`)
         .join('; ')
     return (
-        <div className={cn(CARD, 'border-primary/60 bg-primary/5')}>
+        <div className={CARD}>
             <p>
                 {`${fix.text} ${FIX_WORTH[fix.kind]} `}
                 <Gain value={fix.dps_gain} unit="DPS" />.
@@ -233,12 +230,12 @@ function GoGet({
     const source =
         item.source.kind === 'unknown' ? '' : ` (${item.source.text})`
     const name = (
-        <b className="text-foreground">
+        <b className="font-bold text-foreground">
             {itemName(item, slot, file.character.class)}
         </b>
     )
     return (
-        <div className={cn(CARD, 'border-primary/60 bg-primary/5')}>
+        <div className={CARD}>
             <p>
                 {madeWith === null ? (
                     <>
@@ -255,20 +252,17 @@ function GoGet({
                 <Gain value={gain.value} unit={gain.unit} />
                 {` on your ${slotWord(slot, file.character.class)}.`}
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-x-2">
                 <Button
-                    variant="outline"
-                    className={cn(
-                        BUTTON,
-                        'aria-pressed:border-chart-2 aria-pressed:text-chart-2-text'
-                    )}
+                    variant="pill"
+                    className={cn(BUTTON, 'aria-pressed:font-bold')}
                     aria-pressed={listed}
                     onClick={() => onToggleWishlist(item, slot)}
                 >
                     {listed ? 'On wishlist' : 'Add to wishlist'}
                 </Button>
                 <Button
-                    variant="outline"
+                    variant="pill"
                     className={BUTTON}
                     aria-haspopup="dialog"
                     onClick={() => onOpenSlot(slot)}
@@ -287,7 +281,7 @@ function GoGet({
  */
 function AllBis({ step }: { step: Extract<NextStep, { kind: 'all_bis' }> }) {
     return (
-        <div className={cn(CARD, 'border-solid border-owned/60 bg-owned/5')}>
+        <div className={CARD}>
             <p className="flex items-center gap-1.5 font-bold text-owned">
                 <SimBestIcon variant="owned" />
                 {`Best-in-slot for level ${step.level}`}
