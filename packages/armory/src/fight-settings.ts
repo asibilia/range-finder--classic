@@ -8,6 +8,7 @@
  */
 import { z } from 'zod'
 
+import type { FightOverride } from './browser-sim/scenarios'
 import type { ResultsFile } from './results-file'
 
 type Fight = ResultsFile['fights'][number]
@@ -161,4 +162,37 @@ export function missWords(file: ResultsFile, level: number): string | null {
     if (typeof fight?.melee_miss_pct !== 'number') return null
     const hit = Number(file.sheet.melee_hit_pct.toFixed(2))
     return `With ${hit} hit, you miss ${fight.melee_miss_pct.toFixed(1)}% of melee swings at level ${level}.`
+}
+
+/**
+ * The settings as a run of the browser sim takes them (Run Simulator): the
+ * long dungeon fight against the enemy level, for the fight length, from
+ * the starting mana as a share of the sheet's (1 to 100%); and, when the
+ * page is on a chain fight, the chain's gap between pulls (on a single
+ * fight the gap control shows that fight's, so the chain keeps its own).
+ *
+ * @param file - The loaded results file (its sheet's mana).
+ * @param settings - The settings.
+ * @param onChain - The page is on a chain fight.
+ * @returns What `simExport`'s `fight` option takes.
+ *
+ * @example
+ * ```ts
+ * fightOverride(file, { level: 36, length_s: 120, kind: 'pve', mana: 1003, gap_s: 0 })
+ * // { target_level: 36, duration_s: 120, starting_mana_pct: 50 } at 2006 mana
+ * ```
+ */
+export function fightOverride(
+    file: ResultsFile,
+    settings: FightSettings,
+    onChain = false
+): FightOverride {
+    const max = Math.max(1, file.sheet.mana)
+    const pct = Math.min(100, Math.max(1, (settings.mana / max) * 100))
+    return {
+        target_level: settings.level,
+        duration_s: settings.length_s,
+        ...(pct < 100 ? { starting_mana_pct: pct } : {}),
+        ...(onChain ? { gap_s: settings.gap_s } : {}),
+    }
 }

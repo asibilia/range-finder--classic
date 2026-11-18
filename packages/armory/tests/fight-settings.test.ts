@@ -7,6 +7,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     fightFor,
+    fightOverride,
     missWords,
     settingsChoices,
     settingsOf,
@@ -92,5 +93,62 @@ describe('the miss sentence', () => {
     test('is left out when the file has no miss chance for the level', () => {
         expect(missWords(firstRun, 33)).toBeNull()
         expect(missWords(sample, 40)).toBeNull()
+    })
+})
+
+describe('fightOverride (Run Simulator)', () => {
+    test('the level and length as they are, the starting mana as a share of the sheet, the gap only on a chain fight', () => {
+        const mana = sample.sheet.mana
+        expect(
+            fightOverride(sample, {
+                level: 36,
+                length_s: 60,
+                kind: 'pve',
+                mana: mana / 2,
+                gap_s: 0,
+            })
+        ).toEqual({ target_level: 36, duration_s: 60, starting_mana_pct: 50 })
+        const gapped = {
+            level: 33,
+            length_s: 120,
+            kind: 'pve' as const,
+            mana,
+            gap_s: 20,
+        }
+        expect(fightOverride(sample, gapped, true)).toEqual({
+            target_level: 33,
+            duration_s: 120,
+            gap_s: 20,
+        })
+        expect(fightOverride(sample, gapped)).toEqual({
+            target_level: 33,
+            duration_s: 120,
+        })
+    })
+
+    test('starting mana above the sheet is full mana (no share)', () => {
+        expect(
+            fightOverride(sample, {
+                level: 33,
+                length_s: 120,
+                kind: 'pve',
+                mana: sample.sheet.mana + 500,
+                gap_s: 0,
+            })
+        ).toEqual({ target_level: 33, duration_s: 120 })
+    })
+
+    test("the file's own long fight's settings give its own fight back: its level, length and mana share (to the mana's rounding), no gap on a single fight", () => {
+        const long = fight('dungeon-long')
+        const set = fightOverride(sample, settingsOf(sample, long))
+        expect(set.target_level).toBe(long.target_level)
+        expect(set.duration_s).toBe(long.duration_s)
+        expect(set.gap_s).toBeUndefined()
+        const pct = long.setup?.starting_mana_pct ?? 100
+        if (pct >= 100) expect(set.starting_mana_pct).toBeUndefined()
+        else
+            expect(Math.abs((set.starting_mana_pct ?? 100) - pct)).toBeLessThan(
+                100 / sample.sheet.mana
+            )
     })
 })
