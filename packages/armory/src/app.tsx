@@ -13,7 +13,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
-import { BringIn, type ReadError } from '@/components/bring-in'
+import { BringIn, type ReadError, stopLines } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
 import { FightBand } from '@/components/fight-band'
 import { FightSettingsForm } from '@/components/fight-settings-form'
@@ -293,6 +293,8 @@ export function App({
     const [refining, setRefining] = useState<SimCount | null>(null)
     // Run Simulator's progress, while it runs.
     const [running, setRunning] = useState<SimCount | null>(null)
+    // Why the last Run Simulator didn't replace the file, or null.
+    const [runProblem, setRunProblem] = useState<string | null>(null)
     // Where the fight settings are (Run Simulator sims them).
     const [fightSettings, setFightSettings] = useState<FightSettings | null>(
         null
@@ -470,6 +472,7 @@ export function App({
         const id = ++run.current
         const simPool = getPool()
         setRunning({ done: 0, planned: 0 })
+        setRunProblem(null)
         try {
             const outcome = await simExport(
                 text,
@@ -489,7 +492,12 @@ export function App({
             )
             if (run.current !== id) return
             setRunning(null)
-            if (outcome.kind !== 'file') return
+            if (outcome.kind !== 'file') {
+                setRunProblem(
+                    `The sim stopped: ${stopLines(outcome).join(' ')}`
+                )
+                return
+            }
             latest.leave()
             openSimmed(outcome, simPool.size, false, text)
             const next = outcome.file
@@ -498,8 +506,12 @@ export function App({
             setPlanner((current) =>
                 current ? pickFight(next, current, picked) : current
             )
-        } catch {
-            if (run.current === id) setRunning(null)
+        } catch (error) {
+            if (run.current !== id || error instanceof SimCancelled) return
+            setRunning(null)
+            setRunProblem(
+                `The sim failed: ${error instanceof Error ? error.message : String(error)}`
+            )
         }
     }
 
@@ -728,6 +740,7 @@ export function App({
                                     />
                                 )
                             }
+                            runProblem={runProblem}
                             settings={
                                 <FightSettingsForm
                                     file={file}

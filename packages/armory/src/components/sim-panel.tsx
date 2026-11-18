@@ -38,6 +38,7 @@ export const NO_EXPORT_NOTE = 'Bring in your export to run the sim here.'
  * @param onRunSimulator - Runs the sim; absent when there is no export to
  * sim, and the button is disabled with a note.
  * @param running - The run's progress and Cancel, while it runs.
+ * @param runProblem - Why the last run didn't replace the file, or null.
  * @param className - Where the page's grid places it.
  */
 export function SimPanel({
@@ -50,6 +51,7 @@ export function SimPanel({
     wornOf,
     onRunSimulator,
     running,
+    runProblem,
     className,
 }: {
     file: ResultsFile
@@ -61,6 +63,7 @@ export function SimPanel({
     wornOf?: (fightId: string) => Result | null
     onRunSimulator?: () => void
     running?: ReactNode
+    runProblem?: string | null
     className?: string
 }) {
     const noExportId = useId()
@@ -88,6 +91,11 @@ export function SimPanel({
             >
                 {sliders}
                 {settings}
+                {runProblem && !running && (
+                    <p role="alert" className="text-sm text-gain-text">
+                        {runProblem}
+                    </p>
+                )}
                 {running ?? (
                     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
                         {!onRunSimulator && (

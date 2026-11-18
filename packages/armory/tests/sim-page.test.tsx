@@ -760,6 +760,22 @@ describe('Run Simulator', () => {
         ).toBe(false)
     }, 120_000)
 
+    test('a run that fails keeps the file shown and says why under the button', async () => {
+        const { user } = await simmedTestchar()
+        const level = (await testchar()).level
+        // No answers recorded for level + 3, and no fallback: the run fails.
+        await user.click(screen.getByRole('radio', { name: String(level + 3) }))
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        const alert = await screen.findByText(
+            /^The sim failed: /,
+            undefined,
+            LOADS
+        )
+        expect(alert.getAttribute('role')).toBe('alert')
+        expect(shownFight()).toBe(`Dungeon, 2 min vs level ${level + 2}`)
+        expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
+    }, 120_000)
+
     test('with a results file picked on its own (no export), the button is disabled and says to bring the export in', async () => {
         const user = renderWith(fakePool())
         await pickFile(
