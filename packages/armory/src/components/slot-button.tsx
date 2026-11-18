@@ -2,10 +2,11 @@
  * One gear slot, as the mockup draws it: a compact button with the item's
  * tile, its slot label (with chips: `needs 33`, `better in bags`), the
  * item's name on one line (cut off with an ellipsis) and a note on the next
- * (`Best: Defender's Leather Helm`), and the gain pill on the edge facing
- * the figure. The full name is in the button's accessible name and in a
- * tooltip. The chips describe the button (`aria-describedby`) so the name
- * stays exact.
+ * (the worn item's source), and the gain pill on the edge facing the
+ * figure. A slot with a gap has `Best: <item>` under the button instead,
+ * the item's name a link-styled button that opens the picker on that item.
+ * The full name is in the button's accessible name and in a tooltip. The
+ * chips describe the button (`aria-describedby`) so the name stays exact.
  */
 import { useId } from 'react'
 
@@ -100,8 +101,9 @@ export function GapBadge({
  *
  * @param shown - What the slot shows.
  * @param side - Where it sits around the figure.
- * @param onOpen - Opens the slot's item picker; absent before a file loads
- * (the slot is then a disabled, dashed outline).
+ * @param onOpen - Opens the slot's item picker, with the item to focus when
+ * opened from the `Best:` link; absent before a file loads (the slot is
+ * then a disabled, dashed outline).
  */
 export function SlotButton({
     shown,
@@ -110,7 +112,7 @@ export function SlotButton({
 }: {
     shown: SlotShown
     side: SlotSide
-    onOpen?: (slot: Slot) => void
+    onOpen?: (slot: Slot, focusItemId?: number) => void
 }) {
     const chipId = useId()
     const { item, gap, note, chips, description } = shown
@@ -196,13 +198,32 @@ export function SlotButton({
             )}
         </button>
     )
-    if (!shown.itemName) return button
     // A long name is cut off with an ellipsis: the tooltip (and the
     // accessible name) carry it whole.
-    return (
+    const withTooltip = shown.itemName ? (
         <Tooltip>
             <TooltipTrigger render={button} />
             <TooltipContent>{shown.itemName}</TooltipContent>
         </Tooltip>
+    ) : (
+        button
+    )
+    const { best } = shown
+    if (!best || !onOpen) return withTooltip
+    return (
+        <div className="flex min-w-0 flex-col gap-1">
+            {withTooltip}
+            <p className="flex min-w-0 items-center gap-1 px-2 text-xs leading-tight text-muted-foreground">
+                <SimBestIcon variant="best" />
+                <span className="shrink-0">Best:</span>
+                <button
+                    type="button"
+                    onClick={() => onOpen(shown.slot, best.itemId)}
+                    className="min-w-0 truncate rounded-sm text-left text-foreground underline underline-offset-2 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                    {best.name}
+                </button>
+            </p>
+        </div>
     )
 }

@@ -216,7 +216,7 @@ function Footer({
 }
 
 type OpenDialog =
-    | { kind: 'picker'; slot: Slot }
+    | { kind: 'picker'; slot: Slot; focusItemId?: number }
     | { kind: 'wishlist' }
     | { kind: 'talents' }
     | { kind: 'pawn' }
@@ -604,8 +604,8 @@ export function App({
                         }
                         onShowPlan={() => dispatch({ type: 'show-plan' })}
                         onShowWorn={() => dispatch({ type: 'show-worn' })}
-                        onOpenSlot={(slot) =>
-                            setDialog({ kind: 'picker', slot })
+                        onOpenSlot={(slot, focusItemId) =>
+                            setDialog({ kind: 'picker', slot, focusItemId })
                         }
                         onOpenTalents={() => setDialog({ kind: 'talents' })}
                     />
@@ -660,6 +660,7 @@ export function App({
                     <ItemPicker
                         entry={slotEntry(file, dialog.slot, bagWorn)}
                         slot={dialog.slot}
+                        focusItemId={dialog.focusItemId}
                         label={slotLabel(dialog.slot, file)}
                         provisional={file.provisional}
                         level={file.character.level}

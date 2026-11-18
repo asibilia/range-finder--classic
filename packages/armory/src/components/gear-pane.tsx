@@ -389,7 +389,7 @@ export function GearPane({
     headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
-    onOpenSlot: (slot: Slot) => void
+    onOpenSlot: (slot: Slot, focusItemId?: number) => void
     onOpenTalents?: () => void
     onWearBag?: (itemId: number) => void
     onUndoBag?: () => void

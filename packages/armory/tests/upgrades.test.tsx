@@ -55,6 +55,24 @@ function gapPill(
     return found
 }
 
+/**
+ * Whether the slot `button` shows `text` as its note: inside the button
+ * before #114, or (`Best: <item>`) on its own line under it after #114.
+ */
+function slotNoteHas(button: HTMLElement, text: string): boolean {
+    const isSlot = (element: Element) =>
+        /^[A-Z][\w -]*: /.test(element.getAttribute('aria-label') ?? '')
+    const parent = button.parentElement
+    const near = [button, parent, parent?.parentElement]
+    return near.some(
+        (element) =>
+            element != null &&
+            [...element.querySelectorAll('button')].filter(isSlot).length <=
+                1 &&
+            squeeze(element.textContent).includes(squeeze(text))
+    )
+}
+
 const HANDS = slotName('Hands: Toughened Leather Gloves', '+21.6 EP')
 const NECK = slotName("Neck: Archmagister's Faceted Pendant", '+1.7 EP')
 const LEGS = slotName("Legs: Trapper's Leather Legguards", '+23.6 EP')
@@ -117,7 +135,7 @@ describe('gains on the slots', () => {
         const legs = screen.getByRole('button', { name: LEGS })
 
         expect(gapPill(legs, '+23.6 EP', '↓ 23.6')).toBeDefined()
-        expect(within(legs).getByText('Best: Ferine Leggings')).toBeDefined()
+        expect(slotNoteHas(legs, 'Best: Ferine Leggings')).toBe(true)
     })
 
     test('Two-hand shows +6.0 DPS and Best: Corpsemaker', async () => {
@@ -127,7 +145,7 @@ describe('gains on the slots', () => {
         })
 
         expect(gapPill(mainHand, '+6.0 DPS', '↓ 6.0 DPS')).toBeDefined()
-        expect(within(mainHand).getByText('Best: Corpsemaker')).toBeDefined()
+        expect(slotNoteHas(mainHand, 'Best: Corpsemaker')).toBe(true)
     })
 
     test('the Neck gain is drawn small and the Legs gain big', async () => {

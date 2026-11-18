@@ -27,6 +27,12 @@ export type SlotShown = {
      * neither, and always in the plan view.
      */
     gap: SlotGap | null
+    /**
+     * What you wear, with a gap: the plan's item for the slot, shown under
+     * the button as `Best: <item>` (a link to the picker); null otherwise.
+     */
+    best: { itemId: number; name: string } | null
+    /** The line under the name, when there is no `best` line. */
     note: string | undefined
     /**
      * Said to a screen reader after the name (the button's description),
@@ -58,6 +64,7 @@ export function emptySlot(slot: Slot): SlotShown {
         item: null,
         itemName: null,
         gap: null,
+        best: null,
         note: undefined,
         description: undefined,
         sameAsWorn: false,
@@ -191,7 +198,7 @@ function overBag(entry: SlotEntry, bag: BagOn): SlotEntry {
 
 type View = Pick<
     SlotShown,
-    'item' | 'gap' | 'note' | 'description' | 'sameAsWorn'
+    'item' | 'gap' | 'best' | 'note' | 'description' | 'sameAsWorn'
 >
 
 function isTrinket(slot: Slot): boolean {
@@ -208,7 +215,8 @@ function wornView(
     return {
         item: worn,
         gap,
-        note: best ? `Best: ${named(best)}` : worn?.source.text,
+        best: best && { itemId: best.item_id, name: named(best) },
+        note: best ? undefined : worn?.source.text,
         description: undefined,
         sameAsWorn: false,
     }
@@ -231,6 +239,7 @@ function planView(
         return {
             item: worn,
             gap: null,
+            best: null,
             note: worn ? 'Same as you wear' : undefined,
             description: undefined,
             sameAsWorn: worn !== null,
@@ -242,6 +251,7 @@ function planView(
     return {
         item,
         gap: null,
+        best: null,
         // The mockup's line under a swapped-in item: where it comes from.
         // What it replaces is said to a screen reader instead.
         note: item ? shortSource(item.source.text) : undefined,
