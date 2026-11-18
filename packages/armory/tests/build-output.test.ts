@@ -306,6 +306,8 @@ describe('the build', () => {
         expect(config).toMatch(/\blatestPlugin\(/)
         const traces = [
             '/local/latest',
+            // The export the dev route serves for Run Simulator.
+            'latest-export',
             'local-latest',
             'latest_results_file',
             'vite-plugin-latest',

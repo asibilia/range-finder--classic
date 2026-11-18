@@ -5,11 +5,18 @@ import type { Plugin } from 'vite'
 
 /** The untracked local config: `{ "latest_results_file": "<path>" }`. */
 const LOCAL_CONFIG = fileURLToPath(new URL('./.local.json', import.meta.url))
-/** The two paths the plugin serves. */
+/** The three paths the plugin serves. */
 const LATEST_URL = '/local/latest.json'
 const STATUS_URL = '/local/latest-status.json'
+const EXPORT_URL = '/local/latest-export.lua'
 /** The status file's name, beside the latest file. */
 const STATUS_NAME = 'latest-status.json'
+/**
+ * The export's name, beside the latest file: the sim side's private copy
+ * of the export the latest file was simmed from (only there when they
+ * match). The page's Run Simulator sims it again with other settings.
+ */
+export const LATEST_EXPORT_NAME = 'latest-export.lua'
 /** Hosts a request may name (any port). */
 const LOCAL_HOSTS = ['localhost', '127.0.0.1']
 
@@ -53,7 +60,8 @@ function isLocalHost(host: string | undefined): boolean {
 
 /**
  * Serves the owner's latest results file in dev, at `/local/latest.json`,
- * and the status file beside it at `/local/latest-status.json`. Their
+ * the status file beside it at `/local/latest-status.json`, and the export
+ * beside it at `/local/latest-export.lua` (404 when there is none). Their
  * path comes from an untracked config, read on each request; no part of a
  * URL reaches the file system. Only when serving: nothing of it reaches a
  * build.
@@ -83,18 +91,32 @@ export function latestPlugin(options: LatestPluginOptions = {}): Plugin {
                 }
                 if (req.method !== 'GET' && req.method !== 'HEAD')
                     return notFound()
-                if (path !== LATEST_URL && path !== STATUS_URL)
+                if (
+                    path !== LATEST_URL &&
+                    path !== STATUS_URL &&
+                    path !== EXPORT_URL
+                )
                     return notFound()
                 const found = readLatest(configFile)
                 if (!('file' in found)) return notFound()
 
-                if (path === STATUS_URL) {
-                    const status = join(dirname(found.file), STATUS_NAME)
-                    if (!isFile(status)) return notFound()
+                // The files beside the latest one: the status and the export.
+                const beside =
+                    path === STATUS_URL
+                        ? { name: STATUS_NAME, type: 'application/json' }
+                        : path === EXPORT_URL
+                          ? {
+                                name: LATEST_EXPORT_NAME,
+                                type: 'text/plain; charset=utf-8',
+                            }
+                          : null
+                if (beside) {
+                    const near = join(dirname(found.file), beside.name)
+                    if (!isFile(near)) return notFound()
                     res.statusCode = 200
-                    res.setHeader('Content-Type', 'application/json')
+                    res.setHeader('Content-Type', beside.type)
                     res.setHeader('Cache-Control', 'no-store')
-                    res.end(readFileSync(status))
+                    res.end(readFileSync(near))
                     return
                 }
 
