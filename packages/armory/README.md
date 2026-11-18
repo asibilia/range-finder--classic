@@ -256,6 +256,22 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
 - **Tests** stay on `bun test --isolate` with happy-dom (`tests/dom.js`);
   `tests/build-output.test.ts` builds the page and checks it.
 
+### Character art
+
+The gear card shows a picture for the character's race, class and gender
+behind the tiles (the owner's own art). The page reads only the manifest,
+`public/art/art.json` (`{ race, class, gender, url, width, height, bytes }`,
+checked by `src/character-art.ts`, imported at build time), and follows each
+entry's `url`. With no picture for that gender, it shows the other gender's;
+with none for the pair, the plain card.
+
+Add one with `bun run art:add <file> --race <Race> --class <Class> --gender
+<male|female>` (needs `cwebp`: `brew install webp`): a 1024 px wide WebP at
+quality 78 (about 40 KB) named `public/art/<race>-<class>-<gender>.webp`,
+and its manifest entry. The script's `ART_TARGET` is the one setting: moving
+the art to a storage bucket later changes it (and the entries' URLs), and
+puts the bucket's host on the build guard's list; no page code changes.
+
 ## The results file contract
 
 - `src/results-file.ts` is the source of truth: the Zod schema the page reads
