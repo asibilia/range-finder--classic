@@ -172,10 +172,29 @@ describe('the build', () => {
         expect(refs.length).toBeGreaterThan(0)
         for (const ref of refs) expect(ref).toMatch(/^\/assets\/[\w.-]+$/)
 
+        // The CSS imports nothing, and its only url()s are the page's own
+        // font files (JetBrains Mono, self-hosted) under /assets/.
         for (const file of filesUnder(CLIENT_DIR, '.css')) {
             const css = readFileSync(file, 'utf8')
-            expect(css).not.toMatch(/@import|url\(/)
+            expect(css).not.toMatch(/@import/)
+            const urls = [...css.matchAll(/url\(([^)]*)\)/g)].map((m) =>
+                m[1]!.replace(/^['"]|['"]$/g, '')
+            )
+            for (const url of urls)
+                expect(url).toMatch(/^\/assets\/[\w.-]+\.woff2?$/)
         }
+    })
+
+    test('JetBrains Mono is self-hosted: its latin 400 and 700 woff2 files are in the build', () => {
+        const fonts = filesUnder(join(CLIENT_DIR, 'assets'), '.woff2').map(
+            (file) => file.slice(file.lastIndexOf('/') + 1)
+        )
+        expect(
+            fonts.some((name) => name.startsWith('jetbrains-mono-latin-400'))
+        ).toBe(true)
+        expect(
+            fonts.some((name) => name.startsWith('jetbrains-mono-latin-700'))
+        ).toBe(true)
     })
 
     test('the CSS has no Tailwind utilities the page does not use', () => {
@@ -183,9 +202,11 @@ describe('the build', () => {
         // `@source` (the components), never the samples or the schema, whose
         // words ("static", "table") it took for classes. Every class in the
         // built CSS must be written in one of those files.
+        // Without url()s: the font files' names aren't classes.
         const css = filesUnder(CLIENT_DIR, '.css')
             .map((file) => readFileSync(file, 'utf8'))
             .join('\n')
+            .replace(/url\([^)]*\)/g, '')
         expect(css.length).toBeGreaterThan(0)
         const styles = readFileSync(join(PACKAGE_DIR, 'src/styles.css'), 'utf8')
         const scanned = [...styles.matchAll(/@source '([^']+)';/g)].map((m) =>
