@@ -30,7 +30,9 @@ function slot(label: string): HTMLElement {
 function slotButtons(): HTMLElement[] {
     return [...gearPane().querySelectorAll<HTMLElement>('button')].filter(
         (button) =>
-            /^[A-Z][\w -]*: /.test(button.getAttribute('aria-label') ?? '')
+            /^(?!Best: |Next: )[A-Z][\w -]*: /.test(
+                button.getAttribute('aria-label') ?? ''
+            )
     )
 }
 
@@ -48,7 +50,9 @@ describe('the gear tiles', () => {
         await openSample()
 
         const head = screen.getByRole('button', { name: HEAD })
-        const link = within(gearPane()).getByRole('button', { name: HELM })
+        const link = within(gearPane()).getByRole('button', {
+            name: `Best: ${HELM}`,
+        })
         expect(head.contains(link)).toBe(false)
         expect(link.parentElement?.closest('button')).toBeNull()
         // Same tile: the line is laid over the tile's third line.

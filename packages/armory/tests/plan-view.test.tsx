@@ -106,7 +106,9 @@ function noPlansFile() {
 function slotButtons(): HTMLElement[] {
     return [...gearPane().querySelectorAll<HTMLElement>('button')].filter(
         (button) =>
-            /^[A-Z][\w -]*: /.test(button.getAttribute('aria-label') ?? '')
+            /^(?!Best: |Next: )[A-Z][\w -]*: /.test(
+                button.getAttribute('aria-label') ?? ''
+            )
     )
 }
 
@@ -207,7 +209,7 @@ describe('the plan view', () => {
         expect(lineWith("in total below the sim's best set")).not.toBeNull()
         expect(hasButton('About the total')).toBe(true)
         expect(screen.queryAllByText('Best:').length).toBeGreaterThan(0)
-        expect(hasButton("Defender's Leather Helm")).toBe(true)
+        expect(hasButton("Best: Defender's Leather Helm")).toBe(true)
         expect(pageSays('Berylline Pads are in your bags')).toBe(true)
         expect(hasButton('Equip')).toBe(true)
         expect(document.querySelector('[data-reading-gap]')).not.toBeNull()
@@ -233,7 +235,7 @@ describe('the plan view', () => {
         expect(hasButton('About the total')).toBe(false)
         // No `Best:` lines.
         expect(screen.queryByText('Best:')).toBeNull()
-        expect(hasButton("Defender's Leather Helm")).toBe(false)
+        expect(hasButton("Best: Defender's Leather Helm")).toBe(false)
         // No callout card, not even for the bag upgrade.
         expect(pageSays('Berylline Pads are in your bags')).toBe(false)
         expect(hasButton('Equip')).toBe(false)

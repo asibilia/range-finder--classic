@@ -8,10 +8,12 @@
  * a character is loaded.`
  *
  * Run Simulator sims the export behind the file again with the fight
- * settings (the page's `onRunSimulator`). With no export (a results file
- * picked on its own, or a public build), the button is disabled and says
- * why: `Bring in your export to run the sim here.` While it runs, the
- * progress and Cancel take its place.
+ * settings (the page's `onRunSimulator`). It ships off for now: the page
+ * passes no handler and the button shows disabled with `Coming soon:
+ * running the sim here.` (`runNote`). Turned on, with no export (a results
+ * file picked on its own, or a public build) it is disabled and says why:
+ * `Bring in your export to run the sim here.` While it runs, the progress
+ * and Cancel take its place.
  */
 import { type ReactNode, useId } from 'react'
 

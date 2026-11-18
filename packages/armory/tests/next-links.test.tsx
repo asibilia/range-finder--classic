@@ -70,7 +70,7 @@ describe('Next: links', () => {
         await openFile(variant(upcoming))
         const pane = gearPane()
         const link = within(pane).getByRole('button', {
-            name: 'Big Axe of Later',
+            name: 'Next: Big Axe of Later at level 31',
         })
         const line = link.closest('[data-next-line]')
         expect(line !== null).toBe(true)
@@ -101,7 +101,9 @@ describe('Next: links', () => {
     test('the link opens the slot picker on that item', async () => {
         const user = await openFile(variant(upcoming))
         await user.click(
-            within(gearPane()).getByRole('button', { name: "Gill's Gills" })
+            within(gearPane()).getByRole('button', {
+                name: /^Next: Gill's Gills at level \d+$/,
+            })
         )
         const dialog = screen.getByRole('dialog', { name: 'Trinket 1' })
         await waitFor(() => {

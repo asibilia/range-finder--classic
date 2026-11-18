@@ -20,7 +20,7 @@ afterEach(() => {
 
 /** The `Best:` button for the helm, or null (a plain error when missing). */
 function helmLink(): HTMLElement | null {
-    return within(gearPane()).queryByRole('button', { name: HELM })
+    return within(gearPane()).queryByRole('button', { name: `Best: ${HELM}` })
 }
 
 /** The innermost element holding the link whose text starts with `Best:`. */

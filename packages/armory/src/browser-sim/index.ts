@@ -37,7 +37,6 @@ export {
     CHAIN_FIGHT,
     scenariosFor,
     SINGLE_FIGHTS,
-    type FightOverride,
     type Scenario,
 } from './scenarios'
 export {

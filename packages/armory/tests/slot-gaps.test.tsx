@@ -43,7 +43,9 @@ function slot(label: string): HTMLElement {
 function slotButtons(): HTMLElement[] {
     return [...gearPane().querySelectorAll<HTMLElement>('button')].filter(
         (button) =>
-            /^[A-Z][\w -]*: /.test(button.getAttribute('aria-label') ?? '')
+            /^(?!Best: |Next: )[A-Z][\w -]*: /.test(
+                button.getAttribute('aria-label') ?? ''
+            )
     )
 }
 

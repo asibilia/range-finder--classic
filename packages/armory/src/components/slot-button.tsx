@@ -268,6 +268,14 @@ export function SlotButton({
                 <button
                     type="button"
                     onClick={() => onOpen(shown.slot, link.itemId)}
+                    // The line's label is part of the link's name, so a
+                    // screen reader hears `Best: <item>` or `Next: <item>
+                    // at level N`, not the item alone.
+                    aria-label={
+                        best
+                            ? `Best: ${link.name}`
+                            : `Next: ${link.name} at level ${next?.level}`
+                    }
                     className="pointer-events-auto min-w-0 truncate rounded-sm text-left text-muted-foreground underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                     {link.name}
