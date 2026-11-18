@@ -480,9 +480,18 @@ describe('what the contract tells the runner', () => {
     })
 
     test('talents.points is the points spent in the tree', () => {
-        expect(descriptionsOf('points')).toEqual([
-            'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
-        ])
+        const points = descriptionsOf('points')
+        expect(points).toHaveLength(1)
+        expect(points[0]).toStartWith(
+            "The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn't check."
+        )
+    })
+
+    test('talents.points no longer quotes the old Talents button', () => {
+        const [points] = descriptionsOf('points')
+        expect(points).not.toContain('Talents:')
+        const schema = readFileSync(SCHEMA_PATH, 'utf8')
+        expect(schema).not.toContain('Talents: your build')
     })
 
     test("weapon_type is the game's skill name", () => {

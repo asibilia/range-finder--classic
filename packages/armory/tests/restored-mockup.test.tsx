@@ -188,7 +188,7 @@ describe('the item picker', () => {
 describe('the talents', () => {
     test('each talent tile shows its initials', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: /^Talents: / }))
+        await user.click(screen.getByRole('button', { name: /^Talents[:,] / }))
         const dialog = screen.getByRole('dialog', { name: 'Talents' })
         const flurry = within(dialog).getByLabelText(
             'Flurry, 5/5, changed from 4/5'

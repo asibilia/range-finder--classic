@@ -24,6 +24,7 @@ import { InfoButton } from './info'
 import { Segmented } from './segmented'
 import { SimBestIcon } from './sim-best-icon'
 import { SlotButton, type SlotSide } from './slot-button'
+import { TalentsPill } from './talents-pill'
 
 /** The placeholder figure (the approved mockup's own drawing). */
 function Figure({ faded }: { faded: boolean }) {
@@ -362,6 +363,7 @@ function TotalLine({ total }: { total: GapTotal }) {
  * @param middle - What sits in the middle before a file loads.
  * @param headingRef - The heading (`gear-heading`), focused when a picked
  * file loads.
+ * @param onOpenTalents - Opens the talents dialog (the pill on the figure).
  * @param onWearBag - Wear them: puts a bag upgrade on.
  * @param onUndoBag - Undo: takes it off again.
  */
@@ -375,6 +377,7 @@ export function GearPane({
     onShowPlan,
     onShowWorn,
     onOpenSlot,
+    onOpenTalents = () => {},
     onWearBag = () => {},
     onUndoBag = () => {},
 }: {
@@ -387,6 +390,7 @@ export function GearPane({
     onShowPlan: () => void
     onShowWorn: () => void
     onOpenSlot: (slot: Slot) => void
+    onOpenTalents?: () => void
     onWearBag?: (itemId: number) => void
     onUndoBag?: () => void
 }) {
@@ -443,6 +447,12 @@ export function GearPane({
                         className="order-first flex min-w-0 flex-col items-center @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
                     >
                         <Figure faded={file === null} />
+                        {file && (
+                            <TalentsPill
+                                talents={file.talents}
+                                onOpen={onOpenTalents}
+                            />
+                        )}
                         {file ? <CharacterSheet file={file} /> : middle}
                     </div>
                     <div

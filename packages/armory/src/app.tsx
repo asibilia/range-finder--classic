@@ -607,6 +607,7 @@ export function App({
                         onOpenSlot={(slot) =>
                             setDialog({ kind: 'picker', slot })
                         }
+                        onOpenTalents={() => setDialog({ kind: 'talents' })}
                     />
                     {file && planner ? (
                         <SimPanel
@@ -615,7 +616,6 @@ export function App({
                             plan={plan}
                             planShown={planShown}
                             wornOf={wornOf}
-                            onOpenTalents={() => setDialog({ kind: 'talents' })}
                             sliders={
                                 planner.mix && (
                                     <RoleSliders

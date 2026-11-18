@@ -252,13 +252,17 @@ describe('the role sliders', () => {
         const readings = within(card).getByRole('heading', {
             name: 'Simulator Data',
         })
-        const talents = within(card).getByRole('button', { name: /^Talents/ })
+        // The Talents button left the card for the pill on the character
+        // (#115); while it is still in the card, it follows the sliders.
+        const talents = within(card).queryByRole('button', {
+            name: /^Talents/,
+        })
         const follows = (a: Node, b: Node) =>
             Boolean(
                 a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
             )
         expect(follows(readings, sliders as Node)).toBe(true)
-        expect(follows(sliders as Node, talents)).toBe(true)
+        if (talents) expect(follows(sliders as Node, talents)).toBe(true)
 
         const band = screen.getByRole('region', { name: 'Across the fight' })
         expect(card.contains(band)).toBe(false)

@@ -442,7 +442,7 @@ const baseSchema = z.strictObject({
         tree: z.string(),
         points: z.int().meta({
             description:
-                'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
+                'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page shows it on the talents pill: "22 pts".',
         }),
         yours: z.array(talent).meta({
             description:

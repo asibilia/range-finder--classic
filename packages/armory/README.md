@@ -268,7 +268,9 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   (99901), because it has no source and needs level 1.` Each `item_id`
   appears once (the page refuses a repeat). Absent or empty: no list.
 - `talents.points` is the points spent in the tree (the sum of the ranks in
-  `talents.yours`): `Talents: your build, 22 points`.
+  `talents.yours`), shown on the talents pill on the character: `22 pts`.
+  When `talents.best.dps_gain` shows as 3.0 or more, the pill gets an
+  orange dot and `↓ N DPS` beside it.
 - Six optional fields (schema version 1 still) carry what the mockup shows
   beyond the first contract. Absent or null, the page leaves out only the
   part that needs them:

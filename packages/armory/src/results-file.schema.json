@@ -1598,7 +1598,7 @@
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991,
-          "description": "The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn't check. The page says \"Talents: your build, 22 points\"."
+          "description": "The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn't check. The page shows it on the talents pill: \"22 pts\"."
         },
         "yours": {
           "type": "array",

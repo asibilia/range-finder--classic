@@ -1,34 +1,16 @@
 /**
  * The column on the right of the gear (below it under 90rem), holding what
  * the approved mockup keeps there, with no card around it: Simulator Data
- * (the readings), Stat Priority (the role sliders) and the Talents button. Before
- * a file loads it shows the same column dimmed and inert, under `These
- * unlock once a character is loaded.`
+ * (the readings) and Stat Priority (the role sliders); the talents pill sits
+ * on the character (`talents-pill.tsx`). Before a file loads it shows the
+ * same column dimmed and inert, under `These unlock once a character is
+ * loaded.`
  */
 import type { ReactNode } from 'react'
-
-import { Button } from '@/components/ui/button'
 
 import type { Plan } from '../plans'
 import type { Result, ResultsFile } from '../results-file'
 import { Readings } from './readings'
-
-/** The Talents button, as the mockup draws it: an outlined pill. */
-const TALENTS_BUTTON =
-    'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
-
-/**
- * The Talents button's words, as the mockup has them: `Talents: best
- * simmed, 21 points`, or `Talents: your build, 21 points` when the file has
- * no best build.
- *
- * @param talents - The file's talents.
- * @returns The words.
- */
-export function talentsButtonText(talents: ResultsFile['talents']): string {
-    const build = talents.best ? 'best simmed' : 'your build'
-    return `Talents: ${build}, ${talents.points} points`
-}
 
 /**
  * The card with a file loaded.
@@ -38,7 +20,6 @@ export function talentsButtonText(talents: ResultsFile['talents']): string {
  * @param plan - The plan the sliders pick, or null (no plans).
  * @param planShown - The gear shows the plan (its readings are drawn large).
  * @param sliders - The role sliders (when the file has plans).
- * @param onOpenTalents - Opens the talents dialog.
  */
 export function SimPanel({
     file,
@@ -47,7 +28,6 @@ export function SimPanel({
     planShown,
     sliders,
     wornOf,
-    onOpenTalents,
 }: {
     file: ResultsFile
     fightId: string
@@ -55,7 +35,6 @@ export function SimPanel({
     planShown: boolean
     sliders?: ReactNode
     wornOf?: (fightId: string) => Result | null
-    onOpenTalents: () => void
 }) {
     const fight =
         file.fights.find((entry) => entry.fight_id === fightId) ??
@@ -76,15 +55,6 @@ export function SimPanel({
                 />
             )}
             {sliders}
-            <div>
-                <Button
-                    variant="outline"
-                    className={TALENTS_BUTTON}
-                    onClick={onOpenTalents}
-                >
-                    {talentsButtonText(file.talents)}
-                </Button>
-            </div>
         </aside>
     )
 }
@@ -102,7 +72,7 @@ const PLACEHOLDER_ROLES = ['Damage', 'Survival', 'Healing', 'Utility']
 
 /**
  * The column before a file loads: dimmed and inert, showing where the
- * readings, the sliders and the Talents button will be. Only its first
+ * readings and the sliders will be. Only its first
  * line is read out; the rest is hidden from screen readers and can't be
  * focused.
  */
@@ -150,13 +120,6 @@ export function LockedSimPanel() {
                             </span>
                         </div>
                     ))}
-                </div>
-                <div>
-                    <span
-                        className={`inline-flex items-center border ${TALENTS_BUTTON}`}
-                    >
-                        Talents
-                    </span>
                 </div>
             </div>
         </section>
