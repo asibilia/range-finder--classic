@@ -184,7 +184,7 @@ describe('bun run check and CI', () => {
         expect(root.scripts?.['sim:test']).toBe(
             'bun test --isolate --timeout=2000 packages/sim'
         )
-        expect(sim.scripts?.['sim:test']).toBe('cd ../.. && bun run sim:test')
+        expect(sim.scripts?.['sim:test']).toBe('bun run --cwd ../.. sim:test')
         expect(root.scripts?.['check:all']).toBe(
             'bun run type-check && bun run lint && bun run syncpack:check && bun run sim:build && bun run sim:go && bun run sim:test && bun run test:armory && bun run test:slow'
         )

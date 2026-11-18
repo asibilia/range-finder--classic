@@ -244,7 +244,7 @@ describe('the root scripts', () => {
             'bun test --isolate --timeout=2000 packages/armory'
         )
         expect(readPackage('packages/armory/package.json').scripts?.test).toBe(
-            'cd ../.. && bun run test:armory'
+            'bun run --cwd ../.. test:armory'
         )
     })
 
