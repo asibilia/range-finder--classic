@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-import { formatGain, type Gain, gainSize } from '../gains'
+import { formatGap, gainSize, type SlotGap } from '../gains'
 import type { Slot } from '../results-file'
 import type { SlotShown } from '../slot-view'
+import { SimBestIcon } from './sim-best-icon'
 import { SlotTile } from './slot-tile'
 
 /** Which side of the figure the slot sits on; the pill faces the figure. */
@@ -44,36 +45,52 @@ const ROOM_FOR_PILL: Record<SlotSide, string> = {
     bottom: '',
 }
 
+const BADGE =
+    'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 font-mono text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]'
+
 /**
- * The gain pill: filled for a big upgrade, outlined for a small one; the
- * unit small after the number (`+16.7 EP`).
+ * The slot's badge: the gap to the plan's item (`↓ 16.7`, `↓ 6.0 DPS`),
+ * filled for a big one and outlined for a small one; or a green `BIS` with
+ * the `owned` icon when you wear the plan's item.
  *
- * @param gain - The gain to show.
+ * @param gap - The gap, or `bis`.
  * @param className - Placement.
  */
-export function GainPill({
-    gain,
+export function GapBadge({
+    gap,
     className,
 }: {
-    gain: Gain
+    gap: SlotGap
     className?: string
 }) {
-    const size = gainSize(gain)
-    const text = formatGain(gain)
-    const unitAt = text.lastIndexOf(' ')
+    if (gap.kind === 'bis')
+        return (
+            <Badge
+                variant="outline"
+                className={cn(
+                    BADGE,
+                    'items-center gap-1 border-owned bg-card text-owned',
+                    className
+                )}
+            >
+                <SimBestIcon variant="owned" />
+                BIS
+            </Badge>
+        )
+    const size = gainSize(gap.gain)
     return (
         <Badge
             data-size={size}
             variant={size === 'big' ? 'gain' : 'gain-outline'}
-            className={cn(
-                'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 font-mono text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]',
-                className
-            )}
+            className={cn(BADGE, className)}
         >
-            {text.slice(0, unitAt)}
-            <small className="text-[0.625rem] font-bold opacity-75">
-                {text.slice(unitAt)}
-            </small>
+            <span aria-hidden="true">↓&nbsp;</span>
+            {formatGap(gap.gain)}
+            {gap.gain.unit === 'DPS' && (
+                <small className="text-[0.625rem] font-bold opacity-75">
+                    {' DPS'}
+                </small>
+            )}
         </Badge>
     )
 }
@@ -96,7 +113,8 @@ export function SlotButton({
     onOpen?: (slot: Slot) => void
 }) {
     const chipId = useId()
-    const { item, gain, note, chips, description } = shown
+    const { item, gap, note, chips, description } = shown
+    const big = gap?.kind === 'gap' && gainSize(gap.gain) === 'big'
     const empty = onOpen === undefined
     const describedBy = [
         ...chips.map((_, index) => `${chipId}-${index}`),
@@ -115,8 +133,8 @@ export function SlotButton({
             onClick={() => onOpen?.(shown.slot)}
             className={cn(
                 'relative grid min-h-14.5 w-full grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-card py-1.75 pr-2.5 pl-2 text-left transition-[border-color,background-color,opacity] outline-none hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                gain && ROOM_FOR_PILL[side],
-                gain && gainSize(gain) === 'big' && 'border-gain/50',
+                gap && ROOM_FOR_PILL[side],
+                big && 'border-gain/50',
                 shown.sameAsWorn && 'opacity-60',
                 empty && 'border-dashed bg-transparent',
                 !item && !empty && 'border-dashed'
@@ -170,9 +188,9 @@ export function SlotButton({
                     </span>
                 )}
             </span>
-            {gain && (
-                <GainPill
-                    gain={gain}
+            {gap && (
+                <GapBadge
+                    gap={gap}
                     className={cn('absolute', PILL_PLACE[side])}
                 />
             )}

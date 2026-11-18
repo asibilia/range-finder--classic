@@ -18,11 +18,12 @@ import { itemName } from '../item-name'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
-import { emptySlot, slotShown, upgradeSummary } from '../slot-view'
+import { emptySlot, gapTotal, type GapTotal, slotShown } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
+import { InfoButton } from './info'
 import { Segmented } from './segmented'
 import { SimBestIcon } from './sim-best-icon'
-import { GainPill, SlotButton, type SlotSide } from './slot-button'
+import { SlotButton, type SlotSide } from './slot-button'
 
 /** The placeholder figure (the approved mockup's own drawing). */
 function Figure({ faded }: { faded: boolean }) {
@@ -206,6 +207,7 @@ function GearHead({
     file,
     plan,
     planShown,
+    bagWorn,
     headingRef,
     onShowPlan,
     onShowWorn,
@@ -213,6 +215,7 @@ function GearHead({
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
+    bagWorn: number | null
     headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
@@ -231,7 +234,6 @@ function GearHead({
             {`, from your export of ${exportDay(file.export_saved_at)}`}
         </>
     )
-    const summary = file ? upgradeSummary(file) : null
     return (
         <div>
             <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
@@ -297,11 +299,8 @@ function GearHead({
                     'Every slot fills in from your export.'
                 ) : planShown ? (
                     'Labels show the gain over what you wear. Faded slots stay as they are.'
-                ) : summary?.example ? (
-                    <>
-                        <GainPill gain={summary.example} />
-                        {`is the best gain the sim found for that slot. ${bigUpgrades(summary.big)}`}
-                    </>
+                ) : plan ? (
+                    <TotalLine total={gapTotal(file, plan, bagWorn)} />
                 ) : (
                     'The sim found no upgrade for any slot.'
                 )}
@@ -310,9 +309,47 @@ function GearHead({
     )
 }
 
-function bigUpgrades(count: number): string {
-    const slots = count === 1 ? '1 slot has' : `${count} slots have`
-    return `${slots} a big upgrade (15 EP or 3 DPS and up).`
+/** `12 slots`, `1 slot`. */
+function slotCount(count: number): string {
+    return count === 1 ? '1 slot' : `${count} slots`
+}
+
+/**
+ * The total line (spec section 4): `↓ 195.2 EP in total below the sim's
+ * best set, across 12 slots, plus 6.0 DPS on weapons.`, its number in
+ * monospace, and an "i" saying it is an estimate.
+ */
+function TotalLine({ total }: { total: GapTotal }) {
+    const number = (value: number) => (
+        <span className="font-mono font-bold text-foreground">
+            {`↓ ${value.toFixed(1)}`}
+        </span>
+    )
+    const hasEp = total.epSlots > 0
+    const hasDps = total.dpsSlots > 0
+    const line = hasEp ? (
+        <span>
+            {number(total.ep)}
+            {` EP in total below the sim's best set, across ${slotCount(total.epSlots)}`}
+            {hasDps ? `, plus ${total.dps.toFixed(1)} DPS on weapons.` : '.'}
+        </span>
+    ) : hasDps ? (
+        <span>
+            {number(total.dps)}
+            {" DPS below the sim's best set, on weapons."}
+        </span>
+    ) : (
+        <span>Every slot matches the sim&apos;s best set.</span>
+    )
+    return (
+        <>
+            {line}
+            <InfoButton
+                label="the total"
+                text="An estimate: the slot gaps added up. The DPS readings hold the exact numbers."
+            />
+        </>
+    )
 }
 
 /**
@@ -353,14 +390,13 @@ export function GearPane({
     onWearBag?: (itemId: number) => void
     onUndoBag?: () => void
 }) {
-    const shownPlan = planShown ? plan : null
     const slot = (name: Slot, side: SlotSide) => (
         <SlotButton
             key={name}
             side={side}
             shown={
                 file
-                    ? slotShown(file, name, shownPlan, bagWorn)
+                    ? slotShown(file, name, plan, planShown, bagWorn)
                     : emptySlot(name)
             }
             onOpen={file ? onOpenSlot : undefined}
@@ -376,6 +412,7 @@ export function GearPane({
                 file={file}
                 plan={plan}
                 planShown={planShown && plan !== null}
+                bagWorn={bagWorn}
                 headingRef={headingRef}
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}

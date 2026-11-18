@@ -368,13 +368,13 @@ const baseSchema = z.strictObject({
                             }),
                             gain_dps: z.number().nullable().meta({
                                 description:
-                                    'DPS gained over what is worn, for weapons. When not null, the page shows it in place of gain_ep.',
+                                    'DPS gained over what is worn, for weapons. The page shows gain_ep when it is not null, and this only in its absence.',
                             }),
                         })
                     )
                     .meta({
                         description:
-                            "Best first, which this schema doesn't check: the page shows the first as the slot's best upgrade.",
+                            "Best first, which this schema doesn't check. The slot's badge shows the gain of the alternative the plan puts in the slot.",
                     }),
             })
         )
@@ -700,7 +700,7 @@ const FILE_DESCRIPTION = [
     "- timeline is null on a chain fight's results (bag upgrade and bag_upgrades_all results too).",
     "- pulls is null on a single fight's results (bag upgrade and bag_upgrades_all results too).",
     'The runner must also keep these, which nothing checks:',
-    "- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.",
+    "- Each slot's alternatives come best first; the slot's badge shows the gain of the plan's item for that slot.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
     '- character.professions names each profession as the game does (Leatherworking): the page matches them by name.',
     '- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.',

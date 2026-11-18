@@ -7,13 +7,52 @@ export type Alternative = SlotEntry['alternatives'][number]
 
 export type Gain = { value: number; unit: 'EP' | 'DPS' }
 
-/** The gain the sim used: DPS when it has one, else EP; null when neither. */
+/** The gain the page shows: EP when it has one, else DPS; null when neither. */
 export function gainOf(alternative: Alternative): Gain | null {
-    if (alternative.gain_dps !== null)
-        return { value: alternative.gain_dps, unit: 'DPS' }
     if (alternative.gain_ep !== null)
         return { value: alternative.gain_ep, unit: 'EP' }
+    if (alternative.gain_dps !== null)
+        return { value: alternative.gain_dps, unit: 'DPS' }
     return null
+}
+
+/**
+ * How far a slot is below the plan's item (and that item), or that it
+ * wears it.
+ */
+export type SlotGap = { kind: 'gap'; gain: Gain; item: Item } | { kind: 'bis' }
+
+/**
+ * A slot's gap to the plan (spec section 4): the gain of the alternative
+ * the plan puts in the slot, when it shows above 0.0; `bis` when the slot
+ * has a worn item and alternatives and the plan keeps the worn item; null
+ * otherwise (no plan, the plan's item not listed, no gain, no alternatives).
+ *
+ * @param entry - The slot as `slotEntry` gives it (a bag item put on counts
+ * as worn).
+ * @param plan - The plan, or null.
+ * @returns The gap, `bis`, or null.
+ */
+export function slotGap(
+    entry: SlotEntry | undefined,
+    plan: Pick<ResultsFile['plans'][number], 'gear'> | null
+): SlotGap | null {
+    if (!entry || !plan || entry.alternatives.length === 0) return null
+    const planItemId = plan.gear[entry.slot]
+    if (entry.worn && planItemId === entry.worn.item_id) return { kind: 'bis' }
+    const alternative = entry.alternatives.find(
+        (candidate) => candidate.item.item_id === planItemId
+    )
+    if (!alternative) return null
+    const gain = gainOf(alternative)
+    return isUpgrade(gain)
+        ? { kind: 'gap', gain, item: alternative.item }
+        : null
+}
+
+/** `16.7`: a gap's shown value, one decimal, no sign. */
+export function formatGap(gain: Gain): string {
+    return Math.abs(shownValue(gain)).toFixed(1)
 }
 
 /**
