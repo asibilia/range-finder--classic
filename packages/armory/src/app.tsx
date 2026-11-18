@@ -119,7 +119,7 @@ function Header({
                 <h1 className="text-display leading-none tracking-[0.01em]">
                     Armory
                 </h1>
-                <p className="mt-1.5 text-muted-foreground">
+                <p className="mt-2.5 text-muted-foreground">
                     See your gear, what the sim would change, and how a fight
                     plays out.
                 </p>
@@ -547,7 +547,7 @@ export function App({
 
     return (
         <TooltipProvider>
-            <main className="mx-auto flex max-w-360 flex-col px-4 pt-5.5 pb-9 sm:px-6 lg:px-10">
+            <main className="mx-auto flex max-w-360 flex-col px-4 pt-7.5 pb-9 sm:px-6 lg:px-10">
                 <Header
                     file={file}
                     wishlistCount={wishlist.size}
@@ -559,9 +559,9 @@ export function App({
                 {file?.provisional && (
                     <p
                         role="note"
-                        className="mt-3 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-sm"
+                        className="mt-4.5 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-base"
                     >
-                        <InfoIcon className="mt-0.5 size-4 text-muted-foreground" />
+                        <InfoIcon className="mt-0.75 size-4 text-muted-foreground" />
                         <span>
                             The sim isn&apos;t checked against real fights yet.
                             Use these numbers to compare gear, not as a promise
@@ -571,7 +571,7 @@ export function App({
                 )}
                 <div
                     data-slot="planner-body"
-                    className="mt-4.5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
+                    className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem]"
                 >
                     <GearPane
                         file={file}

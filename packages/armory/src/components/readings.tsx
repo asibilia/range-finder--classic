@@ -257,7 +257,7 @@ function GapLine({
         <dd
             data-reading-gap={below ? 'below' : 'above'}
             className={cn(
-                'flex min-h-4.5 items-center gap-1 font-mono text-xs font-bold',
+                'flex min-h-4.5 items-center gap-1.5 font-mono text-xs font-bold',
                 below ? 'text-primary' : 'text-owned'
             )}
         >

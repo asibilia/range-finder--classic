@@ -52,7 +52,7 @@ function RoleSlider({
                 </span>
             </div>
             <Slider
-                className="mt-1 px-2.25 py-1.25"
+                className="mt-2 px-2.25 py-1.25"
                 value={[live ? value : 0]}
                 min={0}
                 max={100}
@@ -126,7 +126,7 @@ export function RoleSliders({
                     hatched part is out of reach with this mix.
                 </p>
             )}
-            <div className="mt-2 flex flex-col gap-3">
+            <div className="mt-2 flex flex-col gap-3.5">
                 {ROLES.map((role) => (
                     <RoleSlider
                         key={role}
