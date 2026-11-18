@@ -1,9 +1,11 @@
 /**
- * The character sheet under the figure (spec section 5), as the mockup lays
- * it out: two pairs to a row (`Str 73  Agi 96`), short names with their
- * full names in `abbr`, the weapon skill last, said short (`Axe skill
- * 148/150` for the game's Two-Handed Axes, when the file has it), and a
- * caption saying which export it is from.
+ * The character sheet (spec section 5), as the owner's design lays it out:
+ * a borderless glass panel, two pairs to a row (`Str 73  Agi 96`), short
+ * names with their full names in `abbr` (`Sp. Crit`; the weapon skill last
+ * as `Wp. Skill 148/150`, whatever the weapon, its full name saying which:
+ * `Axe skill` for the game's Two-Handed Axes), the values in JetBrains Mono
+ * set right, nothing wrapping; and under it `Data exported Nov. 17, as
+ * worn.`
  */
 import type { ReactNode } from 'react'
 
@@ -67,7 +69,7 @@ export function sheetRows(
         { key: 'Crit', name: 'Crit', value: percent(sheet.melee_crit_pct) },
         {
             key: 'Spell crit',
-            name: 'Spell crit',
+            name: short('Sp. Crit', 'Spell crit'),
             value: percent(sheet.spell_crit_pct),
         },
         { key: 'Dodge', name: 'Dodge', value: percent(sheet.dodge_pct) },
@@ -78,7 +80,10 @@ export function sheetRows(
     if (skill)
         rows.push({
             key: 'Weapon skill',
-            name: `${weaponSkillLabel(skill.weapon_type)} skill`,
+            name: short(
+                'Wp. Skill',
+                `${weaponSkillLabel(skill.weapon_type)} skill`
+            ),
             value: `${skill.current}/${skill.max}`,
         })
     return rows
@@ -93,24 +98,28 @@ export function CharacterSheet({ file }: { file: ResultsFile }) {
     const buffs = file.sheet_buffed ? ', with the buffs you had up' : ''
     return (
         <div className="flex w-full flex-col items-center">
-            {/* At most the middle column's width: a name too long for it
-                wraps (at a space or hyphen) rather than widening the sheet
-                under the slots and their gain pills. */}
+            {/* Never wider than the middle column: names stay on one line,
+                so on the narrowest three-column doll (the middle under
+                about 17rem) the sheet is set a size smaller. */}
             <dl
                 aria-label="Character sheet"
-                className="mt-3.5 grid max-w-full min-w-0 grid-cols-[auto_auto_auto_auto] gap-x-2 gap-y-0.75 rounded-xl border bg-muted/40 px-2.5 py-2.5 text-[0.78125rem] text-muted-foreground"
+                className="glass grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-3 gap-y-1.25 rounded-lg px-3 py-2.5 text-sm whitespace-nowrap text-muted-foreground @min-[49rem]/doll:@max-[52rem]/doll:gap-x-2 @min-[49rem]/doll:@max-[52rem]/doll:px-2 @min-[49rem]/doll:@max-[52rem]/doll:text-xs"
             >
                 {sheetRows(file.sheet).map((row) => (
                     <div key={row.key} className="contents">
-                        <dt className="break-words">{row.name}</dt>
-                        <dd className="text-right font-mono whitespace-nowrap text-foreground tabular-nums">
+                        <dt>{row.name}</dt>
+                        <dd className="text-right font-mono text-foreground tabular-nums">
                             {row.value}
                         </dd>
                     </div>
                 ))}
             </dl>
-            <p className="mt-1.5 text-center text-[0.71875rem] text-muted-foreground">
-                {`Sheet from your export of ${exportDay(file.export_saved_at)}, as worn${buffs}.`}
+            <p className="mt-2.5 text-center text-xs text-subtle-foreground">
+                Data exported{' '}
+                <b className="font-bold text-muted-foreground">
+                    {exportDay(file.export_saved_at)}
+                </b>
+                {`, as worn${buffs}.`}
             </p>
         </div>
     )

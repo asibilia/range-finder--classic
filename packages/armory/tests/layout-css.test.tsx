@@ -79,16 +79,23 @@ describe('the page layout (approved C2 mockup)', () => {
         )
     })
 
-    test("the character sheet never overflows the middle column: it is at most the column's width, and its names wrap rather than widen it", async () => {
+    test("the character sheet never overflows the middle column: it is at most the column's width, its names stay on one line, and the narrowest three-column doll sets it a size smaller", async () => {
         await openSample()
         const sheet = screen.getByLabelText('Character sheet')
-        expect(sheet.className.split(/\s+/)).toEqual(
-            expect.arrayContaining(['max-w-full', 'min-w-0'])
+        const classes = sheet.className.split(/\s+/)
+        expect(classes).toEqual(
+            expect.arrayContaining([
+                'w-full',
+                'max-w-full',
+                'min-w-0',
+                'whitespace-nowrap',
+                '@min-[49rem]/doll:@max-[52rem]/doll:text-xs',
+            ])
         )
-        for (const name of sheet.querySelectorAll('dt'))
-            expect(name.className.split(/\s+/)).not.toContain(
-                'whitespace-nowrap'
-            )
+        // The value columns give way first.
+        expect(classes).toContain(
+            'grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]'
+        )
     })
 
     test("numbers are monospace: the stat sheet's value cells and the slot badges have font-mono", async () => {
