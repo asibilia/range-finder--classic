@@ -62,6 +62,14 @@ function bestPlace(side: SlotSide, gap: SlotGap | null): string {
     return cn('left-14.5', wide ? 'right-25' : 'right-20')
 }
 
+/**
+ * Where the `Next:` line sits: the text column, its whole width (on the
+ * right, past the badge's room when there is a badge).
+ */
+function nextPlace(side: SlotSide, gap: SlotGap | null): string {
+    return side === 'right' && gap ? 'left-32 right-2.5' : 'left-14.5 right-2.5'
+}
+
 const BADGE =
     'h-5.5 items-center gap-0 rounded-sm px-2 py-0 font-mono text-xs leading-none font-bold'
 
@@ -250,7 +258,10 @@ export function SlotButton({
                 data-next-line={best ? undefined : ''}
                 className={cn(
                     'pointer-events-none absolute bottom-1.25 flex min-w-0 items-center gap-1 text-xs leading-4 text-muted-foreground',
-                    bestPlace(side, gap)
+                    // The badge sits mid-tile, above the third line: a
+                    // `Next:` line (muted, with its level) takes the text
+                    // column's whole width.
+                    best ? bestPlace(side, gap) : nextPlace(side, gap)
                 )}
             >
                 <span className="shrink-0">{best ? 'Best:' : 'Next:'}</span>
