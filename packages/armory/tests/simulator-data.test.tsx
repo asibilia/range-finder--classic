@@ -106,7 +106,7 @@ function wornOnLongFight(change: (result: Result) => void): Json {
 }
 
 describe('the header', () => {
-    test('with the sample, the only h1 is Armory and the gear card is headed by the character, level, spec, class and weapon', async () => {
+    test('with the sample, the only h1 is Armory and the gear card is headed by the character, level, spec and class (no weapon line)', async () => {
         await load(sample)
 
         expect(
@@ -123,9 +123,8 @@ describe('the header', () => {
         const text = card?.textContent ?? ''
         const who = text.indexOf('Level 30 Enhancement Shaman')
         expect(who).toBeGreaterThan(text.indexOf('Truncha'))
-        expect(
-            text.indexOf("Guardian's Dualblade with Windfury Weapon.")
-        ).toBeGreaterThan(who)
+        // The owner's design has no weapon line under the name.
+        expect(text).not.toContain("Guardian's Dualblade with Windfury Weapon.")
         expect(screen.getByText(SUBTITLE)).toBeDefined()
     })
 

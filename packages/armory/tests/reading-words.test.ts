@@ -1,11 +1,12 @@
 /**
  * The Simulator Data card's words, as pure functions in `src/format.ts`:
  * a fight's detail sentence (the readings' "i"), a short fight length, and
- * how far what you wear is below the sim's plan on a reading.
+ * how far what you wear is below the sim's plan on a reading; and the day
+ * every date on the page is written as.
  */
 import { describe, expect, test } from 'bun:test'
 
-import { fightDetail, readingGap, shortLength } from '../src/format'
+import { exportDay, fightDetail, readingGap, shortLength } from '../src/format'
 import type { Fight, Result } from '../src/results-file'
 import sample from '../src/sample-truncha.json'
 
@@ -127,5 +128,23 @@ describe('readingGap', () => {
                 result({ out_of_mana_s: null })
             )
         ).toBeNull()
+    })
+})
+
+describe('exportDay (the owner\'s design: "Nov. 17")', () => {
+    test('writes the short month with a full stop, then the day', () => {
+        expect(exportDay('2026-11-13T17:24:14Z')).toBe('Nov. 13')
+        expect(exportDay('2026-01-02T00:00:00Z')).toBe('Jan. 2')
+        expect(exportDay('2026-09-30T12:00:00Z')).toBe('Sept. 30')
+    })
+
+    test('writes March to July in full, as AP style does', () => {
+        expect(exportDay('2026-03-01T00:00:00Z')).toBe('March 1')
+        expect(exportDay('2026-05-17T00:00:00Z')).toBe('May 17')
+        expect(exportDay('2026-07-04T00:00:00Z')).toBe('July 4')
+    })
+
+    test("reads the timestamp's own date, not the reader's time zone", () => {
+        expect(exportDay('2026-11-17T23:59:59-08:00')).toBe('Nov. 17')
     })
 })

@@ -11,9 +11,7 @@ import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
 
-import { exportDay } from '../format'
 import type { Item } from '../gains'
-import { itemName } from '../item-name'
 import { nextStep } from '../next-step'
 import type { BagItemsOn } from '../planner-state'
 import type { Plan } from '../plans'
@@ -99,26 +97,11 @@ function ChestIcon() {
 }
 
 /**
- * The weapon line under the character, as the mockup writes it:
- * `Guardian's Dualblade with Windfury Weapon.` The weapon is the main
- * hand's worn item; `with ...` is its imbue (`slots[].imbue`), left out
- * when the file has none.
- *
- * @param file - The loaded results file.
- * @returns The line, or null with no main hand worn.
- */
-export function weaponLine(file: ResultsFile): string | null {
-    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
-    if (!mainHand?.worn) return null
-    const weapon = itemName(mainHand.worn, 'main_hand', file.character.class)
-    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
-    return `${weapon}${imbue}.`
-}
-
-/**
- * The heading row (the character's name, or `Gear` before a file loads;
- * then `Level 30 Enhancement Shaman` and the weapon line) and the line
- * under it.
+ * The heading row, as the owner's design draws it: the character's name
+ * (or `Gear` before a file loads) and `Level 30 Enhancement Shaman` on one
+ * line, the Current/BIS switch on its right; then the total line under it.
+ * Which gear shows is said in words too (for screen readers in the Current
+ * view, where the switch already shows it).
  */
 function GearHead({
     file,
@@ -137,7 +120,6 @@ function GearHead({
     onShowPlan: () => void
     onShowWorn: () => void
 }) {
-    const weapon = file ? weaponLine(file) : null
     const status = !file ? (
         'No character loaded yet.'
     ) : planShown && plan ? (
@@ -146,43 +128,37 @@ function GearHead({
             {` for your mix: ${plan.label.toLowerCase()}`}
         </>
     ) : (
-        <>
-            <b className="font-bold text-foreground">What you wear</b>
-            {`, from your export of ${exportDay(file.export_saved_at)}`}
-        </>
+        <b className="font-bold">What you wear</b>
     )
+    const quiet = file !== null && !(planShown && plan)
     return (
         <div>
             <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
-                <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-0.5">
                     <h2
                         id="gear-heading"
                         ref={headingRef}
                         tabIndex={-1}
-                        className="text-[1.375rem] leading-tight outline-none"
+                        className="text-xl outline-none"
                     >
                         {file ? file.character.name : 'Gear'}
                     </h2>
                     {file && (
-                        <>
-                            <p className="mt-0.5 text-sm text-muted-foreground">
-                                Level{' '}
-                                <b className="font-bold text-foreground">
-                                    {file.character.level}
-                                </b>{' '}
-                                {`${file.character.spec} ${file.character.class}`}
-                            </p>
-                            {weapon && (
-                                <p className="text-sm text-muted-foreground">
-                                    {weapon}
-                                </p>
-                            )}
-                        </>
+                        <p className="text-base text-muted-foreground">
+                            Level{' '}
+                            <b className="font-bold text-foreground">
+                                {file.character.level}
+                            </b>{' '}
+                            {`${file.character.spec} ${file.character.class}`}
+                        </p>
                     )}
                 </div>
                 <span
                     aria-live="polite"
-                    className="text-sm text-muted-foreground"
+                    className={cn(
+                        'text-sm text-muted-foreground',
+                        quiet && 'sr-only'
+                    )}
                 >
                     {status}
                 </span>
@@ -211,7 +187,7 @@ function GearHead({
                     </div>
                 )}
             </div>
-            <p className="mt-1 mb-3.5 flex min-h-4.75 flex-wrap items-center gap-x-1.5 text-[0.8125rem] text-muted-foreground">
+            <p className="mt-1.5 mb-3.5 flex min-h-6 flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                 {!file ? (
                     'Every slot fills in from your export.'
                 ) : planShown ? (
@@ -238,29 +214,37 @@ function slotCount(count: number): string {
 }
 
 /**
- * The total line (spec section 4): `↓ 195.2 EP in total below the sim's
- * best set, across 12 slots, plus 6.0 DPS on weapons.`, its number in
- * monospace, and an "i" saying it is an estimate.
+ * The total line (spec section 4), as the owner's design draws it: the gap
+ * in an orange badge, `[↓ 195.2 EP]`, then `in total below the sim's best
+ * set, across 12 slots, plus 6.0 DPS on weapons.`, and an "i" saying it is
+ * an estimate.
  */
 function TotalLine({ total }: { total: GapTotal }) {
-    const number = (value: number) => (
-        <span className="font-mono font-bold text-foreground">
-            {`↓ ${value.toFixed(1)}`}
+    const badge = (value: number, unit: 'EP' | 'DPS') => (
+        <span
+            data-total-badge
+            className="inline-flex items-center rounded-sm bg-primary px-1.5 py-px font-mono text-sm font-bold text-primary-foreground"
+        >
+            {`↓ ${value.toFixed(1)} ${unit}`}
         </span>
     )
     const hasEp = total.epSlots > 0
     const hasDps = total.dpsSlots > 0
     const line = hasEp ? (
-        <span>
-            {number(total.ep)}
-            {` EP in total below the sim's best set, across ${slotCount(total.epSlots)}`}
-            {hasDps ? `, plus ${total.dps.toFixed(1)} DPS on weapons.` : '.'}
-        </span>
+        <>
+            {badge(total.ep, 'EP')}{' '}
+            <span>
+                {`in total below the sim's best set, across ${slotCount(total.epSlots)}`}
+                {hasDps
+                    ? `, plus ${total.dps.toFixed(1)} DPS on weapons.`
+                    : '.'}
+            </span>
+        </>
     ) : hasDps ? (
-        <span>
-            {number(total.dps)}
-            {" DPS below the sim's best set, on weapons."}
-        </span>
+        <>
+            {badge(total.dps, 'DPS')}{' '}
+            <span>below the sim&apos;s best set, on weapons.</span>
+        </>
     ) : (
         <span>Every slot matches the sim&apos;s best set.</span>
     )

@@ -3,7 +3,9 @@
  * dev server serves at `/local/` (`local-latest.ts` reads and follows it).
  * `useLocalLatest` owns its state, starts and stops following it, and
  * makes the header's `Open another file` / `Back to the latest from this
- * computer` buttons and the lines under the header.
+ * computer` buttons (plain text, like Wishlist), the lines under the header
+ * (the status note, a problem) and the footer's `Loaded from this computer,
+ * made Nov. 17` line.
  *
  * Off in a build: Vite sets `import.meta.env.PROD` there, so Rollup keeps
  * only the inert hook, and none of the code, words or `local-latest.ts`
@@ -42,15 +44,17 @@ export type Latest = {
     leave: () => void
     /** The header's button, or null. */
     action: ReactNode
-    /** The lines under the header, or null. */
+    /** The lines under the header (the status note, a problem), or null. */
     lines: ReactNode
+    /** The footer's line (`Loaded from this computer, made Nov. 17`), or null. */
+    footer: ReactNode
 }
 
 /** The latest file's state, once one showed. */
 type Shown = {
     /** True while it shows; false once another file replaced it. */
     following: boolean
-    /** `Loaded from this computer, made 17 November`. */
+    /** `Loaded from this computer, made Nov. 17`. */
     line: string
     /** The status file's note, or null. */
     note: string | null
@@ -64,9 +68,12 @@ const INERT: Latest = {
     leave: () => {},
     action: null,
     lines: null,
+    footer: null,
 }
 
-const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
+/** A plain text button, as the header's Wishlist. */
+const TEXT_BUTTON =
+    'h-auto px-1 py-1 text-[0.9375rem] font-normal text-muted-foreground'
 
 /** The hook in dev: follows the latest file while `page.on`. */
 function useFollowedLatest(page: LatestPage): Latest {
@@ -131,11 +138,12 @@ function useFollowedLatest(page: LatestPage): Latest {
             following: false,
             leave,
             action: (
-                <Button variant="outline" className={PILL} onClick={start}>
+                <Button variant="ghost" className={TEXT_BUTTON} onClick={start}>
                     Back to the latest from this computer
                 </Button>
             ),
             lines: null,
+            footer: null,
         }
     return {
         following: true,
@@ -154,21 +162,22 @@ function useFollowedLatest(page: LatestPage): Latest {
                     }}
                 />
                 <Button
-                    variant="outline"
-                    className={PILL}
+                    variant="ghost"
+                    className={TEXT_BUTTON}
                     onClick={() => openOther.current?.click()}
                 >
                     Open another file
                 </Button>
             </>
         ),
-        lines: (
-            <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                <p>{shown.line}</p>
-                {shown.note && <p role="note">{shown.note}</p>}
-                {shown.problem && <p role="alert">{shown.problem}</p>}
-            </div>
-        ),
+        lines:
+            shown.note || shown.problem ? (
+                <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                    {shown.note && <p role="note">{shown.note}</p>}
+                    {shown.problem && <p role="alert">{shown.problem}</p>}
+                </div>
+            ) : null,
+        footer: <p>{shown.line}</p>,
     }
 }
 

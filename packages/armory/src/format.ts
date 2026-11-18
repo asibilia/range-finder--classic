@@ -29,35 +29,41 @@ export function signed(change: number, decimals: number): string | null {
     return `${shown > 0 ? '+' : '-'}${Math.abs(shown).toFixed(decimals)}`
 }
 
+/**
+ * The months as the owner's design writes them: short with a full stop
+ * (`Nov.`), the short months (March to July) in full, as AP style does.
+ */
 const MONTHS = [
-    'January',
-    'February',
+    'Jan.',
+    'Feb.',
     'March',
     'April',
     'May',
     'June',
     'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+    'Aug.',
+    'Sept.',
+    'Oct.',
+    'Nov.',
+    'Dec.',
 ]
 
 /**
- * The day an export was saved, as the mockup writes it: `13 November`. Read
- * from the timestamp's own date (as written in the file), so it doesn't move
- * with the reader's time zone.
+ * A day, as the owner's design writes it: `Nov. 13`. Used for every date the
+ * page shows (the export's day, the day a file was made). Read from the
+ * timestamp's own date (as written in the file), so it doesn't move with
+ * the reader's time zone.
  *
- * @param iso - An ISO 8601 datetime (`export_saved_at`).
- * @returns The day and month.
+ * @param iso - An ISO 8601 datetime (`export_saved_at`, `made_at`).
+ * @returns The month and day.
  *
  * @example
- * exportDay('2026-11-13T17:24:14Z') // '13 November'
+ * exportDay('2026-11-13T17:24:14Z') // 'Nov. 13'
+ * exportDay('2026-05-02T08:00:00Z') // 'May 2'
  */
 export function exportDay(iso: string): string {
     const [, month, day] = iso.slice(0, 10).split('-').map(Number)
-    return `${day ?? ''} ${MONTHS[(month ?? 1) - 1] ?? ''}`
+    return `${MONTHS[(month ?? 1) - 1] ?? ''} ${day ?? ''}`
 }
 
 /**

@@ -178,7 +178,7 @@ describe('BIS badges', () => {
 })
 
 describe('the total line', () => {
-    test("with the sample, it reads ↓ 195.2 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons.", async () => {
+    test("with the sample, it reads [↓ 195.2 EP] (a filled badge) in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons.", async () => {
         await openSample()
 
         const line = lineWith(
@@ -189,6 +189,12 @@ describe('the total line', () => {
             (element.textContent ?? '').includes('195.2')
         )
         expect(mono).toBe(true)
+        // The owner's design: the number and EP in one filled orange badge.
+        const badge = line!.querySelector('[data-total-badge]')
+        expect(badge?.textContent).toBe('↓ 195.2 EP')
+        expect(badge?.className.split(/\s+/)).toEqual(
+            expect.arrayContaining(['bg-primary', 'text-primary-foreground'])
+        )
     })
 
     test('About the total says the line is an estimate', async () => {

@@ -28,7 +28,7 @@ import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
 const LATEST = '/local/latest.json'
 const STATUS = '/local/latest-status.json'
 const LAST_MODIFIED = 'Tue, 17 Nov 2026 08:00:05 GMT'
-const LOADED_LINE = 'Loaded from this computer, made 17 November'
+const LOADED_LINE = 'Loaded from this computer, made Nov. 17'
 const UNREADABLE =
     "The latest file from this computer couldn't be read; showing the last one that could."
 const OPEN_ANOTHER = 'Open another file'
@@ -211,7 +211,7 @@ function showsCharacter(name: string): boolean {
 }
 
 describe('the page opens on the local latest file', () => {
-    test('it overrides the remembered file and says it came from this computer', async () => {
+    test('it overrides the remembered file and says, in the footer, it came from this computer', async () => {
         const kept = JSON.stringify(resultsFile('Kept'))
         localStorage.setItem(REMEMBERED_FILE_KEY, kept)
         server.latest = json(resultsFile('Localchar'), {
@@ -220,7 +220,11 @@ describe('the page opens on the local latest file', () => {
         renderLocal()
 
         await waitForName('Localchar')
-        expect(await screen.findByText(LOADED_LINE)).toBeDefined()
+        const line = await screen.findByText(LOADED_LINE)
+        // In the footer, as the page's other small lines (the owner's
+        // design has no line under the header); not in the header.
+        expect(line.closest('footer')).not.toBeNull()
+        expect(line.closest('header')).toBeNull()
         expect(callsTo(LATEST)[0]?.ifModifiedSince ?? null).toBeNull()
         // The local file is never kept in this browser.
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBe(kept)

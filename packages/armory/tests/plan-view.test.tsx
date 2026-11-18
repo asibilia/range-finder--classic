@@ -139,9 +139,7 @@ describe('the plan view', () => {
     test('the sample opens on What you wear, with Current chosen in the View switch', async () => {
         await openSample()
 
-        expect(paneStatus()).toBe(
-            'What you wear, from your export of 13 November'
-        )
+        expect(paneStatus()).toBe('What you wear')
         expect(viewRadio('Current').checked).toBe(true)
         expect(viewRadio('BIS').checked).toBe(false)
     })
@@ -485,9 +483,7 @@ describe('the role sliders', () => {
         // Going back to what you wear clears the line.
         await user.click(viewRadio('Current'))
 
-        expect(paneStatus()).toBe(
-            'What you wear, from your export of 13 November'
-        )
+        expect(paneStatus()).toBe('What you wear')
         expect(screen.queryByText(SWITCHED, { exact: false })).toBeNull()
     })
 

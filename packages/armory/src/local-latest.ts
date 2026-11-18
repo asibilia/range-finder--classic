@@ -41,7 +41,7 @@ export type LatestHandlers = {
     onNote: (note: string | null) => void
 }
 
-/** The line under the header for a latest file. */
+/** The footer's line for a latest file. */
 function loadedLine(file: ResultsFile): string {
     return `Loaded from this computer, made ${exportDay(file.made_at)}`
 }

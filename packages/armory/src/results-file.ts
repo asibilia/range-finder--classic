@@ -357,7 +357,7 @@ const baseSchema = z.strictObject({
                 }),
                 imbue: z.string().min(1).nullable().optional().meta({
                     description:
-                        'The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. The page names the main hand\'s in the header: "Guardian\'s Dualblade with Windfury Weapon." Absent or null: none, or not exported (the header names the weapon alone).',
+                        'The temporary weapon imbue on the worn item at export (Windfury Weapon, a poison, a sharpening stone), for the weapon slots. Absent or null: none, or not exported.',
                 }),
                 alternatives: z
                     .array(

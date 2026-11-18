@@ -94,8 +94,6 @@ async function readFile(
 export const FORGOTTEN_NOTE =
     'The results file this browser kept no longer reads, so it was forgotten.'
 
-const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
-
 /**
  * The page's header: `Armory` and the tagline under it (the character is
  * on the gear card's heading), with Wishlist and Export Pawn string on the
@@ -118,7 +116,7 @@ function Header({
     return (
         <header className="flex flex-wrap items-end gap-6">
             <div>
-                <h1 className="text-[2.625rem] leading-none tracking-[0.01em]">
+                <h1 className="text-display leading-none tracking-[0.01em]">
                     Armory
                 </h1>
                 <p className="mt-1.5 text-muted-foreground">
@@ -145,8 +143,8 @@ function Header({
                     </Button>
                 )}
                 <Button
-                    variant="outline"
-                    className={PILL}
+                    variant="pill"
+                    className="h-auto px-4 py-1.5 text-base"
                     aria-haspopup="dialog"
                     disabled={!file}
                     onClick={onOpenPawn}
@@ -159,23 +157,28 @@ function Header({
 }
 
 /**
- * The footer, where the mockup has its own: the sample note (a sample file
- * has made-up numbers), how sure the sim is (its checks), the line on
- * the art, and the sim's credit while it runs and once a file loads.
+ * The footer, where the mockup has its own: where the file came from (kept
+ * in this browser, or dev only, loaded from this computer), the sample note
+ * (a sample file has made-up numbers), how sure the sim is (its checks), the
+ * line on the art, and the sim's credit while it runs and once a file loads.
  */
 function Footer({
     file,
     remembered,
     credit,
+    localLine,
     onForget,
 }: {
     file: ResultsFile | null
     remembered: boolean
     credit: boolean
+    /** Dev only: `Loaded from this computer, made Nov. 17`, or null. */
+    localLine: ReactNode
     onForget: () => void
 }) {
     return (
         <footer className="mt-7 flex flex-col gap-2 text-[0.78125rem] text-muted-foreground">
+            {localLine}
             {file && remembered && (
                 <p>
                     This file is kept in this browser only.{' '}
@@ -659,6 +662,7 @@ export function App({
                     file={file}
                     remembered={remembered}
                     credit={file !== null || simming !== null}
+                    localLine={latest.footer}
                     onForget={forget}
                 />
                 {file && dialog?.kind === 'picker' && (

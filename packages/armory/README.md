@@ -56,7 +56,7 @@ isn't `localhost` or `127.0.0.1` gets a 403.
 The page (`src/components/latest-file.tsx`, which loads
 `src/local-latest.ts`) shows the latest file in place of the one kept in
 this browser, without keeping it, and says `Loaded from this computer, made
-17 November` under the header. Every 10 s it asks again, with
+Nov. 17` in the footer. Every 10 s it asks again, with
 `If-Modified-Since`, and reads the status file:
 
 - A newer file shows, keeping the fight and the plan view where it has

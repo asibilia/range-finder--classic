@@ -324,7 +324,7 @@ describe('loading a results file', () => {
         expect(screen.getByRole('heading', { name: 'Truncha' })).toBeDefined()
     })
 
-    test("Or look at a sample character loads Truncha with the mockup's header line and export date", async () => {
+    test("Or look at a sample character loads Truncha with the design's header line: the name and level on one line", async () => {
         const user = renderApp()
         await user.click(
             screen.getByRole('button', {
@@ -338,15 +338,19 @@ describe('loading a results file', () => {
         expect(
             screen.queryByRole('heading', { level: 1, name: 'Armory planner' })
         ).toBeNull()
-        // The weapon line (on the gear card, under the character's name).
-        expect(document.body.textContent).toContain(
+        // The owner's design: `Level 30 Enhancement Shaman` beside the
+        // name, and no weapon line or export date in the gear card's header.
+        const card = document.querySelector('[data-slot="gear-pane"]')
+        expect(card?.textContent).toContain('Level 30 Enhancement Shaman')
+        expect(document.body.textContent).not.toContain(
             "Guardian's Dualblade with Windfury Weapon."
         )
         expect(
-            screen.getByText(', from your export of 13 November', {
-                exact: false,
-            })
-        ).toBeDefined()
+            screen.queryByText('from your export of', { exact: false })
+        ).not.toBeNull() // the sheet's line under the character keeps the date
+        expect(
+            card?.querySelector('#gear-heading')?.parentElement?.textContent
+        ).toBe('TrunchaLevel 30 Enhancement Shaman')
     })
 
     test('the sample says it holds made-up numbers', async () => {
@@ -393,15 +397,16 @@ describe('the gear pane with a file', () => {
         expect(slotLabelsInOrder([...labels].reverse())).toEqual(labels)
     })
 
-    test('the header names the weapon alone when the file has no imbue', async () => {
+    test("the header has no weapon line, with or without an imbue (the owner's design)", async () => {
         await openFile(
             variant((file) => {
                 for (const entry of file.slots as Json[]) delete entry.imbue
             })
         )
 
-        // The weapon line, on the gear card.
-        expect(document.body.textContent).toContain("Guardian's Dualblade.")
+        // The weapon is the Two-hand tile; the header names no weapon.
+        expect(document.body.textContent).not.toContain("Guardian's Dualblade.")
+        expect(document.body.textContent).not.toContain('with Windfury Weapon')
     })
 
     test('shows the worn legs and an empty trinket slot', async () => {
@@ -443,7 +448,7 @@ describe('the gear pane with a file', () => {
         expect(sheet.querySelector('abbr[title="Strength"]')).not.toBeNull()
         expect(
             screen.getByText(
-                'Sheet from your export of 13 November, as worn, with the buffs you had up.'
+                'Sheet from your export of Nov. 13, as worn, with the buffs you had up.'
             )
         ).toBeDefined()
     })
@@ -460,7 +465,7 @@ describe('the gear pane with a file', () => {
         expect(sheet.textContent).not.toContain('skill')
         expect(sheet.querySelectorAll('dt')).toHaveLength(11)
         expect(
-            screen.getByText('Sheet from your export of 13 November, as worn.')
+            screen.getByText('Sheet from your export of Nov. 13, as worn.')
         ).toBeDefined()
     })
 })
