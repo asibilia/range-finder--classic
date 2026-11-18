@@ -414,7 +414,7 @@ const baseSchema = z.strictObject({
         .optional()
         .meta({
             description:
-                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text says the fix and names the slot. Absent or an empty list: none.',
+                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text states the fix only and names the slot, with no DPS value and no worth wording: the page adds the worth sentence from dps_gain. Absent or an empty list: none.',
         }),
     plans: z.array(plan),
     results: z.array(result),
