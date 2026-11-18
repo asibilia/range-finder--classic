@@ -1,19 +1,17 @@
 /**
  * What each gear slot shows (spec sections 5, 6 and 10), worked out from the
- * file before anything is drawn: the item, its gain, the note under it, the
- * chips, and the slot button's accessible name.
+ * file before anything is drawn: the item, its gap to the plan (or `BIS`),
+ * the note under it, the chips, and the slot button's accessible name.
  */
 import {
-    bestUpgrade,
-    formatGain,
-    type Gain,
-    gainOf,
-    gainSize,
-    isUpgrade,
+    formatGap,
     type Item,
     type SlotEntry,
+    type SlotGap,
+    slotGap,
 } from './gains'
 import { itemName, shortSource } from './item-name'
+import type { BagItemsOn } from './planner-state'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
 import { SLOT_LABELS, slotLabel, SLOTS_IN_ORDER } from './slot-labels'
@@ -25,7 +23,17 @@ export type SlotShown = {
     item: Item | null
     /** The item's name as shown (`Unnamed cloak (279848)` for a placeholder). */
     itemName: string | null
-    gain: Gain | null
+    /**
+     * What you wear: the gap to the plan's item, or `bis`; null with
+     * neither, and always in the plan view.
+     */
+    gap: SlotGap | null
+    /**
+     * What you wear, with a gap: the plan's item for the slot, shown under
+     * the button as `Best: <item>` (a link to the picker); null otherwise.
+     */
+    best: { itemId: number; name: string } | null
+    /** The line under the name, when there is no `best` line. */
     note: string | undefined
     /**
      * Said to a screen reader after the name (the button's description),
@@ -36,7 +44,10 @@ export type SlotShown = {
     sameAsWorn: boolean
     /** Chips under the label, e.g. `Needs level 33`. */
     chips: string[]
-    /** The accessible name, e.g. `Hands: Toughened Leather Gloves, +21.6 EP`. */
+    /**
+     * The accessible name, e.g. `Hands: Toughened Leather Gloves, 21.6 EP
+     * below the sim's best`.
+     */
     name: string
 }
 
@@ -53,7 +64,8 @@ export function emptySlot(slot: Slot): SlotShown {
         label,
         item: null,
         itemName: null,
-        gain: null,
+        gap: null,
+        best: null,
         note: undefined,
         description: undefined,
         sameAsWorn: false,
@@ -62,17 +74,17 @@ export function emptySlot(slot: Slot): SlotShown {
     }
 }
 
-/** A bag upgrade put on with Wear them: the item, and its EP over worn. */
-type BagOn = { item: Item; gain_ep: number }
+/** The bag upgrade put on in one slot: the item, and its EP over worn. */
+type BagInSlot = { item: Item; gain_ep: number }
 
-function bagOnFor(
+function bagInSlot(
     file: ResultsFile,
     slot: Slot,
-    bagWorn: number | null
-): BagOn | null {
+    bagOn: BagItemsOn
+): BagInSlot | null {
     const upgrade = file.bag_upgrades.find(
         (candidate) =>
-            candidate.slot === slot && candidate.item.item_id === bagWorn
+            candidate.slot === slot && bagOn.includes(candidate.item.item_id)
     )
     return upgrade ? { item: upgrade.item, gain_ep: upgrade.gain_ep } : null
 }
@@ -84,43 +96,48 @@ function bagOnFor(
  *
  * @param file - The loaded results file.
  * @param slot - The slot.
- * @param bagWorn - The item_id of the bag upgrade put on, or null.
+ * @param bagOn - The item_ids of the bag upgrades put on (none: `[]`).
  * @returns The entry, or undefined when the file has none for the slot.
  */
 export function slotEntry(
     file: ResultsFile,
     slot: Slot,
-    bagWorn: number | null
+    bagOn: BagItemsOn
 ): SlotEntry | undefined {
     const entry = file.slots.find((candidate) => candidate.slot === slot)
-    const bag = bagOnFor(file, slot, bagWorn)
+    const bag = bagInSlot(file, slot, bagOn)
     return bag && entry ? overBag(entry, bag) : entry
 }
 
 /**
- * A slot with a file loaded, on what you wear or on the plan's gear.
+ * A slot with a file loaded, on what you wear (with its gap to the plan,
+ * or `BIS`) or on the plan's gear.
  *
  * @param file - The loaded results file.
  * @param slot - The slot.
- * @param plan - The plan whose gear to show, or null for what you wear.
- * @param bagWorn - The item_id of a bag upgrade put on (Wear them), or
- * null. In its slot it stands for what you wear, and EP gains are taken
- * over it (EP adds up: an alternative's gain less the bag item's).
+ * @param plan - The plan the sliders pick, or null with no plans.
+ * @param planShown - True to show the plan's gear (the `BIS` view; no
+ * badges), false for what you wear.
+ * @param bagOn - The item_ids of the bag upgrades put on (Equip or
+ * Equip all). In its slot a bag item stands for what you wear, and EP gains
+ * are taken over it (EP adds up: an alternative's gain less the bag item's).
  * @returns What it shows.
  */
 export function slotShown(
     file: ResultsFile,
     slot: Slot,
     plan: Plan | null,
-    bagWorn: number | null = null
+    planShown: boolean,
+    bagOn: BagItemsOn = []
 ): SlotShown {
     const label = slotLabel(slot, file)
-    const bagOn = bagOnFor(file, slot, bagWorn)
-    const entry = slotEntry(file, slot, bagWorn)
+    const bag = bagInSlot(file, slot, bagOn)
+    const entry = slotEntry(file, slot, bagOn)
     const named = (item: Item) => itemName(item, slot, file.character.class)
-    const shown = plan
-        ? planView(entry, plan.gear[slot], named)
-        : wornView(entry, named)
+    const shown =
+        planShown && plan
+            ? planView(entry, plan.gear[slot], named)
+            : wornView(entry, slotGap(entry, plan), named)
     if (
         !shown.item &&
         !entry?.worn &&
@@ -132,8 +149,8 @@ export function slotShown(
     if (shown.item && shown.item.required_level > file.character.level)
         chips.push(`needs ${shown.item.required_level}`)
     if (
-        !plan &&
-        !bagOn &&
+        !(planShown && plan) &&
+        !bag &&
         file.bag_upgrades.some((candidate) => candidate.slot === slot)
     )
         chips.push('better in bags')
@@ -141,9 +158,7 @@ export function slotShown(
     const name = shownName ?? 'Nothing equipped'
     const suffix = shown.sameAsWorn
         ? ', same as what you wear'
-        : shown.gain
-          ? `, ${formatGain(shown.gain)}`
-          : ''
+        : gapSuffix(shown.gap)
     return {
         slot,
         label,
@@ -160,7 +175,7 @@ export function slotShown(
  * EP gain is taken over the bag item. DPS gains can't be moved that way, so
  * they are dropped (not simmed over the bag item).
  */
-function overBag(entry: SlotEntry, bag: BagOn): SlotEntry {
+function overBag(entry: SlotEntry, bag: BagInSlot): SlotEntry {
     const over = (gain: number | null) =>
         gain === null ? null : gain - bag.gain_ep
     const alternatives = entry.alternatives
@@ -184,7 +199,7 @@ function overBag(entry: SlotEntry, bag: BagOn): SlotEntry {
 
 type View = Pick<
     SlotShown,
-    'item' | 'gain' | 'note' | 'description' | 'sameAsWorn'
+    'item' | 'gap' | 'best' | 'note' | 'description' | 'sameAsWorn'
 >
 
 function isTrinket(slot: Slot): boolean {
@@ -193,17 +208,26 @@ function isTrinket(slot: Slot): boolean {
 
 function wornView(
     entry: SlotEntry | undefined,
+    gap: SlotGap | null,
     named: (item: Item) => string
 ): View {
     const worn = entry?.worn ?? null
-    const best = bestUpgrade(entry)
+    const best = gap?.kind === 'gap' ? gap.item : null
     return {
         item: worn,
-        gain: best?.gain ?? null,
-        note: best ? `Best: ${named(best.item)}` : worn?.source.text,
+        gap,
+        best: best && { itemId: best.item_id, name: named(best) },
+        note: best ? undefined : worn?.source.text,
         description: undefined,
         sameAsWorn: false,
     }
+}
+
+/** `, 16.7 EP below the sim's best`, `, the sim's best`, or nothing. */
+function gapSuffix(gap: SlotGap | null): string {
+    if (!gap) return ''
+    if (gap.kind === 'bis') return ", the sim's best"
+    return `, ${formatGap(gap.gain)} ${gap.gain.unit} below the sim's best`
 }
 
 function planView(
@@ -215,7 +239,8 @@ function planView(
     if (planItemId === (worn?.item_id ?? null))
         return {
             item: worn,
-            gain: null,
+            gap: null,
+            best: null,
             note: worn ? 'Same as you wear' : undefined,
             description: undefined,
             sameAsWorn: worn !== null,
@@ -223,11 +248,11 @@ function planView(
     const alternative = entry?.alternatives.find(
         (candidate) => candidate.item.item_id === planItemId
     )
-    const gain = alternative ? gainOf(alternative) : null
     const item = alternative?.item ?? null
     return {
         item,
-        gain: isUpgrade(gain) ? gain : null,
+        gap: null,
+        best: null,
         // The mockup's line under a swapped-in item: where it comes from.
         // What it replaces is said to a screen reader instead.
         note: item ? shortSource(item.source.text) : undefined,
@@ -236,29 +261,43 @@ function planView(
     }
 }
 
-/** The gear pane's explaining line in the worn view. */
-export type UpgradeSummary = {
-    /** The first slot's gain, shown as an example pill; null with none. */
-    example: Gain | null
-    /** How many slots have a big upgrade. */
-    big: number
+/** The slot gaps added up, for the total line under the gear heading. */
+export type GapTotal = {
+    /** The EP gaps' raw values added up. */
+    ep: number
+    /** How many slots have an EP gap. */
+    epSlots: number
+    /** The DPS-only gaps' raw values added up. */
+    dps: number
+    /** How many slots have a DPS-only gap. */
+    dpsSlots: number
 }
 
 /**
- * The example gain and the count of big upgrades, for the line under the
- * gear heading: `+16.7 EP is the best gain the sim found for that slot. 11
- * slots have a big upgrade (15 EP or 3 DPS and up).`
+ * The slot gaps to the plan added up (spec section 4), over what you wear
+ * (a bag item put on counts as worn).
  *
  * @param file - The loaded results file.
- * @returns The summary.
+ * @param plan - The plan the sliders pick.
+ * @param bagOn - The item_ids of the bag upgrades put on.
+ * @returns The totals.
  */
-export function upgradeSummary(file: ResultsFile): UpgradeSummary {
-    const gains = SLOTS_IN_ORDER.map(
-        (slot) =>
-            bestUpgrade(file.slots.find((entry) => entry.slot === slot))?.gain
-    ).filter((gain): gain is Gain => gain !== undefined)
-    return {
-        example: gains[0] ?? null,
-        big: gains.filter((gain) => gainSize(gain) === 'big').length,
+export function gapTotal(
+    file: ResultsFile,
+    plan: Plan,
+    bagOn: BagItemsOn = []
+): GapTotal {
+    const total: GapTotal = { ep: 0, epSlots: 0, dps: 0, dpsSlots: 0 }
+    for (const slot of SLOTS_IN_ORDER) {
+        const gap = slotGap(slotEntry(file, slot, bagOn), plan)
+        if (gap?.kind !== 'gap') continue
+        if (gap.gain.unit === 'EP') {
+            total.ep += gap.gain.value
+            total.epSlots += 1
+        } else {
+            total.dps += gap.gain.value
+            total.dpsSlots += 1
+        }
     }
+    return total
 }

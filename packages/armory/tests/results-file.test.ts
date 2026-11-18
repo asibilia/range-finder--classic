@@ -382,6 +382,15 @@ describe('the JSON Schema', () => {
         },
         { timeout: 60_000 }
     )
+
+    test("the committed JSON Schema no longer says the page shows gain_dps in place of gain_ep, or the first alternative as the slot's best upgrade", () => {
+        const committed = readFileSync(SCHEMA_PATH, 'utf8')
+
+        expect(committed).not.toContain('in place of gain_ep')
+        expect(committed).not.toContain(
+            "the page shows the first as the slot's best upgrade"
+        )
+    })
 })
 
 describe('stat_weights source', () => {
@@ -471,9 +480,26 @@ describe('what the contract tells the runner', () => {
     })
 
     test('talents.points is the points spent in the tree', () => {
-        expect(descriptionsOf('points')).toEqual([
-            'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
-        ])
+        const points = descriptionsOf('points')
+        expect(points).toHaveLength(1)
+        expect(points[0]).toStartWith(
+            "The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn't check."
+        )
+    })
+
+    test('talents.points no longer quotes the old Talents button', () => {
+        const [points] = descriptionsOf('points')
+        expect(points).not.toContain('Talents:')
+        const schema = readFileSync(SCHEMA_PATH, 'utf8')
+        expect(schema).not.toContain('Talents: your build')
+    })
+
+    test("bag_upgrades[].results names the page's Equip button, not Wear them", () => {
+        const [bagResults] = descriptionsOf('results').filter((d) =>
+            d.startsWith('What you wear with this bag item put on')
+        )
+        expect(bagResults).toContain('Equip')
+        expect(bagResults).not.toContain('Wear them')
     })
 
     test("weapon_type is the game's skill name", () => {
@@ -800,5 +826,123 @@ describe('the optional mockup fields (schema version 1)', () => {
                 },
             ])
         ).toEqual([])
+    })
+})
+
+describe('character.professions', () => {
+    test("a list with Leatherworking 165 of 225 reads, and a skill of 'high' is refused at character.professions.0.skill", () => {
+        const f = sample()
+        f.character.professions = [
+            { name: 'Leatherworking', skill: 165, max: 225 },
+        ]
+        const outcome = readResultsFile(f) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.character.professions).toEqual([
+            { name: 'Leatherworking', skill: 165, max: 225 },
+        ])
+
+        const broken = sample()
+        broken.character.professions = [
+            { name: 'Leatherworking', skill: 'high', max: 225 },
+        ]
+        expect(
+            problemsOf(broken).some((p) =>
+                p.startsWith('character.professions.0.skill: ')
+            )
+        ).toBe(true)
+    })
+})
+
+describe('quick_fixes', () => {
+    const fix = {
+        kind: 'imbue',
+        slot: 'main_hand',
+        dps_gain: 18.2,
+        text: "Windfury Weapon wasn't on your weapon at export.",
+    }
+
+    test('a missing Windfury imbue worth 18.2 DPS reads', () => {
+        const f = sample()
+        f.quick_fixes = [{ ...fix }]
+        const outcome = readResultsFile(f) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.quick_fixes).toEqual([fix])
+    })
+
+    test("a kind of 'nap' is refused, and so is a dps_gain of -1", () => {
+        const nap = sample()
+        nap.quick_fixes = [{ ...fix, kind: 'nap' }]
+        expect(
+            problemsOf(nap).some((p) => p.startsWith('quick_fixes.0.kind'))
+        ).toBe(true)
+
+        const negative = sample()
+        negative.quick_fixes = [{ ...fix, dps_gain: -1 }]
+        expect(
+            problemsOf(negative).some((p) =>
+                p.startsWith('quick_fixes.0.dps_gain')
+            )
+        ).toBe(true)
+    })
+})
+
+describe('bag_upgrades_all', () => {
+    /**
+     * The full sample with a second bag upgrade (a copy of the first, moved to
+     * the head slot) and every bag upgrade worn together on every fight.
+     */
+    function withAllBag(): any {
+        const f = sample()
+        const second = structuredClone(f.bag_upgrades[0])
+        second.slot = 'head'
+        second.item.item_id = 4252
+        second.item.name = 'Made-up Test Cap'
+        f.bag_upgrades.push(second)
+        f.bag_upgrades_all = {
+            results: structuredClone(f.bag_upgrades[0].results),
+        }
+        return f
+    }
+
+    test('one result per fight reads, and missing one fight is refused with its message', () => {
+        const good = withAllBag()
+        expect(good.bag_upgrades_all.results).toHaveLength(good.fights.length)
+        const outcome = readResultsFile(good) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+
+        const missing = withAllBag()
+        missing.bag_upgrades_all.results.pop()
+        expect(problemsOf(missing)).toContain(
+            'bag_upgrades_all.results: bag_upgrades_all.results needs one result for each fight in fights.'
+        )
+    })
+
+    test('with one bag upgrade it is refused, and so with two bag upgrades in the same slot', () => {
+        const message =
+            'bag_upgrades_all: bag_upgrades_all needs two or more bag_upgrades, each in a different slot.'
+
+        const one = withAllBag()
+        one.bag_upgrades.pop()
+        expect(problemsOf(one)).toContain(message)
+
+        const sameSlot = withAllBag()
+        sameSlot.bag_upgrades[1].slot = sameSlot.bag_upgrades[0].slot
+        expect(problemsOf(sameSlot)).toContain(message)
+    })
+})
+
+describe('the new optional fields in the JSON Schema', () => {
+    test('the committed JSON Schema describes professions, quick_fixes and bag_upgrades_all', () => {
+        for (const key of ['professions', 'quick_fixes', 'bag_upgrades_all']) {
+            const descriptions = descriptionsOf(key)
+            expect(`${key}: ${descriptions.length}`).toBe(`${key}: 1`)
+            expect(descriptions[0]!.length).toBeGreaterThan(20)
+        }
+        const text = readFileSync(SCHEMA_PATH, 'utf8')
+        for (const kind of ['"imbue"', '"empty_slot"', '"weapon_skill"'])
+            expect(text).toContain(kind)
     })
 })

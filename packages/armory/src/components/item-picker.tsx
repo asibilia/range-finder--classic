@@ -5,6 +5,8 @@
  * Classic data), the gain large on the right, the source, and a wishlist
  * toggle. A slot with nothing to rank says why.
  */
+import { useRef } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -43,6 +45,7 @@ function ClassicData({ item }: { item: Item }) {
  *
  * @param entry - The slot's entry in the file.
  * @param slot - The slot.
+ * @param focusItemId - The item whose row takes focus on open, if any.
  * @param level - The character's level (for `Needs level`).
  * @param characterClass - The character's class (names unnamed items).
  * @param bagItemIds - Items in the bags that beat what is worn here.
@@ -53,6 +56,7 @@ function ClassicData({ item }: { item: Item }) {
 export function ItemPicker({
     entry,
     slot,
+    focusItemId,
     label,
     provisional = false,
     level,
@@ -64,6 +68,11 @@ export function ItemPicker({
 }: {
     entry: SlotEntry | undefined
     slot: Slot
+    /**
+     * An item whose row is focused and scrolled into view on open (from a
+     * `Best:` link); otherwise `Close` takes focus.
+     */
+    focusItemId?: number
     /** The slot's label as the page shows it (`Two-hand`, `Totem`). */
     label?: string
     provisional?: boolean
@@ -74,6 +83,7 @@ export function ItemPicker({
     onToggle: (item: Item, slot: Slot) => void
     onClose: () => void
 }) {
+    const focusRef = useRef<HTMLLIElement>(null)
     const worn = entry?.worn ?? null
     const alternatives = (entry?.alternatives ?? []).filter(
         (alternative) => alternative.item.item_id !== worn?.item_id
@@ -89,6 +99,7 @@ export function ItemPicker({
     return (
         <PlannerDialog
             title={title}
+            focusOnOpen={focusRef}
             description={
                 <>
                     {`Comparing with what you wear. ${scores} `}
@@ -129,8 +140,14 @@ export function ItemPicker({
                         return (
                             <li
                                 key={item.item_id}
+                                ref={
+                                    item.item_id === focusItemId
+                                        ? focusRef
+                                        : undefined
+                                }
+                                tabIndex={-1}
                                 data-quality={item.quality}
-                                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t px-0.5 py-2.5"
+                                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t px-0.5 py-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                             >
                                 <QualityGem quality={item.quality} />
                                 <div className="flex flex-wrap items-center gap-1.5">

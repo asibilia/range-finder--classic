@@ -5,6 +5,8 @@
  */
 import type { ComponentType } from 'react'
 
+import { SimBestIcon } from './sim-best-icon'
+
 function lineKey(color: string, dashed: boolean, faded: boolean) {
     return function LineKey() {
         return (
@@ -83,10 +85,22 @@ export const SERIES_COLOR = {
     mana: 'var(--chart-2)',
 } as const
 
+/** The sim's best icon (spec #109 section 3) before a swatch. */
+function withSimBest(Swatch: ComponentType) {
+    return function SimBestKey() {
+        return (
+            <>
+                <SimBestIcon variant="best" className="!size-3" />
+                <Swatch />
+            </>
+        )
+    }
+}
+
 /** Legend icons for the fight chart's four series. */
 export const FIGHT_KEYS: Record<string, ComponentType> = {
     dps_worn: lineKey(SERIES_COLOR.dps_worn, false, true),
-    dps_plan: lineKey(SERIES_COLOR.dps_plan, false, false),
+    dps_plan: withSimBest(lineKey(SERIES_COLOR.dps_plan, false, false)),
     mana_worn: lineKey(SERIES_COLOR.mana, true, true),
     mana_plan: areaKey(SERIES_COLOR.mana),
 }

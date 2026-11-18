@@ -12,47 +12,50 @@ import {
     description,
     openFile,
     openSample,
-    pill,
     readingChange,
     renderApp,
     variant,
 } from './open-app'
+import { lineWith, showBis } from './gear-card'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, within } from '@testing-library/react'
 
 import { initials } from '../src/components/talents-dialog'
 
-const SHOW_PLAN = "Show the sim's plan"
-const DUNGEON_LONG = 'Dungeon, 2 min vs level 33'
-const DPS_SOLO = 'Solo, 30 s vs level 31'
-const DPS_LONG = DUNGEON_LONG
+// The readings' short labels (#111).
+const DPS_SOLO = 'Solo'
+const DPS_LONG = 'Dungeon'
 
 afterEach(() => {
     cleanup()
 })
 
 describe('the gear pane', () => {
-    test('explains the gain pills in the worn view, with an example pill and the count of big upgrades', async () => {
+    test('in the worn view, the total line under the gear heading adds up the slot gaps, in place of the old gain-pill explanation', async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
 
-        const line = within(gear).getByText(
-            'is the best gain the sim found for that slot. 11 slots have a big upgrade (15 EP or 3 DPS and up).',
-            { exact: false }
+        const total = lineWith(
+            "↓ 195.2 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons."
         )
-        expect(pill(line, '+16.7 EP').getAttribute('data-size')).toBe('big')
+        expect(total !== null).toBe(true)
+        const heading = screen.getByRole('heading', {
+            level: 2,
+            name: 'Truncha',
+        })
+        expect(
+            heading.compareDocumentPosition(total!) &
+                Node.DOCUMENT_POSITION_FOLLOWING
+        ).toBeTruthy()
+        expect(lineWith('is the best gain the sim found') !== null).toBe(false)
     })
 
-    test('in the plan view says what the labels and faded slots mean, and fades unchanged slots', async () => {
+    test('in the plan view says what faded slots mean, and fades unchanged slots', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
 
-        expect(
-            screen.getByText(
-                'Labels show the gain over what you wear. Faded slots stay as they are.'
-            )
-        ).toBeDefined()
+        expect(screen.getByText('Faded slots stay as they are.')).toBeDefined()
+        expect(screen.queryByText(/Labels show the gain/)).toBeNull()
         expect(
             screen
                 .getByRole('button', {
@@ -69,10 +72,11 @@ describe('the gear pane', () => {
 
     test('a plan item above your level carries a needs chip, and the slot name stays exact', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
 
+        // The plan view's slots have no gap badge, so no gap in the name.
         const hands = screen.getByRole('button', {
-            name: 'Hands: Gloves of the Greatfather, +21.6 EP',
+            name: 'Hands: Gloves of the Greatfather',
         })
         expect(within(hands).getByText('needs 33')).toBeDefined()
         expect(description(hands)).toBe(
@@ -83,14 +87,14 @@ describe('the gear pane', () => {
     test('the shoulder slot says a better one is in your bags, on what you wear only', async () => {
         const user = await openSample()
         const shoulder = screen.getByRole('button', {
-            name: "Shoulder: Serpent's Shoulders, +17.8 EP",
+            name: "Shoulder: Serpent's Shoulders, 17.8 EP below the sim's best",
         })
         expect(description(shoulder)).toBe('better in bags')
         expect(
             description(screen.getByRole('button', { name: /^Head: / }))
         ).toBe('')
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
         expect(screen.queryByText('better in bags')).toBeNull()
     })
 
@@ -99,7 +103,7 @@ describe('the gear pane', () => {
         const user = await openSample()
         expect(screen.getByText(HINT)).toBeDefined()
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
         expect(screen.queryByText(HINT)).toBeNull()
     })
 })
@@ -109,14 +113,14 @@ describe('the readings', () => {
         const user = await openSample()
         expect(readingChange(DPS_LONG)).toBeNull()
 
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
 
         expect(readingChange(DPS_SOLO)).toBe('+14.7')
         expect(readingChange(DPS_LONG)).toBe('+8.7')
         expect(readingChange('Health')).toBe('-65')
         expect(readingChange('Armor')).toBe('+58')
-        expect(readingChange('Mana runs out at')).toBe('+9 s later')
-        expect(readingChange('Time to die vs a level 33 elite')).toBe('-3 s')
+        expect(readingChange('Resource Empty')).toBe('+9 s later')
+        expect(readingChange('Lifespan')).toBe('-3 s')
     })
 
     test('a plan not simmed on the fight has no change to say', async () => {
@@ -134,9 +138,9 @@ describe('the readings', () => {
             })
         )
         await chooseFight(user, 'Chain, 4 pulls 20 s apart vs level 33')
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
+        await showBis(user)
         // The chain fight's readings: the plan has no result there.
-        expect(readingChange('Mana runs out at')).toBeNull()
+        expect(readingChange('Resource Empty')).toBeNull()
         expect(readingChange('Health')).toBeNull()
         // Solo and the 2-minute fight are still simmed for the plan.
         expect(readingChange(DPS_LONG)).toBe('+8.7')
@@ -163,7 +167,9 @@ describe('the item picker', () => {
 describe('the talents', () => {
     test('each talent tile shows its initials', async () => {
         const user = await openSample()
-        await user.click(screen.getByRole('button', { name: /^Talents: / }))
+        await user.click(
+            screen.getByRole('button', { name: 'Talents, 21 points' })
+        )
         const dialog = screen.getByRole('dialog', { name: 'Talents' })
         const flurry = within(dialog).getByLabelText(
             'Flurry, 5/5, changed from 4/5'
@@ -226,11 +232,12 @@ describe('the mockup details', () => {
     test('unnamed items read as the mockup names them, in the slots, the picker and the bags line', async () => {
         const user = await openSample()
 
+        // Each with its gap to the plan's item, as the slot names it.
         for (const name of [
-            'Back: Unnamed cloak (279848), +6.2 EP',
-            'Wrist: Unnamed bracers (279875), +16.8 EP',
-            'Feet: Unnamed boots (251963), +18.7 EP',
-            'Finger 2: Unnamed ring (6748), +19.2 EP',
+            "Back: Unnamed cloak (279848), 6.2 EP below the sim's best",
+            "Wrist: Unnamed bracers (279875), 15.0 EP below the sim's best",
+            "Feet: Unnamed boots (251963), 18.7 EP below the sim's best",
+            "Finger 2: Unnamed ring (6748), 15.5 EP below the sim's best",
             'Totem: Unnamed totem (263412)',
         ])
             expect(screen.getByRole('button', { name })).toBeDefined()

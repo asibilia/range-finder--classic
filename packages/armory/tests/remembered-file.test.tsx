@@ -69,8 +69,17 @@ function storageFull(): { removed: string[] } {
     return calls
 }
 
+/** Waits for a heading named `name` (the gear card's names the character). */
 async function waitForName(name: string) {
-    await screen.findByRole('heading', { level: 1, name })
+    await screen.findByRole('heading', { name })
+}
+
+/** The new-visitor state's heading: the page has no file open. */
+function noFileHeading(): HTMLElement {
+    return screen.getByRole('heading', {
+        level: 2,
+        name: 'Bring your character in',
+    })
 }
 
 /** Unmounts the page and renders it again, as a reload would. */
@@ -208,19 +217,12 @@ describe('the page remembers the last results file', () => {
         )
 
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
-        await waitForName('Armory planner')
-        expect(
-            screen.getByRole('heading', {
-                level: 2,
-                name: 'Bring your character in',
-            })
-        ).toBeDefined()
+        await waitForName('Bring your character in')
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
         expect(screen.queryByText(KEPT)).toBeNull()
 
         reload()
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
-        ).toBeDefined()
+        expect(noFileHeading()).toBeDefined()
     })
 
     test('after Forget, a new file is the one stored', async () => {
@@ -248,15 +250,8 @@ describe('the page remembers the last results file', () => {
         expect(await screen.findByText(FORGOTTEN)).toBeDefined()
         expect(screen.getAllByText(FORGOTTEN)).toHaveLength(1)
         expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
-        ).toBeDefined()
-        expect(
-            screen.getByRole('heading', {
-                level: 2,
-                name: 'Bring your character in',
-            })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
+        expect(noFileHeading()).toBeDefined()
         // Not the error for a file the visitor just opened.
         expect(
             screen.queryByText(
@@ -294,9 +289,8 @@ describe('the page remembers the last results file', () => {
     test('storage that throws on access: the page opens empty, reads a file, and does not claim to keep it', async () => {
         storageUnavailable()
         const user = renderApp()
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
+        expect(noFileHeading()).toBeDefined()
         await pick(user, jsonFile(sample))
         await waitForName('Truncha')
         expect(screen.queryByText(KEPT)).toBeNull()
@@ -305,9 +299,7 @@ describe('the page remembers the last results file', () => {
         ).toBeNull()
 
         reload()
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Armory planner' })
-        ).toBeDefined()
+        expect(noFileHeading()).toBeDefined()
     })
 
     test('full storage: the file still opens, and the page does not claim to keep it', async () => {

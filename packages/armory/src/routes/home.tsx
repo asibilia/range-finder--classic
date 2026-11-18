@@ -8,7 +8,7 @@ export { WentWrong as ErrorBoundary } from '../error-boundary'
 
 /** The page's title in the browser tab. */
 export function meta() {
-    return [{ title: 'Armory planner' }]
+    return [{ title: 'Armory' }]
 }
 
 /** Renders the armory planner. */

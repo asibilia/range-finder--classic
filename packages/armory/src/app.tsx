@@ -9,13 +9,7 @@
  * The last file picked or dropped is kept in this browser and comes back on
  * reload (`remembered-file.ts`); the sample is never kept.
  */
-import {
-    type ReactNode,
-    type RefObject,
-    useEffect,
-    useRef,
-    useState,
-} from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
@@ -23,6 +17,7 @@ import { BringIn, type ReadError } from '@/components/bring-in'
 import { Checks } from '@/components/checks'
 import { FightBand } from '@/components/fight-band'
 import { GearPane } from '@/components/gear-pane'
+import { InfoIcon } from '@/components/info'
 import {
     ItemPicker,
     type Wishlist,
@@ -53,7 +48,6 @@ import {
     weightsIterations,
 } from './browser-sim'
 import type { Item } from './gains'
-import { itemName } from './item-name'
 import {
     initialPlannerState,
     pickedPlan,
@@ -100,37 +94,21 @@ async function readFile(
 export const FORGOTTEN_NOTE =
     'The results file this browser kept no longer reads, so it was forgotten.'
 
-/**
- * The header line under the name, as the mockup writes it: `Orc
- * Enhancement Shaman, level 30. Guardian's Dualblade with Windfury
- * Weapon.` The weapon is the main hand's worn item; `with ...` is its imbue
- * (`slots[].imbue`), left out when the file has none.
- *
- * @param file - The loaded results file.
- * @returns The line.
- */
-export function headerLine(file: ResultsFile): string {
-    const { character } = file
-    const who = `${character.race} ${character.spec} ${character.class}, level ${character.level}.`
-    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
-    if (!mainHand?.worn) return who
-    const weapon = itemName(mainHand.worn, 'main_hand', character.class)
-    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
-    return `${who} ${weapon}${imbue}.`
-}
-
 const PILL = 'h-auto rounded-full px-4 py-2 text-[0.9375rem] font-normal'
 
+/**
+ * The page's header: `Armory` and the tagline under it (the character is
+ * on the gear card's heading), with Wishlist and Export Pawn string on the
+ * right.
+ */
 function Header({
     file,
-    headingRef,
     wishlistCount,
     localAction,
     onOpenWishlist,
     onOpenPawn,
 }: {
     file: ResultsFile | null
-    headingRef: RefObject<HTMLHeadingElement | null>
     wishlistCount: number
     /** Dev only: the local latest file's button, or null. */
     localAction: ReactNode
@@ -140,17 +118,12 @@ function Header({
     return (
         <header className="flex flex-wrap items-end gap-6">
             <div>
-                <h1
-                    ref={headingRef}
-                    tabIndex={-1}
-                    className="text-[2.625rem] leading-none tracking-[0.01em] outline-none"
-                >
-                    {file ? file.character.name : 'Armory planner'}
+                <h1 className="text-[2.625rem] leading-none tracking-[0.01em]">
+                    Armory
                 </h1>
                 <p className="mt-1.5 text-muted-foreground">
-                    {file
-                        ? headerLine(file)
-                        : 'See your gear, what the sim would change, and how a fight plays out.'}
+                    See your gear, what the sim would change, and how a fight
+                    plays out.
                 </p>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -243,7 +216,7 @@ function Footer({
 }
 
 type OpenDialog =
-    | { kind: 'picker'; slot: Slot }
+    | { kind: 'picker'; slot: Slot; focusItemId?: number }
     | { kind: 'wishlist' }
     | { kind: 'talents' }
     | { kind: 'pawn' }
@@ -472,7 +445,8 @@ export function App({
         )
     }, [])
 
-    // Focus moves to the character's name when a picked file loads.
+    // Focus moves to the gear card's heading (the character's name) when a
+    // picked file loads.
     useEffect(() => {
         if (loaded.file && focusHeading.current) {
             focusHeading.current = false
@@ -551,7 +525,7 @@ export function App({
     const closeDialog = () => setDialog(null)
     const plan = file && planner ? pickedPlan(file, planner) : null
     const planShown = planner?.view === 'plan'
-    const bagWorn = planner?.bagWorn ?? null
+    const bagOn = planner?.bagOn ?? []
     const wornOf = (fightId: string) =>
         file && planner ? wornResult(file, planner, fightId) : null
     // Refine: only for a character simmed in this visit, until its weights
@@ -573,7 +547,6 @@ export function App({
             <main className="mx-auto flex max-w-360 flex-col px-4 pt-5.5 pb-9 sm:px-6 lg:px-10">
                 <Header
                     file={file}
-                    headingRef={heading}
                     wishlistCount={wishlist.size}
                     localAction={latest.action}
                     onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
@@ -583,10 +556,14 @@ export function App({
                 {file?.provisional && (
                     <p
                         role="note"
-                        className="mt-3 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-sm"
+                        className="mt-3 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-sm"
                     >
-                        The sim isn&apos;t checked against real fights yet. Use
-                        these numbers to compare gear, not as a promise of DPS.
+                        <InfoIcon className="mt-0.5 size-4 text-muted-foreground" />
+                        <span>
+                            The sim isn&apos;t checked against real fights yet.
+                            Use these numbers to compare gear, not as a promise
+                            of DPS.
+                        </span>
                     </p>
                 )}
                 <div
@@ -597,9 +574,15 @@ export function App({
                         file={file}
                         plan={plan}
                         planShown={planShown}
-                        bagWorn={bagWorn}
+                        bagOn={bagOn}
+                        wishlist={wishlist}
+                        onToggleWishlist={toggleWishlist}
+                        headingRef={heading}
                         onWearBag={(itemId) =>
                             dispatch({ type: 'wear-bag-item', item_id: itemId })
+                        }
+                        onWearAllBags={() =>
+                            dispatch({ type: 'wear-all-bag-items' })
                         }
                         onUndoBag={() => dispatch({ type: 'undo-bag-item' })}
                         middle={
@@ -626,9 +609,10 @@ export function App({
                         }
                         onShowPlan={() => dispatch({ type: 'show-plan' })}
                         onShowWorn={() => dispatch({ type: 'show-worn' })}
-                        onOpenSlot={(slot) =>
-                            setDialog({ kind: 'picker', slot })
+                        onOpenSlot={(slot, focusItemId) =>
+                            setDialog({ kind: 'picker', slot, focusItemId })
                         }
+                        onOpenTalents={() => setDialog({ kind: 'talents' })}
                     />
                     {file && planner ? (
                         <SimPanel
@@ -637,7 +621,6 @@ export function App({
                             plan={plan}
                             planShown={planShown}
                             wornOf={wornOf}
-                            onOpenTalents={() => setDialog({ kind: 'talents' })}
                             sliders={
                                 planner.mix && (
                                     <RoleSliders
@@ -646,9 +629,6 @@ export function App({
                                         plan={plan}
                                         inWornView={!planShown}
                                         switched={planner.switched}
-                                        onShowWorn={() =>
-                                            dispatch({ type: 'show-worn' })
-                                        }
                                         onChange={(role, value) =>
                                             dispatch({
                                                 type: 'set-sliders',
@@ -683,8 +663,9 @@ export function App({
                 />
                 {file && dialog?.kind === 'picker' && (
                     <ItemPicker
-                        entry={slotEntry(file, dialog.slot, bagWorn)}
+                        entry={slotEntry(file, dialog.slot, bagOn)}
                         slot={dialog.slot}
+                        focusItemId={dialog.focusItemId}
                         label={slotLabel(dialog.slot, file)}
                         provisional={file.provisional}
                         level={file.character.level}

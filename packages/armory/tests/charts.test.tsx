@@ -113,6 +113,30 @@ describe('the fight chart', () => {
         ).toBeDefined()
     })
 
+    test("the key item DPS, sim's plan draws the sim's best icon before its swatch; Mana, sim's plan doesn't", async () => {
+        render(
+            <FightChart
+                fight={fight('dungeon-long')}
+                worn={result('worn', 'dungeon-long')}
+                plan={result('max-damage', 'dungeon-long')}
+            />
+        )
+        await chartsLoaded()
+        /** The outermost element whose text is just `label`. */
+        const keyItem = (label: string): HTMLElement => {
+            let item = screen.getByText(label)
+            while (item.parentElement?.textContent === label)
+                item = item.parentElement
+            return item
+        }
+
+        const dpsPlan = keyItem("DPS, sim's plan")
+        expect(dpsPlan.querySelector('circle[stroke-dasharray]')).not.toBeNull()
+        // The swatch stays.
+        expect(dpsPlan.querySelector('line')).not.toBeNull()
+        expect(keyItem("Mana, sim's plan").querySelector('circle')).toBeNull()
+    })
+
     test('without the plan: two lines, no area, one marker, no plan legend', async () => {
         render(
             <FightChart

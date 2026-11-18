@@ -239,7 +239,8 @@ function dropFile(file: File): void {
 }
 
 async function characterLoaded(name = 'Testchar'): Promise<HTMLElement> {
-    return screen.findByRole('heading', { level: 1, name }, LOADS)
+    // The gear card's h2 names the character.
+    return screen.findByRole('heading', { name }, LOADS)
 }
 
 /** Renders the page with `pool`, picks Testchar's export, waits for it. */
@@ -275,9 +276,7 @@ function startingWith(prefix: string) {
 
 /** Still bringing a character in: no character, no readings. */
 function expectNoNumbers(): void {
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-        'Armory planner'
-    )
+    expect(screen.queryByRole('heading', { name: 'Testchar' })).toBeNull()
     expect(readingLabels()).toEqual([])
     expect(
         screen.getByRole('heading', {
@@ -631,9 +630,7 @@ describe('Refine', () => {
 
         expect(await screen.findByText(YOURS, undefined, LOADS)).toBeDefined()
         expect(screen.queryByText(PRECOMPUTED)).toBeNull()
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Testchar' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
     }, 120_000)
 
     test('Cancel during Refine keeps the unrefined file and its weights sentence', async () => {
@@ -651,9 +648,7 @@ describe('Refine', () => {
                 screen.queryByRole('progressbar', { name: 'Sim progress' })
             ).toBeNull()
         )
-        expect(
-            screen.getByRole('heading', { level: 1, name: 'Testchar' })
-        ).toBeDefined()
+        expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
         expect(screen.getByText(PRECOMPUTED)).toBeDefined()
         expect(screen.queryByText(YOURS)).toBeNull()
     }, 60_000)

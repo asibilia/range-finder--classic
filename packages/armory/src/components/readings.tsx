@@ -1,11 +1,13 @@
 /**
- * What the sim says (spec section 9), as the approved mockup lays it out:
- * six readings in three columns. The DPS of a short and a long single fight
- * (solo and the 2-minute dungeon fight in the sample) whatever fight is
- * picked, as the mockup keeps them; then `Mana runs out at`, health, armor
- * and `Time to die vs a level 33 elite` for the fight picked in the fight
- * settings. Each value is large; in the plan view it is the plan's, with
- * its change from what you wear under it (`+8.7`), as the mockup shows.
+ * Simulator Data (spec #109, section 2): six readings in three columns.
+ * The top row is the DPS of a short and a long single fight (`Solo` and
+ * `Dungeon` in the sample) whatever fight is picked, then `Resource Empty`
+ * (when you run out of mana); the bottom row is `Health`, `Armor` and
+ * `Lifespan` (time to die vs an elite), for the fight picked in the fight
+ * settings. Each reading is its label (with an "i" where it has one), its
+ * number with a small unit and, under it, how far what you wear is below
+ * the sim's plan (`↓ 14.7`), when it is. In the plan view the numbers are
+ * the plan's, each with its change from what you wear (`+8.7`).
  */
 import { useId } from 'react'
 
@@ -17,16 +19,24 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-import { minutesSeconds, signed } from '../format'
+import {
+    fightDetail,
+    type GapReading,
+    readingGap,
+    shortLabel,
+    shortLength,
+    signed,
+} from '../format'
 import type { Plan } from '../plans'
-import type { ResultsFile } from '../results-file'
-
-type Fight = ResultsFile['fights'][number]
-type Result = ResultsFile['results'][number]
+import type { Fight, Result, ResultsFile } from '../results-file'
+import { InfoButton } from './info'
+import { SimBestIcon } from './sim-best-icon'
 
 const NOT_SIMMED = 'Not simmed'
 const PROVISIONAL_TEXT =
     "The sim hasn't been checked against real fights yet. Treat these as estimates."
+const RESOURCE_INFO =
+    'How long until you run out of mana in this fight. Called Resource so it also fits rage and energy.'
 
 /** How a change reads: DPS gains in the accent, the rest in green. */
 type Tone = 'dps' | 'good'
@@ -34,8 +44,12 @@ type Tone = 'dps' | 'good'
 type Reading = {
     label: string
     fightId: string
-    unit?: string
+    unit?: 'DPS' | 'sec'
     tone: Tone
+    /** What its "i" says, when it has one. */
+    info?: string
+    /** Which gap below the plan it shows, when it has one. */
+    gap?: GapReading
     read: (result: Result) => string
     /** The change from what you wear, or null when there is none to say. */
     change: (plan: Result, worn: Result) => string | null
@@ -45,30 +59,53 @@ function seconds(value: Result['out_of_mana_s']): number | null {
     return typeof value === 'number' ? value : null
 }
 
-function dps(fight: Fight): Reading {
+function dps(fight: Fight, label: string, level: number): Reading {
     return {
-        label: fight.label,
+        label,
         fightId: fight.fight_id,
         unit: 'DPS',
         tone: 'dps',
+        info: fightDetail(fight, level),
+        gap: 'dps',
         read: (result) => result.dps.toFixed(1),
         change: (plan, worn) => signed(plan.dps - worn.dps, 1),
     }
+}
+
+/**
+ * The DPS readings: their fights, each labelled with its short label, and
+ * its length too when both get the same one (`Dungeon 30 s`).
+ */
+function dpsReadings(fights: Fight[], level: number): Reading[] {
+    const labels = fights.map(shortLabel)
+    const same = labels.length > 1 && new Set(labels).size === 1
+    return fights.map((fight, index) =>
+        dps(
+            fight,
+            same
+                ? `${labels[index]} ${shortLength(fight.duration_s)}`
+                : (labels[index] ?? fight.label),
+            level
+        )
+    )
 }
 
 function forFight(fight: Fight): Reading[] {
     const fightId = fight.fight_id
     return [
         {
-            label: 'Mana runs out at',
+            label: 'Resource Empty',
             fightId,
+            unit: 'sec',
             tone: 'good',
+            info: RESOURCE_INFO,
+            gap: 'resource',
             read: (result) =>
                 result.out_of_mana_s === null
                     ? NOT_SIMMED
                     : result.out_of_mana_s === 'never'
                       ? 'Never'
-                      : minutesSeconds(result.out_of_mana_s),
+                      : String(Math.floor(result.out_of_mana_s)),
             change: (plan, worn) => {
                 const a = seconds(plan.out_of_mana_s)
                 const b = seconds(worn.out_of_mana_s)
@@ -92,10 +129,12 @@ function forFight(fight: Fight): Reading[] {
             change: (plan, worn) => signed(plan.armor - worn.armor, 0),
         },
         {
-            label: `Time to die vs a level ${fight.target_level} elite`,
+            label: 'Lifespan',
             fightId,
-            unit: 's',
+            unit: 'sec',
             tone: 'good',
+            info: `How long you'd last against a level ${fight.target_level} elite in this fight.`,
+            gap: 'lifespan',
             read: (result) =>
                 result.time_to_die_s === null
                     ? NOT_SIMMED
@@ -181,14 +220,33 @@ export function Provisional({ text = PROVISIONAL_TEXT }: { text?: string }) {
 }
 
 /**
+ * How far what you wear is below the plan: `↓ 14.7` and the `best` icon,
+ * read out as `14.7 DPS below the sim's plan`.
+ */
+function GapLine({ gap, unit }: { gap: string; unit: 'DPS' | 'sec' }) {
+    return (
+        <dd
+            data-reading-gap
+            className="flex min-h-4.5 items-center gap-1 text-[0.78125rem] font-bold text-primary"
+        >
+            <span aria-hidden="true">↓</span>{' '}
+            <span className="font-mono">{gap}</span>
+            <span className="sr-only">{` ${unit} below the sim's plan`}</span>
+            <SimBestIcon variant="best" />
+        </dd>
+    )
+}
+
+/**
  * The readings.
  *
  * @param file - The loaded results file.
- * @param fight - The fight picked in the fight settings (mana, health,
- * armor and time to die read it).
+ * @param fight - The fight picked in the fight settings (resource, health,
+ * armor and lifespan read it).
  * @param plan - The plan the sliders pick, or null (no plans).
  * @param planShown - The page shows the plan: its values, with their change
- * from what you wear. Otherwise what you wear's.
+ * from what you wear. Otherwise what you wear's, with the gaps below the
+ * plan.
  * @param wornOf - What you wear's result on a fight (with a bag item put
  * on, its results); the file's worn results by default.
  */
@@ -214,8 +272,9 @@ export function Readings({
         wornOf ?? ((fightId: string) => resultOf('worn', fightId))
     const showPlan = planShown && plan !== null
     const anchors = dpsFights(file)
+    const level = file.character.level
     const readings: Reading[] = [
-        ...(anchors.length > 0 ? anchors.map(dps) : [dps(fight)]),
+        ...dpsReadings(anchors.length > 0 ? anchors : [fight], level),
         ...forFight(fight),
     ]
 
@@ -223,7 +282,7 @@ export function Readings({
         <section aria-labelledby={headingId}>
             <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <h2 id={headingId} className="text-xl leading-tight">
-                    What the sim says
+                    Simulator Data
                 </h2>
                 <span className="text-[0.8125rem] text-muted-foreground">
                     {showPlan
@@ -248,14 +307,24 @@ export function Readings({
                         showPlan && planResult && worn
                             ? reading.change(planResult, worn)
                             : null
+                    const gap =
+                        !showPlan && reading.gap && planResult && worn
+                            ? readingGap(reading.gap, worn, planResult)
+                            : null
                     return (
                         <div
-                            key={reading.label}
+                            key={`${reading.fightId}:${reading.label}`}
                             data-reading={reading.label}
                             className="border-b pt-2.5 pr-2 pb-2.25"
                         >
-                            <dt className="min-h-7.75 text-[0.78125rem] leading-tight text-muted-foreground">
+                            <dt className="flex min-h-5 items-center gap-1 text-[0.78125rem] leading-tight text-muted-foreground">
                                 {reading.label}
+                                {reading.info && (
+                                    <InfoButton
+                                        label={reading.label}
+                                        text={reading.info}
+                                    />
+                                )}
                             </dt>
                             <dd className="mt-0.75">
                                 <span
@@ -264,7 +333,7 @@ export function Readings({
                                         'tabular-nums',
                                         words
                                             ? 'text-lg'
-                                            : 'text-[1.625rem] leading-tight whitespace-nowrap'
+                                            : 'font-mono text-[1.625rem] leading-tight whitespace-nowrap'
                                     )}
                                 >
                                     {value}
@@ -275,19 +344,32 @@ export function Readings({
                                     </small>
                                 )}
                             </dd>
-                            <dd
-                                data-reading-change
-                                className={cn(
-                                    'min-h-4.5 text-[0.78125rem] font-bold',
-                                    change?.startsWith('-')
-                                        ? 'text-muted-foreground'
-                                        : reading.tone === 'dps'
-                                          ? 'text-chart-1-text'
-                                          : 'text-good-text'
-                                )}
-                            >
-                                {change ?? ''}
-                            </dd>
+                            {showPlan ? (
+                                <dd
+                                    data-reading-change
+                                    className={cn(
+                                        'min-h-4.5 text-[0.78125rem] font-bold',
+                                        change?.startsWith('-')
+                                            ? 'text-muted-foreground'
+                                            : reading.tone === 'dps'
+                                              ? 'text-chart-1-text'
+                                              : 'text-good-text'
+                                    )}
+                                >
+                                    {change ?? ''}
+                                </dd>
+                            ) : gap !== null && reading.unit ? (
+                                <GapLine
+                                    gap={
+                                        reading.gap === 'dps'
+                                            ? gap.toFixed(1)
+                                            : String(gap)
+                                    }
+                                    unit={reading.unit}
+                                />
+                            ) : (
+                                <dd aria-hidden="true" className="min-h-4.5" />
+                            )}
                         </div>
                     )
                 })}

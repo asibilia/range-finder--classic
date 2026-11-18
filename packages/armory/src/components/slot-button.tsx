@@ -2,10 +2,11 @@
  * One gear slot, as the mockup draws it: a compact button with the item's
  * tile, its slot label (with chips: `needs 33`, `better in bags`), the
  * item's name on one line (cut off with an ellipsis) and a note on the next
- * (`Best: Defender's Leather Helm`), and the gain pill on the edge facing
- * the figure. The full name is in the button's accessible name and in a
- * tooltip. The chips describe the button (`aria-describedby`) so the name
- * stays exact.
+ * (the worn item's source), and the gain pill on the edge facing the
+ * figure. A slot with a gap has `Best: <item>` under the button instead,
+ * the item's name a link-styled button that opens the picker on that item.
+ * The full name is in the button's accessible name and in a tooltip. The
+ * chips describe the button (`aria-describedby`) so the name stays exact.
  */
 import { useId } from 'react'
 
@@ -17,9 +18,10 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-import { formatGain, type Gain, gainSize } from '../gains'
+import { formatGap, gainSize, type SlotGap } from '../gains'
 import type { Slot } from '../results-file'
 import type { SlotShown } from '../slot-view'
+import { SimBestIcon } from './sim-best-icon'
 import { SlotTile } from './slot-tile'
 
 /** Which side of the figure the slot sits on; the pill faces the figure. */
@@ -44,36 +46,52 @@ const ROOM_FOR_PILL: Record<SlotSide, string> = {
     bottom: '',
 }
 
+const BADGE =
+    'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 font-mono text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]'
+
 /**
- * The gain pill: filled for a big upgrade, outlined for a small one; the
- * unit small after the number (`+16.7 EP`).
+ * The slot's badge: the gap to the plan's item (`↓ 16.7`, `↓ 6.0 DPS`),
+ * filled for a big one and outlined for a small one; or a green `BIS` with
+ * the `owned` icon when you wear the plan's item.
  *
- * @param gain - The gain to show.
+ * @param gap - The gap, or `bis`.
  * @param className - Placement.
  */
-export function GainPill({
-    gain,
+export function GapBadge({
+    gap,
     className,
 }: {
-    gain: Gain
+    gap: SlotGap
     className?: string
 }) {
-    const size = gainSize(gain)
-    const text = formatGain(gain)
-    const unitAt = text.lastIndexOf(' ')
+    if (gap.kind === 'bis')
+        return (
+            <Badge
+                variant="outline"
+                className={cn(
+                    BADGE,
+                    'items-center gap-1 border-owned bg-card text-owned',
+                    className
+                )}
+            >
+                <SimBestIcon variant="owned" />
+                BIS
+            </Badge>
+        )
+    const size = gainSize(gap.gain)
     return (
         <Badge
             data-size={size}
             variant={size === 'big' ? 'gain' : 'gain-outline'}
-            className={cn(
-                'h-auto items-baseline gap-0 rounded-full px-2.25 py-0.75 text-[0.8125rem] leading-tight font-bold shadow-[0_0_0_3px_var(--card)]',
-                className
-            )}
+            className={cn(BADGE, className)}
         >
-            {text.slice(0, unitAt)}
-            <small className="text-[0.625rem] font-bold opacity-75">
-                {text.slice(unitAt)}
-            </small>
+            <span aria-hidden="true">↓&nbsp;</span>
+            {formatGap(gap.gain)}
+            {gap.gain.unit === 'DPS' && (
+                <small className="text-[0.625rem] font-bold opacity-75">
+                    {' DPS'}
+                </small>
+            )}
         </Badge>
     )
 }
@@ -83,8 +101,9 @@ export function GainPill({
  *
  * @param shown - What the slot shows.
  * @param side - Where it sits around the figure.
- * @param onOpen - Opens the slot's item picker; absent before a file loads
- * (the slot is then a disabled, dashed outline).
+ * @param onOpen - Opens the slot's item picker, with the item to focus when
+ * opened from the `Best:` link; absent before a file loads (the slot is
+ * then a disabled, dashed outline).
  */
 export function SlotButton({
     shown,
@@ -93,10 +112,11 @@ export function SlotButton({
 }: {
     shown: SlotShown
     side: SlotSide
-    onOpen?: (slot: Slot) => void
+    onOpen?: (slot: Slot, focusItemId?: number) => void
 }) {
     const chipId = useId()
-    const { item, gain, note, chips, description } = shown
+    const { item, gap, note, chips, description } = shown
+    const big = gap?.kind === 'gap' && gainSize(gap.gain) === 'big'
     const empty = onOpen === undefined
     const describedBy = [
         ...chips.map((_, index) => `${chipId}-${index}`),
@@ -115,8 +135,8 @@ export function SlotButton({
             onClick={() => onOpen?.(shown.slot)}
             className={cn(
                 'relative grid min-h-14.5 w-full grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-card py-1.75 pr-2.5 pl-2 text-left transition-[border-color,background-color,opacity] outline-none hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                gain && ROOM_FOR_PILL[side],
-                gain && gainSize(gain) === 'big' && 'border-gain/50',
+                gap && ROOM_FOR_PILL[side],
+                big && 'border-gain/50',
                 shown.sameAsWorn && 'opacity-60',
                 empty && 'border-dashed bg-transparent',
                 !item && !empty && 'border-dashed'
@@ -170,21 +190,40 @@ export function SlotButton({
                     </span>
                 )}
             </span>
-            {gain && (
-                <GainPill
-                    gain={gain}
+            {gap && (
+                <GapBadge
+                    gap={gap}
                     className={cn('absolute', PILL_PLACE[side])}
                 />
             )}
         </button>
     )
-    if (!shown.itemName) return button
     // A long name is cut off with an ellipsis: the tooltip (and the
     // accessible name) carry it whole.
-    return (
+    const withTooltip = shown.itemName ? (
         <Tooltip>
             <TooltipTrigger render={button} />
             <TooltipContent>{shown.itemName}</TooltipContent>
         </Tooltip>
+    ) : (
+        button
+    )
+    const { best } = shown
+    if (!best || !onOpen) return withTooltip
+    return (
+        <div className="flex min-w-0 flex-col gap-1">
+            {withTooltip}
+            <p className="flex min-w-0 items-center gap-1 px-2 text-xs leading-tight text-muted-foreground">
+                <SimBestIcon variant="best" />
+                <span className="shrink-0">Best:</span>
+                <button
+                    type="button"
+                    onClick={() => onOpen(shown.slot, best.itemId)}
+                    className="min-w-0 truncate rounded-sm text-left text-foreground underline underline-offset-2 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                    {best.name}
+                </button>
+            </p>
+        </div>
     )
 }

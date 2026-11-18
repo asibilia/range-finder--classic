@@ -53,6 +53,7 @@ export default defineConfig({
             '@base-ui/react/button',
             '@base-ui/react/dialog',
             '@base-ui/react/merge-props',
+            '@base-ui/react/popover',
             '@base-ui/react/select',
             '@base-ui/react/slider',
             '@base-ui/react/tooltip',

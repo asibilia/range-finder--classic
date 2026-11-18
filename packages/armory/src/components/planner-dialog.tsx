@@ -4,7 +4,7 @@
  * `Close` on open, Tab stays inside (Base UI's focus trap), Escape and
  * `Close` close it, and focus goes back to the control that opened it.
  */
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, type RefObject, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils'
  * @param overPane - Sits over the gear pane on a wide window (over 1280
  * px), as the mockup places the item picker and the talents, so the card
  * on the right stays in view; centred otherwise.
+ * @param focusOnOpen - An element to focus (and scroll into view) on open
+ * instead of `Close`, when it is rendered.
  */
 export function PlannerDialog({
     title,
@@ -36,6 +38,7 @@ export function PlannerDialog({
     onClose,
     wide,
     overPane = false,
+    focusOnOpen,
     children,
 }: {
     title: string
@@ -43,6 +46,7 @@ export function PlannerDialog({
     onClose: () => void
     wide?: boolean
     overPane?: boolean
+    focusOnOpen?: RefObject<HTMLElement | null>
     children: ReactNode
 }) {
     const closeRef = useRef<HTMLButtonElement>(null)
@@ -56,7 +60,12 @@ export function PlannerDialog({
         >
             <DialogContent
                 aria-modal="true"
-                initialFocus={closeRef}
+                initialFocus={() => {
+                    const target = focusOnOpen?.current
+                    if (!target) return closeRef.current
+                    target.scrollIntoView?.({ block: 'nearest' })
+                    return target
+                }}
                 showCloseButton={false}
                 style={left === null ? undefined : { left }}
                 className={cn(

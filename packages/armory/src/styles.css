@@ -16,10 +16,10 @@
 @source './error-boundary.tsx';
 
 /*
- * Light and dark follow the system (`prefers-color-scheme`); there is no
- * toggle. shadcn's components use `dark:`, so it means the same.
+ * The page is dark only: one theme, in `:root`. `<html>` always has the
+ * class `dark`, so shadcn's `dark:` classes always apply.
  */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+@custom-variant dark (&:where(.dark, .dark *));
 
 /*
  * Base UI marks state with data attributes. These variants are copied from
@@ -117,6 +117,8 @@
     --color-gain-text: var(--gain-text);
     /* Ours: a change that is good for you (more health, mana for longer). */
     --color-good-text: var(--good-text);
+    /* Ours: the green of BIS, the owned icon and the all-best card. */
+    --color-owned: var(--owned);
     --color-quality-poor: var(--quality-poor);
     --color-quality-common: var(--quality-common);
     --color-quality-uncommon: var(--quality-uncommon);
@@ -132,112 +134,68 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* shadcn's neutral theme (light), then our tokens. */
+/*
+ * The one theme (dark): shadcn's neutral dark, the owner's orange accent,
+ * then our tokens. Colours are `oklch(L C H)` or a `var()` to one (only
+ * --border and --input carry an alpha); tests/contrast.test.ts checks them.
+ */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    /* The accent: the owner's #F0782D. */
+    --primary: oklch(0.701 0.17 48.3);
+    --primary-foreground: oklch(0.145 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
     --radius: 0.625rem;
     /*
      * Chart colours. 1 is DPS and the sim's plan (the accent), 2 is mana,
      * 3 to 5 (and 1, 2 again) colour the damage split by part order. What
      * you wear is drawn in --muted-foreground.
      */
-    --chart-1: oklch(0.68 0.17 45);
-    --chart-2: oklch(0.6 0.13 240);
-    --chart-3: oklch(0.58 0.13 295);
-    --chart-4: oklch(0.65 0.12 165);
-    --chart-5: oklch(0.45 0.09 250);
-    /*
-     * The chart and gain colours as text on --background and --card: darker
-     * in light mode so text reads at 4.5:1 or more (chart-1 and gain are
-     * 3:1, enough for lines and fills only). tests/contrast.test.ts checks.
-     */
-    --chart-1-text: oklch(0.55 0.15 45);
-    --chart-2-text: oklch(0.54 0.13 240);
-    --gain: oklch(0.72 0.16 50);
-    --gain-foreground: oklch(0.25 0.06 45);
-    --gain-text: oklch(0.55 0.15 50);
-    --good-text: oklch(0.5 0.11 165);
+    --chart-1: oklch(0.76 0.15 50);
+    --chart-2: oklch(0.72 0.12 235);
+    --chart-3: oklch(0.7 0.12 295);
+    --chart-4: oklch(0.75 0.11 165);
+    --chart-5: oklch(0.58 0.09 250);
+    /* The chart and gain colours as text on --background and --card. */
+    --chart-1-text: var(--chart-1);
+    --chart-2-text: var(--chart-2);
+    --gain: oklch(0.78 0.14 55);
+    --gain-foreground: oklch(0.22 0.05 45);
+    --gain-text: var(--gain);
+    --good-text: oklch(0.85 0.1 165);
+    /* The green of BIS, the owned icon and the all-best card. */
+    --owned: oklch(0.78 0.15 150);
     /*
      * The spell schools the damage split is coloured by (a further part of
      * the same school is drawn darker).
      */
-    --school-physical: oklch(0.72 0.03 290);
-    --school-fire: oklch(0.7 0.16 50);
-    --school-nature: oklch(0.72 0.11 230);
-    --school-frost: oklch(0.8 0.08 210);
-    --school-arcane: oklch(0.65 0.15 320);
-    --school-shadow: oklch(0.45 0.12 300);
-    --school-holy: oklch(0.85 0.12 95);
-    --quality-poor: oklch(0.6 0 0);
-    --quality-common: oklch(0.45 0 0);
-    --quality-uncommon: oklch(0.58 0.16 145);
-    --quality-rare: oklch(0.55 0.17 255);
-    --quality-epic: oklch(0.55 0.2 305);
-    --quality-legendary: oklch(0.65 0.18 55);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: oklch(0.145 0 0);
-        --foreground: oklch(0.985 0 0);
-        --card: oklch(0.205 0 0);
-        --card-foreground: oklch(0.985 0 0);
-        --popover: oklch(0.205 0 0);
-        --popover-foreground: oklch(0.985 0 0);
-        --primary: oklch(0.922 0 0);
-        --primary-foreground: oklch(0.205 0 0);
-        --secondary: oklch(0.269 0 0);
-        --secondary-foreground: oklch(0.985 0 0);
-        --muted: oklch(0.269 0 0);
-        --muted-foreground: oklch(0.708 0 0);
-        --accent: oklch(0.269 0 0);
-        --accent-foreground: oklch(0.985 0 0);
-        --destructive: oklch(0.704 0.191 22.216);
-        --border: oklch(1 0 0 / 10%);
-        --input: oklch(1 0 0 / 15%);
-        --ring: oklch(0.556 0 0);
-        --chart-1: oklch(0.76 0.15 50);
-        --chart-2: oklch(0.72 0.12 235);
-        --chart-3: oklch(0.7 0.12 295);
-        --chart-4: oklch(0.75 0.11 165);
-        --chart-5: oklch(0.58 0.09 250);
-        --chart-1-text: var(--chart-1);
-        --chart-2-text: var(--chart-2);
-        --gain: oklch(0.78 0.14 55);
-        --gain-foreground: oklch(0.22 0.05 45);
-        --gain-text: var(--gain);
-        --good-text: oklch(0.85 0.1 165);
-        --school-physical: oklch(0.88 0.04 290);
-        --school-fire: oklch(0.78 0.15 50);
-        --school-nature: oklch(0.82 0.1 230);
-        --school-frost: oklch(0.88 0.07 210);
-        --school-arcane: oklch(0.75 0.14 320);
-        --school-shadow: oklch(0.6 0.13 300);
-        --school-holy: oklch(0.9 0.11 95);
-        --quality-poor: oklch(0.65 0 0);
-        --quality-common: oklch(0.85 0 0);
-        --quality-uncommon: oklch(0.75 0.17 145);
-        --quality-rare: oklch(0.7 0.15 255);
-        --quality-epic: oklch(0.72 0.17 305);
-        --quality-legendary: oklch(0.78 0.16 60);
-    }
+    --school-physical: oklch(0.88 0.04 290);
+    --school-fire: oklch(0.78 0.15 50);
+    --school-nature: oklch(0.82 0.1 230);
+    --school-frost: oklch(0.88 0.07 210);
+    --school-arcane: oklch(0.75 0.14 320);
+    --school-shadow: oklch(0.6 0.13 300);
+    --school-holy: oklch(0.9 0.11 95);
+    --quality-poor: oklch(0.65 0 0);
+    --quality-common: oklch(0.85 0 0);
+    --quality-uncommon: oklch(0.75 0.17 145);
+    --quality-rare: oklch(0.7 0.15 255);
+    --quality-epic: oklch(0.72 0.17 305);
+    --quality-legendary: oklch(0.78 0.16 60);
 }
 
 @layer base {
@@ -245,7 +203,7 @@
         @apply border-border outline-ring/50;
     }
     html {
-        color-scheme: light dark;
+        color-scheme: dark;
         @apply font-sans;
     }
     body {

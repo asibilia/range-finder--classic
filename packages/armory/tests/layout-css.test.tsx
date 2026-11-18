@@ -17,11 +17,20 @@ afterEach(() => {
     cleanup()
 })
 
+/** The gear card (a region named after the character). */
+function gearCard(): HTMLElement {
+    const found = document.querySelector<HTMLElement>(
+        'section[data-slot="gear-pane"]'
+    )
+    if (!found) throw new Error('no gear card')
+    return found
+}
+
 describe('the page layout (approved C2 mockup)', () => {
     test('from 90rem the gear and the card sit side by side; the band follows, full width', async () => {
         await openSample()
 
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const card = screen.getByRole('complementary', {
             name: "The sim's numbers",
         })
@@ -47,7 +56,7 @@ describe('the page layout (approved C2 mockup)', () => {
 
     test("the doll's columns are the mockup's: two 268 px slot columns around the figure", async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const container = gear.querySelector('.\\@container\\/doll')
         expect(container).not.toBeNull()
         expect(container!.firstElementChild!.className).toContain(
@@ -57,7 +66,7 @@ describe('the page layout (approved C2 mockup)', () => {
 
     test('slots are one line for the name, cut off with an ellipsis, and the full name is in the accessible name', async () => {
         await openSample()
-        const gear = screen.getByRole('region', { name: 'Gear' })
+        const gear = gearCard()
         const names = gear.querySelectorAll('[data-slot-name]')
         expect(names).toHaveLength(16)
         for (const name of names)
@@ -80,6 +89,24 @@ describe('the page layout (approved C2 mockup)', () => {
             expect(name.className.split(/\s+/)).not.toContain(
                 'whitespace-nowrap'
             )
+    })
+
+    test("numbers are monospace: the stat sheet's value cells and the slot badges have font-mono", async () => {
+        await openSample()
+        const sheet = screen.getByLabelText('Character sheet')
+        const values = sheet.querySelectorAll('dd')
+        expect(values.length).toBeGreaterThan(0)
+        for (const value of values)
+            expect(value.className.split(/\s+/)).toContain('font-mono')
+
+        const badges = [...document.querySelectorAll('[data-slot-name]')]
+            .map((name) => name.closest('button'))
+            .flatMap((slot) => [
+                ...(slot?.querySelectorAll<HTMLElement>('[data-size]') ?? []),
+            ])
+        expect(badges.length).toBeGreaterThan(0)
+        for (const badge of badges)
+            expect(badge.className.split(/\s+/)).toContain('font-mono')
     })
 
     test('the page has one h1, one header (banner) and one footer, with a file and without', async () => {

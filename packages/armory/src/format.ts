@@ -1,4 +1,5 @@
 /** How the page writes times and numbers (spec section 5). */
+import type { Fight, Result } from './results-file'
 
 /**
  * `m:ss`, whole seconds rounded down.
@@ -84,4 +85,98 @@ export function lengthWords(seconds: number): string {
  */
 export function withArticle(words: string): string {
     return `${/^[aeiou]/i.test(words) ? 'an' : 'a'} ${words}`
+}
+
+/**
+ * A fight's length, short: `30 s` under a minute, `2 min` for whole
+ * minutes, else `m:ss`.
+ *
+ * @param seconds - The length in seconds.
+ * @returns The short length.
+ *
+ * @example
+ * shortLength(90) // '1:30'
+ */
+export function shortLength(seconds: number): string {
+    if (seconds < 60) return `${seconds} s`
+    if (seconds % 60 === 0) return `${seconds / 60} min`
+    return minutesSeconds(seconds)
+}
+
+/**
+ * A fight's short name on the readings (spec section 2): `Chain` on a chain
+ * fight; else `Solo` when the mob hits you, `Dungeon` when it doesn't; with
+ * no setup, the first word of the fight's label, letters only.
+ *
+ * @param fight - The fight.
+ * @returns The short label.
+ */
+export function shortLabel(fight: Fight): string {
+    if (fight.kind === 'chain') return 'Chain'
+    if (fight.setup) return fight.setup.being_hit ? 'Solo' : 'Dungeon'
+    const first = fight.label.trim().split(/\s+/)[0] ?? ''
+    return first.replace(/[^\p{L}]/gu, '')
+}
+
+/**
+ * The full detail behind a fight's short label (the readings' "i"):
+ * `Solo vs a level 33 mob (your level), mob hitting you, 30 s`.
+ *
+ * @param fight - The fight.
+ * @param level - The character's level.
+ * @returns The sentence.
+ */
+export function fightDetail(fight: Fight, level: number): string {
+    const difference = fight.target_level - level
+    const relative =
+        difference === 0
+            ? 'your level'
+            : `${difference > 0 ? '+' : '-'}${Math.abs(difference)}`
+    const parts = [
+        `${shortLabel(fight)} vs a level ${fight.target_level} mob (${relative})`,
+    ]
+    if (fight.setup)
+        parts.push(fight.setup.being_hit ? 'mob hitting you' : 'behind a tank')
+    parts.push(
+        fight.kind === 'chain' && fight.setup
+            ? `${fight.setup.pulls} pulls of ${shortLength(fight.duration_s)}, ${fight.setup.gap_s} s apart`
+            : shortLength(fight.duration_s)
+    )
+    return parts.join(', ')
+}
+
+/** A reading that has a gap below the sim's plan. */
+export type GapReading = 'dps' | 'resource' | 'lifespan'
+
+/**
+ * How far what you wear is below the plan on a reading, when it is: DPS
+ * subtracts, then rounds to one decimal; `resource` (out of mana) rounds
+ * each down, then subtracts; `lifespan` (time to die) rounds each to the
+ * nearest second, then subtracts.
+ *
+ * @param kind - The reading.
+ * @param worn - What you wear's result.
+ * @param plan - The plan's result on the same fight.
+ * @returns The gap above zero, else null (also when either side is null
+ * or `never`).
+ */
+export function readingGap(
+    kind: GapReading,
+    worn: Result,
+    plan: Result
+): number | null {
+    let gap: number
+    if (kind === 'dps') gap = Number((plan.dps - worn.dps).toFixed(1))
+    else if (kind === 'resource') {
+        const a = plan.out_of_mana_s
+        const b = worn.out_of_mana_s
+        if (typeof a !== 'number' || typeof b !== 'number') return null
+        gap = Math.floor(a) - Math.floor(b)
+    } else {
+        const a = plan.time_to_die_s
+        const b = worn.time_to_die_s
+        if (a === null || b === null) return null
+        gap = Math.round(a) - Math.round(b)
+    }
+    return gap > 0 ? gap : null
 }

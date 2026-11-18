@@ -15,8 +15,11 @@ const SOLO_PAWN = sample.pawn[0]
 const DUNGEON_PAWN = sample.pawn[1]
 if (!SOLO_PAWN || !DUNGEON_PAWN) throw new Error('the sample has no pawn')
 
+/** The talents pill on the character (both samples: 21 points, no dot). */
+const TALENTS = 'Talents, 21 points'
+
 async function openTalents(user: User): Promise<HTMLElement> {
-    await user.click(screen.getByRole('button', { name: /^Talents: / }))
+    await user.click(screen.getByRole('button', { name: TALENTS }))
     return screen.getByRole('dialog', { name: 'Talents' })
 }
 
@@ -93,20 +96,13 @@ afterEach(() => {
 })
 
 describe('the talents dialog', () => {
-    test('the Talents button says the build and points, as the mockup does', async () => {
+    test('the talents pill is named Talents, 21 points, with the main sample and the first-run one', async () => {
         await openSample()
-        expect(
-            screen.getByRole('button', {
-                name: 'Talents: best simmed, 21 points',
-            })
-        ).toBeDefined()
+        expect(screen.getByRole('button', { name: TALENTS })).toBeDefined()
         cleanup()
+        localStorage.clear()
         await openFile(firstRun)
-        expect(
-            screen.getByRole('button', {
-                name: 'Talents: your build, 21 points',
-            })
-        ).toBeDefined()
+        expect(screen.getByRole('button', { name: TALENTS })).toBeDefined()
     })
 
     test('Talents opens a dialog with a Best simmed | Your build radio group (a segmented control) on Best simmed', async () => {
@@ -286,7 +282,7 @@ describe('the Pawn strings dialog', () => {
 describe('keyboard', () => {
     test('the talents dialog takes focus, keeps Tab inside, closes on Escape and gives focus back', async () => {
         const user = await openSample()
-        const opener = screen.getByRole('button', { name: /^Talents: / })
+        const opener = screen.getByRole('button', { name: TALENTS })
         const dialog = await openTalents(user)
 
         expect(document.activeElement).toBe(

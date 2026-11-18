@@ -1,26 +1,33 @@
 /**
  * The gear pane, as the approved mockup lays it out: its heading row
- * (`Gear`, which gear is shown, the switch between what you wear and the
+ * (the character, which gear is shown, the switch between what you wear and the
  * plan) and the line under it, every slot around the character (six on the
- * left with the bag card under them, eight on the right, the weapons along
+ * left with the callout card under them, eight on the right, the weapons along
  * the bottom), and the middle with the figure and the character sheet.
  * Before a file loads the slots are disabled dashed outlines and the
  * middle holds `middle` (the new-visitor card).
  */
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-import { formatGain } from '../gains'
 import { exportDay } from '../format'
+import type { Item } from '../gains'
 import { itemName } from '../item-name'
+import { nextStep } from '../next-step'
+import type { BagItemsOn } from '../planner-state'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
-import { emptySlot, slotShown, upgradeSummary } from '../slot-view'
+import { emptySlot, gapTotal, type GapTotal, slotShown } from '../slot-view'
 import { CharacterSheet } from './character-sheet'
-import { GainPill, SlotButton, type SlotSide } from './slot-button'
+import { InfoButton } from './info'
+import type { Wishlist } from './item-picker'
+import { NextStepCard } from './next-step-card'
+import { Segmented } from './segmented'
+import { SimBestIcon } from './sim-best-icon'
+import { SlotButton, type SlotSide } from './slot-button'
+import { TalentsPill } from './talents-pill'
 
 /** The placeholder figure (the approved mockup's own drawing). */
 function Figure({ faded }: { faded: boolean }) {
@@ -73,107 +80,64 @@ function Figure({ faded }: { faded: boolean }) {
     )
 }
 
-/** Plural slot words read `are in your bags`; the others `is`. */
-const PLURAL_WORDS = /s$/
-
-/**
- * The bag card under the left column, in the mockup's words: `Berylline
- * Pads are in your bags, +7.0 EP over the shoulders you wear. No dungeon
- * needed.` and `Wear them`; once worn, `You wear Berylline Pads now.
- * Serpent's Shoulders went to your bags.` and `Undo`. `Wear them` shows
- * only when the file has the bag item's results (`bag_upgrades[].results`).
- */
-function BagCard({
-    file,
-    bagWorn,
-    onWear,
-    onUndo,
-}: {
-    file: ResultsFile
-    bagWorn: number | null
-    onWear: (itemId: number) => void
-    onUndo: () => void
-}) {
-    const upgrade =
-        file.bag_upgrades.find(
-            (candidate) => candidate.item.item_id === bagWorn
-        ) ?? file.bag_upgrades[0]
-    if (!upgrade) return null
-    const named = (item: Parameters<typeof itemName>[0]) =>
-        itemName(item, upgrade.slot, file.character.class)
-    const worn =
-        file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
-    const word = slotWord(upgrade.slot)
-    const name = named(upgrade.item)
-    const on = bagWorn === upgrade.item.item_id
+/** A chestpiece outline (an original drawing), for the switch's `Current`. */
+function ChestIcon() {
     return (
-        <div
-            aria-live="polite"
-            className="mt-auto rounded-xl border border-dashed border-chart-2 bg-chart-2/5 px-3 py-2.5 text-[0.84375rem] text-muted-foreground"
+        <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="inline-block size-[1em] shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
         >
-            {on ? (
-                <p>
-                    You wear <b className="text-foreground">{name}</b> now.
-                    {worn ? ` ${named(worn)} went to your bags.` : ''}
-                </p>
-            ) : (
-                <p>
-                    <b className="text-foreground">{name}</b>
-                    {` ${PLURAL_WORDS.test(word) ? 'are' : 'is'} in your bags, `}
-                    <span className="font-bold whitespace-nowrap text-gain-text">
-                        {formatGain({ value: upgrade.gain_ep, unit: 'EP' })}
-                    </span>
-                    {` over the ${word} you wear. No dungeon needed.`}
-                </p>
-            )}
-            {(on || upgrade.results) && (
-                <Button
-                    variant="outline"
-                    className="mt-2 h-auto rounded-full px-3 py-1.25 text-[0.84375rem] font-normal"
-                    onClick={() =>
-                        on ? onUndo() : onWear(upgrade.item.item_id)
-                    }
-                >
-                    {on ? 'Undo' : 'Wear them'}
-                </Button>
-            )}
-        </div>
+            <path d="M8 3 L4 5 L2.5 11 L6 12 L6.5 21 L17.5 21 L18 12 L21.5 11 L20 5 L16 3 Q12 6.5 8 3 Z" />
+            <path d="M9 13 L15 13" />
+        </svg>
     )
 }
 
-/** What one item in a slot is called in the bag card (`the shoulders`). */
-function slotWord(slot: Slot): string {
-    const words: Partial<Record<Slot, string>> = {
-        head: 'helm',
-        neck: 'necklace',
-        shoulder: 'shoulders',
-        back: 'cloak',
-        chest: 'chest piece',
-        wrist: 'bracers',
-        hands: 'gloves',
-        waist: 'belt',
-        legs: 'leggings',
-        feet: 'boots',
-        main_hand: 'weapon',
-        off_hand: 'off hand',
-    }
-    return words[slot] ?? 'item'
+/**
+ * The weapon line under the character, as the mockup writes it:
+ * `Guardian's Dualblade with Windfury Weapon.` The weapon is the main
+ * hand's worn item; `with ...` is its imbue (`slots[].imbue`), left out
+ * when the file has none.
+ *
+ * @param file - The loaded results file.
+ * @returns The line, or null with no main hand worn.
+ */
+export function weaponLine(file: ResultsFile): string | null {
+    const mainHand = file.slots.find((entry) => entry.slot === 'main_hand')
+    if (!mainHand?.worn) return null
+    const weapon = itemName(mainHand.worn, 'main_hand', file.character.class)
+    const imbue = mainHand.imbue ? ` with ${mainHand.imbue}` : ''
+    return `${weapon}${imbue}.`
 }
 
-/** The heading row and the line under it. */
+/**
+ * The heading row (the character's name, or `Gear` before a file loads;
+ * then `Level 30 Enhancement Shaman` and the weapon line) and the line
+ * under it.
+ */
 function GearHead({
     file,
     plan,
     planShown,
+    bagOn,
+    headingRef,
     onShowPlan,
     onShowWorn,
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
+    bagOn: BagItemsOn
+    headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
 }) {
+    const weapon = file ? weaponLine(file) : null
     const status = !file ? (
         'No character loaded yet.'
     ) : planShown && plan ? (
@@ -187,48 +151,73 @@ function GearHead({
             {`, from your export of ${exportDay(file.export_saved_at)}`}
         </>
     )
-    const summary = file ? upgradeSummary(file) : null
     return (
         <div>
             <div className="flex min-h-10 flex-wrap items-center gap-x-3.5 gap-y-1">
-                <h2 id="gear-heading" className="text-[1.375rem] leading-tight">
-                    Gear
-                </h2>
+                <div className="min-w-0">
+                    <h2
+                        id="gear-heading"
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="text-[1.375rem] leading-tight outline-none"
+                    >
+                        {file ? file.character.name : 'Gear'}
+                    </h2>
+                    {file && (
+                        <>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                                Level{' '}
+                                <b className="font-bold text-foreground">
+                                    {file.character.level}
+                                </b>{' '}
+                                {`${file.character.spec} ${file.character.class}`}
+                            </p>
+                            {weapon && (
+                                <p className="text-sm text-muted-foreground">
+                                    {weapon}
+                                </p>
+                            )}
+                        </>
+                    )}
+                </div>
                 <span
                     aria-live="polite"
                     className="text-sm text-muted-foreground"
                 >
                     {status}
                 </span>
-                {file &&
-                    plan &&
-                    (planShown ? (
-                        <Button
-                            variant="outline"
-                            className="ml-auto h-auto rounded-full px-4 py-2"
-                            onClick={onShowWorn}
-                        >
-                            Show what I wear
-                        </Button>
-                    ) : (
-                        <Button
-                            className="ml-auto h-auto rounded-full bg-gain px-4 py-2 font-bold text-gain-foreground hover:bg-gain/85"
-                            onClick={onShowPlan}
-                        >
-                            Show the sim&apos;s plan
-                        </Button>
-                    ))}
+                {file && plan && (
+                    <div className="ml-auto">
+                        <Segmented
+                            legend="View"
+                            hideLegend
+                            value={planShown ? 'bis' : 'current'}
+                            onChange={(value) =>
+                                value === 'bis' ? onShowPlan() : onShowWorn()
+                            }
+                            options={[
+                                {
+                                    value: 'current',
+                                    label: 'Current',
+                                    icon: <ChestIcon />,
+                                },
+                                {
+                                    value: 'bis',
+                                    label: 'BIS',
+                                    icon: <SimBestIcon variant="best" />,
+                                },
+                            ]}
+                        />
+                    </div>
+                )}
             </div>
             <p className="mt-1 mb-3.5 flex min-h-4.75 flex-wrap items-center gap-x-1.5 text-[0.8125rem] text-muted-foreground">
                 {!file ? (
                     'Every slot fills in from your export.'
                 ) : planShown ? (
-                    'Labels show the gain over what you wear. Faded slots stay as they are.'
-                ) : summary?.example ? (
-                    <>
-                        <GainPill gain={summary.example} />
-                        {`is the best gain the sim found for that slot. ${bigUpgrades(summary.big)}`}
-                    </>
+                    'Faded slots stay as they are.'
+                ) : plan ? (
+                    <TotalLine total={gapTotal(file, plan, bagOn)} />
                 ) : (
                     'The sim found no upgrade for any slot.'
                 )}
@@ -237,9 +226,53 @@ function GearHead({
     )
 }
 
-function bigUpgrades(count: number): string {
-    const slots = count === 1 ? '1 slot has' : `${count} slots have`
-    return `${slots} a big upgrade (15 EP or 3 DPS and up).`
+/** No wishlist given: nothing is on it. */
+const NO_WISHLIST: Wishlist = new Map()
+
+/** No bag items given: none is on. */
+const NO_BAG_ITEMS: BagItemsOn = []
+
+/** `12 slots`, `1 slot`. */
+function slotCount(count: number): string {
+    return count === 1 ? '1 slot' : `${count} slots`
+}
+
+/**
+ * The total line (spec section 4): `↓ 195.2 EP in total below the sim's
+ * best set, across 12 slots, plus 6.0 DPS on weapons.`, its number in
+ * monospace, and an "i" saying it is an estimate.
+ */
+function TotalLine({ total }: { total: GapTotal }) {
+    const number = (value: number) => (
+        <span className="font-mono font-bold text-foreground">
+            {`↓ ${value.toFixed(1)}`}
+        </span>
+    )
+    const hasEp = total.epSlots > 0
+    const hasDps = total.dpsSlots > 0
+    const line = hasEp ? (
+        <span>
+            {number(total.ep)}
+            {` EP in total below the sim's best set, across ${slotCount(total.epSlots)}`}
+            {hasDps ? `, plus ${total.dps.toFixed(1)} DPS on weapons.` : '.'}
+        </span>
+    ) : hasDps ? (
+        <span>
+            {number(total.dps)}
+            {" DPS below the sim's best set, on weapons."}
+        </span>
+    ) : (
+        <span>Every slot matches the sim&apos;s best set.</span>
+    )
+    return (
+        <>
+            {line}
+            <InfoButton
+                label="the total"
+                text="An estimate: the slot gaps added up. The DPS readings hold the exact numbers."
+            />
+        </>
+    )
 }
 
 /**
@@ -248,42 +281,59 @@ function bigUpgrades(count: number): string {
  * @param file - The loaded file, or null before one loads.
  * @param plan - The plan the sliders pick, or null.
  * @param planShown - True to show the plan's gear instead of what you wear.
- * @param bagWorn - The bag upgrade put on with Wear them, or null.
+ * @param bagOn - The bag upgrades put on with Equip or Equip all.
+ * @param wishlist - The wishlist, for the callout card's `On wishlist`.
  * @param middle - What sits in the middle before a file loads.
- * @param onWearBag - Wear them: puts a bag upgrade on.
- * @param onUndoBag - Undo: takes it off again.
+ * @param headingRef - The heading (`gear-heading`), focused when a picked
+ * file loads.
+ * @param onOpenTalents - Opens the talents dialog (the pill on the figure).
+ * @param onWearBag - Equip: puts a bag upgrade on.
+ * @param onWearAllBags - Equip all: puts every bag upgrade on.
+ * @param onUndoBag - Undo: takes them off again.
+ * @param onToggleWishlist - Add to wishlist (or take off) from the card.
  */
 export function GearPane({
     file,
     plan,
     planShown,
-    bagWorn = null,
+    bagOn = NO_BAG_ITEMS,
+    wishlist = NO_WISHLIST,
     middle,
+    headingRef,
     onShowPlan,
     onShowWorn,
     onOpenSlot,
+    onOpenTalents = () => {},
     onWearBag = () => {},
+    onWearAllBags = () => {},
     onUndoBag = () => {},
+    onToggleWishlist = () => {},
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    bagWorn?: number | null
+    bagOn?: BagItemsOn
+    wishlist?: Wishlist
     middle?: ReactNode
+    headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
-    onOpenSlot: (slot: Slot) => void
+    onOpenSlot: (slot: Slot, focusItemId?: number) => void
+    onOpenTalents?: () => void
     onWearBag?: (itemId: number) => void
+    onWearAllBags?: () => void
     onUndoBag?: () => void
+    onToggleWishlist?: (item: Item, slot: Slot) => void
 }) {
-    const shownPlan = planShown ? plan : null
+    // The callout card: in the Current view only.
+    const step = file && !planShown ? nextStep(file, plan, bagOn) : null
     const slot = (name: Slot, side: SlotSide) => (
         <SlotButton
             key={name}
             side={side}
             shown={
                 file
-                    ? slotShown(file, name, shownPlan, bagWorn)
+                    ? slotShown(file, name, plan, planShown, bagOn)
                     : emptySlot(name)
             }
             onOpen={file ? onOpenSlot : undefined}
@@ -299,6 +349,8 @@ export function GearPane({
                 file={file}
                 plan={plan}
                 planShown={planShown && plan !== null}
+                bagOn={bagOn}
+                headingRef={headingRef}
                 onShowPlan={onShowPlan}
                 onShowWorn={onShowWorn}
             />
@@ -314,12 +366,17 @@ export function GearPane({
                         className="flex flex-col gap-2 @min-[30rem]/doll:col-start-1 @min-[30rem]/doll:row-start-2 @min-[49rem]/doll:row-start-1"
                     >
                         {LEFT_SLOTS.map((name) => slot(name, 'left'))}
-                        {file && (
-                            <BagCard
+                        {file && step && (
+                            <NextStepCard
                                 file={file}
-                                bagWorn={bagWorn}
-                                onWear={onWearBag}
-                                onUndo={onUndoBag}
+                                step={step}
+                                bagOn={bagOn}
+                                wishlist={wishlist}
+                                onWearBag={onWearBag}
+                                onWearAllBags={onWearAllBags}
+                                onUndoBag={onUndoBag}
+                                onToggleWishlist={onToggleWishlist}
+                                onOpenSlot={onOpenSlot}
                             />
                         )}
                     </div>
@@ -328,6 +385,12 @@ export function GearPane({
                         className="order-first flex min-w-0 flex-col items-center @min-[30rem]/doll:col-span-2 @min-[30rem]/doll:row-start-1 @min-[49rem]/doll:col-span-1 @min-[49rem]/doll:col-start-2"
                     >
                         <Figure faded={file === null} />
+                        {file && (
+                            <TalentsPill
+                                talents={file.talents}
+                                onOpen={onOpenTalents}
+                            />
+                        )}
                         {file ? <CharacterSheet file={file} /> : middle}
                     </div>
                     <div

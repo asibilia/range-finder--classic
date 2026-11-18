@@ -7,17 +7,22 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     type Alternative,
-    bestUpgrade,
     formatGain,
     type Gain,
     gainSize,
     type SlotEntry,
+    slotGap,
 } from '../src/gains'
 
 const ep = (value: number): Gain => ({ value, unit: 'EP' })
 const dps = (value: number): Gain => ({ value, unit: 'DPS' })
 
-/** A slot whose first alternative gains `gain_ep`. */
+/** A plan that puts the test ring (item 1) in `finger_1`. */
+const planWithRing = { gear: { finger_1: 1 } } as unknown as Parameters<
+    typeof slotGap
+>[1]
+
+/** A slot whose one alternative, the plan's item, gains `gain_ep`. */
 function slotGaining(gain_ep: number | null, gain_dps: number | null = null) {
     const item = {
         item_id: 1,
@@ -54,15 +59,15 @@ describe('big and small gains', () => {
 
 describe('what counts as an upgrade', () => {
     test('a gain of 0.04 EP shows as +0.0, so it is no upgrade', () => {
-        expect(bestUpgrade(slotGaining(0.04))).toBeNull()
+        expect(slotGap(slotGaining(0.04), planWithRing)).toBeNull()
     })
 
     test('a gain of 0.05 EP is an upgrade of +0.1 EP, drawn small', () => {
-        const best = bestUpgrade(slotGaining(0.05))
-        expect(best).not.toBeNull()
-        if (!best) return
-        expect(formatGain(best.gain)).toBe('+0.1 EP')
-        expect(gainSize(best.gain)).toBe('small')
+        const gap = slotGap(slotGaining(0.05), planWithRing)
+        expect(gap?.kind).toBe('gap')
+        if (gap?.kind !== 'gap') return
+        expect(formatGain(gap.gain)).toBe('+0.1 EP')
+        expect(gainSize(gap.gain)).toBe('small')
     })
 
     test('a gain of -0.04 EP shows +0.0 EP, not -0.0', () => {
@@ -70,6 +75,6 @@ describe('what counts as an upgrade', () => {
     })
 
     test('an alternative with gain_ep and gain_dps both null is no upgrade', () => {
-        expect(bestUpgrade(slotGaining(null, null))).toBeNull()
+        expect(slotGap(slotGaining(null, null), planWithRing)).toBeNull()
     })
 })

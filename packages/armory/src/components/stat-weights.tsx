@@ -105,7 +105,7 @@ export function StatWeights({
                                         />
                                     )}
                                 </dd>
-                                <dd className="text-right text-muted-foreground tabular-nums">
+                                <dd className="text-right font-mono text-muted-foreground tabular-nums">
                                     {row.ep !== null && row.ep.toFixed(2)}
                                     {row.compare_ep !== null && (
                                         <span className="text-chart-2-text">

@@ -103,7 +103,7 @@ export function CharacterSheet({ file }: { file: ResultsFile }) {
                 {sheetRows(file.sheet).map((row) => (
                     <div key={row.key} className="contents">
                         <dt className="break-words">{row.name}</dt>
-                        <dd className="text-right whitespace-nowrap text-foreground tabular-nums">
+                        <dd className="text-right font-mono whitespace-nowrap text-foreground tabular-nums">
                             {row.value}
                         </dd>
                     </div>

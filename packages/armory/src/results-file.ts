@@ -214,8 +214,9 @@ const result = z.strictObject({
     ),
 })
 
-/** A result for gear that isn't a plan: what you wear with one bag item put on. */
+/** A result for gear that isn't a plan: what you wear with bag items put on. */
 const bagResult = result.omit({ gear: true })
+export type BagResult = z.infer<typeof bagResult>
 
 /*
  * Talent limits. Forever's real trees (WoWSims' talent data, nine class
@@ -295,6 +296,19 @@ const baseSchema = z.strictObject({
         race: z.string(),
         class: z.string(),
         spec: z.string(),
+        professions: z
+            .array(
+                z.strictObject({
+                    name: z.string(),
+                    skill: z.int().min(0),
+                    max: z.int().min(0),
+                })
+            )
+            .optional()
+            .meta({
+                description:
+                    "The character's professions at export, e.g. Leatherworking 165 of 225. The page matches them by name only, to tell items you can craft yourself; skill and max are carried, unused for now. Absent or an empty list: none.",
+            }),
     }),
     sheet_buffed: z.boolean().meta({
         description:
@@ -354,13 +368,13 @@ const baseSchema = z.strictObject({
                             }),
                             gain_dps: z.number().nullable().meta({
                                 description:
-                                    'DPS gained over what is worn, for weapons. When not null, the page shows it in place of gain_ep.',
+                                    'DPS gained over what is worn, for weapons. The page shows gain_ep when it is not null, and this only in its absence.',
                             }),
                         })
                     )
                     .meta({
                         description:
-                            "Best first, which this schema doesn't check: the page shows the first as the slot's best upgrade.",
+                            "Best first, which this schema doesn't check. The slot's badge shows the gain of the alternative the plan puts in the slot.",
                     }),
             })
         )
@@ -374,10 +388,34 @@ const baseSchema = z.strictObject({
             gain_ep: z.number(),
             results: z.array(bagResult).nullable().optional().meta({
                 description:
-                    "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Wear them button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Wear them button).",
+                    "What you wear with this bag item put on in its slot, everything else worn: one result per fight, shaped like results (no gear). The page's Equip button swaps the slot and shows these in place of worn's results; Undo swaps back. Absent or null: not simmed (no Equip button).",
             }),
         })
     ),
+    bag_upgrades_all: z
+        .strictObject({
+            results: z.array(bagResult),
+        })
+        .nullable()
+        .optional()
+        .meta({
+            description:
+                "What you wear with every bag upgrade put on together, everything else worn: one result per fight, shaped like results (no gear). Only with two or more bag_upgrades, each in a different slot. The page's Equip all button shows these in place of worn's results; Undo takes them all off. Absent or null: not simmed (no Equip all button).",
+        }),
+    quick_fixes: z
+        .array(
+            z.strictObject({
+                kind: z.enum(['imbue', 'empty_slot', 'weapon_skill']),
+                slot: slot.nullable(),
+                dps_gain: z.number().min(0),
+                text: z.string().min(1),
+            })
+        )
+        .optional()
+        .meta({
+            description:
+                'Fixes that need no new gear, and what each is worth: imbue (a missing weapon imbue), empty_slot (a slot with nothing in it) or weapon_skill (weapon skill under its cap). slot is the slot it concerns, or null; no rule ties it to kind. dps_gain is the DPS the fix is worth; text says the fix and names the slot. Absent or an empty list: none.',
+        }),
     plans: z.array(plan),
     results: z.array(result),
     stat_weights: z.array(
@@ -404,7 +442,7 @@ const baseSchema = z.strictObject({
         tree: z.string(),
         points: z.int().meta({
             description:
-                'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page says "Talents: your build, 22 points".',
+                'The talent points spent in this tree: the sum of the ranks in yours, which this schema doesn\'t check. The page shows it on the talents pill: "22 pts".',
         }),
         yours: z.array(talent).meta({
             description:
@@ -490,20 +528,29 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
         }
     })
 
+    /**
+     * One result's ties to its fight, for `results`, `bag_upgrades[].results`
+     * and `bag_upgrades_all.results` alike: a fight in this file, a timeline
+     * only on a single fight, pulls only on a chain.
+     */
+    const checkResult = (
+        r: Pick<BagResult, 'fight_id' | 'timeline' | 'pulls'>,
+        at: PropertyKey[]
+    ) => {
+        const f = fights.get(r.fight_id)
+        if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
+        if (f?.kind === 'chain' && r.timeline !== null)
+            problem([...at, 'timeline'], 'Only a single fight has a timeline.')
+        if (f?.kind === 'single' && r.pulls !== null)
+            problem([...at, 'pulls'], 'Only a chain fight has pulls.')
+    }
+
     const pairs = new Set<string>()
     let repeated = false
     file.results.forEach((r, i) => {
-        const f = fights.get(r.fight_id)
-        if (f === undefined) problem(['results', i, 'fight_id'], NO_FIGHT)
+        checkResult(r, ['results', i])
         if (r.gear !== 'worn' && !planIds.has(r.gear))
             problem(['results', i, 'gear'], 'This names no plan in this file.')
-        if (f?.kind === 'chain' && r.timeline !== null)
-            problem(
-                ['results', i, 'timeline'],
-                'Only a single fight has a timeline.'
-            )
-        if (f?.kind === 'single' && r.pulls !== null)
-            problem(['results', i, 'pulls'], 'Only a chain fight has pulls.')
         const pair = JSON.stringify([r.gear, r.fight_id])
         if (pairs.has(pair)) repeated = true
         pairs.add(pair)
@@ -521,24 +568,38 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
 
     file.bag_upgrades.forEach((upgrade, i) => {
         const bagResults = upgrade.results ?? []
-        bagResults.forEach((r, j) => {
-            const f = fights.get(r.fight_id)
-            const at = ['bag_upgrades', i, 'results', j]
-            if (f === undefined) problem([...at, 'fight_id'], NO_FIGHT)
-            if (f?.kind === 'chain' && r.timeline !== null)
-                problem(
-                    [...at, 'timeline'],
-                    'Only a single fight has a timeline.'
-                )
-            if (f?.kind === 'single' && r.pulls !== null)
-                problem([...at, 'pulls'], 'Only a chain fight has pulls.')
-        })
+        bagResults.forEach((r, j) =>
+            checkResult(r, ['bag_upgrades', i, 'results', j])
+        )
         if (repeats(bagResults.map((r) => r.fight_id)))
             problem(
                 ['bag_upgrades', i, 'results'],
                 'Each fight needs at most one result per bag item.'
             )
     })
+
+    const all = file.bag_upgrades_all
+    if (all) {
+        all.results.forEach((r, j) =>
+            checkResult(r, ['bag_upgrades_all', 'results', j])
+        )
+        const ids = all.results.map((r) => r.fight_id)
+        const onePerFight =
+            ids.length === file.fights.length &&
+            !repeats(ids) &&
+            file.fights.every((f) => ids.includes(f.fight_id))
+        if (!onePerFight)
+            problem(
+                ['bag_upgrades_all', 'results'],
+                'bag_upgrades_all.results needs one result for each fight in fights.'
+            )
+        const bagSlots = file.bag_upgrades.map((u) => u.slot)
+        if (bagSlots.length < 2 || repeats(bagSlots))
+            problem(
+                ['bag_upgrades_all'],
+                'bag_upgrades_all needs two or more bag_upgrades, each in a different slot.'
+            )
+    }
 
     const skill = file.sheet.weapon_skill
     if (skill && skill.current > skill.max)
@@ -607,8 +668,10 @@ const FILE_DESCRIPTION = [
     'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
     "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
     '- default_fight_id names a fight in fights.',
-    '- Every fight_id in results, bag_upgrades results, stat_weights and talents.best names a fight in fights.',
+    '- Every fight_id in results, bag_upgrades results, bag_upgrades_all results, stat_weights and talents.best names a fight in fights.',
     "- A bag upgrade's results have at most one entry per fight.",
+    '- bag_upgrades_all.results has exactly one result for each fight in fights.',
+    '- bag_upgrades_all needs two or more bag_upgrades, each in a different slot.',
     '- sheet.weapon_skill.current is at most its max.',
     '- Every gear in results is worn or a plan_id in plans.',
     "- Every item_id in a plan's gear is that slot's worn item or one of its alternatives.",
@@ -625,11 +688,13 @@ const FILE_DESCRIPTION = [
     "- A talent's rank is at most its max_rank.",
     '- No two talents in talents.yours share a tier and column.',
     '- A chain fight has a setup.',
-    "- timeline is null on a chain fight's results (bag upgrade results too).",
-    "- pulls is null on a single fight's results (bag upgrade results too).",
+    "- timeline is null on a chain fight's results (bag upgrade and bag_upgrades_all results too).",
+    "- pulls is null on a single fight's results (bag upgrade and bag_upgrades_all results too).",
     'The runner must also keep these, which nothing checks:',
-    "- Each slot's alternatives come best first: the page shows the first as the slot's best upgrade.",
+    "- Each slot's alternatives come best first; the slot's badge shows the gain of the plan's item for that slot.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
+    '- character.professions names each profession as the game does (Leatherworking): the page matches them by name.',
+    '- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.',
 ].join('\n')
 
 export const resultsFileSchema = baseSchema
@@ -637,6 +702,10 @@ export const resultsFileSchema = baseSchema
     .meta({ title: 'Results file', description: FILE_DESCRIPTION })
 
 export type ResultsFile = z.infer<typeof resultsFileSchema>
+/** One fight the file simmed (`fights[]`). */
+export type Fight = ResultsFile['fights'][number]
+/** One gear set's result on one fight (`results[]`). */
+export type Result = ResultsFile['results'][number]
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
 /** One accuracy check: a gate, or a note that never blocks. */

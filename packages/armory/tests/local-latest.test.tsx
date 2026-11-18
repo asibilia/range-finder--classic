@@ -8,6 +8,7 @@
  */
 import './dom'
 import { chooseFight, jsonFile, shownFight, variant } from './open-app'
+import { showBis } from './gear-card'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
@@ -17,6 +18,7 @@ import {
     render,
     screen,
     waitFor,
+    within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -31,12 +33,18 @@ const UNREADABLE =
     "The latest file from this computer couldn't be read; showing the last one that could."
 const OPEN_ANOTHER = 'Open another file'
 const BACK = 'Back to the latest from this computer'
-const SHOW_PLAN = "Show the sim's plan"
-const SHOW_WORN = 'Show what I wear'
 const CHAIN = 'Chain, 4 pulls 20 s apart vs level 33'
 const REFRESH_MS = 10_000
 
 type Json = Record<string, unknown>
+
+/** Whether `BIS` (the plan) is chosen in the gear card's `View` switch. */
+function planChosen(): boolean {
+    const group = screen.getByRole('group', { name: 'View' })
+    return (
+        within(group).getByRole('radio', { name: 'BIS' }) as HTMLInputElement
+    ).checked
+}
 
 /** A results file whose character is `name`, made at `madeAt`. */
 function resultsFile(name: string, madeAt = '2026-11-17T08:00:00Z'): Json {
@@ -194,7 +202,12 @@ function renderLocal() {
 }
 
 async function waitForName(name: string) {
-    await screen.findByRole('heading', { level: 1, name }, { timeout: 4000 })
+    await screen.findByRole('heading', { name }, { timeout: 4000 })
+}
+
+/** The page shows `name` as its character (the gear card's heading). */
+function showsCharacter(name: string): boolean {
+    return screen.queryByRole('heading', { name }) !== null
 }
 
 describe('the page opens on the local latest file', () => {
@@ -233,9 +246,7 @@ describe('the page opens on the local latest file', () => {
         await tick()
         await tick()
         expect(localCalls().length).toBe(before)
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Kept'
-        )
+        expect(showsCharacter('Kept')).toBe(true)
     })
 
     test('a network error leaves the page as today: the remembered file, no local line or buttons, no polling', async () => {
@@ -263,9 +274,7 @@ describe('the page opens on the local latest file', () => {
         await tick()
         await tick()
         expect(localCalls().length).toBe(before)
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Kept'
-        )
+        expect(showsCharacter('Kept')).toBe(true)
     })
 })
 
@@ -354,9 +363,7 @@ describe('the status file', () => {
                 'Showing the previous good file because the sim crashed.'
             )
         ).toBeDefined()
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Localchar'
-        )
+        expect(showsCharacter('Localchar')).toBe(true)
     })
 })
 
@@ -371,8 +378,8 @@ describe('the page follows the local latest file', () => {
         await settle()
 
         await chooseFight(user, CHAIN)
-        await user.click(screen.getByRole('button', { name: SHOW_PLAN }))
-        await screen.findByRole('button', { name: SHOW_WORN })
+        await showBis(user)
+        await waitFor(() => expect(planChosen()).toBe(true))
 
         const latestBefore = callsTo(LATEST).length
         const statusBefore = callsTo(STATUS).length
@@ -391,7 +398,7 @@ describe('the page follows the local latest file', () => {
 
         await waitForName('Newchar')
         expect(shownFight()).toBe(CHAIN)
-        expect(screen.getByRole('button', { name: SHOW_WORN })).toBeDefined()
+        expect(planChosen()).toBe(true)
     })
 
     test('a later 200 that does not read keeps the old character and says so', async () => {
@@ -409,9 +416,7 @@ describe('the page follows the local latest file', () => {
         await tick()
 
         expect(await screen.findByText(UNREADABLE)).toBeDefined()
-        expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-            'Localchar'
-        )
+        expect(showsCharacter('Localchar')).toBe(true)
     })
 })
 

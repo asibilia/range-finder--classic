@@ -150,10 +150,18 @@ describe('the build', () => {
         expect(ignored.exitCode).toBe(0)
     })
 
-    test('the prerendered page has the title and the Armory planner h1', () => {
+    test('the prerendered page has the title and the Armory h1', () => {
         const html = readFileSync(INDEX_HTML, 'utf8')
-        expect(html).toContain('<title>Armory planner</title>')
-        expect(html).toMatch(/<h1[^>]*>Armory planner<\/h1>/)
+        expect(html).toContain('<title>Armory</title>')
+        expect(html).toMatch(/<h1[^>]*>Armory<\/h1>/)
+    })
+
+    test('the prerendered page is dark only: its <html> has the class dark', () => {
+        const html = readFileSync(INDEX_HTML, 'utf8')
+        const tag = html.match(/<html\b[^>]*>/)
+        expect(tag).not.toBeNull()
+        const classes = tag![0].match(/\bclass="([^"]*)"/)?.[1] ?? ''
+        expect(classes.split(/\s+/)).toContain('dark')
     })
 
     test('the page loads only its own files', () => {

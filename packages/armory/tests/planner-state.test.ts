@@ -37,7 +37,7 @@ describe('the opening state', () => {
             mix: { damage: 100, survival: 0, healing: 0, utility: 0 },
             view: 'worn',
             switched: false,
-            bagWorn: null,
+            bagOn: [],
         })
         expect(pickedPlan(sample, initialPlannerState(sample))?.label).toBe(
             'Max damage'
@@ -180,13 +180,13 @@ describe('actions from outside the page', () => {
 describe('wear a bag item', () => {
     const pads = sample.bag_upgrades[0]?.item.item_id ?? 0
 
-    test("Wear them puts the bag item on: worn results become the bag item's", () => {
+    test("Equip (wear-bag-item) puts the bag item on: worn results become the bag item's", () => {
         const state = applyPlannerAction(sample, initialPlannerState(sample), {
             type: 'wear-bag-item',
             item_id: pads,
         })
         if (!state.ok) throw new Error('refused')
-        expect(state.state.bagWorn).toBe(pads)
+        expect(state.state.bagOn).toEqual([pads])
         expect(wornResult(sample, state.state, 'dungeon-long')?.dps).toBe(75.7)
         expect(
             wornResult(sample, initialPlannerState(sample), 'dungeon-long')?.dps
@@ -195,7 +195,45 @@ describe('wear a bag item', () => {
 
     test('Undo takes it off again', () => {
         const on = wearBagItem(sample, initialPlannerState(sample), pads)
-        expect(wearBagItem(sample, on, null).bagWorn).toBeNull()
+        expect(wearBagItem(sample, on, null).bagOn).toEqual([])
+    })
+
+    test("Equip all (wear-all-bag-items) lists every bag upgrade as on and wears bag_upgrades_all's results; Equip one after it lists only that one; Undo lists none", () => {
+        const padsUpgrade = sample.bag_upgrades[0]
+        if (!padsUpgrade?.results) throw new Error('the sample has no Pads')
+        const helm = 900001
+        const file: ResultsFile = {
+            ...sample,
+            bag_upgrades: [
+                padsUpgrade,
+                {
+                    ...padsUpgrade,
+                    slot: 'head',
+                    item: {
+                        ...padsUpgrade.item,
+                        item_id: helm,
+                        name: 'Glinting Helm',
+                    },
+                },
+            ],
+            bag_upgrades_all: {
+                results: padsUpgrade.results.map((result) => ({
+                    ...result,
+                    dps: 150.5,
+                })),
+            },
+        }
+
+        const all = applyPlannerAction(file, initialPlannerState(file), {
+            type: 'wear-all-bag-items',
+        })
+        if (!all.ok) throw new Error('refused')
+        expect(all.state.bagOn).toHaveLength(2)
+        expect(new Set(all.state.bagOn)).toEqual(new Set([pads, helm]))
+        expect(wornResult(file, all.state, 'dungeon-long')?.dps).toBe(150.5)
+
+        expect(wearBagItem(file, all.state, helm).bagOn).toEqual([helm])
+        expect(wearBagItem(file, all.state, null).bagOn).toEqual([])
     })
 
     test("a bag upgrade without results can't be worn", () => {
