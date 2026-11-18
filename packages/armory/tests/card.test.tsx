@@ -39,8 +39,6 @@ const READ_DUNGEON = 'Dungeon'
 const READ_CHAIN = 'Chain'
 const TIME_CHART = 'DPS and mana over the fight'
 const PULL_CHART = 'DPS and mana per pull'
-const PROVISIONAL_TEXT =
-    "The sim hasn't been checked against real fights yet. Treat these as estimates."
 /** Whether the gear card has its `View` switch. */
 function hasViewSwitch(): boolean {
     return screen.queryByRole('group', { name: 'View' }) !== null
@@ -193,7 +191,7 @@ describe('the chain fight', () => {
         const user = await openFile(sample)
         await chooseFight(user, CHAIN)
 
-        expect(await values(user, MANA)).toEqual(['118', '124'])
+        expect(await values(user, MANA)).toEqual(['118.00', '124.00'])
         expect(chart(PULL_CHART)).not.toBeNull()
         expect(chart(TIME_CHART)).toBeNull()
         expect(
@@ -335,8 +333,8 @@ describe('the readings', () => {
         expect(await values(user, READ_DUNGEON)).toEqual(['75.4', '84.1'])
         expect(await values(user, 'Health')).toEqual(['1375', '1310'])
         expect(await values(user, 'Armor')).toEqual(['952', '1010'])
-        expect(await values(user, MANA)).toEqual(['48', '57'])
-        expect(await values(user, TTD)).toEqual(['34', '31'])
+        expect(await values(user, MANA)).toEqual(['48.00', '57.00'])
+        expect(await values(user, TTD)).toEqual(['34.00', '31.00'])
     })
 
     test('solo and 2-minute DPS stay on every fight, as in the mockup; mana and time to die follow the fight', async () => {
@@ -346,7 +344,7 @@ describe('the readings', () => {
         expect(readingValue(READ_SOLO)).toBe('103.7')
         expect(readingValue(READ_DUNGEON)).toBe('75.4')
         expect(readingValue(MANA)).toBe('Never')
-        expect(readingValue(TTD)).toBe('34')
+        expect(readingValue(TTD)).toBe('34.00')
     })
 
     test("a file without a short and a long single fight reads one DPS, the fight's", async () => {
@@ -374,7 +372,7 @@ describe('the readings', () => {
             })
         )
 
-        expect(await values(user, TTD)).toEqual(['34', 'Not simmed'])
+        expect(await values(user, TTD)).toEqual(['34.00', 'Not simmed'])
     })
 
     test('the first-run sample reads Not simmed for time to die and out of mana, and has no 2-minute timeline', async () => {
@@ -387,7 +385,7 @@ describe('the readings', () => {
         ).toBeDefined()
     })
 
-    test('out of mana reads whole seconds for a time, Never for never and Not simmed for null', async () => {
+    test('out of mana reads a time in hundredths (owner decision B), Never for never and Not simmed for null', async () => {
         const user = await openFile(
             variant((file) => {
                 for (const result of resultsOf(file, 'worn', 'dungeon-long'))
@@ -405,10 +403,10 @@ describe('the readings', () => {
         expect(await values(user, MANA)).toEqual(['Never', 'Not simmed'])
 
         await chooseFight(user, SOLO)
-        expect(await values(user, MANA)).toEqual(['61', 'Never'])
+        expect(await values(user, MANA)).toEqual(['61.00', 'Never'])
     })
 
-    test('an out of mana time of 47.6 s reads 47', async () => {
+    test('an out of mana time of 47.6 s reads 47.60', async () => {
         await openFile(
             variant((file) => {
                 for (const result of resultsOf(file, 'worn', 'dungeon-long'))
@@ -416,7 +414,7 @@ describe('the readings', () => {
             })
         )
 
-        expect(readingValue(MANA)).toBe('47')
+        expect(readingValue(MANA)).toBe('47.60')
     })
 })
 
@@ -739,7 +737,7 @@ describe('how sure the sim is', () => {
         expect(within(list).getAllByRole('listitem')).toHaveLength(1)
     })
 
-    test('the sample shows a Provisional marker by the readings and by the fight band, each described by its text', async () => {
+    test("the sample shows a Provisional marker by the fight band (not by Simulator Data, as the owner's design), described by its text", async () => {
         await openFile(sample)
 
         const texts = screen.getAllByText('Provisional').map((marker) => {
@@ -751,12 +749,15 @@ describe('how sure the sim is', () => {
                 .join(' ')
         })
         expect(texts).toEqual([
-            PROVISIONAL_TEXT,
             'Sim numbers are estimates until matched to real fights.',
         ])
         expect(screen.getByText('Sim numbers are provisional.')).toBeDefined()
         const band = screen.getByRole('region', { name: 'Across the fight' })
         expect(within(band).getByText('Provisional')).toBeDefined()
+        const readings = screen.getByRole('complementary', {
+            name: "The sim's numbers",
+        })
+        expect(within(readings).queryByText('Provisional')).toBeNull()
     })
 
     test('a copy with provisional false shows no marker', async () => {

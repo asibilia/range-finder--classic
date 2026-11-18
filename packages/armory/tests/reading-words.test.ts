@@ -85,25 +85,25 @@ describe('shortLength', () => {
     })
 })
 
-describe('readingGap', () => {
-    test('lifespan: what you wear lasting longer than the plan is no gap', () => {
+describe('readingGap (signed: above zero, what you wear is below the plan)', () => {
+    test('lifespan: what you wear lasting longer than the plan is a gap under zero, in hundredths', () => {
         expect(
             readingGap(
                 'lifespan',
                 result({ time_to_die_s: 34 }),
                 result({ time_to_die_s: 31 })
             )
-        ).toBeNull()
+        ).toBe(-3)
         expect(
             readingGap(
                 'lifespan',
                 result({ time_to_die_s: 31.4 }),
                 result({ time_to_die_s: 33.6 })
             )
-        ).toBe(3)
+        ).toBe(2.2)
     })
 
-    test('dps subtracts then rounds to one decimal; resource rounds each down; never or null is no gap', () => {
+    test('dps subtracts then rounds to one decimal; resource to two; never or null is no gap', () => {
         expect(
             readingGap('dps', result({ dps: 103.7 }), result({ dps: 118.4 }))
         ).toBe(14.7)
@@ -113,7 +113,7 @@ describe('readingGap', () => {
                 result({ out_of_mana_s: 48.9 }),
                 result({ out_of_mana_s: 57.2 })
             )
-        ).toBe(9)
+        ).toBe(8.3)
         expect(
             readingGap(
                 'resource',
@@ -127,6 +127,22 @@ describe('readingGap', () => {
                 result({ out_of_mana_s: 48 }),
                 result({ out_of_mana_s: null })
             )
+        ).toBeNull()
+    })
+
+    test('health and armor: whole numbers, either sign; the same is no gap', () => {
+        expect(
+            readingGap(
+                'health',
+                result({ health: 1375 }),
+                result({ health: 1310 })
+            )
+        ).toBe(-65)
+        expect(
+            readingGap('armor', result({ armor: 952 }), result({ armor: 1010 }))
+        ).toBe(58)
+        expect(
+            readingGap('armor', result({ armor: 952 }), result({ armor: 952 }))
         ).toBeNull()
     })
 })

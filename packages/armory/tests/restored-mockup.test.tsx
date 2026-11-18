@@ -119,8 +119,8 @@ describe('the readings', () => {
         expect(readingChange(DPS_LONG)).toBe('+8.7')
         expect(readingChange('Health')).toBe('-65')
         expect(readingChange('Armor')).toBe('+58')
-        expect(readingChange('Resource Empty')).toBe('+9 s later')
-        expect(readingChange('Lifespan')).toBe('-3 s')
+        expect(readingChange('Resource Empty')).toBe('+9.00 s later')
+        expect(readingChange('Lifespan')).toBe('-3.00 s')
     })
 
     test('a plan not simmed on the fight has no change to say', async () => {

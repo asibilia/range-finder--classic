@@ -35,11 +35,23 @@ function reset() {
 
 afterEach(reset)
 
-/** Whether the reading labelled `label` has a gap line under it. */
+/**
+ * Whether the reading labelled `label` has a gap line under it saying what
+ * you wear is below the plan (`↓ N`; a green `+ N` says it beats it).
+ */
 function hasReadingGap(label: string): boolean {
     return (
         document.querySelector(
-            `[data-reading="${CSS.escape(label)}"] [data-reading-gap]`
+            `[data-reading="${CSS.escape(label)}"] [data-reading-gap="below"]`
+        ) !== null
+    )
+}
+
+/** Whether the reading labelled `label` says what you wear beats the plan. */
+function beatsPlan(label: string): boolean {
+    return (
+        document.querySelector(
+            `[data-reading="${CSS.escape(label)}"] [data-reading-gap="above"]`
         ) !== null
     )
 }
@@ -241,8 +253,10 @@ describe('Equip all', () => {
                 "↓ 169.7 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons."
             )
         ).toBe(true)
-        // 150.5 DPS worn beats the plan's 118.4 and 84.1.
+        // 150.5 DPS worn beats the plan's 118.4 and 84.1: green + N.
         expect(hasReadingGap('Solo')).toBe(false)
         expect(hasReadingGap('Dungeon')).toBe(false)
+        expect(beatsPlan('Solo')).toBe(true)
+        expect(beatsPlan('Dungeon')).toBe(true)
     })
 })
