@@ -4,7 +4,9 @@
  * plan) and the line under it, every slot around the character (six on the
  * left with the callout card under them, eight on the right, the weapons along
  * the bottom), and the middle with the talents pill and the character sheet
- * at its foot (the character art, behind them, is still to come).
+ * at its foot. The character art, when the manifest has a picture for the
+ * character's race and class, fills the card behind the tiles; else the
+ * card stays plain.
  * Before a file loads the slots are disabled dashed outlines and the
  * middle holds `middle` (the new-visitor card).
  */
@@ -12,6 +14,7 @@ import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { characterArt } from '../character-art'
 import type { Item } from '../gains'
 import { nextStep } from '../next-step'
 import type { BagItemsOn } from '../planner-state'
@@ -273,12 +276,33 @@ export function GearPane({
             onOpen={file ? onOpenSlot : undefined}
         />
     )
+    const art = file
+        ? characterArt(
+              file.character.race,
+              file.character.class,
+              file.character.gender
+          )
+        : null
     return (
         <section
             aria-labelledby="gear-heading"
             data-slot="gear-pane"
-            className="rounded-[1.125rem] border bg-card px-5.5 pt-5 pb-4.5 text-card-foreground"
+            className="relative isolate overflow-hidden rounded-[1.125rem] border bg-card px-5.5 pt-5 pb-4.5 text-card-foreground"
         >
+            {/* The owner's design: the art fills the card, centred and
+                cropped to it, behind the tiles' glass. Decorative; its
+                size from the manifest, so nothing shifts as it loads. */}
+            {art && (
+                <img
+                    data-slot="character-art"
+                    src={art.url}
+                    width={art.width}
+                    height={art.height}
+                    alt=""
+                    decoding="async"
+                    className="pointer-events-none absolute inset-0 -z-10 size-full object-cover"
+                />
+            )}
             <GearHead
                 file={file}
                 plan={plan}

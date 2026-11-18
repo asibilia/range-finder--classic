@@ -47,6 +47,7 @@ import {
     type SimStop,
     weightsIterations,
 } from './browser-sim'
+import { characterArt } from './character-art'
 import type { Item } from './gains'
 import {
     initialPlannerState,
@@ -176,6 +177,13 @@ function Footer({
     localLine: ReactNode
     onForget: () => void
 }) {
+    const art = file
+        ? characterArt(
+              file.character.race,
+              file.character.class,
+              file.character.gender
+          )
+        : null
     return (
         <footer className="mt-7 flex flex-col gap-2 text-[0.78125rem] text-muted-foreground">
             {localLine}
@@ -205,10 +213,17 @@ function Footer({
                         <span>Sim numbers are provisional.</span>{' '}
                     </>
                 )}
-                <span>
-                    Not affiliated with the game&apos;s publisher; all art here
-                    is original placeholder.
-                </span>
+                {art ? (
+                    <span>
+                        Not affiliated with the game&apos;s publisher. Character
+                        art is the owner&apos;s own.
+                    </span>
+                ) : (
+                    <span>
+                        Not affiliated with the game&apos;s publisher; all art
+                        here is original placeholder.
+                    </span>
+                )}
             </p>
             {file && (
                 <Checks checks={file.checks} leftOut={file.left_out_items} />

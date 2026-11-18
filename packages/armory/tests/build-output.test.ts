@@ -12,6 +12,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import { ART } from '../src/character-art'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
 import { LOADER, LOCAL_LATEST, networkProblems } from './network-rule'
 import { nodeVersionProblem, readNodeVersion } from './node-version'
@@ -182,6 +183,22 @@ describe('the build', () => {
             )
             for (const url of urls)
                 expect(url).toMatch(/^\/assets\/[\w.-]+\.woff2?$/)
+        }
+    })
+
+    test("the character art is the page's own: every url in the manifest is a same-origin /art/ path, and the build carries the file", () => {
+        expect(ART.length).toBeGreaterThan(0)
+        for (const art of ART) {
+            expect(art.url).toMatch(/^\/art\/[a-z0-9-]+\.webp$/)
+            expect(new URL(art.url, 'https://armory.example').host).toBe(
+                'armory.example'
+            )
+            const built = join(CLIENT_DIR, art.url)
+            expect({ url: art.url, built: existsSync(built) }).toEqual({
+                url: art.url,
+                built: true,
+            })
+            expect(statSync(built).size).toBe(art.bytes)
         }
     })
 

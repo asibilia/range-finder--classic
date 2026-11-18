@@ -24,6 +24,7 @@
   "scripts": {
     "armory:check-widths": "bun packages/armory/scripts/check-widths.ts",
     "armory:schema": "bun packages/armory/scripts/write-results-schema.ts",
+    "art:add": "bun packages/armory/scripts/add-art.ts",
     "build:armory": "cd packages/armory && bun run build",
     "changeset": "bunx changeset",
     "changeset:status": "bunx changeset status",
