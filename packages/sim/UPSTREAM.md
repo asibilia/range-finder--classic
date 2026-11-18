@@ -94,3 +94,5 @@ read would close the gap.
    id it was simmed on, and a test fails until they match the build. The
    tests pinning upstream's commit (`tests/sim-api.slow.test.ts`,
    `tests/helpers/weights-shared.ts`) name it too: update them with it.
+   Finish with `bun run test:slow` so the real-WASM API and weights tests run
+   against the new pin.

@@ -1,7 +1,7 @@
 /**
  * The last results file, kept in this browser so a reload doesn't start
  * empty. This module is the only code that touches browser storage
- * (`tests/build-output.test.ts` fails any other): it keeps the text of the
+ * (`tests/build-output.slow.test.ts` fails any other): it keeps the text of the
  * last file that read OK under one localStorage key, `REMEMBERED_FILE_KEY`,
  * and nothing else. Nothing is sent anywhere.
  *

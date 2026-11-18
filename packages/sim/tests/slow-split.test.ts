@@ -129,12 +129,22 @@ function onlyBuilds(args: string): boolean {
 /** True when the code gives a test or hook a time limit above 2000 ms. */
 function hasLongLimit(code: string): boolean {
     const calls = new RegExp(
-        `(?<![\\w$.])(${LIMITED_CALLS.join('|')}|setDefaultTimeout)\\s*\\(`,
+        `(?<![\\w$.])(${LIMITED_CALLS.join('|')}|setDefaultTimeout)((?:\\.(?:only|serial|concurrent|each|if))*)\\s*\\(`,
         'g'
     )
     for (const match of code.matchAll(calls)) {
         const name = match[1]!
-        const args = argumentsAt(code, match.index + match[0].length - 1)
+        const modifiers = match[2]!
+        let open = match.index + match[0].length - 1
+        let args = argumentsAt(code, open)
+        if (modifiers.includes('.each') || modifiers.includes('.if')) {
+            const close = open + args.length + 1
+            const next = /^\s*\(/.exec(code.slice(close + 1))
+            if (next) {
+                open = close + next[0].length
+                args = argumentsAt(code, open)
+            } else if (modifiers.includes('.each')) continue
+        }
         if (name === 'setDefaultTimeout') {
             if (numberOf(args.trim()) > LONGEST) return true
             continue
@@ -236,6 +246,25 @@ describe('findSlowInFast', () => {
         expect(
             b("test(\n    'x',\n    () => {},\n    { timeout: 60_000 }\n)")
         ).toEqual(limit('b.test.ts'))
+    })
+
+    test('names long limits on Bun test variants', () => {
+        const b = (text: string) => check(text, 'b.test.ts')
+        expect(b("test.only('x', () => {}, 600_000)")).toEqual(
+            limit('b.test.ts')
+        )
+        expect(b("test.each([1])('x', () => {}, 600_000)")).toEqual(
+            limit('b.test.ts')
+        )
+        expect(b("test.serial('x', () => {}, 600_000)")).toEqual(
+            limit('b.test.ts')
+        )
+        expect(b("test.concurrent('x', () => {}, 600_000)")).toEqual(
+            limit('b.test.ts')
+        )
+        expect(b("test.if(true)('x', () => {}, 600_000)")).toEqual(
+            limit('b.test.ts')
+        )
     })
 
     test('passes limits of 2000 ms or less, numbers that are not limits, and a beforeAll that only builds the sim', () => {

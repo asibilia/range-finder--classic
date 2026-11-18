@@ -256,8 +256,9 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
 - **Errors**: a render error shows "Something went wrong showing this file."
   and Start over, from the home route's `ErrorBoundary`
   (`src/error-boundary.tsx`).
-- **Tests** stay on `bun test --isolate` with happy-dom (`tests/dom.js`);
-  `tests/build-output.slow.test.ts` builds the page and checks it.
+- **Tests**: the fast set runs on `bun test --isolate` with happy-dom
+  (`tests/dom.js`). `bun run test:slow` runs the slow files, including
+  `tests/build-output.slow.test.ts`, which builds the page and checks it.
 
 ### Character art
 
