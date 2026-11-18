@@ -7,12 +7,19 @@ import { type ReactNode, useId } from 'react'
 
 import { cn } from '@/lib/utils'
 
-/** One option; `icon` is drawn before the label, hidden from screen readers. */
+/**
+ * One option; `icon` is drawn before the label, hidden from screen readers.
+ * `className` colours its label (the enemy levels' con colours), and
+ * `pickedClassName` replaces the raised pill when it is picked (a tint of
+ * that colour).
+ */
 export type SegmentOption = {
     value: string
     label: string
     icon?: ReactNode
     disabled?: boolean
+    className?: string
+    pickedClassName?: string
 }
 
 /**
@@ -68,8 +75,10 @@ export function Segmented({
                                 className={cn(
                                     'inline-flex h-full cursor-pointer items-center rounded-full px-3.25 text-[0.9375rem] text-muted-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
                                     option.icon && 'gap-2 px-3',
+                                    option.className,
                                     value === option.value &&
-                                        'bg-secondary text-foreground',
+                                        (option.pickedClassName ??
+                                            'bg-secondary text-foreground'),
                                     option.disabled &&
                                         'cursor-not-allowed opacity-50'
                                 )}

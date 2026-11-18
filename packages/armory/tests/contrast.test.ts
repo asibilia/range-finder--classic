@@ -232,6 +232,30 @@ describe('the theme (dark only)', () => {
         expect(low).toEqual([])
     })
 
+    /*
+     * The enemy levels are coloured text on the segmented control (its
+     * background is --background), and the picked one sits on a tint of
+     * its own colour: `bg-con-<colour>/15`, the colour at 15% over the
+     * control. Keep CON_TINT in step with CON_CLASSES in fight-settings-form.tsx.
+     */
+    test('each con colour (the enemy levels) is at least 4.5:1 on the segmented control and on its own 15% tint', () => {
+        const CON_TINT = 0.15
+        const low: string[] = []
+        for (const con of ['red', 'orange', 'yellow', 'green', 'grey']) {
+            const name = `con-${con}`
+            const plain = ratio(theme, name, 'background')
+            if (plain < 4.5)
+                low.push(`--${name} on --background: ${plain.toFixed(2)}`)
+            const [L, C, H] = oklch(theme, name)
+            const tinted = new Map(theme)
+            tinted.set('tint', `oklch(${L} ${C} ${H} / ${CON_TINT * 100}%)`)
+            const onTint = ratioOver(tinted, name, 'tint', 'background')
+            if (onTint < 4.5)
+                low.push(`--${name} on its tint: ${onTint.toFixed(2)}`)
+        }
+        expect(low).toEqual([])
+    })
+
     test('every chart colour and marker (the icon colours included) on --background and --card is at least 3:1', () => {
         const low: string[] = []
         for (const bg of ['background', 'card'])

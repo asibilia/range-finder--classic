@@ -137,6 +137,12 @@
     --color-quality-rare: var(--quality-rare);
     --color-quality-epic: var(--quality-epic);
     --color-quality-legendary: var(--quality-legendary);
+    /* Ours: the enemy level's con colours (`src/con-colour.ts`). */
+    --color-con-red: var(--con-red);
+    --color-con-orange: var(--con-orange);
+    --color-con-yellow: var(--con-yellow);
+    --color-con-green: var(--con-green);
+    --color-con-grey: var(--con-grey);
     /* The owner's radii (sm 6, md 8, lg 10, xl 14 px). */
     --radius-sm: 6px;
     --radius-md: 8px;
@@ -251,6 +257,17 @@
     --quality-rare: oklch(0.655 0.156 262.5); /* #5B8DEF */
     --quality-epic: oklch(0.72 0.17 305);
     --quality-legendary: oklch(0.78 0.16 60);
+    /*
+     * The enemy level's con colours, the game's (GetQuestDifficultyColor):
+     * text on the segmented control and on the picked segment's 15% tint of
+     * its colour, so each passes 4.5:1 on both. Red and grey are a little
+     * lighter than the game's to pass on the tint.
+     */
+    --con-red: oklch(0.639 0.251 28.5); /* game #FF1A1A is L 0.634 */
+    --con-orange: oklch(0.734 0.173 44.9); /* #FF8040 */
+    --con-yellow: oklch(0.875 0.179 92.7); /* #FFD100 */
+    --con-green: oklch(0.71 0.201 143.1); /* #40BF40 */
+    --con-grey: oklch(0.623 0 0); /* game #808080 is L 0.598 */
     /* The owner's spacing steps (Tailwind's own spacing scale is kept). */
     --space-1: 2px;
     --space-2: 4px;
