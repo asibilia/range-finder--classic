@@ -351,37 +351,33 @@ describe('the cross-field rules', () => {
 })
 
 describe('the JSON Schema', () => {
-    test(
-        'bun run armory:schema writes the JSON Schema, and the committed text matches a fresh one',
-        () => {
-            const committed = readFileSync(SCHEMA_PATH, 'utf8')
-            // The file is two-space JSON with a final newline.
-            expect(committed).toBe(
-                JSON.stringify(JSON.parse(committed), null, 2) + '\n'
-            )
-            expect(committed).toContain('"schema_version"')
+    test('bun run armory:schema writes the JSON Schema, and the committed text matches a fresh one', () => {
+        const committed = readFileSync(SCHEMA_PATH, 'utf8')
+        // The file is two-space JSON with a final newline.
+        expect(committed).toBe(
+            JSON.stringify(JSON.parse(committed), null, 2) + '\n'
+        )
+        expect(committed).toContain('"schema_version"')
 
-            // Generate a fresh copy in a temp folder; the committed file is
-            // only read, never written.
-            const dir = mkdtempSync(join(tmpdir(), 'armory-schema-'))
-            const out = join(dir, 'results-file.schema.json')
-            try {
-                const result = Bun.spawnSync(
-                    [process.execPath, 'run', 'armory:schema', out],
-                    { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' }
-                )
-                expect({
-                    exitCode: result.exitCode,
-                    output: result.stdout.toString() + result.stderr.toString(),
-                }).toMatchObject({ exitCode: 0 })
-                expect(readFileSync(out, 'utf8')).toBe(committed)
-            } finally {
-                rmSync(dir, { recursive: true, force: true })
-            }
-            expect(readFileSync(SCHEMA_PATH, 'utf8')).toBe(committed)
-        },
-        { timeout: 60_000 }
-    )
+        // Generate a fresh copy in a temp folder; the committed file is
+        // only read, never written.
+        const dir = mkdtempSync(join(tmpdir(), 'armory-schema-'))
+        const out = join(dir, 'results-file.schema.json')
+        try {
+            const result = Bun.spawnSync(
+                [process.execPath, 'run', 'armory:schema', out],
+                { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' }
+            )
+            expect({
+                exitCode: result.exitCode,
+                output: result.stdout.toString() + result.stderr.toString(),
+            }).toMatchObject({ exitCode: 0 })
+            expect(readFileSync(out, 'utf8')).toBe(committed)
+        } finally {
+            rmSync(dir, { recursive: true, force: true })
+        }
+        expect(readFileSync(SCHEMA_PATH, 'utf8')).toBe(committed)
+    })
 
     test("the committed JSON Schema no longer says the page shows gain_dps in place of gain_ep, or the first alternative as the slot's best upgrade", () => {
         const committed = readFileSync(SCHEMA_PATH, 'utf8')

@@ -365,7 +365,7 @@ describe('simming an export', () => {
 
         await characterLoaded()
         expect(screen.queryByText(SIMMING)).toBeNull()
-    }, 60_000)
+    })
 
     test('Cancel while simming returns to the bring-your-character-in state, and a second drop works', async () => {
         const text = await testcharExport()
@@ -383,7 +383,7 @@ describe('simming an export', () => {
         pool.holding = false
         dropFile(luaFile(text))
         await characterLoaded()
-    }, 60_000)
+    })
 
     test('the credit line is on the page while simming and once loaded', async () => {
         const text = await testcharExport()
@@ -397,7 +397,7 @@ describe('simming an export', () => {
         pool.release()
         await characterLoaded()
         expect(screen.getAllByText(CREDIT).length).toBeGreaterThan(0)
-    }, 60_000)
+    })
 
     test('after a .lua sim, localStorage holds only armory:last-results-file, a results file and not the export', async () => {
         await simmedTestchar()
@@ -406,7 +406,7 @@ describe('simming an export', () => {
         const kept = localStorage.getItem(REMEMBERED_KEY) ?? ''
         expect(kept).not.toContain('TurboCharExport')
         expect(readResultsFile(JSON.parse(kept) as unknown).ok).toBe(true)
-    }, 60_000)
+    })
 
     test('Cancel is reachable with Tab while simming, focus moves to the character h1 when the file loads, and Refine is reachable with Tab', async () => {
         const text = await testcharExport()
@@ -424,7 +424,7 @@ describe('simming an export', () => {
 
         const refine = await screen.findByRole('button', { name: REFINE })
         expect(await tabTo(user, refine)).toBe(true)
-    }, 120_000)
+    })
 })
 
 describe('the fight chart for a browser-simmed file', () => {
@@ -438,7 +438,7 @@ describe('the fight chart for a browser-simmed file', () => {
         )
         expect(chart.tagName.toLowerCase()).toBe('svg')
         expect(screen.queryByText('No fight timeline in this file.')).toBeNull()
-    }, 60_000)
+    })
 })
 
 describe('stops', () => {
@@ -454,7 +454,7 @@ describe('stops', () => {
             )
         ).toBeDefined()
         expectNoNumbers()
-    }, 60_000)
+    })
 
     test('an Arms Warrior export says the sim covers Enhancement Shaman only and the character is an Arms Warrior; a Fury Warrior one says a Fury Warrior; neither shows numbers', async () => {
         const arms = await warriorExport('Arms')
@@ -482,7 +482,7 @@ describe('stops', () => {
             )
         ).toBeDefined()
         expectNoNumbers()
-    }, 60_000)
+    })
 
     test("with the level-60 sim overridden to fail, the page shows one line Failed: level 60 regression. and the check's detail, and no numbers", async () => {
         const text = await testcharExport()
@@ -519,7 +519,7 @@ describe('stops', () => {
         )
         expect(found).toHaveLength(1)
         expectNoNumbers()
-    }, 60_000)
+    })
 
     test('with the sheet’s Strength off by 10 in the export, the page shows Failed: sheet strength. and Export again with no buffs up, and no numbers', async () => {
         const text = await testcharExport((sheet) => ({
@@ -537,7 +537,7 @@ describe('stops', () => {
         expect(found).toHaveLength(1)
         expect(screen.getByText(EXPORT_AGAIN)).toBeDefined()
         expectNoNumbers()
-    }, 60_000)
+    })
 })
 
 describe('no weights file for the band', () => {
@@ -587,7 +587,7 @@ describe('no weights file for the band', () => {
         )
         expect(screen.queryByText(SIMMING)).toBeNull()
         expectNoNumbers()
-    }, 60_000)
+    })
 })
 
 describe('the accuracy banner', () => {
@@ -627,7 +627,7 @@ describe('the accuracy banner', () => {
         )
         await characterLoaded('Truncha')
         expect(screen.queryByText(BANNER)).toBeNull()
-    }, 60_000)
+    })
 })
 
 describe('Refine', () => {
@@ -645,7 +645,7 @@ describe('Refine', () => {
         expect(await screen.findByText(YOURS, undefined, LOADS)).toBeDefined()
         expect(screen.queryByText(PRECOMPUTED)).toBeNull()
         expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
-    }, 120_000)
+    })
 
     test('Cancel during Refine keeps the unrefined file and its weights sentence', async () => {
         const { user, pool } = await simmedTestchar()
@@ -665,7 +665,7 @@ describe('Refine', () => {
         expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
         expect(screen.getByText(PRECOMPUTED)).toBeDefined()
         expect(screen.queryByText(YOURS)).toBeNull()
-    }, 60_000)
+    })
 
     test('after a reload that restores the remembered file, there is no Refine button', async () => {
         await simmedTestchar()
@@ -680,7 +680,7 @@ describe('Refine', () => {
         expect(
             screen.queryByRole('button', { name: /^Refine for your gear/ })
         ).toBeNull()
-    }, 60_000)
+    })
 })
 
 /**
@@ -771,7 +771,7 @@ describe('Run Simulator', () => {
                 .getByRole('button', { name: 'Run Simulator' })
                 .hasAttribute('disabled')
         ).toBe(false)
-    }, 120_000)
+    })
 
     test('a run that fails keeps the file shown and says why under the button', async () => {
         const { user } = await simmedTestchar()
@@ -787,7 +787,7 @@ describe('Run Simulator', () => {
         expect(alert.getAttribute('role')).toBe('alert')
         expect(shownFight()).toBe(`Dungeon, 2 min vs level ${level + 2}`)
         expect(screen.getByRole('heading', { name: 'Testchar' })).toBeDefined()
-    }, 120_000)
+    })
 
     test('with a results file picked on its own (no export), the button is disabled and says to bring the export in', async () => {
         const user = renderWith(fakePool())
@@ -802,7 +802,7 @@ describe('Run Simulator', () => {
         expect(run.hasAttribute('disabled')).toBe(true)
         const note = screen.getByText(NO_EXPORT_NOTE)
         expect(run.getAttribute('aria-describedby')).toBe(note.id)
-    }, 60_000)
+    })
 })
 
 describe('bun run check', () => {

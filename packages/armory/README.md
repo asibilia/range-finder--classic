@@ -74,7 +74,7 @@ the latest from this computer` goes back and follows again.
 
 None of it reaches `bun run build:armory`: the plugin only serves, and in a
 build the page's hook is inert, so Rollup leaves out its code, its words and
-`src/local-latest.ts`. `tests/build-output.test.ts` fails if the build
+`src/local-latest.ts`. `tests/build-output.slow.test.ts` fails if the build
 carries a trace of it, and its network rule (`tests/network-rule.ts`) lets
 `src/local-latest.ts` fetch only `'/local/'` strings, beside the sim's
 loader's `new URL(` fetches.
@@ -109,7 +109,7 @@ which clears the key and goes back to the new-visitor state.
   or full (`QuotaExceededError`), the page works as before and just doesn't
   remember; it doesn't show the "kept" line then.
 - `src/remembered-file.ts` is the only code that touches storage.
-  `tests/build-output.test.ts` fails if any other file uses `localStorage`,
+  `tests/build-output.slow.test.ts` fails if any other file uses `localStorage`,
   or if any file uses `sessionStorage`, `indexedDB`, cookies, `caches` or
   another `localStorage` key.
 
@@ -257,7 +257,7 @@ Imports use shadcn's `@/` alias for `src/` (`@/components/ui/button`):
   and Start over, from the home route's `ErrorBoundary`
   (`src/error-boundary.tsx`).
 - **Tests** stay on `bun test --isolate` with happy-dom (`tests/dom.js`);
-  `tests/build-output.test.ts` builds the page and checks it.
+  `tests/build-output.slow.test.ts` builds the page and checks it.
 
 ### Character art
 

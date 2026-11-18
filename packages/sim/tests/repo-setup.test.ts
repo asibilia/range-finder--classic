@@ -70,7 +70,7 @@ describe('the vendored upstream and the fixtures', () => {
             }
         )
         expect(check.stdout.toString().trim()).toBe('')
-    }, 60_000)
+    })
 })
 
 describe('bun run check and CI', () => {

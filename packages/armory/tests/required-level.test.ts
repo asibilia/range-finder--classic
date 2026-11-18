@@ -103,7 +103,7 @@ describe('a missing required level means 60', () => {
             }
         for (const upgrade of plan.bag_upgrades)
             expect(noReqIds.has(upgrade.item.item_id)).toBe(false)
-    }, 600_000)
+    })
 
     test('for a level-56 character, an item without reqLvl listed as an alternative has required_level 60 and is not planned', () => {
         const item = helm(70_001)

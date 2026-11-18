@@ -280,5 +280,5 @@ describe('simming the weapon candidates', () => {
             .map(mainHandOf)
             .filter((id) => id !== worn)
         for (const id of others) expect(candidates).toContain(id)
-    }, 60_000)
+    })
 })

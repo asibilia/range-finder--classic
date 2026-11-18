@@ -92,5 +92,5 @@ read would close the gap.
    reason.
 6. Run `bun run sim:weights`: each weights file names the commit and patch
    id it was simmed on, and a test fails until they match the build. The
-   tests pinning upstream's commit (`tests/sim-api.test.ts`,
-   `tests/weights.test.ts`) name it too: update them with it.
+   tests pinning upstream's commit (`tests/sim-api.slow.test.ts`,
+   `tests/helpers/weights-shared.ts`) name it too: update them with it.
