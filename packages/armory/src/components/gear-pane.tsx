@@ -18,7 +18,13 @@ import { nextStep } from '../next-step'
 import type { Plan } from '../plans'
 import type { ResultsFile, Slot } from '../results-file'
 import { bottomSlots, LEFT_SLOTS, RIGHT_SLOTS } from '../slot-labels'
-import { emptySlot, gapTotal, type GapTotal, slotShown } from '../slot-view'
+import {
+    type BagItemsOn,
+    emptySlot,
+    gapTotal,
+    type GapTotal,
+    slotShown,
+} from '../slot-view'
 import { CharacterSheet } from './character-sheet'
 import { InfoButton } from './info'
 import type { Wishlist } from './item-picker'
@@ -131,7 +137,7 @@ function GearHead({
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    bagWorn: number | null
+    bagWorn: BagItemsOn
     headingRef?: RefObject<HTMLHeadingElement | null>
     onShowPlan: () => void
     onShowWorn: () => void
@@ -228,6 +234,9 @@ function GearHead({
 /** No wishlist given: nothing is on it. */
 const NO_WISHLIST: Wishlist = new Map()
 
+/** No bag items given: none is on. */
+const NO_BAG_ITEMS: BagItemsOn = []
+
 /** `12 slots`, `1 slot`. */
 function slotCount(count: number): string {
     return count === 1 ? '1 slot' : `${count} slots`
@@ -277,21 +286,22 @@ function TotalLine({ total }: { total: GapTotal }) {
  * @param file - The loaded file, or null before one loads.
  * @param plan - The plan the sliders pick, or null.
  * @param planShown - True to show the plan's gear instead of what you wear.
- * @param bagWorn - The bag upgrade put on with Equip, or null.
+ * @param bagWorn - The bag upgrades put on with Equip or Equip all.
  * @param wishlist - The wishlist, for the callout card's `On wishlist`.
  * @param middle - What sits in the middle before a file loads.
  * @param headingRef - The heading (`gear-heading`), focused when a picked
  * file loads.
  * @param onOpenTalents - Opens the talents dialog (the pill on the figure).
  * @param onWearBag - Equip: puts a bag upgrade on.
- * @param onUndoBag - Undo: takes it off again.
+ * @param onWearAllBags - Equip all: puts every bag upgrade on.
+ * @param onUndoBag - Undo: takes them off again.
  * @param onToggleWishlist - Add to wishlist (or take off) from the card.
  */
 export function GearPane({
     file,
     plan,
     planShown,
-    bagWorn = null,
+    bagWorn = NO_BAG_ITEMS,
     wishlist = NO_WISHLIST,
     middle,
     headingRef,
@@ -300,13 +310,14 @@ export function GearPane({
     onOpenSlot,
     onOpenTalents = () => {},
     onWearBag = () => {},
+    onWearAllBags = () => {},
     onUndoBag = () => {},
     onToggleWishlist = () => {},
 }: {
     file: ResultsFile | null
     plan: Plan | null
     planShown: boolean
-    bagWorn?: number | null
+    bagWorn?: BagItemsOn
     wishlist?: Wishlist
     middle?: ReactNode
     headingRef?: RefObject<HTMLHeadingElement | null>
@@ -315,6 +326,7 @@ export function GearPane({
     onOpenSlot: (slot: Slot, focusItemId?: number) => void
     onOpenTalents?: () => void
     onWearBag?: (itemId: number) => void
+    onWearAllBags?: () => void
     onUndoBag?: () => void
     onToggleWishlist?: (item: Item, slot: Slot) => void
 }) {
@@ -366,6 +378,7 @@ export function GearPane({
                                 bagWorn={bagWorn}
                                 wishlist={wishlist}
                                 onWearBag={onWearBag}
+                                onWearAllBags={onWearAllBags}
                                 onUndoBag={onUndoBag}
                                 onToggleWishlist={onToggleWishlist}
                                 onOpenSlot={onOpenSlot}

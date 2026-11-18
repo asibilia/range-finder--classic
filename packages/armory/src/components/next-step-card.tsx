@@ -1,9 +1,10 @@
 /**
  * The callout card under the left slots (spec #109 section 8): the one best
  * next step `nextStep` picks. A bag upgrade (`Equip`, then `You wear ...
- * now.` and `Undo`), several of them (a row each, biggest first), the
- * easiest gap to go get (`Add to wishlist`, `Other options`), or every
- * slot best-in-slot (green). Gains read `+`: they are over what you wear.
+ * now.` and `Undo`), several of them (a row each, biggest first, and
+ * `Equip all N`), a quick fix, the easiest gap to go get (`Add to
+ * wishlist`, `Other options`), or every slot best-in-slot (green). Gains
+ * read `+`: they are over what you wear.
  */
 import { useState } from 'react'
 
@@ -12,9 +13,10 @@ import { cn } from '@/lib/utils'
 
 import { formatGain, type Item } from '../gains'
 import { itemName, slotWord } from '../item-name'
-import type { BagUpgrade, NextStep } from '../next-step'
+import type { BagUpgrade, NextStep, QuickFix } from '../next-step'
 import type { ResultsFile, Slot } from '../results-file'
 import { slotLabel } from '../slot-labels'
+import type { BagItemsOn } from '../slot-view'
 import type { Wishlist } from './item-picker'
 import { SimBestIcon } from './sim-best-icon'
 
@@ -53,7 +55,7 @@ function BagOne({
 }: {
     file: ResultsFile
     upgrade: BagUpgrade
-    bagWorn: number | null
+    bagWorn: BagItemsOn
     onWear: (itemId: number) => void
     onUndo: () => void
 }) {
@@ -63,7 +65,7 @@ function BagOne({
         file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
     const word = slotWord(upgrade.slot, file.character.class)
     const name = named(upgrade.item)
-    const on = bagWorn === upgrade.item.item_id
+    const on = bagWorn.includes(upgrade.item.item_id)
     return (
         <div
             aria-live="polite"
@@ -100,27 +102,41 @@ function BagOne({
 /**
  * Several bag upgrades: `3 items in your bags beat what you wear, +24.6 EP
  * together.`, then `Glinting Helm · Head +10.1 EP` rows, biggest first,
- * three of them until `Show N more` is pressed.
+ * three of them until `Show N more` is pressed. With their combined results
+ * in the file, `Equip all 3`; once worn, `You wear 3 bag items now. What
+ * they replaced went to your bags.` and `Undo`.
  */
 function BagMany({
     file,
-    upgrades,
-    total,
+    step,
+    onWearAll,
+    onUndo,
 }: {
     file: ResultsFile
-    upgrades: BagUpgrade[]
-    total: number
+    step: Extract<NextStep, { kind: 'bag_many' }>
+    onWearAll: () => void
+    onUndo: () => void
 }) {
+    const { upgrades, total, canWearAll, allOn } = step
     const [open, setOpen] = useState(false)
     const hidden = upgrades.length - ROWS_FOLDED
     const rows = open ? upgrades : upgrades.slice(0, ROWS_FOLDED)
     return (
-        <div className={cn(CARD, 'border-chart-2 bg-chart-2/5')}>
-            <p>
-                {`${upgrades.length} items in your bags beat what you wear, `}
-                <Gain value={total} unit="EP" />
-                {' together.'}
-            </p>
+        <div
+            aria-live="polite"
+            className={cn(CARD, 'border-chart-2 bg-chart-2/5')}
+        >
+            {allOn ? (
+                <p>
+                    {`You wear ${upgrades.length} bag items now. What they replaced went to your bags.`}
+                </p>
+            ) : (
+                <p>
+                    {`${upgrades.length} items in your bags beat what you wear, `}
+                    <Gain value={total} unit="EP" />
+                    {' together.'}
+                </p>
+            )}
             <ul className="mt-1.5 flex flex-col gap-0.5">
                 {rows.map((upgrade) => (
                     <li key={upgrade.item.item_id}>
@@ -146,6 +162,51 @@ function BagMany({
                     {open ? 'Show fewer' : `Show ${hidden} more`}
                 </Button>
             )}
+            {(allOn || canWearAll) && (
+                <div>
+                    <Button
+                        variant="outline"
+                        className={BUTTON}
+                        onClick={() => (allOn ? onUndo() : onWearAll())}
+                    >
+                        {allOn ? 'Undo' : `Equip all ${upgrades.length}`}
+                    </Button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** What fixing each kind of quick fix is worth, before the number. */
+const FIX_WORTH: Record<QuickFix['kind'], string> = {
+    imbue: 'Putting it back is worth about',
+    empty_slot: 'Filling it is worth about',
+    weapon_skill: 'Training it up is worth about',
+}
+
+/**
+ * A quick fix, no new gear: `Windfury Weapon wasn't on your weapon at
+ * export. Putting it back is worth about +18.2 DPS.`, then the others worth
+ * 3.0 DPS or more: `Also: Your off hand is empty. (+4.0 DPS).` No button.
+ */
+function QuickFixes({
+    step,
+}: {
+    step: Extract<NextStep, { kind: 'quick_fix' }>
+}) {
+    const { fix, also } = step
+    const worth = (other: QuickFix) =>
+        formatGain({ value: other.dps_gain, unit: 'DPS' })
+    const others = also
+        .map((other) => `${other.text} (${worth(other)})`)
+        .join('; ')
+    return (
+        <div className={cn(CARD, 'border-primary/60 bg-primary/5')}>
+            <p>
+                {`${fix.text} ${FIX_WORTH[fix.kind]} `}
+                <Gain value={fix.dps_gain} unit="DPS" />.
+            </p>
+            {others && <p className="mt-1">{`Also: ${others}.`}</p>}
         </div>
     )
 }
@@ -168,16 +229,29 @@ function GoGet({
     onToggleWishlist: (item: Item, slot: Slot) => void
     onOpenSlot: (slot: Slot) => void
 }) {
-    const { item, slot, gain } = step
+    const { item, slot, gain, madeWith } = step
     const source =
         item.source.kind === 'unknown' ? '' : ` (${item.source.text})`
+    const name = (
+        <b className="text-foreground">
+            {itemName(item, slot, file.character.class)}
+        </b>
+    )
     return (
         <div className={cn(CARD, 'border-primary/60 bg-primary/5')}>
             <p>
-                <b className="text-foreground">
-                    {itemName(item, slot, file.character.class)}
-                </b>
-                {`${source}, `}
+                {madeWith === null ? (
+                    <>
+                        {name}
+                        {`${source}, `}
+                    </>
+                ) : (
+                    <>
+                        {'You can make '}
+                        {name}
+                        {` with your ${madeWith}, `}
+                    </>
+                )}
                 <Gain value={gain.value} unit={gain.unit} />
                 {` on your ${slotWord(slot, file.character.class)}.`}
             </p>
@@ -231,7 +305,7 @@ function AllBis({ step }: { step: Extract<NextStep, { kind: 'all_bis' }> }) {
  * The card.
  *
  * @param step - What `nextStep` picked (not null).
- * @param bagWorn - The bag upgrade put on with Equip, or null.
+ * @param bagWorn - The bag upgrades put on with Equip or Equip all.
  * @param wishlist - The wishlist (`On wishlist` for an item on it).
  */
 export function NextStepCard({
@@ -240,15 +314,17 @@ export function NextStepCard({
     bagWorn,
     wishlist,
     onWearBag,
+    onWearAllBags,
     onUndoBag,
     onToggleWishlist,
     onOpenSlot,
 }: {
     file: ResultsFile
     step: NextStep
-    bagWorn: number | null
+    bagWorn: BagItemsOn
     wishlist: Wishlist
     onWearBag: (itemId: number) => void
+    onWearAllBags: () => void
     onUndoBag: () => void
     onToggleWishlist: (item: Item, slot: Slot) => void
     onOpenSlot: (slot: Slot) => void
@@ -268,10 +344,13 @@ export function NextStepCard({
             return (
                 <BagMany
                     file={file}
-                    upgrades={step.upgrades}
-                    total={step.total}
+                    step={step}
+                    onWearAll={onWearAllBags}
+                    onUndo={onUndoBag}
                 />
             )
+        case 'quick_fix':
+            return <QuickFixes step={step} />
         case 'go_get':
             return (
                 <GoGet

@@ -196,9 +196,10 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   this combination.`, keeps the chart and readings on the last fight, and
   lists the file's fights to pick from. Nothing is re-simmed.
 - **State as plain actions.** What the page shows for a loaded file (the
-  fight, the sliders and so the plan, worn or plan view, a bag item put on)
+  fight, the sliders and so the plan, worn or plan view, bag items put on)
   is `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
-  `pick-fight`, `show-plan`, `show-worn`, `wear-bag-item`, `undo-bag-item`)
+  `pick-fight`, `show-plan`, `show-worn`, `wear-bag-item`,
+  `wear-all-bag-items`, `undo-bag-item`)
   that anything outside the components can apply with `applyPlannerAction`,
   which checks the action with Zod first. A slider stops at the picked
   plan's reach (`plans[].reach`) when the file has one.

@@ -49,6 +49,7 @@ import {
 } from './browser-sim'
 import type { Item } from './gains'
 import {
+    bagItemsOn,
     initialPlannerState,
     pickedPlan,
     pickFight,
@@ -525,7 +526,7 @@ export function App({
     const closeDialog = () => setDialog(null)
     const plan = file && planner ? pickedPlan(file, planner) : null
     const planShown = planner?.view === 'plan'
-    const bagWorn = planner?.bagWorn ?? null
+    const bagWorn = file && planner ? bagItemsOn(file, planner) : []
     const wornOf = (fightId: string) =>
         file && planner ? wornResult(file, planner, fightId) : null
     // Refine: only for a character simmed in this visit, until its weights
@@ -580,6 +581,9 @@ export function App({
                         headingRef={heading}
                         onWearBag={(itemId) =>
                             dispatch({ type: 'wear-bag-item', item_id: itemId })
+                        }
+                        onWearAllBags={() =>
+                            dispatch({ type: 'wear-all-bag-items' })
                         }
                         onUndoBag={() => dispatch({ type: 'undo-bag-item' })}
                         middle={

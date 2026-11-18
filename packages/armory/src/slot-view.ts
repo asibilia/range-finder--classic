@@ -73,17 +73,20 @@ export function emptySlot(slot: Slot): SlotShown {
     }
 }
 
-/** A bag upgrade put on with Wear them: the item, and its EP over worn. */
+/** A bag upgrade put on with Equip: the item, and its EP over worn. */
 type BagOn = { item: Item; gain_ep: number }
+
+/** The bag items put on (Equip or Equip all), as item_ids. */
+export type BagItemsOn = readonly number[]
 
 function bagOnFor(
     file: ResultsFile,
     slot: Slot,
-    bagWorn: number | null
+    bagWorn: BagItemsOn
 ): BagOn | null {
     const upgrade = file.bag_upgrades.find(
         (candidate) =>
-            candidate.slot === slot && candidate.item.item_id === bagWorn
+            candidate.slot === slot && bagWorn.includes(candidate.item.item_id)
     )
     return upgrade ? { item: upgrade.item, gain_ep: upgrade.gain_ep } : null
 }
@@ -95,13 +98,13 @@ function bagOnFor(
  *
  * @param file - The loaded results file.
  * @param slot - The slot.
- * @param bagWorn - The item_id of the bag upgrade put on, or null.
+ * @param bagWorn - The item_ids of the bag upgrades put on (none: `[]`).
  * @returns The entry, or undefined when the file has none for the slot.
  */
 export function slotEntry(
     file: ResultsFile,
     slot: Slot,
-    bagWorn: number | null
+    bagWorn: BagItemsOn
 ): SlotEntry | undefined {
     const entry = file.slots.find((candidate) => candidate.slot === slot)
     const bag = bagOnFor(file, slot, bagWorn)
@@ -117,9 +120,9 @@ export function slotEntry(
  * @param plan - The plan the sliders pick, or null with no plans.
  * @param planShown - True to show the plan's gear (the `BIS` view; no
  * badges), false for what you wear.
- * @param bagWorn - The item_id of a bag upgrade put on (Wear them), or
- * null. In its slot it stands for what you wear, and EP gains are taken
- * over it (EP adds up: an alternative's gain less the bag item's).
+ * @param bagWorn - The item_ids of the bag upgrades put on (Equip or
+ * Equip all). In its slot a bag item stands for what you wear, and EP gains
+ * are taken over it (EP adds up: an alternative's gain less the bag item's).
  * @returns What it shows.
  */
 export function slotShown(
@@ -127,7 +130,7 @@ export function slotShown(
     slot: Slot,
     plan: Plan | null,
     planShown: boolean,
-    bagWorn: number | null = null
+    bagWorn: BagItemsOn = []
 ): SlotShown {
     const label = slotLabel(slot, file)
     const bagOn = bagOnFor(file, slot, bagWorn)
@@ -278,13 +281,13 @@ export type GapTotal = {
  *
  * @param file - The loaded results file.
  * @param plan - The plan the sliders pick.
- * @param bagWorn - The item_id of a bag upgrade put on, or null.
+ * @param bagWorn - The item_ids of the bag upgrades put on.
  * @returns The totals.
  */
 export function gapTotal(
     file: ResultsFile,
     plan: Plan,
-    bagWorn: number | null = null
+    bagWorn: BagItemsOn = []
 ): GapTotal {
     const total: GapTotal = { ep: 0, epSlots: 0, dps: 0, dpsSlots: 0 }
     for (const slot of SLOTS_IN_ORDER) {
