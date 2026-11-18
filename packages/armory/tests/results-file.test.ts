@@ -382,6 +382,15 @@ describe('the JSON Schema', () => {
         },
         { timeout: 60_000 }
     )
+
+    test("the committed JSON Schema no longer says the page shows gain_dps in place of gain_ep, or the first alternative as the slot's best upgrade", () => {
+        const committed = readFileSync(SCHEMA_PATH, 'utf8')
+
+        expect(committed).not.toContain('in place of gain_ep')
+        expect(committed).not.toContain(
+            "the page shows the first as the slot's best upgrade"
+        )
+    })
 })
 
 describe('stat_weights source', () => {

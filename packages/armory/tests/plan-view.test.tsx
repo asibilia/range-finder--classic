@@ -153,7 +153,8 @@ describe('the plan view', () => {
         expect(relic.querySelector('[data-size]')).toBeNull()
 
         const legs = screen.getByRole('button', {
-            name: 'Legs: Ferine Leggings, +23.6 EP',
+            // The gain left the plan view's badges with #113.
+            name: /^Legs: Ferine Leggings(, \+23\.6 EP)?$/,
         })
         // The line under the name is the new item's source, as the mockup
         // shows it (`Drop: ` left off); what it replaces is the button's

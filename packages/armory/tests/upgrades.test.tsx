@@ -6,7 +6,6 @@ import './dom'
 import {
     openFile,
     openSample,
-    pill,
     pills,
     readingValue,
     variant,
@@ -16,16 +15,60 @@ import {
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, screen, within } from '@testing-library/react'
 
-const HANDS = 'Hands: Toughened Leather Gloves, +21.6 EP'
-const NECK = "Neck: Archmagister's Faceted Pendant, +1.7 EP"
-const LEGS = "Legs: Trapper's Leather Legguards, +23.6 EP"
-const FINGER_1 = 'Finger 1: Seal of Sylvanas, +19.2 EP'
-const FINGER_2 = 'Finger 2: Unnamed ring (6748), +19.2 EP'
+function escaped(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * A slot's name with its gain: `<base>, +21.6 EP` before #113, or
+ * `<base>, 21.6 EP below the sim's best` (the plan's item's gap) after it.
+ */
+function slotName(base: string, oldGain: string, newGap = oldGain): RegExp {
+    const gap = newGap.replace(/^\+/, '')
+    return new RegExp(
+        `^${escaped(base)}, (${escaped(oldGain)}|${escaped(gap)} below the sim's best)$`
+    )
+}
+
+/** Text with every space taken out. */
+function squeeze(text: string | null | undefined): string {
+    return (text ?? '').replace(/\s+/g, '')
+}
+
+/**
+ * The gain pill reading `oldText` (`+23.6 EP`), or, after #113, the gap
+ * badge reading `newText` (`↓ 23.6`).
+ */
+function gapPill(
+    element: HTMLElement,
+    oldText: string,
+    newText: string
+): HTMLElement {
+    const found = [
+        ...element.querySelectorAll<HTMLElement>('[data-size]'),
+    ].find((candidate) =>
+        [squeeze(oldText), squeeze(newText)].includes(
+            squeeze(candidate.textContent)
+        )
+    )
+    if (!found) throw new Error(`no badge reading ${oldText} or ${newText}`)
+    return found
+}
+
+const HANDS = slotName('Hands: Toughened Leather Gloves', '+21.6 EP')
+const NECK = slotName("Neck: Archmagister's Faceted Pendant", '+1.7 EP')
+const LEGS = slotName("Legs: Trapper's Leather Legguards", '+23.6 EP')
+const FINGER_1 = slotName('Finger 1: Seal of Sylvanas', '+19.2 EP')
+const FINGER_2 = slotName(
+    'Finger 2: Unnamed ring (6748)',
+    '+19.2 EP',
+    '15.5 EP'
+)
 
 /** Clicks the slot button named `name` and returns the picker it opens. */
 async function openPicker(
     user: User,
-    name: string,
+    name: string | RegExp,
     title: string
 ): Promise<HTMLElement> {
     await user.click(screen.getByRole('button', { name }))
@@ -56,8 +99,8 @@ function headerButton(name: string): HTMLElement {
     return screen.getByRole('button', { name, hidden: true })
 }
 
-function gainSize(slot: HTMLElement, gain: string): string | null {
-    return pill(slot, gain).getAttribute('data-size')
+function gainSize(slot: HTMLElement, gain: string, gap: string): string | null {
+    return gapPill(slot, gain, gap).getAttribute('data-size')
 }
 
 async function closeDialog(user: User, dialog: HTMLElement) {
@@ -73,17 +116,17 @@ describe('gains on the slots', () => {
         await openSample()
         const legs = screen.getByRole('button', { name: LEGS })
 
-        expect(pill(legs, '+23.6 EP')).toBeDefined()
+        expect(gapPill(legs, '+23.6 EP', '↓ 23.6')).toBeDefined()
         expect(within(legs).getByText('Best: Ferine Leggings')).toBeDefined()
     })
 
     test('Two-hand shows +6.0 DPS and Best: Corpsemaker', async () => {
         await openSample()
         const mainHand = screen.getByRole('button', {
-            name: "Two-hand: Guardian's Dualblade, +6.0 DPS",
+            name: slotName("Two-hand: Guardian's Dualblade", '+6.0 DPS'),
         })
 
-        expect(pill(mainHand, '+6.0 DPS')).toBeDefined()
+        expect(gapPill(mainHand, '+6.0 DPS', '↓ 6.0 DPS')).toBeDefined()
         expect(within(mainHand).getByText('Best: Corpsemaker')).toBeDefined()
     })
 
@@ -91,10 +134,18 @@ describe('gains on the slots', () => {
         await openSample()
 
         expect(
-            gainSize(screen.getByRole('button', { name: NECK }), '+1.7 EP')
+            gainSize(
+                screen.getByRole('button', { name: NECK }),
+                '+1.7 EP',
+                '↓ 1.7'
+            )
         ).toBe('small')
         expect(
-            gainSize(screen.getByRole('button', { name: LEGS }), '+23.6 EP')
+            gainSize(
+                screen.getByRole('button', { name: LEGS }),
+                '+23.6 EP',
+                '↓ 23.6'
+            )
         ).toBe('big')
     })
 
@@ -115,9 +166,9 @@ describe('gains on the slots', () => {
         // one comes from the zero gain.
         await openSample()
         const before = screen.getByRole('button', {
-            name: 'Back: Unnamed cloak (279848), +6.2 EP',
+            name: slotName('Back: Unnamed cloak (279848)', '+6.2 EP'),
         })
-        expect(pill(before, '+6.2 EP')).toBeDefined()
+        expect(gapPill(before, '+6.2 EP', '↓ 6.2')).toBeDefined()
         cleanup()
 
         await openFile(changed)

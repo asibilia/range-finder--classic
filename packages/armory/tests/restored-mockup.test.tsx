@@ -54,11 +54,21 @@ describe('the gear pane', () => {
             'section[data-slot="gear-pane"]'
         )!
 
-        const line = within(gear).getByText(
+        // #113 replaces this line with the total line (`slot-gaps.test.tsx`).
+        const line = within(gear).queryByText(
             'is the best gain the sim found for that slot. 11 slots have a big upgrade (15 EP or 3 DPS and up).',
             { exact: false }
         )
-        expect(pill(line, '+16.7 EP').getAttribute('data-size')).toBe('big')
+        if (line) {
+            expect(pill(line, '+16.7 EP').getAttribute('data-size')).toBe('big')
+            return
+        }
+        expect(gear.textContent?.replace(/\s+/g, '')).toContain(
+            "↓ 195.2 EP in total below the sim's best set, across 12 slots, plus 6.0 DPS on weapons.".replace(
+                /\s+/g,
+                ''
+            )
+        )
     })
 
     test('in the plan view says what the labels and faded slots mean, and fades unchanged slots', async () => {
@@ -89,7 +99,8 @@ describe('the gear pane', () => {
         await showPlan(user)
 
         const hands = screen.getByRole('button', {
-            name: 'Hands: Gloves of the Greatfather, +21.6 EP',
+            // The gain left the plan view's badges with #113.
+            name: /^Hands: Gloves of the Greatfather(, \+21\.6 EP)?$/,
         })
         expect(within(hands).getByText('needs 33')).toBeDefined()
         expect(description(hands)).toBe(
@@ -100,7 +111,7 @@ describe('the gear pane', () => {
     test('the shoulder slot says a better one is in your bags, on what you wear only', async () => {
         const user = await openSample()
         const shoulder = screen.getByRole('button', {
-            name: "Shoulder: Serpent's Shoulders, +17.8 EP",
+            name: /^Shoulder: Serpent's Shoulders, (\+17\.8 EP|17\.8 EP below the sim's best)$/,
         })
         expect(description(shoulder)).toBe('better in bags')
         expect(
@@ -243,11 +254,13 @@ describe('the mockup details', () => {
     test('unnamed items read as the mockup names them, in the slots, the picker and the bags line', async () => {
         const user = await openSample()
 
+        // Each with its gain: `+6.2 EP`, or after #113 the plan's item's
+        // gap, `6.2 EP below the sim's best`.
         for (const name of [
-            'Back: Unnamed cloak (279848), +6.2 EP',
-            'Wrist: Unnamed bracers (279875), +16.8 EP',
-            'Feet: Unnamed boots (251963), +18.7 EP',
-            'Finger 2: Unnamed ring (6748), +19.2 EP',
+            /^Back: Unnamed cloak \(279848\), (\+6\.2 EP|6\.2 EP below the sim's best)$/,
+            /^Wrist: Unnamed bracers \(279875\), (\+16\.8 EP|15\.0 EP below the sim's best)$/,
+            /^Feet: Unnamed boots \(251963\), (\+18\.7 EP|18\.7 EP below the sim's best)$/,
+            /^Finger 2: Unnamed ring \(6748\), (\+19\.2 EP|15\.5 EP below the sim's best)$/,
             'Totem: Unnamed totem (263412)',
         ])
             expect(screen.getByRole('button', { name })).toBeDefined()
