@@ -3,7 +3,38 @@
   "tag": "beta",
   "initialVersions": {
     "@goturbo/addon": "0.0.0",
-    "@goturbo/web": "0.0.0"
+    "@goturbo/web": "0.0.0",
+    "@goturbo/armory": "0.0.0",
+    "@goturbo/sim": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "armory-mockup-element-for-element",
+    "armory-react-router",
+    "armory-real-file-fixes",
+    "armory-remember-file",
+    "armory-shadcn-base-ui",
+    "armory-visual-pass",
+    "attack-macros",
+    "cdm-layout-tool",
+    "forever-native-ui-research",
+    "lua-toolchain-and-test-seam",
+    "luca-spec-105-luca-20261117-local-latest2",
+    "luca-spec-109-luca-20261117-design-pass2",
+    "luca-spec-56-20261114t173522z-d086f282",
+    "luca-spec-73-luca-20261115-slice-b2",
+    "luca-spec-88-luca-20261116-slice-b-fixes2",
+    "reboot-as-bun-monorepo",
+    "recall-reminder",
+    "release-pipeline",
+    "slow-tests-armory",
+    "slow-tests-sim",
+    "small-test-pools-armory",
+    "small-test-pools-sim",
+    "spell-macros",
+    "test-isolate",
+    "test-limits-armory",
+    "test-limits-sim",
+    "trim-to-attack-macros",
+    "turbo-v1-hud"
+  ]
 }
