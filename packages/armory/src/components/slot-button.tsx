@@ -2,9 +2,11 @@
  * One gear slot, as the owner's design draws it: a dark glass tile that is
  * one button, with the item's icon square, then three lines: the slot label
  * (with its chips inline: `Feet · better in bags`), the item's name (bold,
- * cut off with an ellipsis), and either `Best: <item>` (a slot with a gap)
- * or the first part of the worn item's source. The gap or `BIS` badge sits
- * inside the tile, on the edge facing the figure. The `Best:` item is a
+ * cut off with an ellipsis), and either `Best: <item>` (a slot with a gap),
+ * `Next: <item> at level N` (a slot that is the sim's best for now, or
+ * empty, with an item to come at a higher level; muted) or the first part
+ * of the worn item's source. The gap or `BIS` badge sits
+ * inside the tile, on the edge facing the figure. The `Best:` (or `Next:`) item is a
  * link-styled button laid over the third line from outside the slot's
  * button, opening the picker on that item. The full name is in the
  * button's accessible name and in a tooltip. The chips describe the button
@@ -53,7 +55,8 @@ function badgeRoom(side: SlotSide, gap: SlotGap): string {
  * Where the `Best:` line sits over the tile's third line: from the text
  * column's left edge to its right edge (past the badge's slot).
  */
-function bestPlace(side: SlotSide, gap: SlotGap): string {
+function bestPlace(side: SlotSide, gap: SlotGap | null): string {
+    if (!gap) return 'left-14.5 right-2.5'
     if (side === 'right') return 'left-32 right-2.5'
     const wide = gap.kind === 'gap' && gap.gain.unit === 'DPS'
     return cn('left-14.5', wide ? 'right-25' : 'right-20')
@@ -134,7 +137,7 @@ export function SlotButton({
     onOpen?: (slot: Slot, focusItemId?: number) => void
 }) {
     const chipId = useId()
-    const { item, gap, note, chips, description, best } = shown
+    const { item, gap, note, chips, description, best, next } = shown
     const empty = onOpen === undefined
     const describedBy = [
         ...chips.map((_, index) => `${chipId}-${index}`),
@@ -190,9 +193,10 @@ export function SlotButton({
                 >
                     {shown.itemName ?? (empty ? 'Empty' : 'Nothing equipped')}
                 </span>
-                {best && onOpen ? (
-                    // Room for the `Best:` line, laid over it from outside
-                    // the button (a button can't hold a button).
+                {(best || next) && onOpen ? (
+                    // Room for the `Best:` or `Next:` line, laid over it
+                    // from outside the button (a button can't hold a
+                    // button).
                     <span aria-hidden="true" className="h-4" />
                 ) : (
                     note && (
@@ -231,29 +235,35 @@ export function SlotButton({
     ) : (
         button
     )
-    if (!best || !onOpen || !gap) return withTooltip
-    // The `Best:` line is the tile's third line, but not inside the slot's
-    // button: a sibling laid over it, so both are focusable in order and the
-    // slot's name stays its own. Only the link takes clicks; the rest of
-    // the line clicks through to the slot.
+    if (!onOpen || !(best || next)) return withTooltip
+    // The `Best:` (or `Next:`) line is the tile's third line, but not inside
+    // the slot's button: a sibling laid over it, so both are focusable in
+    // order and the slot's name stays its own. Only the link takes clicks;
+    // the rest of the line clicks through to the slot.
+    const link = best ?? next
+    if (!link) return withTooltip
     return (
         <div className="relative min-w-0">
             {withTooltip}
             <p
-                data-best-line
+                data-best-line={best ? '' : undefined}
+                data-next-line={best ? undefined : ''}
                 className={cn(
                     'pointer-events-none absolute bottom-1.25 flex min-w-0 items-center gap-1 text-xs leading-4 text-muted-foreground',
                     bestPlace(side, gap)
                 )}
             >
-                <span className="shrink-0">Best:</span>
+                <span className="shrink-0">{best ? 'Best:' : 'Next:'}</span>
                 <button
                     type="button"
-                    onClick={() => onOpen(shown.slot, best.itemId)}
+                    onClick={() => onOpen(shown.slot, link.itemId)}
                     className="pointer-events-auto min-w-0 truncate rounded-sm text-left text-muted-foreground underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                    {best.name}
+                    {link.name}
                 </button>
+                {!best && next && (
+                    <span className="shrink-0">{`at level ${next.level}`}</span>
+                )}
             </p>
         </div>
     )

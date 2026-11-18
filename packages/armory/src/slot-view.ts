@@ -11,6 +11,7 @@ import {
     slotGap,
 } from './gains'
 import { firstSource, itemName, shortSource } from './item-name'
+import { type NextItem, nextAlternative } from './next-item'
 import type { BagItemsOn } from './planner-state'
 import type { Plan } from './plans'
 import type { ResultsFile, Slot } from './results-file'
@@ -34,6 +35,14 @@ export type SlotShown = {
      * otherwise.
      */
     best: { itemId: number; name: string } | null
+    /**
+     * What you wear, on a slot that is the sim's best for now (`BIS`) or
+     * empty with nothing from the plan: the alternative that needs a level
+     * above the character's (`nextAlternative`), shown as the tile's third
+     * line, `Next: <item> at level N` (a link to the picker); null
+     * otherwise.
+     */
+    next: NextItem | null
     /**
      * The line under the name, when there is no `best` line: the first part
      * of the item's source.
@@ -70,6 +79,7 @@ export function emptySlot(slot: Slot): SlotShown {
         itemName: null,
         gap: null,
         best: null,
+        next: null,
         note: undefined,
         description: undefined,
         sameAsWorn: false,
@@ -158,6 +168,19 @@ export function slotShown(
         file.bag_upgrades.some((candidate) => candidate.slot === slot)
     )
         chips.push('better in bags')
+    // Best for now, or empty with nothing from the plan: what comes next.
+    const nextUp =
+        !(planShown && plan) &&
+        (shown.gap?.kind === 'bis' ||
+            (!entry?.worn && (plan?.gear[slot] ?? null) === null))
+            ? nextAlternative(entry, file.character.level)
+            : null
+    const next: NextItem | null = nextUp && {
+        itemId: nextUp.item.item_id,
+        name: named(nextUp.item),
+        level: nextUp.item.required_level,
+    }
+    if (next) shown.note = undefined
     const shownName = shown.item ? named(shown.item) : null
     const name = shownName ?? 'Nothing equipped'
     const suffix = shown.sameAsWorn
@@ -167,6 +190,7 @@ export function slotShown(
         slot,
         label,
         ...shown,
+        next,
         itemName: shownName,
         chips,
         name: `${label}: ${name}${suffix}`,
