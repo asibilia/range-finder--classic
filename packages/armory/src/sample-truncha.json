@@ -89,7 +89,8 @@
     "level": 30,
     "race": "Orc",
     "class": "Shaman",
-    "spec": "Enhancement"
+    "spec": "Enhancement",
+    "gender": "male"
   },
   "sheet_buffed": true,
   "sheet": {

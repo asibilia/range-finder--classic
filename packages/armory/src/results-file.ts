@@ -296,6 +296,10 @@ const baseSchema = z.strictObject({
         race: z.string(),
         class: z.string(),
         spec: z.string(),
+        gender: z.enum(['male', 'female']).optional().meta({
+            description:
+                "The character's gender, from the export's identity.sex (the game's numbers: 2 male, 3 female). The page picks the character art with it. Absent: unknown (no sex in the export, or 1), and the page shows either gender's art.",
+        }),
         professions: z
             .array(
                 z.strictObject({
@@ -694,6 +698,7 @@ const FILE_DESCRIPTION = [
     "- Each slot's alternatives come best first; the slot's badge shows the gain of the plan's item for that slot.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
     '- character.professions names each profession as the game does (Leatherworking): the page matches them by name.',
+    "- character.gender comes from the export's identity.sex: 2 is male, 3 is female, anything else leaves it out.",
     '- Each quick_fixes text names the slot it is about; its slot is any slot or null, with no rule tying it to kind.',
 ].join('\n')
 

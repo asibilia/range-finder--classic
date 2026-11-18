@@ -459,6 +459,7 @@ export async function simCharacter(
                 race: character.race,
                 class: character.class,
                 spec,
+                ...(character.gender ? { gender: character.gender } : {}),
             },
             sheet_buffed: character.sheet_buffs !== undefined,
             sheet: fileSheet(character.sheet),

@@ -230,6 +230,19 @@ export function talentString(rows: SavedValue[], trees: TalentTree[]): string {
 }
 
 /**
+ * The character's gender from the export's `identity.sex`, as the game
+ * numbers it (`UnitSex`: 1 unknown, 2 male, 3 female): spread into the
+ * character, so anything but 2 or 3 leaves it out.
+ */
+export function genderOf(sex: SavedValue | undefined): {
+    gender?: 'male' | 'female'
+} {
+    if (sex === 2) return { gender: 'male' }
+    if (sex === 3) return { gender: 'female' }
+    return {}
+}
+
+/**
  * The addon's character key, or undefined when there's none or it's
  * unusable: 32 hex digits with more than 4 distinct, as the addon's
  * `goodKey` rule. An all-zero key or a WoW player GUID is never a key.
@@ -647,6 +660,7 @@ export async function exportCharacter(
         level,
         race: identity.race === 'Scourge' ? 'Undead' : str(identity.race),
         class: cls,
+        ...genderOf(identity.sex),
         talents,
         gear: worn.worn,
         ...(Object.keys(worn.unknown).length > 0
