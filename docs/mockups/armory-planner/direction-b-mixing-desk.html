@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truncha: gear planner (direction B, mixing desk mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --metal: #dce1e4;
+  --face: #eef1f3;
+  --face-hi: #f8f9fa;
+  --screen: #f6f8f8;
+  --ink: #1b262e;
+  --ink-2: #3e4c57;
+  --ink-3: #56636e;
+  --rule: #b6bfc6;
+  --groove: #2a343b;
+  --lamp: #e8a010;
+  --lamp-glow: rgba(232, 160, 16, .5);
+  --oom: #bf2a3a;
+  --wave: #24323c;
+  --wave-ghost: #97a3ac;
+  --mana: #2361b0;
+  --ch-damage: #cc4b24;
+  --ch-survival: #24788a;
+  --ch-healing: #3b8636;
+  --ch-utility: #c18f12;
+  --ch-setting: #5a656d;
+  --q-rare: #1f62c4;
+  --q-unc: #2a8a3a;
+  --q-epic: #7a3abc;
+  --display: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+body {
+  margin: 0;
+  font: 15px/1.4 var(--body);
+  color: var(--ink);
+  background-color: var(--metal);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.22) 0 1px, transparent 1px 2px, rgba(120,135,145,.05) 2px 3px),
+    linear-gradient(180deg, #e7eaec 0%, #d4dadd 100%);
+  background-attachment: fixed;
+  font-variant-numeric: tabular-nums;
+}
+body.locked { overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid #1f62c4; outline-offset: 2px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; letter-spacing: .01em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.app {
+  max-width: 1440px; margin: 0 auto; padding: 14px 24px 28px;
+  display: grid; gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 548px;
+  grid-template-areas: "head head" "time time" "desk doll" "foot foot";
+}
+
+/* ---------- header ---------- */
+.top { grid-area: head; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.who h1 { font-size: 30px; line-height: 1; font-weight: 700; }
+.who p { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
+.top .spacer { flex: 1; }
+.mock-tag { font-size: 13px; color: var(--ink-3); border: 1px dashed var(--rule); padding: 3px 8px; border-radius: 3px; }
+.wish { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 17px; font-weight: 600; }
+.btn {
+  appearance: none; border: 1px solid #9aa5ad; border-radius: 4px; padding: 7px 14px; cursor: pointer;
+  background: linear-gradient(#fbfcfc, #e3e7ea); box-shadow: inset 0 1px 0 #fff, 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(30,45,55,.2);
+  font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .01em;
+}
+.btn:hover { background: linear-gradient(#fff, #e9edef); }
+.btn:active { background: linear-gradient(#dfe4e7, #eef1f3); box-shadow: inset 0 1px 2px rgba(30,45,55,.25); }
+.btn.primary { background: linear-gradient(#34434e, #1f2a32); color: #f2f5f7; border-color: #172027; box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 2px rgba(30,45,55,.3); }
+.btn.primary:hover { background: linear-gradient(#3d4e5a, #26333c); }
+.btn.small { padding: 4px 10px; font-size: 15px; }
+
+/* indicator lamps */
+.lamp {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, #c9ced2, #8e989f 70%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.lamp.on {
+  background: radial-gradient(circle at 35% 30%, #fff3c9, var(--lamp) 60%, #b7760a);
+  box-shadow: inset 0 0 0 1px rgba(120,70,0,.4), 0 0 8px 1px var(--lamp-glow);
+}
+.lamp.red.on { background: radial-gradient(circle at 35% 30%, #ffd2d6, var(--oom) 60%, #8a1a26); box-shadow: inset 0 0 0 1px rgba(90,0,10,.4), 0 0 8px 1px rgba(191,42,58,.45); }
+
+/* plates (generic panel) */
+.plate {
+  background: linear-gradient(180deg, var(--face-hi), var(--face));
+  border: 1px solid #aeb8bf; border-radius: 6px;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 0 rgba(255,255,255,.7), 0 3px 10px -4px rgba(35,50,60,.35);
+}
+.plate-head { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px 0; flex-wrap: wrap; }
+.plate-head h2 { font-size: 21px; }
+.plate-head .hint { color: var(--ink-3); font-size: 13.5px; }
+.prov {
+  display: inline-block; font-family: var(--body); font-size: 12px; font-weight: 600; letter-spacing: .01em;
+  color: #7a4d00; background: #fdf1d6; border: 1px solid #e8c97f; border-radius: 3px; padding: 0 6px; vertical-align: middle; cursor: help;
+}
+
+/* ---------- fight timeline ---------- */
+.timeline { grid-area: time; display: grid; grid-template-columns: minmax(0, 1fr) 344px; }
+.tl-main { padding-bottom: 10px; min-width: 0; }
+.tl-screen {
+  margin: 8px 12px 0 16px; border-radius: 4px; background: var(--screen);
+  border: 1px solid #a9b3ba; box-shadow: inset 0 2px 5px rgba(30,45,55,.16);
+  position: relative; overflow: hidden;
+}
+#tl-svg { display: block; width: 100%; height: 236px; }
+#tl-svg text { font-family: var(--body); font-size: 12px; fill: var(--ink-2); }
+#tl-svg .lane-label { font-family: var(--display); font-size: 14px; font-weight: 600; fill: var(--ink); }
+#tl-svg .tag-text { font-family: var(--display); font-size: 14px; font-weight: 600; fill: #fff; }
+.tl-legend { display: flex; gap: 18px; margin: 8px 16px 0; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; align-items: center; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+.key i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; }
+.pvp-note { margin: 6px 16px 0; font-size: 13.5px; color: #7a2c00; display: none; }
+.pvp .pvp-note { display: block; }
+
+.readouts { border-left: 1px solid var(--rule); padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+.big { display: flex; align-items: baseline; gap: 10px; }
+.big .num { font-family: var(--display); font-weight: 700; font-size: 50px; line-height: .95; letter-spacing: -.01em; }
+.big .unit { font-family: var(--display); font-size: 18px; font-weight: 600; color: var(--ink-2); }
+.big .delta { font-family: var(--display); font-size: 19px; font-weight: 600; color: #1e6a2b; }
+.big .delta.neg { color: #9b2330; }
+.big-cap { font-size: 13.5px; color: var(--ink-2); margin-top: -4px; }
+table.ab { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.ab th, table.ab td { padding: 3px 0; text-align: right; border-bottom: 1px solid #d3d9dd; }
+table.ab th:first-child, table.ab td:first-child { text-align: left; color: var(--ink-2); font-weight: 400; }
+table.ab thead th { font-family: var(--display); font-weight: 600; font-size: 14px; color: var(--ink-3); border-bottom: 1px solid var(--rule); }
+table.ab td.p { font-weight: 600; }
+table.ab td.changed { color: var(--ink); background: linear-gradient(90deg, transparent, rgba(232,160,16,.18)); }
+.split-title { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.split { display: flex; height: 12px; border-radius: 2px; overflow: hidden; border: 1px solid #9aa5ad; }
+.split span { display: block; height: 100%; }
+.split-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 12px; font-size: 12.5px; color: var(--ink-2); }
+.split-keys span { display: inline-flex; align-items: center; gap: 5px; }
+.split-keys i { width: 8px; height: 8px; border-radius: 1px; display: inline-block; }
+
+/* ---------- the console ---------- */
+.desk { grid-area: desk; position: relative; padding: 14px 18px 16px; }
+.desk::before, .desk::after, .desk .screw-b::before, .desk .screw-b::after {
+  content: ""; position: absolute; width: 9px; height: 9px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #f6f7f8, #a8b1b8 70%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.desk::before { top: 7px; left: 7px; }
+.desk::after { top: 7px; right: 7px; }
+.desk .screw-b::before { bottom: 7px; left: 7px; }
+.desk .screw-b::after { bottom: 7px; right: 7px; }
+.desk-head { display: flex; align-items: baseline; gap: 12px; margin: 0 6px 10px; flex-wrap: wrap; }
+.desk-head h2 { font-size: 21px; }
+.desk-head .hint { color: var(--ink-3); font-size: 13.5px; }
+.bays { display: flex; gap: 0; align-items: stretch; overflow-x: auto; padding-bottom: 4px; }
+.bay { display: flex; flex-direction: column; padding: 0 10px; }
+.bay + .bay { border-left: 2px solid #c6ced3; box-shadow: -1px 0 0 #fff; margin-left: 6px; padding-left: 16px; }
+.bay-title { font-family: var(--display); font-weight: 600; font-size: 16px; color: var(--ink-2); margin: 0 0 6px 4px; }
+.bay-note { font-size: 12.5px; color: var(--ink-3); margin: 6px 4px 0; max-width: 34ch; }
+.strips { display: flex; gap: 6px; }
+
+.strip { width: 78px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.strip-name { font-family: var(--display); font-weight: 600; font-size: 16px; line-height: 1.1; text-align: center; min-height: 18px; cursor: pointer; }
+.strip-top { display: flex; align-items: center; gap: 6px; }
+.well { position: relative; width: 74px; height: 232px; }
+.well .scale { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; }
+.well .scale span { position: absolute; right: 4px; transform: translateY(-50%); font-size: 11px; color: var(--ink-3); line-height: 1; }
+.well .scale::after {
+  content: ""; position: absolute; right: 0; top: 13px; bottom: 13px; width: 3px;
+  background: repeating-linear-gradient(180deg, var(--ink-3) 0 1px, transparent 1px calc((100% - 1px) / 20));
+}
+.well .groove {
+  position: absolute; left: calc(24px + (100% - 24px) / 2 - 3px); width: 6px; top: 8px; bottom: 8px;
+  background: var(--groove); border-radius: 3px; box-shadow: inset 0 1px 2px #000, 0 1px 0 #fff;
+}
+.well .capband {
+  position: absolute; left: 26px; right: 2px; top: 2px;
+  height: calc(13px + (100 - var(--cap, 100)) / 100 * (100% - 26px) - 2px);
+  background: repeating-linear-gradient(135deg, rgba(191,42,58,.16) 0 4px, rgba(191,42,58,.04) 4px 8px);
+  border-bottom: 2px solid rgba(191,42,58,.75);
+  border-radius: 3px 3px 0 0;
+  transition: height .25s ease;
+  pointer-events: none;
+}
+.well .capband[data-none="true"] { display: none; }
+.well .capband span {
+  position: absolute; bottom: 2px; right: 3px; font-family: var(--display); font-weight: 600; font-size: 12px; color: #8c1c2a; line-height: 1;
+  background: rgba(248,249,250,.85); padding: 1px 3px; border-radius: 2px;
+}
+.well input[type="range"] {
+  position: absolute; left: 24px; top: 0; height: 100%; width: calc(100% - 24px); margin: 0; padding: 0;
+  writing-mode: vertical-lr; direction: rtl;
+  -webkit-appearance: none; appearance: none; background: transparent; cursor: grab;
+}
+.well input[type="range"]:active { cursor: grabbing; }
+.well input[type="range"]:focus-visible { outline-offset: 0; }
+.well input[type="range"]::-webkit-slider-runnable-track { background: transparent; border: 0; width: 100%; height: 100%; }
+.well input[type="range"]::-moz-range-track { background: transparent; border: 0; }
+.well input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 44px; height: 26px; border-radius: 3px;
+  border: 1px solid #39444c;
+  background:
+    linear-gradient(180deg, transparent 11px, #fff 11px, #fff 13px, transparent 13px),
+    linear-gradient(180deg, color-mix(in srgb, var(--cap-color) 75%, #fff) 0%, var(--cap-color) 45%, color-mix(in srgb, var(--cap-color) 70%, #000) 100%);
+  box-shadow: 0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.well input[type="range"]::-moz-range-thumb {
+  width: 44px; height: 26px; border-radius: 3px; border: 1px solid #39444c;
+  background:
+    linear-gradient(180deg, transparent 11px, #fff 11px, #fff 13px, transparent 13px),
+    linear-gradient(180deg, var(--cap-color), var(--cap-color));
+  box-shadow: 0 2px 3px rgba(0,0,0,.35);
+}
+.well input[type="range"]:disabled { cursor: not-allowed; opacity: .55; }
+.scribble {
+  display: block; min-width: 66px; text-align: center; padding: 2px 4px; border-radius: 2px;
+  background: #fff; border: 1px solid #c4ccd1; box-shadow: inset 0 1px 1px rgba(0,0,0,.06);
+  font-family: var(--display); font-weight: 700; font-size: 19px; line-height: 1.15;
+}
+.cap-note { font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.2; min-height: 2.4em; }
+.strip.clamped .scribble { border-color: rgba(191,42,58,.7); }
+
+/* PvE / PvP toggle */
+.toggle-wrap { position: relative; width: 74px; height: 232px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.toggle-wrap .lbl { font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--ink-3); }
+.toggle-wrap .lbl.active { color: var(--ink); }
+.toggle-wrap input {
+  -webkit-appearance: none; appearance: none; margin: 0; cursor: pointer;
+  width: 34px; height: 70px; border-radius: 17px; position: relative;
+  background: linear-gradient(90deg, #c9d0d5, #eef1f3 50%, #c9d0d5); border: 1px solid #8f9aa2;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.25);
+}
+.toggle-wrap input::after {
+  content: ""; position: absolute; left: 3px; width: 26px; height: 30px; bottom: 3px; border-radius: 13px;
+  background: linear-gradient(180deg, #7c8890, #4b565e); box-shadow: 0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.3);
+  transition: bottom .15s ease;
+}
+.toggle-wrap input:checked::after { bottom: 35px; }
+
+/* lower row of the console: stat weights + talents key */
+.desk-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; margin: 14px 6px 0; padding-top: 12px; border-top: 2px solid #c6ced3; box-shadow: 0 -1px 0 #fff; align-items: start; }
+.weights h3 { font-size: 16px; color: var(--ink-2); margin-bottom: 4px; font-weight: 600; }
+.weights h3 small { font-family: var(--body); font-weight: 400; font-size: 12.5px; color: var(--ink-3); }
+.wrow { display: grid; grid-template-columns: 90px minmax(0, 1fr) 40px; align-items: center; gap: 8px; font-size: 13px; height: 19px; }
+.wrow .bar { height: 7px; background: #d7dde1; border-radius: 1px; position: relative; overflow: hidden; box-shadow: inset 0 1px 1px rgba(0,0,0,.12); }
+.wrow .bar b { position: absolute; left: 0; top: 0; bottom: 0; background: var(--wave); transition: width .25s ease; }
+.wrow.hot .bar b { background: var(--mana); }
+.wrow .v { text-align: right; font-weight: 600; }
+.keyswitch { display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 200px; }
+.keyswitch .btn { display: flex; align-items: center; gap: 10px; justify-content: flex-start; padding: 10px 14px; font-size: 17px; }
+.keyswitch p { margin: 0; font-size: 12.5px; color: var(--ink-3); max-width: 26ch; }
+
+/* ---------- paper-doll rack ---------- */
+.doll { grid-area: doll; position: relative; display: flex; flex-direction: column; }
+.doll-body { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; padding: 8px 12px 0 14px; }
+.figure-col svg { width: 112px; height: 210px; display: block; }
+.figure-col .stage-note { font-size: 11.5px; color: var(--ink-3); text-align: center; margin: 2px 0 8px; }
+dl.sheet { display: grid; grid-template-columns: auto auto; gap: 0 8px; margin: 0; font-size: 12.5px; }
+dl.sheet dt { color: var(--ink-3); }
+dl.sheet dd { margin: 0; text-align: right; font-weight: 600; }
+dl.sheet dd.changed { color: #8a5a00; }
+.rack { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(8, auto); grid-auto-flow: column; gap: 4px 6px; }
+.slot-btn {
+  width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 7px;
+  text-align: left; cursor: pointer; padding: 4px 6px 4px 4px; min-height: 46px;
+  background: #fbfcfc; border: 1px solid #c3cbd1; border-radius: 3px;
+  box-shadow: inset 0 1px 0 #fff;
+}
+.slot-btn:hover { border-color: #7f8b94; background: #fff; }
+.tile { width: 30px; height: 30px; border-radius: 3px; display: grid; place-items: center; color: #fff; position: relative; }
+.tile svg { width: 18px; height: 18px; }
+.tile.q2 { background: linear-gradient(160deg, #3aa64b, var(--q-unc)); box-shadow: inset 0 0 0 2px #1d6a2b; }
+.tile.q3 { background: linear-gradient(160deg, #3b7fe0, var(--q-rare)); box-shadow: inset 0 0 0 2px #164b96; }
+.tile.q4 { background: linear-gradient(160deg, #9558d4, var(--q-epic)); box-shadow: inset 0 0 0 2px #56258a; }
+.tile.q0 { background: #e3e7ea; color: #7d8990; box-shadow: inset 0 0 0 1px #b2bcc3; }
+.slot-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.slot-label { font-size: 11.5px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; }
+.slot-item { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-was { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flag { font-size: 11px; font-weight: 600; padding: 0 4px; border-radius: 2px; line-height: 1.35; }
+.flag.lvl { background: #fde6c8; color: #7a3d00; }
+.flag.pin { background: #dbe6f5; color: #1c467e; }
+.flag.bag { background: #dcefd9; color: #1f5a22; }
+.slot-gain { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1; white-space: nowrap; }
+.slot-gain .up { color: #1e6a2b; }
+.slot-gain .down { color: #9b2330; }
+.slot-gain .same { color: var(--ink-3); font-weight: 500; }
+.slot-btn.flash { animation: repatch .9s ease; }
+@keyframes repatch { 0% { background: #ffe9b8; border-color: var(--lamp); } 100% { background: #fbfcfc; } }
+.fig-dot { transition: fill .2s; }
+
+.log { margin: 10px 12px 12px 14px; border-top: 1px solid var(--rule); padding-top: 8px; flex: 1; min-height: 92px; }
+.log h3 { font-size: 16px; color: var(--ink-2); margin-bottom: 4px; }
+.log ol { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.log li { color: var(--ink-3); }
+.log li:first-child { color: var(--ink); }
+.log li b { font-weight: 600; }
+
+/* ---------- dialogs ---------- */
+dialog { border: 0; padding: 0; color: var(--ink); background: transparent; max-width: none; max-height: none; overflow: visible; }
+dialog::backdrop { background: rgba(40, 55, 65, .38); }
+.over-doll { position: fixed; margin: 0; }
+.sheet-panel {
+  background: linear-gradient(180deg, #fbfcfc, #eff2f4); border: 1px solid #8995a0; border-radius: 6px;
+  box-shadow: 0 18px 40px -12px rgba(20,30,40,.55), inset 0 1px 0 #fff;
+  height: 100%; display: flex; flex-direction: column; overflow: hidden;
+}
+.dlg-head { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid var(--rule); }
+.dlg-head h2 { font-size: 23px; }
+.dlg-head p { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.dlg-head .x { margin-left: auto; }
+.dlg-body { padding: 12px 16px 16px; overflow: auto; flex: 1; }
+
+/* talents */
+.seg { display: inline-flex; border: 1px solid #8f9aa2; border-radius: 4px; overflow: hidden; }
+.seg label { padding: 5px 12px; cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 15px; background: linear-gradient(#fbfcfc, #e3e7ea); display: flex; gap: 6px; align-items: center; }
+.seg label + label { border-left: 1px solid #8f9aa2; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg input:checked + label { background: linear-gradient(#34434e, #1f2a32); color: #fff; }
+.seg input:focus-visible + label { outline: 3px solid #1f62c4; outline-offset: -3px; }
+.tree { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(7, 54px); gap: 6px 10px; margin: 12px 0 8px; }
+.tal { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tal .g {
+  width: 38px; height: 38px; flex: none; border-radius: 6px; display: grid; place-items: center; position: relative;
+  font-family: var(--display); font-weight: 700; font-size: 15px; color: #fff; background: linear-gradient(160deg, #4e5d68, #2a353d);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.12);
+}
+.tal.empty .g { background: #dde2e5; color: #7f8b93; box-shadow: inset 0 0 0 1px #b8c1c7; }
+.tal.max .g { background: linear-gradient(160deg, #e3a83a, #a86a0a); }
+.tal .r { position: absolute; right: -6px; bottom: -6px; background: #fff; border: 1px solid #8f9aa2; border-radius: 3px; font-size: 11.5px; padding: 0 3px; color: var(--ink); line-height: 1.3; }
+.tal.diff .g { outline: 3px solid var(--ch-survival); outline-offset: 2px; }
+.tal .n { font-size: 12px; line-height: 1.15; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tal.empty .n { color: var(--ink-3); }
+.tal-foot { font-size: 13px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
+.tal-foot code { font-family: var(--code); font-size: 12.5px; background: #fff; border: 1px solid #ccd3d8; padding: 0 4px; border-radius: 2px; }
+
+/* picker */
+.cur { display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center; padding: 10px; background: #fff; border: 1px solid #ccd3d8; border-radius: 4px; }
+.cur .tile { width: 38px; height: 38px; }
+.cur small { color: var(--ink-3); font-size: 12.5px; }
+.alts { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.alt { display: grid; grid-template-columns: 22px 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 8px; border: 1px solid #ccd3d8; border-radius: 4px; background: #fbfcfc; }
+.alt.is-current { border-color: var(--ink-3); background: #eef2f5; }
+.alt .rank { font-family: var(--display); font-weight: 600; color: var(--ink-3); text-align: center; }
+.alt .nm { font-weight: 600; font-size: 14px; }
+.alt .src { font-size: 12.5px; color: var(--ink-2); }
+.alt .gain { font-family: var(--display); font-weight: 700; font-size: 17px; }
+.alt .acts { display: flex; gap: 6px; align-items: center; }
+.alt-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.empty-state { padding: 14px; border: 1px dashed #9aa5ad; border-radius: 4px; color: var(--ink-2); font-size: 14px; background: #fff; margin-top: 12px; }
+
+/* pawn */
+#pawn { width: min(760px, calc(100vw - 32px)); margin: auto; }
+.pawn-row { margin-bottom: 14px; }
+.pawn-row h3 { font-size: 17px; margin-bottom: 4px; }
+.pawn-row pre { margin: 0 0 6px; font-family: var(--code); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #ccd3d8; border-radius: 3px; padding: 8px 10px; }
+.copied { font-size: 13.5px; color: #1e6a2b; font-weight: 600; margin-left: 8px; }
+
+.foot { grid-area: foot; font-size: 12.5px; color: var(--ink-3); max-width: 110ch; }
+
+@media (max-width: 1180px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "time" "desk" "doll" "foot"; }
+  .timeline { grid-template-columns: minmax(0, 1fr); }
+  .readouts { border-left: 0; border-top: 1px solid var(--rule); }
+}
+@media (max-width: 620px) {
+  .app { padding: 10px; }
+  .rack { grid-template-columns: 1fr; grid-auto-flow: row; grid-template-rows: none; }
+  .doll-body { grid-template-columns: 1fr; }
+  .desk-foot { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="top">
+    <div class="who">
+      <h1>Truncha</h1>
+      <p>Orc Enhancement Shaman, level 30. Guardian's Dualblade with Windfury Weapon.</p>
+    </div>
+    <span class="mock-tag" title="Fight timeline, gear sets, survival numbers and slider caps are made up for this mockup">Mockup data</span>
+    <span class="spacer"></span>
+    <span class="wish" id="wish" aria-live="polite"><span class="lamp" id="wish-lamp" aria-hidden="true"></span><span id="wish-text">Wishlist: 0 items</span></span>
+    <button class="btn primary" id="open-pawn" type="button">Export Pawn string</button>
+  </header>
+
+  <!-- fight timeline: the recording strip -->
+  <section class="plate timeline" aria-labelledby="tl-title" id="timeline">
+    <div class="tl-main">
+      <div class="plate-head">
+        <h2 id="tl-title">Fight timeline</h2>
+        <span class="hint" id="tl-hint">Dungeon, 2:00 against a level 33 mob. Top half is the planned gear, bottom half what you wear now.</span>
+        <span class="prov" title="The sim hasn't been checked against real fight logs yet">Provisional</span>
+      </div>
+      <div class="tl-screen">
+        <svg id="tl-svg" role="img" aria-labelledby="tl-desc"><desc id="tl-desc">DPS and mana over the fight.</desc></svg>
+      </div>
+      <div class="tl-legend" aria-hidden="true">
+        <span class="key"><i style="background:var(--wave)"></i>DPS, planned gear</span>
+        <span class="key"><i style="background:var(--wave-ghost)"></i>DPS, worn gear</span>
+        <span class="key"><i style="background:var(--mana)"></i>Mana, planned</span>
+        <span class="key"><i style="background:repeating-linear-gradient(90deg,var(--mana) 0 4px,transparent 4px 7px)"></i>Mana, worn</span>
+        <span class="key"><i style="background:var(--oom);width:3px"></i>Out of mana</span>
+        <span>5-second samples, mockup data.</span>
+      </div>
+      <p class="pvp-note">PvP fights aren't simmed yet, so these are still PvE numbers.</p>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div>
+        <div class="big"><span class="num" id="r-avg">84.1</span><span class="unit">DPS</span><span class="delta" id="r-avg-d">+8.7</span></div>
+        <div class="big-cap">Average over this fight with the planned gear <span class="prov" title="The sim hasn't been checked against real fight logs yet">Provisional</span></div>
+      </div>
+      <table class="ab">
+        <thead><tr><th scope="col"><span class="sr-only">Measure</span></th><th scope="col">Worn</th><th scope="col">Planned</th></tr></thead>
+        <tbody id="ab-body"></tbody>
+      </table>
+      <div class="split-title">Where the damage comes from (worn gear, solo)</div>
+      <div class="split" id="split" role="img" aria-label="Damage split: melee 33%, Windfury 17%, Flame Shock 15%, Stormstrike 15%, Earth Shock 11%, Lightning Shield 9%"></div>
+      <div class="split-keys" id="split-keys" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- the console -->
+  <section class="plate desk" aria-labelledby="desk-title" id="desk">
+    <span class="screw-b" aria-hidden="true"></span>
+    <div class="desk-head">
+      <h2 id="desk-title">What do you want from your gear?</h2>
+      <span class="hint">Push a fader to re-plan your gear. The shaded top of a track is out of reach with the current mix.</span>
+    </div>
+    <div class="bays">
+      <div class="bay" role="group" aria-labelledby="bay-mix">
+        <h3 class="bay-title" id="bay-mix">Priorities</h3>
+        <div class="strips" id="mix-strips"></div>
+        <p class="bay-note">Healing and utility aren't simmed yet, so they don't change gear in this mockup.</p>
+      </div>
+      <div class="bay" role="group" aria-labelledby="bay-fight">
+        <h3 class="bay-title" id="bay-fight">Fight settings</h3>
+        <div class="strips" id="fight-strips"></div>
+      </div>
+    </div>
+    <div class="desk-foot">
+      <div class="weights">
+        <h3>Stat weights for this fight <small>(EP, attack power = 1; long fights make Intellect and mana/5 count)</small></h3>
+        <div id="weights"></div>
+      </div>
+      <div class="keyswitch">
+        <button class="btn" type="button" id="open-talents" aria-haspopup="dialog"><span class="lamp on" aria-hidden="true"></span>Talents</button>
+        <p>Best simmed build is one point off yours: Flurry 5/5 instead of Anticipation.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- compact paper-doll -->
+  <section class="plate doll" id="doll" aria-labelledby="doll-title">
+    <div class="plate-head">
+      <h2 id="doll-title">Planned gear</h2>
+      <span class="hint" id="doll-hint">Max damage mix. A lit lamp means the sim suggests a change from what you wear.</span>
+    </div>
+    <div class="doll-body">
+      <div class="figure-col">
+        <svg viewBox="0 0 112 210" aria-hidden="true" id="figure">
+          <defs>
+            <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa6ae"/><stop offset="1" stop-color="#6f7c85"/></linearGradient>
+          </defs>
+          <!-- original abstract figure: a broad-shouldered stance with a two-hand axe -->
+          <line x1="92" y1="18" x2="78" y2="176" stroke="#5c6870" stroke-width="4" stroke-linecap="round"/>
+          <path d="M84 20 q16 6 18 26 q-14 -2 -20 -12z" fill="#5c6870"/>
+          <circle cx="54" cy="26" r="13" fill="url(#fg)"/>
+          <path d="M22 50 q32 -14 64 0 l-6 54 h-52z" fill="url(#fg)"/>
+          <path d="M14 48 q8 -10 22 -6 l-4 16 q-12 0 -18 -10z" fill="#7d8a93"/>
+          <path d="M94 48 q-8 -10 -22 -6 l4 16 q12 0 18 -10z" fill="#7d8a93"/>
+          <path d="M20 58 l-8 52 l8 2 l10 -46z" fill="#7d8a93"/>
+          <path d="M88 58 l2 30 l-8 18 l-6 -4 l4 -40z" fill="#7d8a93"/>
+          <rect x="29" y="102" width="50" height="9" rx="2" fill="#56626a"/>
+          <path d="M30 111 h22 l-3 70 h-14z M56 111 h22 l-5 70 h-14z" fill="url(#fg)"/>
+          <path d="M33 181 h18 v9 h-22z M58 181 h17 l4 9 h-21z" fill="#56626a"/>
+          <g id="fig-dots"></g>
+        </svg>
+        <p class="stage-note">Placeholder figure. A 3D model could go here.</p>
+        <dl class="sheet" id="sheet"></dl>
+      </div>
+      <ol class="rack" id="rack"></ol>
+    </div>
+    <div class="log">
+      <h3>What changed</h3>
+      <ol id="log" aria-live="polite"></ol>
+    </div>
+  </section>
+
+  <p class="foot">Mockup data: the fight timeline, the three gear sets beyond their item names and sources, health, armor, time to die, slider caps and the equip nudges are made up to show the idea. The character sheet, talents, stat weights, item sources, Pawn strings and the 103.7 / 97.3 / 75.4 DPS sims come from the 13 November gear report. All sim numbers are provisional until they're matched to real fights.</p>
+</div>
+
+<!-- talent modal (over the paper-doll) -->
+<dialog id="talents" class="over-doll" aria-modal="true" aria-labelledby="tal-title">
+  <div class="sheet-panel">
+    <div class="dlg-head">
+      <div>
+        <h2 id="tal-title">Talents</h2>
+        <p>Enhancement, 21 points. Outlined talents are where the two builds differ.</p>
+      </div>
+      <button class="btn small x" type="button" data-close>Close</button>
+    </div>
+    <div class="dlg-body">
+      <div class="seg" role="radiogroup" aria-label="Which build to show">
+        <input type="radio" name="build" id="b-best" value="best" checked><label for="b-best">Best simmed</label>
+        <input type="radio" name="build" id="b-yours" value="yours"><label for="b-yours">Your build</label>
+      </div>
+      <div class="tree" id="tree"></div>
+      <div class="tal-foot" id="tal-foot"></div>
+    </div>
+  </div>
+</dialog>
+
+<!-- item picker (over the paper-doll) -->
+<dialog id="picker" class="over-doll" aria-modal="true" aria-labelledby="pick-title">
+  <div class="sheet-panel">
+    <div class="dlg-head">
+      <div>
+        <h2 id="pick-title">Legs</h2>
+        <p id="pick-sub">Ranked by EP against the item in this slot.</p>
+      </div>
+      <button class="btn small x" type="button" data-close>Close</button>
+    </div>
+    <div class="dlg-body" id="pick-body"></div>
+  </div>
+</dialog>
+
+<!-- pawn export -->
+<dialog id="pawn" aria-modal="true" aria-labelledby="pawn-title">
+  <div class="sheet-panel">
+    <div class="dlg-head">
+      <div>
+        <h2 id="pawn-title">Export Pawn strings</h2>
+        <p>In game, open Pawn, then Scale, then Import, and paste one string at a time. Keep both scales visible.</p>
+      </div>
+      <button class="btn small x" type="button" data-close>Close</button>
+    </div>
+    <div class="dlg-body" id="pawn-body"></div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- data ----------
+  const SLOTS = [
+    ['head', 'Head'], ['neck', 'Neck'], ['shoulder', 'Shoulder'], ['back', 'Back'],
+    ['chest', 'Chest'], ['wrist', 'Wrist'], ['hands', 'Hands'], ['waist', 'Waist'],
+    ['legs', 'Legs'], ['feet', 'Feet'], ['finger1', 'Finger 1'], ['finger2', 'Finger 2'],
+    ['trinket1', 'Trinket 1'], ['trinket2', 'Trinket 2'], ['twohand', 'Two-hand'], ['totem', 'Totem'],
+  ];
+  const LEVEL = 30;
+  // name -> { score (EP, or solo DPS for two-handers), lvl, src, q }
+  const I = {};
+  const add = (pool, name, lvl, score, src, q = 3) => { I[name] = { name, pool, lvl, score, src, q }; };
+  // worn
+  add('head', "Brawler's Leather Hood", 26, 7.3, 'Worn');
+  add('neck', "Archmagister's Faceted Pendant", 30, 19.0, 'Worn');
+  add('shoulder', "Serpent's Shoulders", 24, 4.5, 'Worn');
+  add('back', 'Unnamed cloak (279848)', 0, 10.0, 'Worn, not in sim data', 2);
+  add('chest', "Trapper's Leather Tunic", 25, 14.2, 'Worn', 2);
+  add('wrist', 'Unnamed bracers (279875)', 0, 2.8, 'Worn, not in sim data', 2);
+  add('hands', 'Toughened Leather Gloves', 25, 17.4, 'Worn', 2);
+  add('waist', "Trapper's Leather Belt", 25, 7.1, 'Worn', 2);
+  add('legs', "Trapper's Leather Legguards", 25, 16.3, 'Worn', 2);
+  add('feet', 'Unnamed boots (251963)', 0, 4.6, 'Worn, not in sim data', 2);
+  add('finger', 'Seal of Sylvanas', 20, 4.6, 'Worn');
+  add('finger', 'Unnamed ring (6748)', 0, 4.6, 'Worn, not in sim data', 2);
+  add('twohand', "Guardian's Dualblade", 28, 103.7, 'Worn. 27.9 DPS, 3.5 speed');
+  add('totem', 'Unnamed totem (263412)', 0, 0, 'Worn, not in sim data', 2);
+  // alternatives (report: gear you can wear now or by level 33)
+  add('head', "Defender's Leather Helm", 25, 24.0, 'Crafted: Leatherworking; world drop');
+  add('head', 'Dokebi Hat', 30, 20.7, 'Source unknown');
+  add('head', 'Hyena Hide Helm', 31, 20.0, 'Source unknown');
+  add('head', 'Enduring Cap', 28, 18.5, 'Source unknown');
+  add('head', "Enchanter's Cowl", 28, 18.4, 'Crafted: Tailoring');
+  add('neck', 'Choker of the Fire Lord', 1, 20.7, 'Source unknown');
+  add('neck', 'Mark of the Marsh', 28, 17.3, 'Source unknown');
+  add('neck', 'Kaleidoscope Chain', 30, 16.2, 'Source unknown');
+  add('neck', 'Mark of the Pack Leader', 20, 15.8, 'Source unknown');
+  add('shoulder', 'Batwing Mantle', 29, 22.3, 'Blind Hunter, Razorfen Kraul');
+  add('shoulder', 'Green Silken Shoulders', 31, 21.9, 'Crafted: Tailoring');
+  add('shoulder', 'Bloodmage Mantle', 30, 20.7, 'Bloodmage Thalnos, Scarlet Monastery');
+  add('shoulder', 'Forest Tracker Epaulets', 26, 20.0, 'Source unknown');
+  add('shoulder', 'Death Speaker Mantle', 27, 19.6, 'Death Speaker Jargba, Razorfen Kraul');
+  add('shoulder', 'Berylline Pads', 24, 11.5, 'In your bags', 2);
+  add('back', "Sergeant Major's Cape", 25, 16.2, 'PvP reward');
+  add('back', 'Tattered Kirin Tor Cloak', 28, 16.0, 'Source unknown');
+  add('back', 'Dragonmaw Battle Shroud', 27, 14.0, 'Source unknown');
+  add('back', 'Crocolisk Skin Gaiter', 25, 13.6, 'Source unknown');
+  add('back', 'Long Silken Cloak', 32, 12.7, 'Crafted: Tailoring');
+  add('chest', 'Robe of Power', 33, 29.9, 'Crafted: Tailoring');
+  add('chest', 'Totemic Leather Tunic', 22, 29.8, 'Crafted: Leatherworking');
+  add('chest', 'Spirewind Fetter', 30, 27.9, 'Trash, Uldaman');
+  add('chest', "Violet Sorcerer's Robes", 27, 27.6, 'Source unknown');
+  add('chest', 'Garb of Florid Feathers', 26, 25.5, 'Source unknown');
+  add('wrist', 'Green Whelp Bracers', 33, 19.6, 'Crafted: Leatherworking');
+  add('wrist', 'Graveweave Bindings', 26, 17.7, 'Source unknown');
+  add('wrist', 'Glowing Magical Bracelets', 26, 15.2, 'Source unknown');
+  add('wrist', "Hawkeye's Bracers", 30, 13.4, 'Source unknown');
+  add('wrist', "Bands of Serra'kis", 22, 12.0, "Old Serra'kis, Blackfathom Deeps");
+  add('hands', 'Gloves of the Greatfather', 33, 39.0, 'Crafted: Leatherworking');
+  add('hands', 'Dog Training Gloves', 31, 24.0, 'Houndmaster Loksey, Scarlet Monastery');
+  add('hands', "Violet Sorcerer's Wraps", 28, 23.9, 'Source unknown');
+  add('hands', 'Glyphed Mitts', 33, 22.3, 'Source unknown');
+  add('hands', 'Insignia Gloves', 29, 19.4, 'Source unknown');
+  add('waist', "Skirmisher's Leather Belt", 30, 30.7, 'Crafted: Leatherworking');
+  add('waist', "Prowler's Leather Belt", 30, 28.1, 'Crafted: Leatherworking');
+  add('waist', 'Demolition Girdle', 24, 26.3, 'Kam Deepfury, The Stockade');
+  add('waist', "Defiler's Leather Girdle", 28, 24.0, 'Reputation reward, Rutherford Twing');
+  add('legs', 'Ferine Leggings', 29, 39.9, 'Agathelos the Raging, Razorfen Kraul');
+  add('legs', 'Totemic Leather Leggings', 25, 34.1, 'Crafted: Leatherworking');
+  add('legs', 'Kodohide Legguards', 24, 32.2, 'Brontus, The Barrens');
+  add('legs', 'Totemic Leather Pants', 20, 30.7, 'Crafted: Leatherworking');
+  add('legs', "Violet Sorcerer's Leggings", 29, 28.8, 'Source unknown');
+  add('feet', "Shapeshifting Sentinel's Strides", 24, 23.3, 'Source unknown');
+  add('feet', 'Fiery Slippers', 30, 23.0, 'Crafted: Tailoring');
+  add('feet', 'Renewing Footpads', 1, 17.3, 'Source unknown');
+  add('feet', 'Totemic Leather Boots', 17, 16.9, 'Crafted: Leatherworking');
+  add('feet', 'Gilded Slippers', 30, 16.1, 'Crafted: Tailoring');
+  add('finger', 'Quick Strike Ring', 1, 23.8, 'Source unknown');
+  add('finger', 'Mark of Kern', 31, 20.0, 'Trash, Scarlet Monastery');
+  add('finger', 'Wyvern Heart Band', 29, 19.5, 'Heartrazor, Thousand Needles');
+  add('finger', 'Thunderbrow Ring', 24, 18.7, 'Source unknown');
+  add('finger', 'Ring of Spell Power', 1, 18.4, 'Source unknown');
+  add('twohand', 'Corpsemaker', 29, 109.7, 'Overlord Ramtusk, Razorfen Kraul. 29.0 DPS, 3.8 speed');
+  add('twohand', 'Ancient Cleaver', 28, 108.5, 'Source unknown. 27.9 DPS, 3.6 speed');
+  add('twohand', "Thermaplugg's Left Arm", 31, 107.7, 'Mekgineer Thermaplugg, Gnomeregan. 31.4 DPS, 2.7 speed');
+  add('twohand', 'Massive Iron Axe', 32, 102.7, 'Crafted: Blacksmithing. 25.7 DPS, 3.5 speed');
+  add('twohand', 'Burning War Axe', 28, 102.3, 'Source unknown. 27.9 DPS, 3.3 speed');
+
+  const poolOf = (slot) => slot.startsWith('finger') ? 'finger' : slot.startsWith('trinket') ? 'trinket' : slot;
+
+  const WORN = {
+    head: "Brawler's Leather Hood", neck: "Archmagister's Faceted Pendant", shoulder: "Serpent's Shoulders",
+    back: 'Unnamed cloak (279848)', chest: "Trapper's Leather Tunic", wrist: 'Unnamed bracers (279875)',
+    hands: 'Toughened Leather Gloves', waist: "Trapper's Leather Belt", legs: "Trapper's Leather Legguards",
+    feet: 'Unnamed boots (251963)', finger1: 'Seal of Sylvanas', finger2: 'Unnamed ring (6748)',
+    trinket1: null, trinket2: null, twohand: "Guardian's Dualblade", totem: 'Unnamed totem (263412)',
+  };
+  const SETS = {
+    worn: { label: 'Worn gear', solo: 103.7, d2: 75.4, hp: 1375, armor: 952, oom: 48, ttd: 36, pool: 1660, items: WORN },
+    dmg: { label: 'Max damage', solo: 118.4, d2: 84.1, hp: 1310, armor: 1010, oom: 57, ttd: 31, pool: 1745,
+      items: { ...WORN, head: "Defender's Leather Helm", neck: 'Choker of the Fire Lord', shoulder: 'Batwing Mantle',
+        back: "Sergeant Major's Cape", chest: 'Totemic Leather Tunic', wrist: 'Graveweave Bindings',
+        hands: 'Gloves of the Greatfather', waist: "Skirmisher's Leather Belt", legs: 'Ferine Leggings',
+        feet: "Shapeshifting Sentinel's Strides", finger1: 'Quick Strike Ring', finger2: 'Mark of Kern', twohand: 'Corpsemaker' } },
+    hyb: { label: 'Damage and survival', solo: 111.0, d2: 80.2, hp: 1545, armor: 1290, oom: 52, ttd: 42, pool: 1700,
+      items: { ...WORN, head: 'Hyena Hide Helm', neck: 'Choker of the Fire Lord', shoulder: 'Batwing Mantle',
+        back: 'Dragonmaw Battle Shroud', chest: 'Totemic Leather Tunic', wrist: 'Graveweave Bindings',
+        hands: 'Gloves of the Greatfather', waist: "Defiler's Leather Girdle", legs: 'Kodohide Legguards',
+        feet: "Shapeshifting Sentinel's Strides", finger1: 'Quick Strike Ring', finger2: 'Wyvern Heart Band', twohand: 'Ancient Cleaver' } },
+    surv: { label: 'Max survival', solo: 99.2, d2: 72.5, hp: 1790, armor: 1620, oom: 45, ttd: 58, pool: 1630,
+      items: { ...WORN, head: 'Enduring Cap', neck: 'Mark of the Marsh', shoulder: 'Death Speaker Mantle',
+        back: 'Dragonmaw Battle Shroud', chest: 'Totemic Leather Tunic', wrist: "Bands of Serra'kis",
+        hands: 'Dog Training Gloves', waist: "Defiler's Leather Girdle", legs: 'Kodohide Legguards',
+        feet: 'Totemic Leather Boots', finger1: 'Thunderbrow Ring', finger2: 'Wyvern Heart Band', twohand: 'Massive Iron Axe' } },
+  };
+
+  const SPLIT = [['Melee', 33, '#24323c'], ['Windfury', 17, '#5b6d7a'], ['Flame Shock', 15, '#cc4b24'],
+    ['Stormstrike', 15, '#2361b0'], ['Earth Shock', 11, '#8a6a1c'], ['Lightning Shield', 9, '#7fa4cf']];
+
+  // EP weights: solo 30 s (real) and dungeon 2 min (real); interpolated by fight length (interpolation is mockup)
+  const W_SHORT = { Strength: 2.00, Agility: 0.94, Intellect: 1.15, Spirit: 0, 'Hit rating': 1.39, 'Crit rating': 0.80, 'Spell damage': 1.41, 'Mana per 5 s': 0 };
+  const W_LONG = { Strength: 2.00, Agility: 1.02, Intellect: 4.04, Spirit: 0.94, 'Hit rating': 1.69, 'Crit rating': 0.98, 'Spell damage': 0.80, 'Mana per 5 s': 3.89 };
+  const MISS = { 31: 5.5, 32: 6.0, 33: 8.0 };
+  const LEVEL_FACTOR = { 31: 1.066, 32: 1.03, 33: 1 };
+
+  const PAWN = [
+    ['Solo', '( Pawn: v1: "Enh solo L30 (provisional)": Strength=2.00, Agility=0.94, Intellect=1.15, Ap=1.00, HitRating=1.39, CritRating=0.80, SpellDamage=1.41, MeleeDps=14.19 )'],
+    ['Dungeon', '( Pawn: v1: "Enh dungeon L30 (provisional)": Strength=2.00, Agility=0.88, Intellect=1.16, Ap=1.00, HitRating=1.31, CritRating=0.85, SpellDamage=0.89, MeleeDps=14.18 )'],
+  ];
+
+  // talents (placeholder layout); [name, glyph, max, yours, row, col]
+  const TALENTS = [
+    ['Ancestral Knowledge', 'AK', 5, 5, 1, 2], ['Shield Specialization', 'SS', 5, 0, 1, 3],
+    ['Guardian Totems', 'GT', 2, 0, 2, 1], ['Thundering Strikes', 'TS', 5, 2, 2, 2], ['Improved Ghost Wolf', 'GW', 2, 0, 2, 3], ['Improved Lightning Shield', 'LS', 3, 0, 2, 4],
+    ['Enhancing Totems', 'ET', 2, 0, 3, 1], ['Two-Handed Axes and Maces', '2H', 1, 0, 3, 2], ['Anticipation', 'An', 3, 1, 3, 3],
+    ['Mental Dexterity', 'MD', 3, 3, 4, 1], ['Flurry', 'Fl', 5, 4, 4, 2], ['Toughness', 'To', 5, 0, 4, 3],
+    ['Improved Weapon Totems', 'WT', 2, 0, 5, 1], ['Shamanistic Focus', 'SF', 1, 1, 5, 2], ['Elemental Weapons', 'EW', 3, 3, 5, 3],
+    ['Weapon Mastery', 'WM', 5, 0, 6, 2], ['Improved Stormstrike', 'IS', 2, 1, 6, 3],
+    ['Stormstrike', 'St', 1, 1, 7, 2],
+  ];
+  const BEST = { Anticipation: 0, Flurry: 5 };
+
+  const GLYPH = {
+    head: '<path d="M3 11a6 6 0 0 1 12 0v2H3z" fill="currentColor"/>',
+    neck: '<path d="M3 3q6 9 12 0" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="12" r="3" fill="currentColor"/>',
+    shoulder: '<path d="M2 12q1-7 7-7t7 7z" fill="currentColor"/>',
+    back: '<path d="M5 2h8l2 14H3z" fill="currentColor"/>',
+    chest: '<path d="M3 4l4-2h4l4 2-1 12H4z" fill="currentColor"/>',
+    wrist: '<rect x="4" y="5" width="10" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>',
+    hands: '<path d="M5 16V7l2-4v6l1-6h2v6l1-5h2v8l-1 4z" fill="currentColor"/>',
+    waist: '<rect x="2" y="6" width="14" height="6" rx="1" fill="currentColor"/><rect x="7" y="7" width="4" height="4" fill="#fff" opacity=".7"/>',
+    legs: '<path d="M4 2h10l-1 14h-3L9 7l-1 9H5z" fill="currentColor"/>',
+    feet: '<path d="M5 2h4v8l6 3v3H3z" fill="currentColor"/>',
+    finger: '<circle cx="9" cy="10" r="5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M7 2h4l-2 3z" fill="currentColor"/>',
+    trinket: '<path d="M9 2l6 7-6 7-6-7z" fill="none" stroke="currentColor" stroke-width="2"/>',
+    twohand: '<path d="M4 16L13 3" stroke="currentColor" stroke-width="2.2"/><path d="M10 2q6 0 6 7-4-1-7-4z" fill="currentColor"/>',
+    totem: '<rect x="6" y="2" width="6" height="14" rx="1" fill="currentColor"/><rect x="3" y="5" width="12" height="3" fill="currentColor"/>',
+  };
+  const FIG_DOT = { head: [54, 24], neck: [54, 42], shoulder: [24, 50], back: [84, 62], chest: [54, 70], wrist: [17, 100],
+    hands: [86, 100], waist: [54, 106], legs: [44, 140], feet: [66, 186], finger1: [12, 112], finger2: [84, 110],
+    trinket1: [38, 88], trinket2: [70, 88], twohand: [94, 30], totem: [30, 106] };
+
+  // ---------- state ----------
+  const state = {
+    mix: { damage: 100, survival: 0, healing: 0, utility: 0 },
+    level: 33, length: 120, mana: 2000, manaFull: true, gap: 15, pvp: false,
+    set: 'dmg', pinned: {}, // slot -> item name chosen by the person
+    wish: new Set(), build: 'best',
+  };
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, attrs = {}, html = '') => { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (html) e.innerHTML = html; return e; };
+  const fmtTime = (s) => { const m = Math.floor(s / 60); const r = Math.round(s - m * 60); return r === 60 ? `${m + 1}:00` : `${m}:${String(r).padStart(2, '0')}`; };
+  const f1 = (n) => n.toFixed(1);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const pw = (x, pts) => { // piecewise linear over [[x,y],...] sorted by x
+    if (x <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i]; return lerp(y0, y1, (x - x0) / (x1 - x0)); }
+    return pts[pts.length - 1][1];
+  };
+
+  // ---------- caps (fake, the point is that they move) ----------
+  function caps() {
+    const d = state.mix.damage, s = state.mix.survival;
+    return {
+      damage: Math.round(pw(s, [[35, 100], [75, 75], [100, 45]])),
+      survival: Math.round(pw(d, [[45, 100], [75, 75], [100, 35]])),
+      healing: Math.round(pw(d, [[45, 70], [75, 45], [100, 20]])),
+      utility: Math.round(pw(d, [[45, 75], [75, 60], [100, 40]])),
+    };
+  }
+  function pickSet() {
+    const { damage: d, survival: s } = state.mix;
+    const m = d + s === 0 ? 0 : s / (d + s);
+    return m < 0.3 ? 'dmg' : m <= 0.62 ? 'hyb' : 'surv';
+  }
+  const plannedItems = () => ({ ...SETS[state.set].items, ...state.pinned });
+  // mockup nudge: each pinned pick moves solo DPS by its score difference (EP x 0.08, weapons 1:1)
+  function nudge() {
+    let n = 0;
+    for (const slot in state.pinned) {
+      const base = SETS[state.set].items[slot];
+      const d = I[state.pinned[slot]].score - (base ? I[base].score : 0);
+      n += slot === 'twohand' ? d : d * 0.08;
+    }
+    return n;
+  }
+
+  // ---------- fight model (mockup) ----------
+  function noise(seed, n) {
+    let x = seed; const out = [];
+    for (let i = 0; i < n; i++) { x = (x * 9301 + 49297) % 233280; out.push(x / 233280 - 0.5); }
+    const mean = out.reduce((a, b) => a + b, 0) / n; return out.map((v) => v - mean);
+  }
+  function run(setKey, extraSolo = 0) {
+    const S = SETS[setKey];
+    const solo = S.solo + extraSolo;
+    const P0 = 100 * S.solo / 103.7;
+    const Q0 = (S.d2 * 120 - P0 * S.oom) / (120 - S.oom);
+    const k = solo / S.solo;
+    const lf = LEVEL_FACTOR[state.level];
+    const P = P0 * k * lf, Q = Q0 * k * lf;
+    const start = Math.min(state.manaFull ? S.pool : state.mana, S.pool);
+    const oom = Math.max(6, S.oom + (start - S.pool) / 40 + (state.gap - 15) * 0.25);
+    const L = state.length, n = L / 5;
+    const nz = noise(setKey === 'worn' ? 7 : 31, n), mz = noise(setKey === 'worn' ? 3 : 17, n + 1);
+    const dps = [], mana = [];
+    for (let i = 0; i < n; i++) {
+      const t0 = i * 5, t1 = t0 + 5;
+      let v;
+      if (t1 <= oom) v = P * (1 + nz[i] * 0.14);
+      else if (t0 >= oom) v = Q * (1 + nz[i] * 0.12);
+      else v = (P * (oom - t0) + Q * (t1 - oom)) / 5;
+      dps.push(v);
+    }
+    for (let i = 0; i <= n; i++) {
+      const t = i * 5;
+      mana.push(t < oom ? start * (1 - t / oom) : Math.max(0, 30 + mz[i] * 60));
+    }
+    const avg = dps.reduce((a, b) => a + b, 0) / n;
+    return { avg, dps, mana, oom, ran: oom < L, solo, start, S };
+  }
+
+  // ---------- timeline svg ----------
+  const svg = $('#tl-svg');
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  function drawTimeline(planned, worn) {
+    const W = svg.clientWidth || 900, H = 236;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    [...svg.querySelectorAll(':scope > :not(desc)')].forEach((n) => n.remove());
+    const gl = 74, gr = 14, L = state.length;
+    const x = (t) => gl + (t / L) * (W - gl - gr);
+    const RULER = 26, DTOP = 34, DH = 124, DMID = DTOP + DH / 2, MTOP = 170, MH = 52;
+    const g = sv('g', {});
+    // lanes
+    g.append(sv('rect', { x: gl, y: DTOP, width: W - gl - gr, height: DH, fill: '#ffffff', stroke: '#d3dadf' }));
+    g.append(sv('rect', { x: gl, y: MTOP, width: W - gl - gr, height: MH, fill: '#ffffff', stroke: '#d3dadf' }));
+    g.append(sv('line', { x1: gl, x2: W - gr, y1: DMID, y2: DMID, stroke: '#b7c0c6' }));
+    // ruler
+    const step = L <= 150 ? 15 : 30, lab = L <= 150 ? 30 : 60;
+    for (let t = 0; t <= L; t += step) {
+      const major = t % lab === 0;
+      g.append(sv('line', { x1: x(t), x2: x(t), y1: major ? RULER - 9 : RULER - 5, y2: RULER, stroke: '#6a7680' }));
+      g.append(sv('line', { x1: x(t), x2: x(t), y1: DTOP, y2: MTOP + MH, stroke: '#e6eaed' }));
+      if (major) { const tx = sv('text', { x: x(t) + 3, y: RULER - 12 }); tx.textContent = fmtTime(t); g.append(tx); }
+    }
+    g.append(sv('line', { x1: gl, x2: W - gr, y1: RULER, y2: RULER, stroke: '#6a7680' }));
+    // lane labels
+    const lbl = (txt, y, cls = 'lane-label') => { const t = sv('text', { x: 10, y, class: cls }); t.textContent = txt; g.append(t); };
+    lbl('DPS', DTOP + 16); lbl('Planned', DTOP + 34, ''); lbl('Worn', DTOP + DH - 8, '');
+    lbl('Mana', MTOP + 16);
+    // dps waveform: planned up, worn down
+    const amp = (v) => (Math.min(v, 140) / 140) * (DH / 2 - 4);
+    const n = planned.dps.length, bw = Math.max(2, ((W - gl - gr) / n) * 0.72);
+    for (let i = 0; i < n; i++) {
+      const cx = x(i * 5 + 2.5) - bw / 2;
+      const a = amp(planned.dps[i]), b = amp(worn.dps[i]);
+      g.append(sv('rect', { x: cx, y: DMID - a, width: bw, height: a, rx: Math.min(2, bw / 3), fill: 'var(--wave)' }));
+      g.append(sv('rect', { x: cx, y: DMID, width: bw, height: b, rx: Math.min(2, bw / 3), fill: 'var(--wave-ghost)' }));
+    }
+    // mana lines
+    const my = (m) => MTOP + MH - 3 - (Math.min(m, 2000) / 2000) * (MH - 8);
+    const path = (arr) => arr.map((m, i) => `${i ? 'L' : 'M'}${x(i * 5).toFixed(1)},${my(m).toFixed(1)}`).join(' ');
+    g.append(sv('path', { d: path(planned.mana) + ` L${x(L)},${MTOP + MH} L${x(0)},${MTOP + MH} Z`, fill: 'rgba(35,97,176,.12)' }));
+    g.append(sv('path', { d: path(worn.mana), fill: 'none', stroke: 'var(--mana)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3' }));
+    g.append(sv('path', { d: path(planned.mana), fill: 'none', stroke: 'var(--mana)', 'stroke-width': 2.2 }));
+    // out-of-mana markers
+    const tag = (t, label, y, solid) => {
+      const xx = x(t);
+      g.append(sv('line', { x1: xx, x2: xx, y1: y, y2: MTOP + MH, stroke: solid ? 'var(--oom)' : 'rgba(191,42,58,.6)', 'stroke-width': solid ? 2 : 1.5, 'stroke-dasharray': solid ? '' : '3 3' }));
+      const tw = label.length * 6.6 + 14;
+      const right = xx + tw > W - gr;
+      const rx = right ? xx - tw : xx;
+      g.append(sv('rect', { x: rx, y: y - 1, width: tw, height: 19, rx: 2, fill: solid ? 'var(--oom)' : '#9c5a63' }));
+      const tx = sv('text', { x: rx + 7, y: y + 13, class: 'tag-text' }); tx.textContent = label; g.append(tx);
+    };
+    if (worn.ran) tag(worn.oom, `Worn: out of mana at ${fmtTime(worn.oom)}`, MTOP + MH - 20, false);
+    if (planned.ran) tag(planned.oom, `Planned: out of mana at ${fmtTime(planned.oom)}`, 2, true);
+    svg.append(g);
+    $('#tl-desc').textContent = `DPS and mana over a ${fmtTime(L)} fight. Planned gear averages ${f1(planned.avg)} DPS` +
+      (planned.ran ? ` and runs out of mana at ${fmtTime(planned.oom)}` : ' and keeps mana the whole fight') +
+      `. Worn gear averages ${f1(worn.avg)} DPS` + (worn.ran ? ` and runs out of mana at ${fmtTime(worn.oom)}.` : ' and keeps mana the whole fight.');
+  }
+
+  // ---------- readouts ----------
+  let lastPlanned = null;
+  function renderReadouts(planned, worn) {
+    const d = planned.avg - worn.avg;
+    $('#r-avg').textContent = f1(planned.avg);
+    const dd = $('#r-avg-d'); dd.textContent = (d >= 0 ? '+' : '') + f1(d) + ' vs worn'; dd.classList.toggle('neg', d < 0);
+    const P = planned.S, Wn = worn.S;
+    const rows = [
+      ['Average DPS, this fight', f1(worn.avg), f1(planned.avg)],
+      ['Solo, 30 s vs level 31', f1(worn.solo), f1(planned.solo)],
+      ['Runs out of mana', worn.ran ? fmtTime(worn.oom) : 'Never', planned.ran ? fmtTime(planned.oom) : 'Never'],
+      ['Health', String(Wn.hp), String(P.hp)],
+      ['Armor', String(Wn.armor), String(P.armor)],
+      ['Time to die, level 33 elite', `${Wn.ttd} s`, `${P.ttd} s`],
+      ['Melee miss, no hit', `${f1(MISS[state.level])}%`, `${f1(MISS[state.level])}%`],
+    ];
+    const prev = lastPlanned;
+    $('#ab-body').innerHTML = rows.map((r, i) => `<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td class="p${prev && prev[i] !== r[2] ? ' changed' : ''}">${r[2]}</td></tr>`).join('');
+    lastPlanned = rows.map((r) => r[2]);
+    $('#tl-hint').textContent = `${state.pvp ? 'PvP setting, PvE numbers' : 'Dungeon'}, ${fmtTime(state.length)} against a level ${state.level} mob. Top half is the planned gear, bottom half what you wear now.`;
+  }
+  function renderSplit() {
+    $('#split').innerHTML = SPLIT.map(([n, p, c]) => `<span style="width:${p}%;background:${c}" title="${n} ${p}%"></span>`).join('');
+    $('#split-keys').innerHTML = SPLIT.map(([n, p, c]) => `<span><i style="background:${c}"></i>${n} ${p}%</span>`).join('');
+  }
+
+  // ---------- stat weights ----------
+  function renderWeights() {
+    const t = Math.max(0, Math.min(1, (state.length - 30) / 90));
+    $('#weights').innerHTML = Object.keys(W_SHORT).map((k) => {
+      const v = lerp(W_SHORT[k], W_LONG[k], t);
+      const hot = (k === 'Intellect' || k === 'Mana per 5 s') && t > 0.3;
+      return `<div class="wrow${hot ? ' hot' : ''}"><span>${k}</span><span class="bar"><b style="width:${(v / 4.2) * 100}%"></b></span><span class="v">${v.toFixed(2)}</span></div>`;
+    }).join('');
+  }
+
+  // ---------- sheet ----------
+  function renderSheet() {
+    const S = SETS[state.set];
+    const rows = [['Strength', 73], ['Agility', 96], ['Stamina', 122], ['Intellect', 85], ['Spirit', 103],
+      ['Attack power', 289], ['Melee crit', '11.95%'], ['Health', S.hp, S.hp !== 1375], ['Armor', S.armor, S.armor !== 952], ['Mana', S.pool, S.pool !== 1660]];
+    $('#sheet').innerHTML = rows.map(([k, v, c]) => `<dt>${k}</dt><dd class="${c ? 'changed' : ''}">${v}</dd>`).join('');
+  }
+
+  // ---------- rack ----------
+  function deltaFor(slot, name) {
+    const w = WORN[slot];
+    if (!name || !w) return null;
+    if (name === w) return 0;
+    return I[name].score - I[w].score;
+  }
+  function renderRack(changedSlots = []) {
+    const items = plannedItems();
+    const rack = $('#rack');
+    rack.innerHTML = '';
+    const dots = $('#fig-dots'); dots.innerHTML = '';
+    for (const [slot, label] of SLOTS) {
+      const name = items[slot];
+      const it = name ? I[name] : null;
+      const d = deltaFor(slot, name);
+      const changed = name && name !== WORN[slot];
+      const unit = slot === 'twohand' ? 'DPS' : 'EP';
+      const flags = [];
+      if (it && it.lvl > LEVEL) flags.push(`<span class="flag lvl">Needs level ${it.lvl}</span>`);
+      if (state.pinned[slot]) flags.push('<span class="flag pin">Your pick</span>');
+      if (it && it.src === 'In your bags') flags.push('<span class="flag bag">In your bags</span>');
+      let gain;
+      if (!name) gain = '<span class="same">Empty</span>';
+      else if (!changed) gain = '<span class="same">Worn</span>';
+      else gain = `<span class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '+' : ''}${f1(d)} ${unit}</span>`;
+      const li = el('li');
+      const b = el('button', { type: 'button', class: 'slot-btn', id: `slot-${slot}`, 'data-slot': slot, 'aria-haspopup': 'dialog' });
+      const ariaBits = [label, name || 'nothing equipped', changed ? `suggested change, ${d >= 0 ? 'plus' : 'minus'} ${f1(Math.abs(d))} ${unit}, replaces ${WORN[slot]}` : (name ? 'same as worn' : '')];
+      if (it && it.lvl > LEVEL) ariaBits.push(`needs level ${it.lvl}`);
+      b.setAttribute('aria-label', ariaBits.filter(Boolean).join(', '));
+      b.innerHTML = `<span class="tile ${it ? 'q' + it.q : 'q0'}" aria-hidden="true"><svg viewBox="0 0 18 18">${GLYPH[poolOf(slot)]}</svg></span>
+        <span class="slot-text"><span class="slot-label">${label}${flags.join('')}</span>
+          <span class="slot-item">${name ? esc(name) : 'Nothing equipped'}</span>
+          ${changed ? `<span class="slot-was">Replaces ${esc(WORN[slot])}</span>` : ''}</span>
+        <span class="slot-gain"><span class="lamp${changed && d > 0 ? ' on' : ''}" aria-hidden="true"></span>${gain}</span>`;
+      if (changedSlots.includes(slot)) b.classList.add('flash');
+      li.append(b); rack.append(li);
+      const [fx, fy] = FIG_DOT[slot];
+      dots.append(sv('circle', { cx: fx, cy: fy, r: 3.6, class: 'fig-dot', fill: changed && d > 0 ? 'var(--lamp)' : '#e8ecee', stroke: '#3a454d', 'stroke-width': 1 }));
+    }
+    const S = SETS[state.set];
+    const n = SLOTS.filter(([s]) => items[s] && items[s] !== WORN[s]).length;
+    $('#doll-hint').textContent = `${S.label} mix, ${n} slots differ from what you wear. A lit lamp means the sim suggests an upgrade there.`;
+  }
+
+  // ---------- log ----------
+  const logEntries = [];
+  function log(html) {
+    logEntries.unshift(html);
+    if (logEntries.length > 4) logEntries.length = 4;
+    $('#log').innerHTML = logEntries.map((h) => `<li>${h}</li>`).join('');
+  }
+
+  // ---------- faders ----------
+  const MIX = [
+    ['damage', 'Damage', 'var(--ch-damage)'], ['survival', 'Survival', 'var(--ch-survival)'],
+    ['healing', 'Healing', 'var(--ch-healing)'], ['utility', 'Utility', 'var(--ch-utility)'],
+  ];
+  function scaleHtml(labels) {
+    return labels.map((t, i) => `<span style="top:calc(13px + ${i / (labels.length - 1)} * (100% - 26px))">${t}</span>`).join('');
+  }
+  function makeStrip({ id, name, color, min, max, step, value, labels, cap = true }) {
+    const s = el('div', { class: 'strip', id: `strip-${id}`, style: `--cap-color:${color}` });
+    s.innerHTML = `<span class="strip-top"><span class="lamp" id="lamp-${id}" aria-hidden="true"></span><label class="strip-name" for="f-${id}">${name}</label></span>
+      <div class="well" id="well-${id}">
+        <div class="scale" aria-hidden="true">${scaleHtml(labels)}</div>
+        <div class="groove" aria-hidden="true"></div>
+        <div class="capband" aria-hidden="true" data-none="${!cap}"><span></span></div>
+        <input type="range" id="f-${id}" min="${min}" max="${max}" step="${step}" value="${value}" aria-describedby="cap-${id}">
+      </div>
+      <output class="scribble" id="out-${id}" for="f-${id}"></output>
+      <span class="cap-note" id="cap-${id}"></span>`;
+    return s;
+  }
+  const mixWrap = $('#mix-strips');
+  for (const [id, name, color] of MIX) {
+    mixWrap.append(makeStrip({ id, name, color, min: 0, max: 100, step: 5, value: state.mix[id], labels: [100, 75, 50, 25, 0] }));
+  }
+  const fightWrap = $('#fight-strips');
+  fightWrap.append(makeStrip({ id: 'level', name: 'Enemy level', color: 'var(--ch-setting)', min: 31, max: 33, step: 1, value: 33, labels: [33, 32, 31], cap: false }));
+  fightWrap.append(makeStrip({ id: 'length', name: 'Fight length', color: 'var(--ch-setting)', min: 30, max: 300, step: 15, value: 120, labels: ['5:00', '3:45', '2:30', '1:15', '0:30'], cap: false }));
+  fightWrap.append(makeStrip({ id: 'mana', name: 'Starting mana', color: 'var(--mana)', min: 400, max: 2000, step: 20, value: 2000, labels: [2000, 1600, 1200, 800, 400] }));
+  fightWrap.append(makeStrip({ id: 'gap', name: 'Time between pulls', color: 'var(--ch-setting)', min: 0, max: 60, step: 5, value: 15, labels: ['60 s', '45 s', '30 s', '15 s', '0 s'], cap: false }));
+  const pvpStrip = el('div', { class: 'strip' });
+  pvpStrip.innerHTML = `<span class="strip-top"><span class="lamp red" id="lamp-pvp" aria-hidden="true"></span><label class="strip-name" for="f-pvp">Fight type</label></span>
+    <div class="toggle-wrap"><span class="lbl" id="lbl-pvp">PvP</span><input type="checkbox" role="switch" id="f-pvp" aria-describedby="cap-pvp"><span class="lbl active" id="lbl-pve">PvE</span></div>
+    <output class="scribble" id="out-pvp" for="f-pvp">PvE</output><span class="cap-note" id="cap-pvp">PvP isn't simmed yet</span>`;
+  fightWrap.append(pvpStrip);
+
+  function setCapVisual(id, cap, min, max, note) {
+    const well = $(`#well-${id}`);
+    const pct = ((cap - min) / (max - min)) * 100;
+    well.style.setProperty('--cap', pct);
+    const band = $('.capband', well);
+    const none = pct >= 100;
+    band.dataset.none = String(none || band.dataset.fixedNone === 'true');
+    $('span', band).textContent = note;
+  }
+
+  function renderFaders() {
+    const c = caps();
+    for (const [id] of MIX) {
+      const inp = $(`#f-${id}`);
+      inp.value = state.mix[id];
+      $(`#out-${id}`).textContent = state.mix[id];
+      setCapVisual(id, c[id], 0, 100, `Cap ${c[id]}`);
+      const atCap = c[id] < 100 && state.mix[id] >= c[id];
+      $(`#cap-${id}`).textContent = c[id] >= 100 ? 'No cap with this mix' : atCap ? `At the cap of ${c[id]}` : `Max ${c[id]} with this mix`;
+      $(`#lamp-${id}`).classList.toggle('on', state.mix[id] > 0);
+      $(`#strip-${id}`).classList.toggle('clamped', atCap);
+      inp.setAttribute('aria-valuetext', `${state.mix[id]} of a possible ${c[id]}`);
+    }
+    const lv = $('#f-level'); lv.value = state.level;
+    $('#out-level').textContent = state.level;
+    $('#cap-level').textContent = `${f1(MISS[state.level])}% melee miss`;
+    lv.setAttribute('aria-valuetext', `Level ${state.level}, ${f1(MISS[state.level])}% melee miss`);
+    $('#lamp-level').classList.toggle('on', state.level === 33);
+
+    $('#f-length').value = state.length;
+    $('#out-length').textContent = fmtTime(state.length);
+    $('#cap-length').textContent = state.length >= 90 ? 'Long: mana matters' : 'Short burst';
+    $('#f-length').setAttribute('aria-valuetext', `${fmtTime(state.length)} minutes`);
+    $('#lamp-length').classList.toggle('on', state.length >= 90);
+
+    const pool = SETS[state.set].pool;
+    if (state.manaFull) state.mana = pool;
+    if (state.mana > pool) state.mana = pool;
+    $('#f-mana').value = state.mana;
+    $('#out-mana').textContent = state.mana;
+    setCapVisual('mana', pool, 400, 2000, `Pool ${pool}`);
+    $('#cap-mana').textContent = state.mana >= pool ? 'Full, planned pool' : `Pool is ${pool}`;
+    $('#f-mana').setAttribute('aria-valuetext', `${state.mana} mana, pool ${pool}`);
+    $('#lamp-mana').classList.toggle('on', state.mana >= pool);
+
+    $('#f-gap').value = state.gap;
+    $('#out-gap').textContent = `${state.gap} s`;
+    $('#cap-gap').textContent = state.gap >= 30 ? 'Time to drink' : 'Chain pulling';
+    $('#f-gap').setAttribute('aria-valuetext', `${state.gap} seconds`);
+    $('#lamp-gap').classList.toggle('on', state.gap >= 30);
+
+    $('#f-pvp').checked = state.pvp;
+    $('#out-pvp').textContent = state.pvp ? 'PvP' : 'PvE';
+    $('#lbl-pvp').classList.toggle('active', state.pvp);
+    $('#lbl-pve').classList.toggle('active', !state.pvp);
+    $('#lamp-pvp').classList.toggle('on', state.pvp);
+    $('#timeline').classList.toggle('pvp', state.pvp);
+  }
+
+  function renderAll(changedSlots = []) {
+    const planned = run(state.set, nudge());
+    const worn = run('worn');
+    renderFaders();
+    drawTimeline(planned, worn);
+    renderReadouts(planned, worn);
+    renderWeights();
+    renderSheet();
+    renderRack(changedSlots);
+  }
+
+  function repatch(reason) {
+    const before = plannedItems();
+    const next = pickSet();
+    if (next === state.set) return [];
+    state.set = next;
+    const after = plannedItems();
+    const changed = SLOTS.map(([s]) => s).filter((s) => before[s] !== after[s]);
+    const keptPins = Object.keys(state.pinned).length;
+    if (changed.length) {
+      const names = changed.map((s) => after[s] || 'nothing');
+      log(`<b>Swapped ${changed.length} item${changed.length > 1 ? 's' : ''}</b> for ${SETS[next].label.toLowerCase()}: ${names.map(esc).join(', ')}.` +
+        (keptPins ? ` Kept your ${keptPins} pick${keptPins > 1 ? 's' : ''}.` : ''));
+    }
+    return changed;
+  }
+
+  // mix faders
+  for (const [id] of MIX) {
+    const inp = $(`#f-${id}`);
+    inp.addEventListener('input', () => {
+      const c = caps();
+      let v = Number(inp.value);
+      if (v > c[id]) v = c[id];
+      state.mix[id] = v;
+      // other faders may now be over their caps: clamp them
+      const c2 = caps();
+      for (const [o] of MIX) if (o !== id && state.mix[o] > c2[o]) state.mix[o] = c2[o];
+      const changed = (id === 'damage' || id === 'survival') ? repatch() : [];
+      renderAll(changed);
+    });
+    if (id === 'healing' || id === 'utility') {
+      inp.addEventListener('change', () => log(`${id === 'healing' ? 'Healing' : 'Utility'} set to ${state.mix[id]}. It isn't simmed yet, so gear stays put.`));
+    }
+  }
+  $('#f-level').addEventListener('input', (e) => { state.level = Number(e.target.value); renderAll(); });
+  $('#f-length').addEventListener('input', (e) => { state.length = Number(e.target.value); renderAll(); });
+  $('#f-mana').addEventListener('input', (e) => {
+    const pool = SETS[state.set].pool;
+    let v = Number(e.target.value); if (v > pool) v = pool;
+    state.mana = v; state.manaFull = v >= pool; renderAll();
+  });
+  $('#f-gap').addEventListener('input', (e) => { state.gap = Number(e.target.value); renderAll(); });
+  $('#f-pvp').addEventListener('change', (e) => { state.pvp = e.target.checked; renderAll(); });
+
+  // ---------- dialogs ----------
+  const openers = new WeakMap();
+  const doll = $('#doll');
+  function placeOverDoll(dlg) {
+    const r = doll.getBoundingClientRect();
+    const narrow = window.innerWidth < 700;
+    const top = Math.max(8, r.top), height = Math.min(window.innerHeight - 16, Math.max(520, r.height));
+    const t = narrow ? 8 : Math.min(top, window.innerHeight - height - 8);
+    Object.assign(dlg.style, narrow
+      ? { left: '8px', top: '8px', width: `calc(100vw - 16px)`, height: `calc(100vh - 16px)` }
+      : { left: `${r.left}px`, top: `${Math.max(8, t)}px`, width: `${r.width}px`, height: `${height}px` });
+  }
+  function openDialog(dlg, opener) {
+    openers.set(dlg, opener);
+    if (dlg.classList.contains('over-doll')) {
+      doll.scrollIntoView({ block: 'nearest' });
+      placeOverDoll(dlg);
+    }
+    document.body.classList.add('locked');
+    dlg.showModal();
+    const first = dlg.querySelector('[data-autofocus]') || dlg.querySelector('input:checked, button, [href], input, select, [tabindex]:not([tabindex="-1"])');
+    if (first) first.focus();
+  }
+  function closeDialog(dlg) { if (dlg.open) dlg.close(); }
+  for (const dlg of document.querySelectorAll('dialog')) {
+    dlg.addEventListener('close', () => {
+      document.body.classList.remove('locked');
+      const o = openers.get(dlg);
+      if (o && document.contains(o)) o.focus();
+      else if (o && o.id) { const again = document.getElementById(o.id); if (again) again.focus(); }
+    });
+    dlg.addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) closeDialog(dlg);
+      else if (e.target === dlg) closeDialog(dlg); // backdrop
+    });
+    dlg.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const f = [...dlg.querySelectorAll('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
+        .filter((n) => n.offsetParent !== null && !(n.type === 'radio' && !n.checked));
+      if (!f.length) return;
+      const a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+      else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+    });
+  }
+  window.addEventListener('resize', () => {
+    for (const d of document.querySelectorAll('dialog.over-doll[open]')) placeOverDoll(d);
+    renderAll();
+  });
+
+  // talents
+  function renderTalents() {
+    const best = state.build === 'best';
+    const tree = $('#tree');
+    tree.innerHTML = TALENTS.map(([n, g, max, yours, row, col]) => {
+      const r = best && n in BEST ? BEST[n] : yours;
+      const diff = n in BEST;
+      const cls = ['tal', r === 0 ? 'empty' : '', r === max ? 'max' : '', diff ? 'diff' : ''].join(' ');
+      return `<div class="${cls}" style="grid-row:${row};grid-column:${col}" title="${esc(n)} ${r}/${max}">
+        <span class="g" aria-hidden="true">${g}<span class="r">${r}/${max}</span></span>
+        <span class="n">${esc(n)}<span class="sr-only">, ${r} of ${max}${diff ? ', differs between builds' : ''}</span></span></div>`;
+    }).join('');
+    $('#tal-foot').innerHTML = best
+      ? `<span><b>Best simmed:</b> your 21 points with Anticipation 1/3 moved to Flurry 5/5. Worth +1.6 DPS solo. <span class="prov">Provisional</span></span>
+         <span>Placeholder layout. The real tree comes from Forever's data later.</span>`
+      : `<span><b>Your build:</b> <code>-0250303110410001</code>, 21 points.</span>
+         <span>Placeholder layout. The real tree comes from Forever's data later.</span>`;
+  }
+  for (const r of document.querySelectorAll('input[name="build"]')) r.addEventListener('change', () => { state.build = r.value; renderTalents(); });
+  $('#open-talents').addEventListener('click', (e) => { renderTalents(); openDialog($('#talents'), e.currentTarget); });
+
+  // item picker
+  let pickSlot = null;
+  function renderPicker() {
+    const slot = pickSlot;
+    const label = SLOTS.find(([s]) => s === slot)[1];
+    const items = plannedItems();
+    const curName = items[slot];
+    const cur = curName ? I[curName] : null;
+    const unit = slot === 'twohand' ? 'DPS' : 'EP';
+    $('#pick-title').textContent = label;
+    $('#pick-sub').textContent = slot === 'twohand'
+      ? 'Ranked by solo DPS (30 s vs level 31) against the weapon in this slot.'
+      : 'Ranked by EP (average of solo and dungeon weights) against the item in this slot.';
+    const body = $('#pick-body');
+    let html = `<div class="cur"><span class="tile ${cur ? 'q' + cur.q : 'q0'}" aria-hidden="true"><svg viewBox="0 0 18 18" width="22" height="22">${GLYPH[poolOf(slot)]}</svg></span>
+      <div><small>In this slot now${state.pinned[slot] ? ' (your pick)' : curName === WORN[slot] ? ' (what you wear)' : ` (planned, you wear ${esc(WORN[slot] || 'nothing')})`}</small>
+      <div><b>${curName ? esc(curName) : 'Nothing equipped'}</b>${cur && cur.score ? ` <span class="slot-label" style="display:inline">${f1(cur.score)} ${unit}</span>` : ''}</div></div></div>`;
+    const pool = poolOf(slot);
+    if (pool === 'trinket') {
+      html += '<p class="empty-state">No trinkets in the sim data yet. When the addon exports trinkets you own or can get, they show up here ranked like other slots.</p>';
+    } else if (pool === 'totem') {
+      html += '<p class="empty-state">No other totems in the sim data yet, so there\'s nothing to rank against.</p>';
+    } else {
+      const other = slot === 'finger1' ? items.finger2 : slot === 'finger2' ? items.finger1 : null;
+      const alts = Object.values(I).filter((it) => it.pool === pool && it.name !== other && (!it.src.startsWith('Worn') || it.name === WORN[slot]))
+        .sort((a, b) => b.score - a.score);
+      html += '<ol class="alts">' + alts.map((it, i) => {
+        const d = cur ? it.score - cur.score : it.score;
+        const isCur = it.name === curName;
+        const onWish = state.wish.has(it.name);
+        const flags = [];
+        if (it.lvl > LEVEL) flags.push(`<span class="flag lvl">Needs level ${it.lvl}</span>`);
+        if (it.name === WORN[slot]) flags.push('<span class="flag pin">Worn</span>');
+        if (it.src === 'In your bags') flags.push('<span class="flag bag">In your bags</span>');
+        return `<li class="alt${isCur ? ' is-current' : ''}">
+          <span class="rank">${i + 1}</span>
+          <span class="tile q${it.q}" aria-hidden="true"><svg viewBox="0 0 18 18">${GLYPH[pool]}</svg></span>
+          <span><span class="alt-meta"><span class="nm">${esc(it.name)}</span>${flags.join('')}</span>
+            <span class="src">${esc(it.src)}${it.lvl > 1 ? `. Level ${it.lvl}` : ''}</span></span>
+          <span class="acts">
+            <span class="gain" style="color:${isCur ? 'var(--ink-3)' : d >= 0 ? '#1e6a2b' : '#9b2330'}">${isCur ? 'Current' : `${d >= 0 ? '+' : ''}${f1(d)} ${unit}`}</span>
+            <button class="btn small" type="button" data-wish="${esc(it.name)}" aria-pressed="${onWish}">${onWish ? 'On wishlist' : 'Add to wishlist'}</button>
+            <button class="btn small primary" type="button" data-equip="${esc(it.name)}" ${isCur ? 'disabled' : ''}>Equip</button>
+          </span></li>`;
+      }).join('') + '</ol>';
+      if (state.pinned[slot]) html += `<p style="margin:12px 0 0"><button class="btn small" type="button" data-unpin>Let the faders choose this slot again</button></p>`;
+    }
+    body.innerHTML = html;
+  }
+  $('#rack').addEventListener('click', (e) => {
+    const b = e.target.closest('.slot-btn'); if (!b) return;
+    pickSlot = b.dataset.slot; renderPicker(); openDialog($('#picker'), b);
+  });
+  $('#pick-body').addEventListener('click', (e) => {
+    const w = e.target.closest('[data-wish]');
+    if (w) {
+      const n = w.dataset.wish;
+      if (state.wish.has(n)) state.wish.delete(n); else state.wish.add(n);
+      const c = state.wish.size;
+      $('#wish-text').textContent = `Wishlist: ${c} item${c === 1 ? '' : 's'}`;
+      $('#wish-lamp').classList.toggle('on', c > 0);
+      renderPicker();
+      const again = $(`[data-wish="${CSS.escape(n)}"]`, $('#pick-body')); if (again) again.focus();
+      return;
+    }
+    const q = e.target.closest('[data-equip]');
+    if (q) {
+      const n = q.dataset.equip;
+      const items = plannedItems();
+      const old = items[pickSlot];
+      if (n === SETS[state.set].items[pickSlot]) delete state.pinned[pickSlot]; else state.pinned[pickSlot] = n;
+      const label = SLOTS.find(([s]) => s === pickSlot)[1];
+      log(`<b>Equipped ${esc(n)}</b> in ${label.toLowerCase()}, replacing ${esc(old || 'nothing')}. The faders won't swap it while it's your pick.`);
+      const s = pickSlot;
+      closeDialog($('#picker'));
+      renderAll([s]);
+      const btn = document.getElementById(`slot-${s}`); if (btn) btn.focus();
+      return;
+    }
+    if (e.target.closest('[data-unpin]')) {
+      delete state.pinned[pickSlot];
+      const s = pickSlot;
+      log(`${SLOTS.find(([x]) => x === s)[1]} is back under the faders' control.`);
+      closeDialog($('#picker')); renderAll([s]);
+      const btn = document.getElementById(`slot-${s}`); if (btn) btn.focus();
+    }
+  });
+
+  // pawn
+  $('#pawn-body').innerHTML = PAWN.map(([k, s], i) => `<div class="pawn-row"><h3 id="pawn-h${i}">${k} scale <span class="prov">Provisional</span></h3>
+    <pre id="pawn-s${i}" aria-labelledby="pawn-h${i}">${esc(s)}</pre>
+    <button class="btn small" type="button" data-copy="${i}">Copy ${k.toLowerCase()} string</button><span class="copied" id="copied-${i}" role="status" aria-live="polite"></span></div>`).join('');
+  $('#pawn-body').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy]'); if (!b) return;
+    const i = Number(b.dataset.copy);
+    const out = $(`#copied-${i}`);
+    try { await navigator.clipboard.writeText(PAWN[i][1]); out.textContent = 'Copied'; }
+    catch { out.textContent = 'Couldn\'t copy. Select the text and copy it by hand.'; }
+    setTimeout(() => { out.textContent = ''; }, 2500);
+  });
+  $('#open-pawn').addEventListener('click', (e) => openDialog($('#pawn'), e.currentTarget));
+
+  // ---------- boot ----------
+  renderSplit();
+  renderAll();
+  log('<b>Planned 13 swaps</b> for max damage, from the sim\'s upgrade list. Gloves of the Greatfather needs level 33 and Mark of Kern needs 31.');
+})();
+</script>
+</body>
+</html>
