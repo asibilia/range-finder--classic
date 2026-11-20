@@ -36,6 +36,7 @@ const LIMITS = {
     middle: 230,
     sheet: 220,
     chart: 300,
+    shape: 240,
 } as const
 
 const MeasureSchema = z.object({
@@ -45,6 +46,9 @@ const MeasureSchema = z.object({
     middle: z.number(),
     sheet: z.number(),
     chart: z.number(),
+    shape: z.number(),
+    shapeSwitch: z.boolean(),
+    shapeClipped: z.boolean(),
     clipped: z.number(),
     pillsOutside: z.number(),
     sideways: z.boolean(),
@@ -69,18 +73,33 @@ function browserCode(url: string, widths: number[]): string {
     });
     await page.getByRole('button', { name: 'Or look at a sample character' }).click();
     await page.waitForFunction(() => !document.querySelector('[data-chart-loading]') && document.querySelector('[data-slot="chart"]'));
+    const shapeRadio = page.getByRole('radio', { name: 'Shape', exact: true });
+    const shapeDefault = await shapeRadio.isChecked();
+    await page.getByText('Sliders', { exact: true }).click();
+    await page.getByRole('slider', { name: 'Damage', exact: true }).waitFor();
+    await page.getByText('Shape', { exact: true }).click();
+    await page.locator('[data-slot="role-shape"]').waitFor();
+    const shapeSwitch = shapeDefault && await shapeRadio.isChecked();
     const loaded = await page.evaluate(() => {
       const gear = document.querySelector('[data-slot="gear-pane"]');
       const box = gear.getBoundingClientRect();
       const w = (el) => Math.round(el?.getBoundingClientRect().width ?? 0);
+      const shape = document.querySelector('[data-slot="role-shape"]');
+      const shapeBox = shape?.getBoundingClientRect();
+      const shapeHandles = [...document.querySelectorAll('[data-shape-role]')];
       // Slot buttons are left out: their pills sit past their edge on purpose.
-      const controls = [...document.querySelectorAll('button, [role="combobox"], [data-slot="slider"]')]
+      const controls = [...document.querySelectorAll('button, [role="combobox"], [data-slot="slider"], [data-shape-role]')]
         .filter(el => !el.closest('[data-slot^="slots-"]'));
       const pills = [...gear.querySelectorAll('button [data-size]')];
       return {
         middle: w(document.querySelector('[data-slot="doll-middle"]')),
         sheet: w(document.querySelector('[aria-label="Character sheet"]')),
         chart: w(document.querySelector('[data-slot="chart"]')),
+        shape: w(shape),
+        shapeClipped: !shapeBox || shapeHandles.length !== 4 || shapeBox.left < -0.5 || shapeBox.right > window.innerWidth + 0.5 || shapeHandles.some(h => {
+          const r = h.getBoundingClientRect();
+          return r.left < shapeBox.left - 0.5 || r.right > shapeBox.right + 0.5 || r.top < shapeBox.top - 0.5 || r.bottom > shapeBox.bottom + 0.5;
+        }),
         // A slider's thumb has a wider invisible hit area: its drawn thumb is measured instead.
         clipped: controls.filter(c => {
           const r = c.getBoundingClientRect();
@@ -93,7 +112,7 @@ function browserCode(url: string, widths: number[]): string {
         sideways: document.documentElement.scrollWidth > window.innerWidth,
       };
     });
-    out.push({ width, ...visitor, ...loaded });
+    out.push({ width, ...visitor, shapeSwitch, ...loaded });
   }
   return JSON.stringify(out);
 }`
@@ -132,6 +151,12 @@ function problems(measure: Measure): string[] {
         found.push(`the sheet is ${measure.sheet} px wide`)
     if (measure.chart < LIMITS.chart)
         found.push(`the chart is ${measure.chart} px wide`)
+    if (measure.shape < LIMITS.shape)
+        found.push(`Shape is ${measure.shape} px wide`)
+    if (!measure.shapeSwitch)
+        found.push('Shape was not the default or did not survive a view switch')
+    if (measure.shapeClipped)
+        found.push('Shape or one of its handles is clipped')
     if (measure.clipped > 0)
         found.push(`${measure.clipped} controls are clipped`)
     if (measure.pillsOutside > 0)
@@ -198,12 +223,12 @@ async function main() {
             process.exit(1)
         }
         console.log(
-            'width  bring-in  middle  sheet  chart  clip pills-out  sideways'
+            'width  bring-in  middle  sheet  chart  shape  clip pills-out  sideways  shape-ok'
         )
         let failed = false
         for (const m of parsed.data) {
             console.log(
-                `${String(m.width).padEnd(6)} ${String(m.bringIn).padEnd(9)} ${String(m.middle).padEnd(7)} ${String(m.sheet).padEnd(6)} ${String(m.chart).padEnd(6)} ${String(m.clipped).padEnd(4)} ${String(m.pillsOutside).padEnd(10)} ${m.sideways}`
+                `${String(m.width).padEnd(6)} ${String(m.bringIn).padEnd(9)} ${String(m.middle).padEnd(7)} ${String(m.sheet).padEnd(6)} ${String(m.chart).padEnd(6)} ${String(m.shape).padEnd(6)} ${String(m.clipped).padEnd(4)} ${String(m.pillsOutside).padEnd(10)} ${String(m.sideways).padEnd(8)} ${m.shapeSwitch && !m.shapeClipped}`
             )
             for (const problem of problems(m)) {
                 failed = true

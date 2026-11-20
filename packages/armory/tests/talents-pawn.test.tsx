@@ -6,7 +6,7 @@ import './dom'
 import { openFile, openSample, type User } from './open-app'
 
 import { afterEach, describe, expect, jest, mock, test } from 'bun:test'
-import { act, cleanup, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 
 import sample from '../src/sample-truncha.json'
 import firstRun from '../src/sample-truncha-first-run.json'
@@ -192,7 +192,7 @@ describe('the talents dialog', () => {
         ).toEqual(['Anticipation', 'Flurry 5/5', '+1.6 DPS'])
     })
 
-    test('with best null, Best simmed is disabled, Your build is checked, and No best build in this file. shows', async () => {
+    test('with best null, Best simmed is disabled and explains that no best build was simmed', async () => {
         const user = await openFile(firstRun)
         const dialog = await openTalents(user)
 
@@ -206,7 +206,7 @@ describe('the talents dialog', () => {
         expect(yours.checked).toBe(true)
         expect(
             within(dialog).getByText(
-                'Your 21 points. No best build in this file.'
+                'Your 21 points. Best simmed: Not simmed yet; this file has no best build.'
             )
         ).toBeDefined()
         expect(within(dialog).queryByText(/^Best simmed moves/)).toBeNull()
@@ -239,20 +239,14 @@ describe('the Pawn strings dialog', () => {
     })
 
     test('Copy writes the string and says Copied beside the button for 2.4 seconds', async () => {
-        // user-event advances the timers on every step, so before the fake
-        // timers start (while the sample opens) there is nothing to advance.
-        const user = await openSample({
-            advanceTimers: (ms) => {
-                if (jest.isFakeTimers()) jest.advanceTimersByTime(ms)
-            },
-        })
-        // The note's 2.4 seconds pass on fake timers, not real ones.
-        jest.useFakeTimers()
+        const user = await openSample()
+        const dialog = await openPawn(user)
         const writeText = mock((_text: string) => Promise.resolve())
         mockClipboard(writeText)
-        const dialog = await openPawn(user)
 
-        await user.click(
+        // The note's 2.4 seconds pass on fake timers, not real ones.
+        jest.useFakeTimers()
+        fireEvent.click(
             within(dialog).getByRole('button', { name: 'Copy solo string' })
         )
 

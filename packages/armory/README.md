@@ -167,8 +167,8 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   UI's. An "i" button (`components/info.tsx`, on `components/ui/popover.tsx`)
   is named `About <label>`, and its popover opens on hover, on click or tap,
   and on Enter or Space; Escape closes it and focus stays on the button. The
-  segmented controls (the `Current` / `BIS` switch, enemy level, kind of
-  fight, which talent build) are native radios in a fieldset
+  segmented controls (the `Current` / `BIS` switch, `Shape` / `Sliders`,
+  enemy level, kind of fight, which talent build) are native radios in a fieldset
   (`components/segmented.tsx`).
 - **Charts: Recharts 3** inside shadcn's `chart` (`ChartContainer`,
   `ChartTooltip`, `ChartLegend`): the fight chart (DPS and mana on two axes,
@@ -190,7 +190,8 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   next step) and the talents pill on the figure; a column on its right
   (Simulator Data: the readings `Solo`, `Dungeon`, `Resource Empty`,
   `Health`, `Armor` and `Lifespan`, with how far what you wear is below the
-  sim's plan; Stat Priority: the role sliders) from 90rem, stacked below that; under
+  sim's plan; Stat Priority: the C2a Shape by default, with a Sliders view)
+  from 90rem, stacked below that; under
   both, a full-width band with the fight chart, the damage split and stat
   weights, and the fight settings; then a footer (the sample note, how sure
   the sim is). The gear pane's doll lays out by the pane's own width (a

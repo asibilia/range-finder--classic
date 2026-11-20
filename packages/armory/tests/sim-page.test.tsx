@@ -9,7 +9,13 @@
  * export. The DOM helper must be the first import.
  */
 import './dom'
-import { readingLabels, sentence, shownFight, variant } from './open-app'
+import {
+    chooseLength,
+    readingLabels,
+    sentence,
+    shownFight,
+    variant,
+} from './open-app'
 
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
@@ -20,6 +26,7 @@ import {
     render,
     screen,
     waitFor,
+    within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -37,7 +44,7 @@ import {
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { App } from '../src/app'
-import { buildRequest, level60Check } from '../src/browser-sim'
+import { buildRequest, chainFor, level60Check } from '../src/browser-sim'
 import { COMING_SOON_NOTE, NO_EXPORT_NOTE } from '../src/components/sim-panel'
 import { readResultsFile } from '../src/results-file'
 import sample from '../src/sample-truncha.json'
@@ -771,6 +778,146 @@ describe('Run Simulator', () => {
                 .getByRole('button', { name: 'Run Simulator' })
                 .hasAttribute('disabled')
         ).toBe(false)
+    })
+
+    test('enemy level, fight length, and starting mana from Fight settings all reach generated sim requests', async () => {
+        const { user, pool } = await simmedTestchar()
+        const { level, sheet } = await testchar()
+        pool.fallback = (method, request, profile) =>
+            method === 'sim' ? asFixedLongFight(request, profile) : undefined
+
+        await user.click(screen.getByRole('radio', { name: String(level + 3) }))
+        await chooseLength(user, '1 minute')
+        fireEvent.change(
+            screen.getByRole('slider', { name: 'Starting mana' }),
+            { target: { value: '600' } }
+        )
+
+        pool.requests.length = 0
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+
+        await waitFor(() => {
+            expect(shownFight()).toBe(`Dungeon, 1 min vs level ${level + 3}`)
+        }, LOADS)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+
+        const expectedManaPct = (600 / sheet.mana) * 100
+        const matching = pool.requests.filter((request) => {
+            const encounter = request.encounter as {
+                duration?: number
+                targets?: { level: number }[]
+            }
+            const player = (
+                request.raid as {
+                    parties: { players: { startingManaPercent?: number }[] }[]
+                }
+            ).parties[0]?.players[0]
+            return (
+                encounter.targets?.[0]?.level === level + 3 &&
+                encounter.duration === 60 &&
+                typeof player?.startingManaPercent === 'number'
+            )
+        })
+        expect(matching.length).toBeGreaterThan(0)
+        const player = (
+            matching[0]!.raid as {
+                parties: { players: { startingManaPercent?: number }[] }[]
+            }
+        ).parties[0]!.players[0]!
+        expect(player.startingManaPercent).toBeCloseTo(expectedManaPct, 4)
+    })
+
+    test('time between pulls (chain gap) from Fight settings reaches generated chain pull requests', async () => {
+        const baseText = await testcharExport()
+        const text = baseText.replace(
+            '["meleeHit"] =',
+            '["manaRegen"] = { ["outsideFiveSecondRule"] = 10 },\n["meleeHit"] ='
+        )
+        const character = await testchar()
+        const answers = await recorded()
+        const longEncounter = buildRequest(character, 'dungeon-long', {
+            seed: 1,
+            iterations: 1,
+        }).encounter as { duration?: number }
+        const chainEncounter = buildRequest(
+            character,
+            chainFor(character.level),
+            { seed: 1, iterations: 1 }
+        ).encounter as { duration?: number }
+
+        const pool = fakePool()
+        pool.fallback = (method, request, profile) => {
+            if (method !== 'sim') return undefined
+            const fixed = structuredClone(request) as RaidSimRequest & {
+                raid: {
+                    tanks?: unknown[]
+                    parties: { players: Record<string, unknown>[] }[]
+                }
+                encounter: { duration?: number }
+            }
+            const isChain =
+                (fixed.raid.tanks?.length ?? 0) > 0 &&
+                fixed.encounter.duration === 25
+            fixed.encounter = isChain ? chainEncounter : longEncounter
+            delete fixed.raid.parties[0]!.players[0]!.startingManaPercent
+            return answers[callKey('sim', fixed, profile)]
+        }
+
+        const user = renderWith(pool)
+        await pickFile(user, luaFile(text))
+        await characterLoaded()
+
+        await user.click(
+            screen.getByRole('radio', { name: String(character.level + 3) })
+        )
+        const list = await screen.findByRole('status')
+        await user.click(
+            within(list).getByRole('button', {
+                name: `Chain, 10 pulls 12 s apart vs level ${character.level}`,
+            })
+        )
+        await waitFor(() => {
+            if (
+                shownFight() !==
+                `Chain, 10 pulls 12 s apart vs level ${character.level}`
+            )
+                throw new Error(`still on ${shownFight()}`)
+        })
+        fireEvent.change(
+            screen.getByRole('slider', { name: 'Time between pulls' }),
+            { target: { value: '60' } }
+        )
+
+        pool.requests.length = 0
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => {
+            if (screen.queryByRole('progressbar', { name: 'Sim progress' }))
+                throw new Error('still running')
+        }, LOADS)
+        expect(screen.queryByText(/^The sim failed:/)).toBeNull()
+
+        const chainRequests = pool.requests.filter((request) => {
+            const raid = request.raid as { tanks?: unknown[] }
+            const encounter = request.encounter as { duration?: number }
+            return (raid.tanks?.length ?? 0) > 0 && encounter.duration === 25
+        })
+        expect(chainRequests.length).toBeGreaterThanOrEqual(2)
+        const pull1 = (
+            chainRequests[0]!.raid as {
+                parties: { players: { startingManaPercent?: number }[] }[]
+            }
+        ).parties[0]!.players[0]!
+        const pull2 = (
+            chainRequests[1]!.raid as {
+                parties: { players: { startingManaPercent?: number }[] }[]
+            }
+        ).parties[0]!.players[0]!
+        expect(pull1.startingManaPercent).toBeUndefined()
+        // Pull 1 ends around ~179 mana out of 1215; +60 s * 10 ooc_mana_regen => ~64.1% (vs ~24.6% at 12 s).
+        expect(pull2.startingManaPercent).toBeGreaterThan(60)
+        expect(pull2.startingManaPercent).toBeLessThan(70)
     })
 
     test('a run that fails keeps the file shown and says why under the button', async () => {

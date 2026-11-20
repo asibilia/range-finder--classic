@@ -263,7 +263,7 @@ export function TalentsDialog({
                         )}
                     </>
                 ) : (
-                    `Your ${talents.points} points.${best ? ' Dashed rings mark where the sim would differ.' : ' No best build in this file.'}`
+                    `Your ${talents.points} points.${best ? ' Dashed rings mark where the sim would differ.' : ' Best simmed: Not simmed yet; this file has no best build.'}`
                 )}
             </p>
         </PlannerDialog>

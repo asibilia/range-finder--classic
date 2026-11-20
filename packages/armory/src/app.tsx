@@ -26,7 +26,7 @@ import {
 } from '@/components/item-picker'
 import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
-import { RoleSliders } from '@/components/role-sliders'
+import { RoleControl } from '@/components/role-control'
 import {
     COMING_SOON_NOTE,
     LockedSimPanel,
@@ -770,7 +770,7 @@ export function App({
                             }
                             sliders={
                                 planner.mix && (
-                                    <RoleSliders
+                                    <RoleControl
                                         plans={file.plans}
                                         mix={planner.mix}
                                         plan={plan}
