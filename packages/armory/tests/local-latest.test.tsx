@@ -29,7 +29,14 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import type { SimPool } from '@goturbo/sim'
+import {
+    SimCancelled,
+    type LevelProfile,
+    type RaidSimRequest,
+    type RaidSimResult,
+    type SimPool,
+    type SimSheet,
+} from '@goturbo/sim'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
@@ -220,6 +227,49 @@ afterEach(() => {
 function renderLocal(createPool?: () => SimPool) {
     render(<App localLatest createPool={createPool} />)
     return userEvent.setup()
+}
+
+type HoldablePool = SimPool & {
+    holding: boolean
+    cancelCalls: number
+    pending(): number
+    release(): void
+}
+
+function holdablePool(base: SimPool): HoldablePool {
+    let held: { go: () => void; stop: (error: Error) => void }[] = []
+    async function waitIfHeld<T>(run: () => Promise<T>): Promise<T> {
+        if (wrapper.holding)
+            await new Promise<void>((go, stop) => held.push({ go, stop }))
+        return run()
+    }
+    const wrapper: HoldablePool = {
+        ...base,
+        size: base.size,
+        holding: false,
+        cancelCalls: 0,
+        sim: (request: RaidSimRequest, profile?: LevelProfile) =>
+            waitIfHeld(() =>
+                base.sim(request, profile)
+            ) as Promise<RaidSimResult>,
+        sheet: (request: RaidSimRequest, profile?: LevelProfile) =>
+            waitIfHeld(() => base.sheet(request, profile)) as Promise<SimSheet>,
+        cancel() {
+            wrapper.cancelCalls += 1
+            const stopping = held
+            held = []
+            for (const call of stopping) call.stop(new SimCancelled())
+            base.cancel()
+        },
+        pending: () => held.length,
+        release() {
+            wrapper.holding = false
+            const going = held
+            held = []
+            for (const call of going) call.go()
+        },
+    }
+    return wrapper
 }
 
 async function waitForName(name: string) {
@@ -583,5 +633,118 @@ describe('Run Simulator with the latest file', () => {
         await tick()
         await tick()
         expect(localCalls().length).toBe(before)
+    })
+
+    test('dropping a .json while Run Simulator is active cancels it and does not overwrite the dropped character', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const pool = holdablePool(base)
+        const local = resultsFile('Localchar')
+        server.latest = json(local)
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0))
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('DroppedJson'))] },
+        })
+        await waitForName('DroppedJson')
+        expect(pool.cancelCalls).toBe(1)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+
+        pool.release()
+        await settle()
+        expect(showsCharacter('DroppedJson')).toBe(true)
+        expect(showsCharacter('Testchar')).toBe(false)
+    })
+
+    test('a Run Simulator failure alert on the latest file clears on a latest refresh', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const failing: SimPool = {
+            ...base,
+            size: base.size,
+            sim: () => Promise.reject(new Error('boom')),
+            sheet: () => Promise.reject(new Error('boom')),
+        }
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => failing)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: boom/, undefined, {
+            timeout: 4000,
+        })
+
+        server.latest = json(resultsFile('Refreshed', '2026-11-17T09:00:00Z'), {
+            'Last-Modified': 'Tue, 17 Nov 2026 09:00:00 GMT',
+        })
+        await tick()
+        await waitForName('Refreshed')
+        expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    test('a Run Simulator failure alert on the latest file clears on dropping a .json', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const failing: SimPool = {
+            ...base,
+            size: base.size,
+            sim: () => Promise.reject(new Error('boom')),
+            sheet: () => Promise.reject(new Error('boom')),
+        }
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => failing)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: boom/, undefined, {
+            timeout: 4000,
+        })
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('DroppedJson'))] },
+        })
+        await waitForName('DroppedJson')
+        expect(screen.queryByRole('alert')).toBeNull()
     })
 })

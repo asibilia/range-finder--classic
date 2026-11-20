@@ -9,7 +9,7 @@
  * The last file picked or dropped is kept in this browser and comes back on
  * reload (`remembered-file.ts`); the sample is never kept.
  */
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 
 import { createSimPool, SimCancelled, type SimPool } from '@goturbo/sim'
 
@@ -49,7 +49,12 @@ import {
     weightsIterations,
 } from './browser-sim'
 import { characterArt } from './character-art'
-import { type FightSettings, fightFor, fightOverride } from './fight-settings'
+import {
+    type FightSettings,
+    fightFor,
+    fightOverride,
+    startingMana,
+} from './fight-settings'
 import type { Item } from './gains'
 import {
     initialPlannerState,
@@ -307,6 +312,8 @@ export function App({
     const heading = useRef<HTMLHeadingElement | null>(null)
     const focusHeading = useRef(false)
 
+    const refineNoteId = useId()
+
     const getPool = () => (pool.current ??= createPool())
 
     const open = (next: Loaded, keptHere = false, focus = false) => {
@@ -316,6 +323,7 @@ export function App({
         setForgotten(false)
         setStop(null)
         setSimmed(null)
+        setRunProblem(null)
         focusHeading.current = focus && next.file !== null
     }
 
@@ -404,11 +412,12 @@ export function App({
         setForgotten(false)
         setStop(null)
         setSimmed(null)
+        setRunProblem(null)
     }
 
     const openPicked = (picked: File) => {
         latest.leave()
-        stopRefine()
+        stopActiveRun()
         if (isExport(picked)) {
             void simPicked(picked)
             return
@@ -418,7 +427,7 @@ export function App({
         )
     }
 
-    /** Stops the export's run, or Refine (which keeps the file shown). */
+    /** Stops the export's run, Refine, or Run Simulator. */
     const cancel = () => {
         run.current += 1
         pool.current?.cancel()
@@ -428,14 +437,14 @@ export function App({
         setRunning(null)
     }
 
-    /** A Refine still running is stopped when its file goes away. */
-    const stopRefine = () => {
-        if (refining) cancel()
+    /** Any active sim run is stopped when its file goes away. */
+    const stopActiveRun = () => {
+        if (simming || refining || running) cancel()
     }
 
     const startRefine = async () => {
         const file = loaded.file
-        if (!file || !simmed) return
+        if (!file || !simmed || running || refining) return
         const id = ++run.current
         const simPool = getPool()
         setRefining({ done: 0, planned: 0 })
@@ -467,11 +476,18 @@ export function App({
      */
     const runSimulator = async (text: string) => {
         const file = loaded.file
-        if (!file || !fightSettings) return
+        if (!file || !fightSettings || refining || running) return
         const settings = fightSettings
-        const onChain =
-            file.fights.find((entry) => entry.fight_id === planner?.fightId)
-                ?.kind === 'chain'
+        const activeFight = file.fights.find(
+            (entry) => entry.fight_id === planner?.fightId
+        )
+        const onChain = activeFight?.kind === 'chain'
+        const chainOnly =
+            onChain &&
+            activeFight !== undefined &&
+            settings.level === activeFight.target_level &&
+            settings.length_s === activeFight.duration_s &&
+            settings.mana === startingMana(file, activeFight)
         const id = ++run.current
         const simPool = getPool()
         setRunning({ done: 0, planned: 0 })
@@ -484,7 +500,10 @@ export function App({
                     if (run.current === id) setRunning({ done, planned })
                 },
                 {
-                    fight: fightOverride(file, settings, onChain),
+                    fight: {
+                        ...fightOverride(file, settings, onChain),
+                        ...(chainOnly ? { chain_only: true } : {}),
+                    },
                 }
             )
             if (run.current !== id) return
@@ -514,7 +533,7 @@ export function App({
 
     const forget = () => {
         latest.leave()
-        stopRefine()
+        stopActiveRun()
         forgetFile()
         open({ file: null, error: null })
         setWishlist(new Map())
@@ -575,12 +594,14 @@ export function App({
     // loads it, as the drop box does.
     const waiting =
         (loaded.file === null && simming === null) || latest.following
+    const openPickedRef = useRef(openPicked)
+    openPickedRef.current = openPicked
     useEffect(() => {
         const onDragOver = (event: DragEvent) => event.preventDefault()
         const onDrop = (event: DragEvent) => {
             event.preventDefault()
             const dropped = event.dataTransfer?.files?.[0]
-            if (waiting && dropped) openPicked(dropped)
+            if (waiting && dropped) openPickedRef.current(dropped)
         }
         window.addEventListener('dragover', onDragOver)
         window.addEventListener('drop', onDrop)
@@ -634,9 +655,25 @@ export function App({
     const refineAction = refining ? (
         <SimProgress count={refining} onCancel={cancel} />
     ) : refinable && simmed ? (
-        <Button variant="outline" size="sm" onClick={() => void startRefine()}>
-            {`Refine for your gear (about ${simmed.minutes} min)`}
-        </Button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <Button
+                variant="outline"
+                size="sm"
+                disabled={running !== null}
+                aria-describedby={running !== null ? refineNoteId : undefined}
+                onClick={() => void startRefine()}
+            >
+                {`Refine for your gear (about ${simmed.minutes} min)`}
+            </Button>
+            {running !== null && (
+                <p
+                    id={refineNoteId}
+                    className="text-[0.78125rem] text-muted-foreground"
+                >
+                    Wait for Run Simulator to finish.
+                </p>
+            )}
+        </div>
     ) : null
 
     return (
@@ -704,6 +741,7 @@ export function App({
                                     onFile={openPicked}
                                     onSample={() => {
                                         latest.leave()
+                                        stopActiveRun()
                                         open(readResults(sample))
                                     }}
                                 />

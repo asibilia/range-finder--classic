@@ -953,6 +953,242 @@ describe('Run Simulator', () => {
         ).toBe(60)
     })
 
+    test('repeated Run Simulator runs on chain-solo keep chain-solo selected, show Not simmed for a new gap, and preserve dungeon-long', async () => {
+        const { user, pool } = await simmedTestchar()
+        const level = (await testchar()).level
+        await chooseFight(user, `Chain, 10 pulls 12 s apart vs level ${level}`)
+        pool.fallback = (method, request, profile) =>
+            method === 'sim'
+                ? asRecordedOverrideAnswer(request, profile, level)
+                : undefined
+
+        const gapSlider = () =>
+            screen.getByRole('slider', {
+                name: 'Time between pulls',
+            }) as HTMLInputElement
+
+        fireEvent.change(gapSlider(), { target: { value: '60' } })
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(
+            () =>
+                expect(shownFight()).toBe(
+                    `Chain, 10 pulls 60 s apart vs level ${level}`
+                ),
+            LOADS
+        )
+
+        fireEvent.change(gapSlider(), { target: { value: '20' } })
+        expect(shownFight()).toBe(
+            `Chain, 10 pulls 60 s apart vs level ${level}`
+        )
+        expect(
+            screen.getByText('Not simmed for this combination.')
+        ).toBeDefined()
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(
+            () =>
+                expect(shownFight()).toBe(
+                    `Chain, 10 pulls 20 s apart vs level ${level}`
+                ),
+            LOADS
+        )
+        const kept = JSON.parse(
+            localStorage.getItem(REMEMBERED_KEY) ?? '{}'
+        ) as {
+            fights: {
+                fight_id: string
+                target_level: number
+                duration_s: number
+                setup?: { gap_s?: number }
+            }[]
+        }
+        expect(
+            kept.fights.find((f) => f.fight_id === 'chain-solo')?.setup?.gap_s
+        ).toBe(20)
+        expect(
+            kept.fights.find((f) => f.fight_id === 'dungeon-long')
+        ).toMatchObject({
+            target_level: level + 2,
+            duration_s: 120,
+        })
+    })
+
+    test('changing time between pulls on a chain fight stays on that chain fight even when a single fight shares its level, length, and mana', async () => {
+        const user = renderWith(fakePool())
+        const colliding = variant((file) => {
+            const fights = file.fights as {
+                fight_id: string
+                target_level: number
+                duration_s: number
+                setup?: { starting_mana_pct?: number; gap_s?: number }
+            }[]
+            for (const f of fights) {
+                if (f.fight_id === 'dungeon-long') {
+                    f.target_level = 33
+                    f.duration_s = 25
+                    f.setup = {
+                        ...f.setup,
+                        starting_mana_pct: 100,
+                        gap_s: 0,
+                    }
+                }
+                if (f.fight_id === 'chain-4') {
+                    f.target_level = 33
+                    f.duration_s = 25
+                    f.setup = {
+                        ...f.setup,
+                        starting_mana_pct: 100,
+                        gap_s: 20,
+                    }
+                }
+            }
+        })
+        await pickFile(
+            user,
+            new File([JSON.stringify(colliding)], 'colliding.json', {
+                type: 'application/json',
+            })
+        )
+        await characterLoaded('Truncha')
+        await chooseFight(user, 'Chain, 4 pulls 20 s apart vs level 33')
+
+        const gapSlider = screen.getByRole('slider', {
+            name: 'Time between pulls',
+        }) as HTMLInputElement
+        fireEvent.change(gapSlider, { target: { value: '35' } })
+
+        expect(shownFight()).toBe('Chain, 4 pulls 20 s apart vs level 33')
+        expect(
+            screen.getByText('Not simmed for this combination.')
+        ).toBeDefined()
+    })
+
+    test('Refine and Run Simulator mutually disable each other while active without stranding SimProgress', async () => {
+        const { user, pool } = await simmedTestchar()
+        const level = (await testchar()).level
+        pool.fallback = (method, request, profile) =>
+            method === 'sim'
+                ? asRecordedOverrideAnswer(request, profile, level)
+                : undefined
+
+        // 1. While Run Simulator is running, Refine is disabled with its wait note.
+        await user.click(screen.getByRole('radio', { name: String(level + 3) }))
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0), LOADS)
+
+        const refineWhileRunning = screen.getByRole('button', {
+            name: REFINE,
+        }) as HTMLButtonElement
+        expect(refineWhileRunning.disabled).toBe(true)
+        const waitRefineNote = screen.getByText(
+            'Wait for Run Simulator to finish.'
+        )
+        expect(refineWhileRunning.getAttribute('aria-describedby')).toBe(
+            waitRefineNote.id
+        )
+
+        pool.release()
+        await waitFor(
+            () =>
+                expect(shownFight()).toBe(
+                    `Dungeon, 2 min vs level ${level + 3}`
+                ),
+            LOADS
+        )
+        expect(
+            screen.queryByText('Wait for Run Simulator to finish.')
+        ).toBeNull()
+
+        // 2. While Refine is running, Run Simulator is disabled with its wait note.
+        const refine = screen.getByRole('button', {
+            name: REFINE,
+        }) as HTMLButtonElement
+        expect(refine.disabled).toBe(false)
+        pool.holding = true
+        await user.click(refine)
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0), LOADS)
+
+        const runWhileRefining = screen.getByRole('button', {
+            name: 'Run Simulator',
+        }) as HTMLButtonElement
+        expect(runWhileRefining.disabled).toBe(true)
+        const waitRunNote = screen.getByText(
+            'Wait for Refine for your gear to finish.'
+        )
+        expect(runWhileRefining.getAttribute('aria-describedby')).toBe(
+            waitRunNote.id
+        )
+        expect(screen.queryByText(NO_EXPORT_NOTE)).toBeNull()
+
+        pool.release()
+        expect(await screen.findByText(YOURS, undefined, LOADS)).toBeDefined()
+        expect(
+            (
+                screen.getByRole('button', {
+                    name: 'Run Simulator',
+                }) as HTMLButtonElement
+            ).disabled
+        ).toBe(false)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+    })
+
+    test('Forget this file cancels an in-flight Run Simulator so it never resurrects the forgotten character', async () => {
+        const { user, pool } = await simmedTestchar()
+        const level = (await testchar()).level
+        pool.fallback = (method, request, profile) =>
+            method === 'sim'
+                ? asRecordedOverrideAnswer(request, profile, level)
+                : undefined
+
+        let cancelCalls = 0
+        const originalCancel = pool.cancel
+        pool.cancel = () => {
+            cancelCalls += 1
+            originalCancel()
+        }
+
+        await user.click(screen.getByRole('radio', { name: String(level + 3) }))
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0), LOADS)
+
+        await user.click(
+            screen.getByRole('button', { name: 'Forget this file' })
+        )
+        expect(cancelCalls).toBe(1)
+        expectNoNumbers()
+        expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull()
+
+        pool.release()
+        await new Promise((resolve) => setTimeout(resolve, 40))
+        expectNoNumbers()
+        expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull()
+    })
+
+    test('a Run Simulator failure alert is cleared on Forget this file and loading the sample character', async () => {
+        const { user } = await simmedTestchar()
+        const level = (await testchar()).level
+
+        await user.click(screen.getByRole('radio', { name: String(level + 3) }))
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: /, undefined, LOADS)
+
+        await user.click(
+            screen.getByRole('button', { name: 'Forget this file' })
+        )
+        await user.click(
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
+        )
+        await characterLoaded('Truncha')
+        expect(screen.queryByRole('alert')).toBeNull()
+    })
+
     test('reports SimProgress updates while Run Simulator runs', async () => {
         const { user, pool } = await simmedTestchar()
         const level = (await testchar()).level

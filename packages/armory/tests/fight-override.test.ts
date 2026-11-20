@@ -44,6 +44,9 @@ describe('the fight settings in the browser sim', () => {
         expect(fightEntry(long).setup?.starting_mana_pct).toBe(50)
         expect(fixed.every((s) => s.starting_mana_pct === undefined)).toBe(true)
         expect(fightEntry(fixed[2]!).setup?.starting_mana_pct).toBe(100)
+        expect(scenariosFor(30, { ...OVERRIDE, chain_only: true })).toEqual(
+            fixed
+        )
     })
 
     test('full mana is no share; the chain takes a gap, and keeps 12 s without one', () => {
