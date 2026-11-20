@@ -92,6 +92,8 @@ function useFollowedLatest(page: LatestPage): Latest {
     // Each follow's number: a follow that's no longer the latest is ignored.
     const follow = useRef(0)
     const openOther = useRef<HTMLInputElement | null>(null)
+    const pageRef = useRef(page)
+    pageRef.current = page
 
     /** Stops following the latest file (no state change). */
     const unfollow = () => {
@@ -108,7 +110,7 @@ function useFollowedLatest(page: LatestPage): Latest {
 
     const handlers: LatestHandlers = {
         onFile: (file, line, refresh) => {
-            page.show(file, refresh)
+            pageRef.current.show(file, refresh)
             setShown((current) => ({
                 following: true,
                 line,
@@ -128,7 +130,7 @@ function useFollowedLatest(page: LatestPage): Latest {
                         )
                 })
         },
-        onReadError: page.showError,
+        onReadError: (error) => pageRef.current.showError(error),
         onProblem: (problem) =>
             setShown((current) => current && { ...current, problem }),
         onNote: (note) =>
@@ -138,7 +140,7 @@ function useFollowedLatest(page: LatestPage): Latest {
     /** Loads the latest file and follows it. */
     const start = () => {
         unfollow()
-        page.beforeFollow()
+        pageRef.current.beforeFollow()
         const id = follow.current
         void import('../local-latest').then((module) => {
             if (follow.current === id)

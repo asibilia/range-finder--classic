@@ -344,7 +344,8 @@ function stubMatchMedia(phone: boolean): void {
 // The fake pool reads the data files, version and weights from the build.
 beforeAll(() => ensureSimBuild(), 600_000)
 
-afterEach(() => {
+afterEach(async () => {
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)))
     cleanup()
     if (MATCH_MEDIA) Object.defineProperty(window, 'matchMedia', MATCH_MEDIA)
     if (GLOBAL_MATCH_MEDIA)
@@ -1388,6 +1389,159 @@ describe('Run Simulator', () => {
         expect(rememberedRun.getAttribute('aria-describedby')).toBe(
             rememberedNote.id
         )
+    })
+
+    test('a late loadItemDb resolution after Run Simulator rejects does not resurrect SimProgress or hide the alert', async () => {
+        const { user, pool } = await simmedTestchar()
+        const originalData = pool.data
+        pool.sim = () => Promise.reject(new Error('boom'))
+        pool.data = (name) =>
+            name === 'db.json'
+                ? new Promise((resolve, reject) =>
+                      setTimeout(
+                          () => void originalData(name).then(resolve, reject),
+                          30
+                      )
+                  )
+                : originalData(name)
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: boom/, undefined, LOADS)
+        await act(() => new Promise<void>((resolve) => setTimeout(resolve, 60)))
+
+        expect(screen.getByRole('alert').textContent).toContain(
+            'The sim failed: boom'
+        )
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+        expect(
+            (screen.getByRole('button', { name: REFINE }) as HTMLButtonElement)
+                .disabled
+        ).toBe(false)
+    })
+
+    test('a late loadItemDb resolution after simPicked rejects does not resurrect Simming or hide the BringIn alert', async () => {
+        const l60 = (await Bun.file(
+            join(BUILD, 'l60-test.in.json')
+        ).json()) as unknown
+        const l60Key = callKey('sim', l60)
+        const base = fakePool()
+        const pool: SimPool = {
+            ...base,
+            size: base.size,
+            sim: (request, profile) =>
+                callKey('sim', request, profile) === l60Key
+                    ? Promise.reject(new Error('boom'))
+                    : base.sim(request, profile),
+            data: (name) =>
+                name === 'db.json'
+                    ? new Promise((resolve, reject) =>
+                          setTimeout(
+                              () => void base.data(name).then(resolve, reject),
+                              30
+                          )
+                      )
+                    : base.data(name),
+        }
+
+        render(<App createPool={() => pool} />)
+        const user = userEvent.setup()
+        await pickFile(user, luaFile(await testcharExport()))
+        const alert = await screen.findByRole('alert', undefined, LOADS)
+        await act(() => new Promise<void>((resolve) => setTimeout(resolve, 60)))
+
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+        expect(screen.queryByText(SIMMING)).toBeNull()
+        expect(alert.textContent).toContain("This export couldn't be simmed.")
+    })
+})
+
+function slowFile(name: string, type = '') {
+    let resolveText!: (text: string) => void
+    let rejectText!: (error: unknown) => void
+    const promise = new Promise<string>((resolve, reject) => {
+        resolveText = resolve
+        rejectText = reject
+    })
+    const file = new File([''], name, { type })
+    let calls = 0
+    Object.defineProperty(file, 'text', {
+        value: () => {
+            calls += 1
+            return promise
+        },
+    })
+    return { file, resolveText, rejectText, calls: () => calls }
+}
+
+describe('pending File.text() races', () => {
+    test('a pending .lua File.text() resolve or reject does not clobber a sample loaded afterwards', async () => {
+        const exportLua = await testcharExport()
+        const user1 = renderWith(fakePool())
+        const slow1 = slowFile('TurboCharExport.lua')
+        await pickFile(user1, slow1.file)
+        expect(slow1.calls()).toBe(1)
+        await user1.click(
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
+        )
+        await characterLoaded('Truncha')
+
+        slow1.resolveText(exportLua)
+        await act(() => new Promise<void>((resolve) => setTimeout(resolve, 30)))
+        expect(screen.getByRole('heading', { name: 'Truncha' })).toBeDefined()
+        expect(screen.queryByRole('heading', { name: 'Testchar' })).toBeNull()
+        expect(screen.queryByText(SIMMING)).toBeNull()
+
+        cleanup()
+        localStorage.clear()
+
+        const user2 = renderWith(fakePool())
+        const slow2 = slowFile('TurboCharExport.lua')
+        await pickFile(user2, slow2.file)
+        expect(slow2.calls()).toBe(1)
+        await user2.click(
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
+        )
+        await characterLoaded('Truncha')
+
+        slow2.rejectText(new Error('NotReadableError'))
+        await act(() => new Promise<void>((resolve) => setTimeout(resolve, 30)))
+        expect(screen.getByRole('heading', { name: 'Truncha' })).toBeDefined()
+        expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    test('a pending .json readFile does not clobber a sample loaded afterwards or write localStorage', async () => {
+        const user = renderWith(fakePool())
+        const slow = slowFile('slow.json', 'application/json')
+        await pickFile(user, slow.file)
+        expect(slow.calls()).toBe(1)
+        await user.click(
+            screen.getByRole('button', {
+                name: 'Or look at a sample character',
+            })
+        )
+        await characterLoaded('Truncha')
+
+        slow.resolveText(
+            JSON.stringify(
+                variant((file) => {
+                    ;(file.character as { name: string }).name = 'SlowJsonChar'
+                })
+            )
+        )
+        await act(() => new Promise<void>((resolve) => setTimeout(resolve, 30)))
+        expect(screen.getByRole('heading', { name: 'Truncha' })).toBeDefined()
+        expect(
+            screen.queryByRole('heading', { name: 'SlowJsonChar' })
+        ).toBeNull()
+        expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull()
     })
 })
 

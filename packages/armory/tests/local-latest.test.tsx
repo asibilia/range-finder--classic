@@ -212,7 +212,8 @@ beforeEach(() => {
     holdRefreshTimers()
 })
 
-afterEach(() => {
+afterEach(async () => {
+    await settle()
     cleanup()
     globalThis.fetch = ORIGINAL_FETCH
     globalThis.setTimeout = ORIGINAL_SET_TIMEOUT
@@ -746,5 +747,46 @@ describe('Run Simulator with the latest file', () => {
         })
         await waitForName('DroppedJson')
         expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    test('a 10 s latest refresh while Run Simulator is active cancels it and does not overwrite the new character or localStorage', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const pool = holdablePool(base)
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0))
+
+        server.latest = json(resultsFile('Newchar', '2026-11-17T09:00:00Z'), {
+            'Last-Modified': 'Tue, 17 Nov 2026 09:00:00 GMT',
+        })
+        await tick()
+        await waitForName('Newchar')
+        expect(pool.cancelCalls).toBe(1)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+
+        pool.release()
+        await settle()
+        expect(showsCharacter('Newchar')).toBe(true)
+        expect(showsCharacter('Testchar')).toBe(false)
+        expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
     })
 })
