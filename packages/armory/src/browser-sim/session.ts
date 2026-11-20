@@ -8,7 +8,12 @@ import type { Sheet, SimPool } from '@goturbo/sim'
 import type { ResultsFile } from '../results-file'
 import type { Character, Gear } from './character'
 import { buildRequest } from './request'
-import type { Scenario } from './scenarios'
+import {
+    chainFor,
+    type FightOverride,
+    type Scenario,
+    scenariosFor,
+} from './scenarios'
 import {
     damageByPart,
     damageSplit,
@@ -40,6 +45,44 @@ export type FightResult = Omit<ResultsFile['results'][number], 'gear'>
 export type SimmedFight = { result: FightResult; player: UnitMetrics }
 
 type Names = (id: number) => string | undefined
+
+/** Every fight in `gear`: the three single fights, then the chain. */
+export async function simAll(
+    pool: SimPool,
+    character: Character,
+    gear: Gear,
+    sheet: Sheet,
+    names: Names,
+    spellNames: SpellNames,
+    fight?: FightOverride
+): Promise<{ singles: SimmedFight[]; chain: FightResult }> {
+    const fights = scenariosFor(character.level, fight)
+    const [singles, chain] = await Promise.all([
+        Promise.all(
+            fights.map((scenario) =>
+                simSingle(
+                    pool,
+                    character,
+                    scenario,
+                    gear,
+                    sheet,
+                    names,
+                    spellNames
+                )
+            )
+        ),
+        simSession(
+            pool,
+            character,
+            chainFor(character.level, fight?.gap_s),
+            gear,
+            sheet,
+            names,
+            spellNames
+        ),
+    ])
+    return { singles, chain }
+}
 
 /**
  * One single fight in `gear`, at the fixed seed. `names` names items,

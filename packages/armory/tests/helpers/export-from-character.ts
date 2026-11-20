@@ -50,6 +50,7 @@ export type ExportedCharacter = {
     imbue: string | null
     known_spells: number[]
     weapon_skills?: { skill: string; value: number }[]
+    professions?: { name: string; skill: number; max: number }[]
     profile: LevelProfile
     export_saved_at: string
     game_build: string
@@ -122,12 +123,25 @@ function imbue(character: ExportedCharacter): Lua[] {
 }
 
 function skills(character: ExportedCharacter): Lua[] {
-    return (character.weapon_skills ?? []).flatMap(({ skill, value }) => {
-        const name = Object.entries(WEAPON_SKILLS).find(
-            ([, sim]) => sim === skill
-        )?.[0]
-        return name ? [{ name, rank: value, maxRank: character.level * 5 }] : []
-    })
+    const weapons = (character.weapon_skills ?? []).flatMap(
+        ({ skill, value }) => {
+            const name = Object.entries(WEAPON_SKILLS).find(
+                ([, sim]) => sim === skill
+            )?.[0]
+            return name
+                ? [{ name, rank: value, maxRank: character.level * 5 }]
+                : []
+        }
+    )
+    const professions = (character.professions ?? []).map(
+        ({ name, skill, max }) => ({
+            name,
+            rank: skill,
+            maxRank: max,
+            modifier: 0,
+        })
+    )
+    return [...weapons, ...professions]
 }
 
 function sheetTable(profile: LevelProfile, sheet: Sheet): Lua {

@@ -5,6 +5,8 @@
  * every fight with the sanity gates, then the max damage plan. The plan's
  * sims start once the weapons (and worn gear at their settings) are in, beside
  * the sanity sims, and the plan is kept only when the sanity gates pass.
+ * Eligible bag previews come last; their optional failures never discard the
+ * main result, while a main fight failure still rejects the run.
  */
 import {
     sheetFromSim,
@@ -20,9 +22,15 @@ import {
     type ResultsFile,
     type Stat,
 } from '../results-file'
+import {
+    bagPreviewAllowance,
+    bagPreviewWork,
+    simBagPreviews,
+} from './bag-preview'
 import { wornGear, type Character, type Gear, type SimStop } from './character'
 import {
     belowLevel60Check,
+    failedChecks,
     level60Check,
     NOTES,
     noSpellAboveLevelCheck,
@@ -51,9 +59,9 @@ import {
 import {
     FIGHT_ITERATIONS,
     FIGHT_SEED,
+    simAll,
     simSession,
     simSingle,
-    type FightResult,
     type SimmedFight,
 } from './session'
 import { dpsOf, type SpellNames } from './sim-result'
@@ -136,47 +144,6 @@ export function supportedSpec(
 }
 
 /**
- * Every fight in `gear`: the three single fights, then the chain (`fight`:
- * the page's settings for them).
- */
-async function simAll(
-    pool: SimPool,
-    character: Character,
-    gear: Gear,
-    sheet: Sheet,
-    names: (id: number) => string | undefined,
-    spellNames: SpellNames,
-    fight?: FightOverride
-): Promise<{ singles: SimmedFight[]; chain: FightResult }> {
-    const fights = scenariosFor(character.level, fight)
-    const [singles, chain] = await Promise.all([
-        Promise.all(
-            fights.map((fight) =>
-                simSingle(
-                    pool,
-                    character,
-                    fight,
-                    gear,
-                    sheet,
-                    names,
-                    spellNames
-                )
-            )
-        ),
-        simSession(
-            pool,
-            character,
-            chainFor(character.level, fight?.gap_s),
-            gear,
-            sheet,
-            names,
-            spellNames
-        ),
-    ])
-    return { singles, chain }
-}
-
-/**
  * The calls the gates make: the sheet and the level 60 sim, and the
  * unbuffed sheet when buffs were up at export.
  */
@@ -241,8 +208,9 @@ function planCalls(level: number): number {
 /**
  * The most calls `simCharacter` makes: the gates, worn gear on every pull,
  * the sanity sims, the most weapons it sims and the worn set at their
- * settings, and the plan's sims. It makes fewer when there are fewer
- * weapons to sim, or when the plan is worn gear, and says so as it learns.
+ * settings, the plan's sims and the possible bag previews. It makes fewer
+ * when there are fewer weapons to sim, the plan is worn gear, or fewer bag
+ * previews apply, and says so as it learns.
  */
 export function characterCalls(character: Character): number {
     const level = character.level
@@ -253,7 +221,8 @@ export function characterCalls(character: Character): number {
         SANITY_CALLS +
         WEAPON_SIMS +
         1 +
-        planCalls(level)
+        planCalls(level) +
+        bagPreviewAllowance(character)
     )
 }
 
@@ -338,7 +307,7 @@ export async function simCharacter(
             }),
             pool.data('spell-names.json') as Promise<SpellNames>,
         ])
-        const failedGates = gates.filter((c) => !c.passed)
+        const failedGates = failedChecks(gates)
         if (failedGates.length > 0)
             return { kind: 'gates', failed: failedGates }
 
@@ -396,7 +365,7 @@ export async function simCharacter(
                 const gains = new Map(
                     weaponDps.map(([id, dps]) => [id, dps - baseDps])
                 )
-                const planned = planMaxDamage(character, db, ep, gains)
+                const planned = planMaxDamage(character, db, ep, gains, weights)
                 if (sameGear(planned.gear, wearing)) {
                     plannedLess(planCalls(level))
                     return { planned, planSims: undefined }
@@ -430,12 +399,24 @@ export async function simCharacter(
             belowLevel60Check(longDps(singles), l60Dps),
             ...raised,
         ]
-        const failedSanity = sanityChecks.filter((c) => !c.passed)
+        const failedSanity = failedChecks(sanityChecks)
         if (failedSanity.length > 0)
             return { kind: 'gates', failed: failedSanity }
 
         // The plan's sims, or the worn ones when it's the same gear.
         const plan = planSims ?? worn
+        const previewWork = bagPreviewWork(planned, level)
+        plannedLess(bagPreviewAllowance(character) - previewWork.calls)
+        const previews = await simBagPreviews({
+            pool,
+            character,
+            db,
+            planned,
+            work: previewWork,
+            names,
+            spellNames,
+            fight,
+        })
 
         const results: ResultsFile['results'] = []
         for (const [gear, simmed] of [
@@ -450,6 +431,12 @@ export async function simCharacter(
         const fightIds = scenarios.map((s) => s.fight_id)
         const fileWeights = cleanWeights(weights, fightIds)
         const key = character.character_key
+        const offHand = db.items.get(character.gear.off_hand?.id ?? -1)
+        const dualWield =
+            offHand?.type === 13 &&
+            offHand.weaponType !== 5 &&
+            offHand.weaponType !== 7 &&
+            (offHand.weaponSpeed ?? 0) > 0
         const file = {
             schema_version: SCHEMA_VERSION,
             made_at: new Date().toISOString(),
@@ -457,7 +444,7 @@ export async function simCharacter(
             game_build: character.game_build,
             sample: false,
             provisional: true,
-            checks: [...gates, ...sanityChecks, ...NOTES],
+            checks: [...gates, ...sanityChecks, ...NOTES, ...previews.checks],
             ...(planned.left_out_items.length > 0
                 ? { left_out_items: planned.left_out_items }
                 : {}),
@@ -469,13 +456,19 @@ export async function simCharacter(
                 class: character.class,
                 spec,
                 ...(character.gender ? { gender: character.gender } : {}),
+                professions: character.professions ?? [],
             },
             sheet_buffed: character.sheet_buffs !== undefined,
             sheet: fileSheet(character.sheet),
-            fights: scenarios.map(fightEntry),
+            fights: scenarios.map((scenario) =>
+                fightEntry(scenario, character, dualWield)
+            ),
             default_fight_id: DEFAULT_FIGHT,
             slots: planned.slots,
-            bag_upgrades: planned.bag_upgrades,
+            bag_upgrades: previews.bag_upgrades,
+            ...(previews.bag_upgrades_all
+                ? { bag_upgrades_all: previews.bag_upgrades_all }
+                : {}),
             plans: [planned.plan],
             results,
             stat_weights: fileWeights,

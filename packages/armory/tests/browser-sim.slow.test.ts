@@ -9,7 +9,13 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { createSimPool, type SimPool } from '@goturbo/sim'
+import {
+    createSimPool,
+    sheetFromSim,
+    STAT,
+    type RaidSimRequest,
+    type SimPool,
+} from '@goturbo/sim'
 
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import {
@@ -17,11 +23,26 @@ import {
     type TestcharCharacter,
 } from '../../sim/tests/helpers/testchar'
 import {
+    BAG_PREVIEW_FAILURE,
+    bagPreviewGear,
     buildRequest,
+    epTable,
+    loadItemDb,
+    planMaxDamage,
     simCharacter,
+    type Character,
     type SimOutcome,
     type StatWeights,
 } from '../src/browser-sim'
+import { characterCalls } from '../src/browser-sim/sim-character'
+import { simAll } from '../src/browser-sim/session'
+import type { SpellNames } from '../src/browser-sim/sim-result'
+import {
+    initialPlannerState,
+    wearAllBagItems,
+    wearBagItem,
+    wornResult,
+} from '../src/planner-state'
 import { readResultsFile, type ResultsFile } from '../src/results-file'
 
 const ARMORY = join(import.meta.dir, '..')
@@ -89,6 +110,82 @@ function fileOf(outcome: SimOutcome): ResultsFile {
     return outcome.file
 }
 
+const QUALITY = ['poor', 'common', 'uncommon', 'rare', 'epic', 'legendary']
+
+/** Two known, positive-EP bag upgrades in distinct armor slots. */
+async function withTwoBags(character: TestcharCharacter, on: SimPool) {
+    const weights = await sampleWeights()
+    const db = await loadItemDb(on)
+    const planned = planMaxDamage(
+        character,
+        db,
+        epTable(weights),
+        new Map(),
+        weights
+    )
+    const alternatives = planned.slots
+        .filter(
+            (entry) =>
+                ![
+                    'finger_1',
+                    'finger_2',
+                    'trinket_1',
+                    'trinket_2',
+                    'main_hand',
+                    'off_hand',
+                    'relic',
+                ].includes(entry.slot)
+        )
+        .flatMap((entry) => entry.alternatives.slice(0, 1))
+        .filter(
+            (alternative) =>
+                (alternative.gain_ep ?? 0) > 0 &&
+                alternative.item.required_level <= character.level
+        )
+        .slice(0, 2)
+    expect(alternatives).toHaveLength(2)
+    const bags: Character['bags'] = alternatives.map(({ item }) => ({
+        id: item.item_id,
+        name: item.name,
+        quality: QUALITY.indexOf(item.quality),
+        item_level: item.item_level ?? 0,
+        required_level: item.required_level,
+        equip_loc: '',
+        stats: {},
+    }))
+    return { character: { ...character, bags } as Character, db }
+}
+
+const UNKNOWN_BAG = 999_999_202
+const UNKNOWN_BAG_STRENGTH = 25
+
+function withUnknownBag(character: TestcharCharacter): Character {
+    return {
+        ...character,
+        bags: [
+            {
+                id: UNKNOWN_BAG,
+                name: 'Exported Preview Helm',
+                quality: 2,
+                item_level: 35,
+                required_level: character.level,
+                equip_loc: 'INVTYPE_HEAD',
+                stats: { ITEM_MOD_STRENGTH_SHORT: UNKNOWN_BAG_STRENGTH },
+            },
+        ],
+    }
+}
+
+function hasUnknownPreviewStats(request: RaidSimRequest): boolean {
+    const raid = request.raid as unknown as {
+        parties: { players: { bonusStats?: { stats?: number[] } }[] }[]
+    }
+    return (
+        raid.parties[0]!.players[0]!.bonusStats?.stats?.[STAT.strength] ===
+        UNKNOWN_BAG_STRENGTH
+    )
+}
+
 describe('simCharacter on Testchar with the real WASM', () => {
     test('gives a file readResultsFile accepts: provisional, worn and max-damage results on the three single fights and chain-solo, and the max-damage plan', async () => {
         const { outcome } = await passingRun()
@@ -149,6 +246,166 @@ describe('simCharacter on Testchar with the real WASM', () => {
                 .map(([name, detail]) => ({ name, detail }))
                 .sort((a, b) => a.name.localeCompare(b.name))
         )
+    }, 1_200_000)
+})
+
+describe('real bag previews', () => {
+    test('match fresh sims on every fight, drive Equip/Equip all/Undo, and finish their progress budget', async () => {
+        const on = pool()
+        const { character, db } = await withTwoBags(
+            await testcharCharacter(on),
+            on
+        )
+        const reports: { done: number; planned: number }[] = []
+        const outcome = await simCharacter(
+            character,
+            await sampleWeights(),
+            on,
+            (done, planned) => reports.push({ done, planned })
+        )
+        const file = fileOf(outcome)
+        expect(file.bag_upgrades).toHaveLength(2)
+        expect(
+            new Set(file.bag_upgrades.map((upgrade) => upgrade.slot)).size
+        ).toBe(2)
+        expect(file.bag_upgrades_all).toBeDefined()
+        expect(
+            file.checks.filter((check) => check.name === 'bag_preview')
+        ).toEqual([])
+        expect(reports[0]?.planned).toBe(characterCalls(character))
+        expect(characterCalls(character)).toBeGreaterThan(
+            characterCalls({ ...character, bags: [] })
+        )
+        for (const [index, report] of reports.entries()) {
+            expect(report.done).toBeLessThanOrEqual(report.planned)
+            const before = reports[index - 1]
+            if (before)
+                expect(report.done * before.planned).toBeGreaterThanOrEqual(
+                    before.done * report.planned
+                )
+        }
+        expect(reports.at(-1)?.done).toBe(reports.at(-1)?.planned)
+
+        const spellNames = (await on.data('spell-names.json')) as SpellNames
+        const names = (id: number) => db.items.get(id)?.name
+        const expectPreview = async (
+            upgrades: ResultsFile['bag_upgrades'],
+            results: ResultsFile['bag_upgrades'][number]['results']
+        ) => {
+            expect(results?.map((result) => result.fight_id)).toEqual(
+                ALL_FIGHTS
+            )
+            if (!results) throw new Error('preview not simmed')
+            const preview = bagPreviewGear(character, db, upgrades)
+            const sheet = sheetFromSim(
+                await on.sheet(
+                    buildRequest(preview.character, 'dungeon-long', {
+                        seed: 23,
+                        iterations: 4000,
+                        gear: preview.gear,
+                    }),
+                    character.profile
+                )
+            )
+            const simmed = await simAll(
+                on,
+                preview.character,
+                preview.gear,
+                sheet,
+                names,
+                spellNames
+            )
+            expect(results).toEqual([
+                ...simmed.singles.map((single) => single.result),
+                simmed.chain,
+            ])
+        }
+        for (const upgrade of file.bag_upgrades) {
+            await expectPreview([upgrade], upgrade.results)
+            const equipped = wearBagItem(
+                file,
+                initialPlannerState(file),
+                upgrade.item.item_id
+            )
+            expect(equipped.bagOn).toEqual([upgrade.item.item_id])
+            for (const result of upgrade.results!)
+                expect(wornResult(file, equipped, result.fight_id)).toEqual({
+                    gear: 'worn',
+                    ...result,
+                })
+            const undone = wearBagItem(file, equipped, null)
+            for (const fight of file.fights)
+                expect(wornResult(file, undone, fight.fight_id)).toEqual(
+                    file.results.find(
+                        (result) =>
+                            result.gear === 'worn' &&
+                            result.fight_id === fight.fight_id
+                    ) ?? null
+                )
+        }
+        await expectPreview(file.bag_upgrades, file.bag_upgrades_all?.results)
+        const all = wearAllBagItems(file, initialPlannerState(file))
+        expect(all.bagOn).toEqual(
+            file.bag_upgrades.map((upgrade) => upgrade.item.item_id)
+        )
+        for (const result of file.bag_upgrades_all!.results)
+            expect(wornResult(file, all, result.fight_id)).toEqual({
+                gear: 'worn',
+                ...result,
+            })
+        expect(wearBagItem(file, all, null).bagOn).toEqual([])
+    }, 1_200_000)
+
+    test('an optional preview failure keeps the main file and adds only the exact not-checked row', async () => {
+        const real = pool()
+        const character = withUnknownBag(await testcharCharacter(real))
+        const failing: SimPool = {
+            ...real,
+            size: real.size,
+            sheet: (request, profile) =>
+                hasUnknownPreviewStats(request)
+                    ? Promise.reject(new Error('preview failed'))
+                    : real.sheet(request, profile),
+        }
+        const outcome = await simCharacter(
+            character,
+            await sampleWeights(),
+            failing,
+            () => {}
+        )
+        const file = fileOf(outcome)
+        expect(file.results).toHaveLength(ALL_FIGHTS.length * 2)
+        expect(file.bag_upgrades).toHaveLength(1)
+        expect(file.bag_upgrades[0]!.results).toBeNull()
+        expect(file.bag_upgrades_all).toBeUndefined()
+        expect(
+            file.checks.filter((check) => check.name === 'bag_preview')
+        ).toEqual([BAG_PREVIEW_FAILURE])
+    }, 1_200_000)
+
+    test('a main long-fight failure still rejects instead of becoming a bag_preview note', async () => {
+        const real = pool()
+        const character = withUnknownBag(await testcharCharacter(real))
+        const failing: SimPool = {
+            ...real,
+            size: real.size,
+            sim: (request, profile) => {
+                const options = request.simOptions as
+                    { randomSeed?: number; iterations?: number } | undefined
+                const encounter = request.encounter as { duration?: number }
+                if (
+                    !hasUnknownPreviewStats(request) &&
+                    options?.randomSeed === 23 &&
+                    options.iterations === 4000 &&
+                    encounter.duration === 120
+                )
+                    return Promise.reject(new Error('main fight failed'))
+                return real.sim(request, profile)
+            },
+        }
+        await expect(
+            simCharacter(character, await sampleWeights(), failing, () => {})
+        ).rejects.toThrow('main fight failed')
     }, 1_200_000)
 })
 

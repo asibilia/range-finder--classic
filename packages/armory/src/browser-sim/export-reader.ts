@@ -20,6 +20,7 @@ import type {
     Character,
     GameStats,
     Gear,
+    Profession,
     GearPiece,
     SheetBuffs,
     SimStop,
@@ -363,6 +364,61 @@ function readWeaponSkills(skills: SavedValue[]) {
     return out
 }
 
+const PROFESSION_NAMES = [
+    'Alchemy',
+    'Blacksmithing',
+    'Enchanting',
+    'Engineering',
+    'Herbalism',
+    'Jewelcrafting',
+    'Leatherworking',
+    'Mining',
+    'Skinning',
+    'Tailoring',
+    'First Aid',
+    'Cooking',
+    'Fishing',
+] as const
+
+/** Professions from skill rows, in the contract's primary/secondary order. */
+export function readProfessions(skills: SavedValue | undefined): Profession[] {
+    const best = new Map<string, Profession>()
+    for (const raw of list(skills)) {
+        if (raw === null || typeof raw !== 'object') continue
+        const row: Table = raw
+        const name = row.name
+        if (
+            typeof name !== 'string' ||
+            !PROFESSION_NAMES.includes(
+                name as (typeof PROFESSION_NAMES)[number]
+            )
+        )
+            continue
+        const { rank, maxRank, modifier } = row
+        const integer = (value: SavedValue | undefined): value is number =>
+            typeof value === 'number' &&
+            Number.isFinite(value) &&
+            Number.isInteger(value)
+        if (
+            !integer(rank) ||
+            !integer(maxRank) ||
+            !integer(modifier) ||
+            rank < 0 ||
+            maxRank < 0
+        )
+            continue
+        const skill = rank + modifier
+        if (skill < 0) continue
+        const previous = best.get(name)
+        if (!previous || skill > previous.skill)
+            best.set(name, { name, skill, max: maxRank })
+    }
+    return PROFESSION_NAMES.flatMap((name) => {
+        const profession = best.get(name)
+        return profession ? [profession] : []
+    })
+}
+
 /** The main hand's gear entry and the skill row its weapon type names. */
 function mainHandSkill(db: Table, gear: Table) {
     const mainHand = Object.values(gear)
@@ -671,6 +727,7 @@ export async function exportCharacter(
         imbue: readImbue(db),
         known_spells: knownSpells,
         weapon_skills: readWeaponSkills(list(db.skills)),
+        professions: readProfessions(db.skills),
         weapon_skill_deficit: weaponSkillDeficit(db, gear, level),
         ooc_mana_regen: num(
             table(table(db.sheet).manaRegen).outsideFiveSecondRule

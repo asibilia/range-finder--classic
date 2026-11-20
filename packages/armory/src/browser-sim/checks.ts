@@ -29,6 +29,11 @@ export const NOTES: readonly Check[] = [
     },
 ]
 
+/** Ordinary failures: not-checked rows never block a run. */
+export function failedChecks(checks: readonly Check[]): Check[] {
+    return checks.filter((check) => !check.passed && !check.not_checked)
+}
+
 /** With no profile, upstream's test request gives upstream's DPS. */
 export function level60Check(dps: number, expected: number): Check {
     const relative = Math.abs(dps - expected) / Math.abs(expected)

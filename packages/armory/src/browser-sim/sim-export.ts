@@ -10,6 +10,7 @@ import { SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'
+import { failedChecks } from './checks'
 import { calibrate, CALIBRATION_CALLS, exportCharacter } from './export-reader'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT, type FightOverride, scenariosFor } from './scenarios'
@@ -235,7 +236,7 @@ async function beforeYourWeights(
     run.pool.batch(beforeYourWeightsCalls(character))
     const { checks } = await runGates(character, run.pool)
     run.check()
-    const failed = checks.filter((c) => !c.passed)
+    const failed = failedChecks(checks)
     if (failed.length > 0) return { kind: 'gates', failed }
     const before = run.pool.stats()
     await run.pool.sim(

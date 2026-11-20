@@ -23,7 +23,7 @@ export function leftOutWords(item: LeftOut): string {
 /**
  * The checks.
  *
- * @param checks - The file's checks: the accuracy gates, all counted.
+ * @param checks - Passed, failed and not-checked rows, counted separately.
  * @param leftOut - The file's `left_out_items`; absent or empty, no list.
  */
 export function Checks({
@@ -34,17 +34,20 @@ export function Checks({
     leftOut?: ResultsFile['left_out_items']
 }) {
     const leftOutId = useId()
-    const passed = checks.filter((check) => check.passed).length
+    const ordinary = checks.filter((check) => !check.not_checked)
+    const passed = ordinary.filter((check) => check.passed).length
+    const failed = ordinary.length - passed
+    const notChecked = checks.length - ordinary.length
     return (
         <details className="group rounded-lg border px-3 py-2 text-sm">
             <summary className="cursor-pointer font-medium">
                 How sure is this?
             </summary>
-            <p className="mt-2">{`${passed} checks passed, ${checks.length - passed} failed.`}</p>
+            <p className="mt-2">{`${passed} checks passed, ${failed} failed, ${notChecked} not checked.`}</p>
             <ul className="mt-1 flex flex-col gap-0.5 text-muted-foreground">
                 {checks.map((check, index) => (
                     <li key={index}>
-                        {`${check.passed ? 'Passed' : 'Failed'}: ${check.name}. ${check.detail}`}
+                        {`${check.not_checked ? 'Not checked' : check.passed ? 'Passed' : 'Failed'}: ${check.name}. ${check.detail}`}
                     </li>
                 ))}
             </ul>

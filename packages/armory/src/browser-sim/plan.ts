@@ -7,6 +7,8 @@
  */
 import { SLOTS, type ResultsFile, type Slot, type Stat } from '../results-file'
 import { wornGear, type Character, type Gear } from './character'
+import { DEFAULT_FIGHT } from './scenarios'
+import type { StatWeights } from './weights'
 import {
     canWearWeapon,
     fileItem,
@@ -44,6 +46,21 @@ export type GearPlan = {
 }
 
 const round = (value: number) => Math.round(value * 10) / 10
+
+/** A weapon's simmed DPS gain in EP, using only its own fight's AP weight. */
+export function weaponGainEp(
+    gainDps: number | null | undefined,
+    weights: StatWeights | undefined,
+    fightId: string
+): number | null {
+    if (gainDps === null || gainDps === undefined || !Number.isFinite(gainDps))
+        return null
+    const ap = weights
+        ?.find((fight) => fight.fight_id === fightId)
+        ?.weights.find((weight) => weight.stat === 'attack_power')?.ep
+    if (ap === undefined || !Number.isFinite(ap) || ap <= 0) return null
+    return Math.round((gainDps / ap) * 100) / 100
+}
 
 /** The items a character could put in each slot, by the left-out rule. */
 export function candidates(character: Character, db: ItemDb) {
@@ -110,7 +127,8 @@ export function planMaxDamage(
     character: Character,
     db: ItemDb,
     ep: ReadonlyMap<Stat, number>,
-    weaponGains: ReadonlyMap<number, number>
+    weaponGains: ReadonlyMap<number, number>,
+    weights?: StatWeights
 ): GearPlan {
     const { bySlot, leftOut } = candidates(character, db)
     const wornEp = (slot: Slot) => itemEp(wornItem(character, db, slot), ep)
@@ -166,7 +184,9 @@ export function planMaxDamage(
         const weapon = slot === 'main_hand'
         const alternatives: Alternative[] = kept.map(({ item, gain }) => ({
             item: fileItem(db, item.id),
-            gain_ep: weapon ? null : round(gain),
+            gain_ep: weapon
+                ? weaponGainEp(gain, weights, DEFAULT_FIGHT)
+                : round(gain),
             gain_dps: weapon ? round(gain) : null,
         }))
         const piece = character.gear[slot]

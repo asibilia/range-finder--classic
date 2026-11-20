@@ -13,7 +13,20 @@ export type {
     SimStop,
     UnknownPiece,
 } from './character'
-export { L60_TOLERANCE, NOTES, level60Check, sheetChecks } from './checks'
+export {
+    BAG_PREVIEW_FAILURE,
+    bagPreviewAllowance,
+    bagPreviewGear,
+    bagPreviewWork,
+    simBagPreviews,
+} from './bag-preview'
+export {
+    failedChecks,
+    L60_TOLERANCE,
+    NOTES,
+    level60Check,
+    sheetChecks,
+} from './checks'
 export {
     BASE_RATES,
     EXPORT_FORMATS,

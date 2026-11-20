@@ -129,7 +129,13 @@ function playerOf(request: RaidSimRequest): Json {
  */
 async function makeBuffedExports() {
     const on = pool()
-    const character = await testcharCharacter(on)
+    const character = {
+        ...(await testcharCharacter(on)),
+        professions: [
+            { name: 'Leatherworking', skill: 165, max: 225 },
+            { name: 'First Aid', skill: 60, max: 75 },
+        ],
+    }
     const known = (await on.data('buffs.json')) as Record<
         string,
         { stats: number[] }
@@ -780,6 +786,13 @@ describe('an export saved with buffs the sim can model', () => {
 
         expect(file.sheet_buffed).toBe(true)
         expect(plainFile.sheet_buffed).toBe(false)
+        expect(file.character.professions).toEqual([
+            { name: 'Leatherworking', skill: 165, max: 225 },
+            { name: 'First Aid', skill: 60, max: 75 },
+        ])
+        expect(file.fights.map((fight) => fight.melee_miss_pct)).toEqual([
+            5, 5.5, 6, 5,
+        ])
         const sheetGates = file.checks.filter((check) =>
             check.name.startsWith('sheet ')
         )

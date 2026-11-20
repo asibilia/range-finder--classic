@@ -3,6 +3,7 @@
  * fights and the runner's chain of pulls, `chain-solo`.
  */
 import type { ResultsFile } from '../results-file'
+import type { Character } from './character'
 
 export type Scenario = {
     fight_id: string
@@ -195,14 +196,39 @@ export function allScenarios(level: number): Scenario[] {
     return [...scenariosFor(level), chainFor(level)]
 }
 
+/**
+ * The main-hand auto attack's miss percentage, from the native attack table:
+ * level difference capped at +10 under a level profile, weapon-skill deficit,
+ * hit and the 19-point dual-wield penalty (`target.go`, `spell_outcome.go`).
+ */
+export function meleeMissPct(
+    character: Pick<Character, 'level' | 'weapon_skill_deficit' | 'sheet'>,
+    targetLevel: number,
+    dualWield = false
+): number {
+    const levelDiff = Math.min(targetLevel - character.level, 10)
+    const skillDiff = levelDiff * 5 + character.weapon_skill_deficit
+    const baseMiss = 0.05 + skillDiff * (skillDiff > 10 ? 0.002 : 0.001)
+    const hit = Math.max(0, character.sheet.melee_hit_pct) / 100
+    const miss = Math.max(0, baseMiss - hit + (dualWield ? 0.19 : 0))
+    return Math.round(miss * 10_000) / 100
+}
+
 /** A scenario as the results file describes the fight. */
-export function fightEntry(scenario: Scenario): ResultsFile['fights'][number] {
+export function fightEntry(
+    scenario: Scenario,
+    character?: Character,
+    dualWield = false
+): ResultsFile['fights'][number] {
     return {
         fight_id: scenario.fight_id,
         label: scenario.label,
         kind: scenario.kind,
         target_level: scenario.target_level,
         duration_s: scenario.duration_s,
+        melee_miss_pct: character
+            ? meleeMissPct(character, scenario.target_level, dualWield)
+            : null,
         setup: {
             starting_mana_pct: scenario.starting_mana_pct ?? 100,
             being_hit: scenario.being_hit,

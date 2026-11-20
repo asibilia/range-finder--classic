@@ -296,11 +296,16 @@ puts the bucket's host on the build guard's list; no page code changes.
   at 3:01`). `never` reads `keep mana through every pull`; null, the
   not-simmed sentence. The rule is `dryPull` in `src/mana-words.ts`.
 - `left_out_items` (optional) lists items the sim left out of every plan
-  (`{item_id, name, reason}`), apart from `checks`, which are the accuracy
-  gates the `N checks passed` line counts. How sure is this? lists them
-  under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
+  (`{item_id, name, reason}`), apart from `checks`. How sure is this? lists
+  them under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
   (99901), because it has no source and needs level 1.` Each `item_id`
   appears once (the page refuses a repeat). Absent or empty: no list.
+- `checks[].not_checked` (optional) marks a check that could not be made. It
+  must have `passed: false` (so older readers cannot count it as a pass), never
+  blocks a gate, and is excluded from ordinary pass/fail counts. How sure is
+  this? reports `<p> checks passed, <f> failed, <n> not checked.` and prefixes
+  each row `Passed:`, `Failed:` or `Not checked:`. A failed optional bag preview
+  adds a `bag_preview` not-checked row and hides only its Equip control.
 - `talents.points` is the points spent in the tree (the sum of the ranks in
   `talents.yours`), shown on the talents pill on the character: `22 pts`.
   When `talents.best.dps_gain` shows as 3.0 or more, the pill gets an
@@ -308,8 +313,9 @@ puts the bucket's host on the build guard's list; no page code changes.
 - Nine optional fields (schema version 1 still) carry what the mockup and
   the owner's design (spec #109) show beyond the first contract: the first
   six for the mockup, the last three for the callout card. Absent or null,
-  the page leaves out only the part that needs them. The gear sim's runner
-  doesn't write the last three yet; the page reads them when it does.
+  the page leaves out only the part that needs them. The browser sim writes
+  professions and the bag-preview fields when their data applies; quick fixes
+  remain a contract the page reads when a runner supplies them.
 
   | Field | Shown as | Absent or null |
   | --- | --- | --- |

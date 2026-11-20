@@ -908,6 +908,36 @@ describe('quick_fixes', () => {
     })
 })
 
+describe('checks[].not_checked', () => {
+    test('a fail-safe not-checked row reads, but passed: true with not_checked: true is refused', () => {
+        const f = sample()
+        const row = {
+            name: 'bag_preview',
+            passed: false,
+            not_checked: true,
+            detail: 'Not simmed: the bag preview failed; its Equip control is unavailable.',
+        }
+        f.checks.push(row)
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.checks.at(-1)).toEqual(row)
+
+        const unsafe = sample()
+        unsafe.checks.push({ ...row, passed: true })
+        expect(problemsOf(unsafe)).toContain(
+            'checks.14.passed: A not-checked row must have passed: false.'
+        )
+    })
+
+    test('not_checked is optional and false does not change an ordinary check', () => {
+        const f = sample()
+        f.checks[0].not_checked = false
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.checks[0].not_checked).toBe(false)
+    })
+})
+
 describe('bag_upgrades_all', () => {
     /**
      * The full sample with a second bag upgrade (a copy of the first, moved to

@@ -240,6 +240,25 @@ const talent = z.strictObject({
     max_rank: z.int().min(1).max(MAX_RANK),
 })
 
+const check = z
+    .strictObject({
+        name: z.string(),
+        passed: z.boolean(),
+        not_checked: z.boolean().optional().meta({
+            description:
+                'true: the check could not be made, so passed is false. Gates ignore it and ordinary pass/fail counts exclude it; the page counts it separately as not checked.',
+        }),
+        detail: z.string(),
+    })
+    .superRefine((value, ctx) => {
+        if (value.not_checked && value.passed)
+            ctx.addIssue({
+                code: 'custom',
+                path: ['passed'],
+                message: 'A not-checked row must have passed: false.',
+            })
+    })
+
 const baseSchema = z.strictObject({
     schema_version: z.literal(SCHEMA_VERSION),
     made_at: datetime.meta({
@@ -255,13 +274,7 @@ const baseSchema = z.strictObject({
     provisional: z.boolean().meta({
         description: "true: the sim isn't matched to real fights yet.",
     }),
-    checks: z.array(
-        z.strictObject({
-            name: z.string(),
-            passed: z.boolean(),
-            detail: z.string(),
-        })
-    ),
+    checks: z.array(check),
     left_out_items: z
         .array(
             z.strictObject({
@@ -671,6 +684,7 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
 const FILE_DESCRIPTION = [
     'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
     "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
+    '- A check with not_checked: true has passed: false.',
     '- default_fight_id names a fight in fights.',
     '- Every fight_id in results, bag_upgrades results, bag_upgrades_all results, stat_weights and talents.best names a fight in fights.',
     "- A bag upgrade's results have at most one entry per fight.",
@@ -713,8 +727,13 @@ export type Fight = ResultsFile['fights'][number]
 export type Result = ResultsFile['results'][number]
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
-/** One accuracy check: a gate, or a note that never blocks. */
-export type Check = { name: string; passed: boolean; detail: string }
+/** One accuracy check: a gate, a failure, or a non-blocking not-checked row. */
+export type Check = {
+    name: string
+    passed: boolean
+    not_checked?: boolean
+    detail: string
+}
 
 export type ReadOutcome =
     | { ok: true; file: ResultsFile }

@@ -43,6 +43,10 @@ export type BagItem = {
  */
 export type SheetBuffs = { stats: number[]; kings: boolean }
 
+export type Profession = NonNullable<
+    ResultsFile['character']['professions']
+>[number]
+
 export type Character = {
     /** For display only. */
     name: string
@@ -75,6 +79,8 @@ export type Character = {
     known_spells: number[]
     /** Weapon skills as the sim's `WeaponSkillValue` takes them. */
     weapon_skills?: { skill: string; value: number }[]
+    /** Professions from the export's skills; empty when none parse. */
+    professions?: Profession[]
     /**
      * The level's weapon-skill cap (5 per level) less the main hand's
      * weapon skill (rank plus modifier); 0 when the export has no row for
