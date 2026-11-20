@@ -11,10 +11,12 @@ export const LOADER = 'packages/sim/src/loader.ts'
 export const LOCAL_LATEST = 'packages/armory/src/local-latest.ts'
 /** The only module allowed to insert a remote script, from the repo root. */
 export const WOWHEAD_LOADER = 'packages/armory/src/wowhead-loader.ts'
+/** The armory CSP module, which names the approved Wowhead connect-src host. */
+export const SECURITY = 'packages/armory/src/security.ts'
 
 /** Ways of asking a server for something. */
 const NETWORK = /\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/g
-const SCRIPT = /\bdocument\.createElement\(\s*['"]script['"]\s*\)/g
+const SCRIPT = /\bdocument\.createElement\(\s*(['"`])script\1\s*\)/g
 
 /**
  * How `code` (a source file without comments, at `path` from the repo
@@ -38,9 +40,16 @@ export function networkProblems(path: string, code: string): string[] {
                 .length !== 1
         )
             problems.push(`${path} does not pin the official Wowhead script`)
-        if (/nether\.wowhead\.com|\/tooltip\/|dataEnv/.test(code))
-            problems.push(`${path} calls Wowhead's data endpoint directly`)
     }
+    const directScope =
+        path === SECURITY
+            ? code.replace(
+                  /"connect-src 'self' https:\/\/nether\.wowhead\.com"/,
+                  ''
+              )
+            : code
+    if (/nether\.wowhead\.com|\/tooltip\/|dataEnv/.test(directScope))
+        problems.push(`${path} calls Wowhead's data endpoint directly`)
     if (!allowed) return problems
 
     const fetches = code.match(/\bfetch\b/g) ?? []

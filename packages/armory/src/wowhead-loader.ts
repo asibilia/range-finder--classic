@@ -17,14 +17,17 @@ declare global {
     }
 }
 
+let pending: Promise<WowheadPower> | null = null
+
 export function loadWowheadScript(timeoutMs = 10_000): Promise<WowheadPower> {
     if (window.$WowheadPower) return Promise.resolve(window.$WowheadPower)
+    if (pending) return pending
     if (navigator.onLine === false)
         return Promise.reject(new Error('Wowhead is unavailable offline.'))
 
-    return new Promise((resolve, reject) => {
+    let settled = false
+    const attempt = new Promise<WowheadPower>((resolve, reject) => {
         const script = document.createElement('script')
-        let settled = false
         const timeout = window.setTimeout(() => {
             finish(new Error('Loading Wowhead timed out.'))
         }, timeoutMs)
@@ -32,6 +35,7 @@ export function loadWowheadScript(timeoutMs = 10_000): Promise<WowheadPower> {
         const finish = (error: Error | null) => {
             if (settled) return
             settled = true
+            pending = null
             window.clearTimeout(timeout)
             script.onload = null
             script.onerror = null
@@ -56,6 +60,16 @@ export function loadWowheadScript(timeoutMs = 10_000): Promise<WowheadPower> {
         script.referrerPolicy = 'no-referrer'
         script.onload = () => finish(null)
         script.onerror = () => finish(new Error('Wowhead could not be loaded.'))
-        document.head.append(script)
+        try {
+            document.head.append(script)
+        } catch (error) {
+            finish(
+                error instanceof Error
+                    ? error
+                    : new Error('Wowhead could not be loaded.')
+            )
+        }
     })
+    if (!settled) pending = attempt
+    return attempt
 }

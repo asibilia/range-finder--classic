@@ -60,7 +60,7 @@ describe('the Wowhead script boundary', () => {
         ).not.toEqual([])
     })
 
-    test('rejects direct tooltip JSON and environment calls', async () => {
+    test('rejects direct tooltip JSON and environment calls across all product files', async () => {
         const official = `const URL = 'https://wow.zamimg.com/js/tooltips.js'
             const script = document.createElement('script')`
         for (const direct of [
@@ -70,5 +70,33 @@ describe('the Wowhead script boundary', () => {
             expect(
                 await networkProblems(WOWHEAD_LOADER, official + direct)
             ).not.toEqual([])
+
+        for (const nonLoader of [
+            "import 'https://nether.wowhead.com/tooltip/item/1?dataEnv=16'",
+            "const host = 'https://nether.wowhead.com'",
+            "const path = '/tooltip/item/1'",
+            "const env = 'dataEnv=16'",
+            'document.createElement(`script`)',
+        ])
+            expect(
+                await networkProblems('packages/armory/src/app.tsx', nonLoader)
+            ).not.toEqual([])
+    })
+
+    test('allows only the declared CSP connect-src host in security.ts', async () => {
+        const security = `export const ARMORY_CSP = [
+            "default-src 'self'",
+            "connect-src 'self' https://nether.wowhead.com",
+        ].join('; ')`
+        expect(
+            await networkProblems('packages/armory/src/security.ts', security)
+        ).toEqual([])
+        expect(
+            await networkProblems(
+                'packages/armory/src/security.ts',
+                security +
+                    "\nimport 'https://nether.wowhead.com/tooltip/item/1'"
+            )
+        ).not.toEqual([])
     })
 })

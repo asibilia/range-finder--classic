@@ -1,15 +1,21 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 
 import { useWowhead } from './wowhead'
+
+let activeTap: HTMLAnchorElement | null = null
 
 function showTooltip(anchor: HTMLAnchorElement) {
     anchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
 }
 
 function hideTooltip(anchor: HTMLAnchorElement) {
-    anchor.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
+    if (anchor.isConnected) {
+        anchor.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
+        return
+    }
+    document.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
 }
 
 export function ItemLink({
@@ -26,15 +32,29 @@ export function ItemLink({
     const { status, refresh } = useWowhead()
     const rich = allowTooltip && status === 'ready'
     const touch = useRef(false)
-    const tapShown = useRef(false)
     const presented = useRef(false)
+    const anchorRef = useRef<HTMLAnchorElement | null>(null)
+
+    const setAnchorRef = useCallback((node: HTMLAnchorElement | null) => {
+        anchorRef.current = node
+        if (!node) return
+        return () => {
+            if (presented.current) hideTooltip(node)
+            presented.current = false
+            touch.current = false
+            if (activeTap === node) activeTap = null
+            anchorRef.current = null
+        }
+    }, [])
 
     useEffect(() => {
+        if (activeTap && activeTap === anchorRef.current) activeTap = null
         if (rich) refresh()
     }, [itemId, name, refresh, rich])
 
     return (
         <a
+            ref={setAnchorRef}
             href={`https://www.wowhead.com/forever/item=${itemId}`}
             data-wowhead={
                 allowTooltip ? `item=${itemId}&domain=forever` : undefined
@@ -46,8 +66,11 @@ export function ItemLink({
                 'rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50',
                 className
             )}
-            onMouseEnter={() => {
-                if (rich) presented.current = true
+            onMouseEnter={(event) => {
+                if (!rich) return
+                if (activeTap && activeTap !== event.currentTarget)
+                    activeTap = null
+                presented.current = true
             }}
             onMouseLeave={(event) => {
                 if (document.activeElement !== event.currentTarget)
@@ -55,30 +78,35 @@ export function ItemLink({
             }}
             onFocus={(event) => {
                 if (!rich) return
+                if (activeTap && activeTap !== event.currentTarget)
+                    activeTap = null
                 presented.current = true
                 showTooltip(event.currentTarget)
             }}
             onBlur={(event) => {
                 if (rich) hideTooltip(event.currentTarget)
                 presented.current = false
-                tapShown.current = false
+                if (activeTap === event.currentTarget) activeTap = null
                 touch.current = false
             }}
             onPointerDown={(event) => {
                 touch.current = event.pointerType === 'touch'
             }}
+            onPointerCancel={() => {
+                touch.current = false
+            }}
             onClick={(event) => {
                 if (!rich || !touch.current) return
                 touch.current = false
-                if (!tapShown.current) {
+                const anchor = event.currentTarget
+                if (activeTap !== anchor) {
                     event.preventDefault()
-                    tapShown.current = true
+                    activeTap = anchor
                     presented.current = true
-                    const anchor = event.currentTarget
                     showTooltip(anchor)
                     // Wowhead emits one more mouseout after a touch click.
                     window.setTimeout(() => {
-                        if (tapShown.current && presented.current)
+                        if (activeTap === anchor && presented.current)
                             showTooltip(anchor)
                     }, 0)
                 }
@@ -89,7 +117,7 @@ export function ItemLink({
                 event.preventDefault()
                 event.stopPropagation()
                 presented.current = false
-                tapShown.current = false
+                if (activeTap === event.currentTarget) activeTap = null
                 hideTooltip(event.currentTarget)
             }}
         >

@@ -253,4 +253,57 @@ describe('Wowhead opt-in and item links', () => {
                 .textContent
         ).toBe("Brawler's Leather Hood")
     })
+
+    test('touch switching A -> B -> A, pointerCancel, and hover unmount cleanup behave safely', async () => {
+        fake = fakeOfficialScript()
+        const user = await openFile(goGetFile(), 'Truncha', fake.load)
+        await enable(user)
+
+        const linkA = screen.getByRole('link', {
+            name: "Brawler's Leather Hood",
+        })
+        const linkB = screen.getByRole('link', { name: 'Hunting Pants' })
+
+        // Touch-switching A -> B -> A shows A's tooltip on return instead of navigating.
+        fireEvent.pointerDown(linkA, { pointerType: 'touch' })
+        expect(fireEvent.click(linkA)).toBe(false)
+        expect(fake.tooltip()?.textContent).toBe(
+            "Wowhead Forever: Brawler's Leather Hood"
+        )
+
+        fireEvent.pointerDown(linkB, { pointerType: 'touch' })
+        expect(fireEvent.click(linkB)).toBe(false)
+        expect(fake.tooltip()?.textContent).toBe(
+            'Wowhead Forever: Hunting Pants'
+        )
+
+        fireEvent.pointerDown(linkA, { pointerType: 'touch' })
+        expect(fireEvent.click(linkA)).toBe(false)
+        expect(fake.tooltip()?.textContent).toBe(
+            "Wowhead Forever: Brawler's Leather Hood"
+        )
+
+        // Cancelled touch does not hijack a subsequent non-touch click.
+        linkA.removeAttribute('href')
+        fireEvent.pointerDown(linkA, { pointerType: 'touch' })
+        fireEvent.pointerCancel(linkA)
+        expect(fireEvent.click(linkA)).toBe(true)
+
+        // Hovering inside a dialog without focus and closing via Escape removes the tooltip.
+        await user.click(screen.getByRole('button', { name: 'Other options' }))
+        const dialog = screen.getByRole('dialog', { name: 'Legs' })
+        const dialogLink = within(dialog).getByRole('link', {
+            name: 'Hunting Pants',
+        })
+        await user.hover(dialogLink)
+        expect(fake.tooltip()?.textContent).toBe(
+            'Wowhead Forever: Hunting Pants'
+        )
+
+        await user.keyboard('{Escape}')
+        await waitFor(() =>
+            expect(screen.queryByRole('dialog', { name: 'Legs' })).toBeNull()
+        )
+        expect(fake.tooltip()).toBeNull()
+    })
 })

@@ -69,4 +69,30 @@ describe('the official Wowhead script loader', () => {
         await expect(loadWowheadScript(1)).rejects.toThrow('timed out')
         expect(scripts[0]!.isConnected).toBe(false)
     })
+
+    test('deduplicates concurrent loads to one script tag and retries fresh after failure', async () => {
+        const first = loadWowheadScript()
+        const second = loadWowheadScript()
+
+        expect(first).toBe(second)
+        expect(scripts).toHaveLength(1)
+
+        scripts[0]!.dispatchEvent(new Event('error'))
+        await expect(first).rejects.toThrow('could not be loaded')
+        await expect(second).rejects.toThrow('could not be loaded')
+
+        const power = { refreshLinks: mock(() => {}) }
+        const retryFirst = loadWowheadScript()
+        const retrySecond = loadWowheadScript()
+        expect(retryFirst).toBe(retrySecond)
+        expect(retryFirst).not.toBe(first)
+        expect(scripts).toHaveLength(2)
+
+        window.$WowheadPower = power
+        scripts[1]!.dispatchEvent(new Event('load'))
+        await expect(Promise.all([retryFirst, retrySecond])).resolves.toEqual([
+            power,
+            power,
+        ])
+    })
 })
