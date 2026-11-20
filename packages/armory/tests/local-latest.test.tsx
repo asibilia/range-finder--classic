@@ -10,7 +10,14 @@ import './dom'
 import { chooseFight, jsonFile, shownFight, variant } from './open-app'
 import { showBis } from './gear-card'
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    test,
+} from 'bun:test'
 import {
     act,
     cleanup,
@@ -22,8 +29,15 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import type { SimPool } from '@goturbo/sim'
+
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { App } from '../src/app'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
+import { readResultsFile } from '../src/results-file'
+import { exportFromCharacter } from './helpers/export-from-character'
+import { recordedPool } from './helpers/recorded-pool'
 
 const LATEST = '/local/latest.json'
 const STATUS = '/local/latest-status.json'
@@ -167,6 +181,8 @@ function callsTo(path: string): Call[] {
     return server.calls.filter((call) => call.path === path)
 }
 
+beforeAll(() => ensureSimBuild(), 600_000)
+
 beforeEach(() => {
     server.latest = notFound
     server.status = notFound
@@ -201,8 +217,8 @@ afterEach(() => {
 })
 
 /** Renders the page with the local latest file on. */
-function renderLocal() {
-    render(<App localLatest runSimulator />)
+function renderLocal(createPool?: () => SimPool) {
+    render(<App localLatest createPool={createPool} />)
     return userEvent.setup()
 }
 
@@ -493,5 +509,79 @@ describe('Run Simulator with the latest file', () => {
         expect(screen.getByText(NO_EXPORT).id).toBe(
             run.getAttribute('aria-describedby') ?? ''
         )
+    })
+
+    test('leaving the latest for a dropped results file disables Run Simulator with the no-export note, and Back to the latest re-enables it', async () => {
+        server.latest = json(resultsFile('Localchar'))
+        server.export = () =>
+            new Response('TurboCharExportDB = {}', { status: 200 })
+        const user = renderLocal()
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('Dropped'))] },
+        })
+        await waitForName('Dropped')
+        const disabled = screen.getByRole('button', { name: 'Run Simulator' })
+        expect(disabled.hasAttribute('disabled')).toBe(true)
+        expect(screen.getByText(NO_EXPORT).id).toBe(
+            disabled.getAttribute('aria-describedby') ?? ''
+        )
+
+        await user.click(screen.getByRole('button', { name: BACK }))
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+        expect(screen.queryByText(NO_EXPORT)).toBeNull()
+    })
+
+    test('clicking Run Simulator on the latest file with its export sims it, updates localStorage, and stops polling', async () => {
+        const pool = recordedPool()
+        const character = await testcharCharacter(pool)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const local = resultsFile('Localchar')
+        for (const fight of local.fights as Json[]) {
+            if (fight.fight_id === 'dungeon-long') {
+                fight.target_level = character.level + 2
+                ;(fight.setup as Json).starting_mana_pct = 100
+            }
+        }
+        server.latest = json(local)
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitForName('Testchar')
+        expect(screen.queryByText(LOADED_LINE)).toBeNull()
+        const kept = localStorage.getItem(REMEMBERED_FILE_KEY) ?? ''
+        expect(kept).not.toBe('')
+        expect(readResultsFile(JSON.parse(kept) as unknown).ok).toBe(true)
+
+        await settle()
+        const before = localCalls().length
+        await tick()
+        await tick()
+        expect(localCalls().length).toBe(before)
     })
 })

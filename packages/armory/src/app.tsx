@@ -27,11 +27,7 @@ import {
 import { useLocalLatest } from '@/components/latest-file'
 import { PawnDialog } from '@/components/pawn-dialog'
 import { RoleSliders } from '@/components/role-sliders'
-import {
-    COMING_SOON_NOTE,
-    LockedSimPanel,
-    SimPanel,
-} from '@/components/sim-panel'
+import { LockedSimPanel, SimPanel } from '@/components/sim-panel'
 import {
     PHONE_QUERY,
     SIM_CREDIT,
@@ -271,18 +267,13 @@ type Simmed = { character: Character; minutes: number; exportText: string }
  * @param localLatest - Dev only: open on the owner's latest results file
  * from the dev server, and follow it (`components/latest-file.tsx`). Off
  * in a build.
- * @param runSimulator - Whether Run Simulator may run the browser sim. Off
- * until the browser reads the current export formats (8 to 10): the button
- * shows, disabled, with `Coming soon: running the sim here.` Tests turn it on.
  */
 export function App({
     createPool = createSimPool,
     localLatest = import.meta.env.DEV,
-    runSimulator: runSimulatorOn = false,
 }: {
     createPool?: () => SimPool
     localLatest?: boolean
-    runSimulator?: boolean
 } = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
@@ -478,6 +469,9 @@ export function App({
         const file = loaded.file
         if (!file || !fightSettings) return
         const settings = fightSettings
+        const onChain =
+            file.fights.find((entry) => entry.fight_id === planner?.fightId)
+                ?.kind === 'chain'
         const id = ++run.current
         const simPool = getPool()
         setRunning({ done: 0, planned: 0 })
@@ -490,13 +484,7 @@ export function App({
                     if (run.current === id) setRunning({ done, planned })
                 },
                 {
-                    fight: fightOverride(
-                        file,
-                        settings,
-                        file.fights.find(
-                            (entry) => entry.fight_id === planner?.fightId
-                        )?.kind === 'chain'
-                    ),
+                    fight: fightOverride(file, settings, onChain),
                 }
             )
             if (run.current !== id) return
@@ -737,14 +725,14 @@ export function App({
                             wornOf={wornOf}
                             className={SIDE_PLACE}
                             onRunSimulator={
-                                runSimulatorOn &&
-                                exportText !== null &&
-                                !refining
+                                exportText !== null && !refining
                                     ? () => void runSimulator(exportText)
                                     : undefined
                             }
                             runNote={
-                                runSimulatorOn ? undefined : COMING_SOON_NOTE
+                                exportText !== null && refining
+                                    ? 'Wait for Refine for your gear to finish.'
+                                    : undefined
                             }
                             running={
                                 running && (

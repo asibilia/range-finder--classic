@@ -70,9 +70,10 @@ export function settingsOf(file: ResultsFile, fight: Fight): FightSettings {
 }
 
 /**
- * The fight the settings pick: the first in file order with the same
- * target level, length and starting mana, and, for a chain fight, the same
- * gap between pulls. PvP is never simmed.
+ * The fight the settings pick: an exact chain match (same target level,
+ * length, starting mana and gap between pulls) before the first non-chain
+ * fight with the same target level, length and starting mana. PvP is
+ * never simmed.
  *
  * @param file - The loaded results file.
  * @param settings - The settings.
@@ -83,14 +84,21 @@ export function fightFor(
     settings: FightSettings
 ): Fight | null {
     if (settings.kind === 'pvp') return null
+    const matchesBase = (fight: Fight) =>
+        fight.target_level === settings.level &&
+        fight.duration_s === settings.length_s &&
+        startingMana(file, fight) === settings.mana
     return (
         file.fights.find(
             (fight) =>
-                fight.target_level === settings.level &&
-                fight.duration_s === settings.length_s &&
-                startingMana(file, fight) === settings.mana &&
-                (fight.kind !== 'chain' || gapOf(fight) === settings.gap_s)
-        ) ?? null
+                fight.kind === 'chain' &&
+                matchesBase(fight) &&
+                gapOf(fight) === settings.gap_s
+        ) ??
+        file.fights.find(
+            (fight) => fight.kind !== 'chain' && matchesBase(fight)
+        ) ??
+        null
     )
 }
 

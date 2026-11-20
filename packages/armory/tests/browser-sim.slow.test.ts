@@ -564,4 +564,35 @@ describe('simCharacter stops and leaves out', () => {
             expect(check?.passed).toBe(false)
         }
     }, 1_200_000)
+
+    test('simExport with fight override on format-10 buffed export (#139/#140): overrides dungeon-long and chain-solo without leaking buffs into combat', async () => {
+        const real = pool()
+        const l34BuffedLua = await Bun.file(
+            join(SIM_DIR, 'fixtures/truncha-format10-l34-buffed.lua')
+        ).text()
+        const outcome = await simExport(l34BuffedLua, real, () => {}, {
+            fight: {
+                target_level: 36,
+                duration_s: 60,
+                starting_mana_pct: 50,
+                gap_s: 20,
+            },
+        })
+        const file = fileOf(outcome)
+        expect(file.sheet_buffed).toBe(false)
+        expect(file.filtered_buffs?.map((b) => b.name)).toContain('Ghost Wolf')
+        const long = file.fights.find((f) => f.fight_id === 'dungeon-long')
+        expect(long).toMatchObject({
+            target_level: 36,
+            duration_s: 60,
+            setup: { starting_mana_pct: 50 },
+        })
+        const chain = file.fights.find((f) => f.fight_id === 'chain-solo')
+        expect(chain).toMatchObject({
+            kind: 'chain',
+            target_level: 34,
+            duration_s: 25,
+            setup: { gap_s: 20 },
+        })
+    }, 1_200_000)
 })
