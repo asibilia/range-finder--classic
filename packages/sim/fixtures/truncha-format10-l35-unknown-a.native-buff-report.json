@@ -1,0 +1,163 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-18T15:36:52.000Z",
+  "level": 35
+ },
+ "buffs": [
+  {
+   "name": "Lightning Shield",
+   "spell_id": 945,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Well Fed",
+   "spell_id": 1248406,
+   "source": "self",
+   "how": "game_numbers",
+   "path": "list (numbers from the game's points)",
+   "numbers": {
+    "stamina": 5
+   }
+  },
+  {
+   "name": "Improved Stormstrike",
+   "spell_id": 1238931,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Maelstrom Weapon",
+   "spell_id": 408505,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Arcane Intellect",
+   "spell_id": 1461,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "last_clean_calibration",
+  "base_health": 435,
+  "base_mana": 820,
+  "notes": [
+   "unknown buff up (Improved Stormstrike, Maelstrom Weapon): base health 435 and base mana 820 from the last clean calibration at level 35, not re-solved from this sheet",
+   "spell crit per Intellect 0.0303% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 102,
+  "agility": 70,
+  "stamina": 135,
+  "intellect": 117,
+  "spirit": 89,
+  "attackPower": 389,
+  "meleeCrit": 10.042000770569,
+  "dodge": 9.0819997787476,
+  "meleeHit": 0,
+  "spellCrit": 8.8450994491577,
+  "armor": 819,
+  "health": 1605,
+  "mana": 2295,
+  "healingPower": 49
+ },
+ "unbuffed_sheet": {
+  "strength": 102,
+  "agility": 70,
+  "stamina": 130,
+  "intellect": 101,
+  "spirit": 89,
+  "attack_power": 373,
+  "armor": 819,
+  "health": 1555,
+  "mana": 2055,
+  "melee_crit_pct": 10.04,
+  "spell_crit_pct": 8.36,
+  "dodge_pct": 9.08,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 102.00 vs game 102.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 70.00 vs game 70.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 135.00 vs game 135.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 117.00 vs game 117.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 89.00 vs game 89.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 389.00 vs game 389.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.08 vs game 9.08 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 819.00 vs game 819.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 10.04 (base 1.7% less 0.04% x 4 weapon skill under the cap) vs game 10.04 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.85 vs game 8.85 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Improved Stormstrike, Maelstrom Weapon (sim 1605 vs game 1605; base from the last clean calibration)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Improved Stormstrike, Maelstrom Weapon (sim 2295 vs game 2295; base from the last clean calibration)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "Lightning Shield: doesn't touch the sheet (path: no_stats (name rule)) [self]; Well Fed: removed using the game's own points (stamina 5) (path: list (numbers from the game's points)) [self]; unknown: Improved Stormstrike (path: unknown) [self]; unknown: Maelstrom Weapon (path: unknown) [self]; Arcane Intellect: modelled from the sim's spell data (path: modelled) [other player]"
+  }
+ ]
+}

@@ -1,0 +1,147 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-17T14:50:30.000Z",
+  "level": 33
+ },
+ "buffs": [
+  {
+   "name": "Lightning Shield",
+   "spell_id": 945,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Ghost Wolf",
+   "spell_id": 2645,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Well Fed",
+   "spell_id": 1248406,
+   "source": "self",
+   "how": "game_numbers",
+   "path": "list (numbers from the game's points)",
+   "numbers": {
+    "stamina": 5
+   }
+  }
+ ],
+ "calibration": {
+  "mode": "solved_clean",
+  "base_health": 394,
+  "base_mana": 767,
+  "notes": [
+   "base health 394 and base mana 767 calibrated from the exported totals",
+   "spell crit per Intellect 0.0321% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 100,
+  "agility": 69,
+  "stamina": 124,
+  "intellect": 99,
+  "spirit": 86,
+  "attackPower": 363,
+  "meleeCrit": 9.3125,
+  "dodge": 9.3125,
+  "meleeHit": 0,
+  "spellCrit": 7.4779005050659,
+  "armor": 753,
+  "health": 1454,
+  "mana": 1972,
+  "healingPower": 43
+ },
+ "unbuffed_sheet": {
+  "strength": 100,
+  "agility": 69,
+  "stamina": 119,
+  "intellect": 99,
+  "spirit": 86,
+  "attack_power": 363,
+  "armor": 753,
+  "health": 1404,
+  "mana": 1972,
+  "melee_crit_pct": 9.31,
+  "spell_crit_pct": 7.48,
+  "dodge_pct": 9.31,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 100.00 vs game 100.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 69.00 vs game 69.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 124.00 vs game 124.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 99.00 vs game 99.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 86.00 vs game 86.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 363.00 vs game 363.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.31 vs game 9.31 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 753.00 vs game 753.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 9.31 (base 1.7% less 0.04% x 2 weapon skill under the cap) vs game 9.31 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 7.48 vs game 7.48 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "checked_pass",
+   "detail": "sim 1454 vs game 1454 (calibrated, not a check)"
+  },
+  {
+   "line": "mana",
+   "status": "checked_pass",
+   "detail": "sim 1972 vs game 1972 (calibrated, not a check)"
+  },
+  {
+   "line": "buffs",
+   "status": "checked_pass",
+   "detail": "Lightning Shield: doesn't touch the sheet (path: no_stats (name rule)) [self]; Ghost Wolf: doesn't touch the sheet (path: no_stats (name rule)) [self]; Well Fed: removed using the game's own points (stamina 5) (path: list (numbers from the game's points)) [self]"
+  }
+ ]
+}

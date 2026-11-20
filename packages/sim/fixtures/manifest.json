@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "native_reference": {
+    "commit": "a5e684941ab8f9501c0308c0236a528ab30eb376",
+    "buff_report_generator_sha256": "59dc863df36fabe22be5f7e67721bec94814f1e4ba7ccf6a1fce373aa06cd6ca",
+    "parity_fixture_generator_sha256": "429b5fb400d51a783b8bc8d0ee5f6a0f4774d349ba37ae18bfa6641f6507e91f"
+  },
+  "exports": [
+    {
+      "file": "truncha-format8-l32.lua",
+      "expected": "truncha-format8-l32.native-buff-report.json",
+      "origin": "real",
+      "format": 8,
+      "level": 32,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format8-l33.lua",
+      "expected": "truncha-format8-l33.native-buff-report.json",
+      "origin": "real",
+      "format": 8,
+      "level": 33,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format9-synthetic-testchar-l33.lua",
+      "expected": "truncha-format9-synthetic-testchar-l33.native-buff-report.json",
+      "origin": "synthetic",
+      "synthetic": true,
+      "owner_approved": true,
+      "format": 9,
+      "level": 33,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format10-l33.lua",
+      "expected": "truncha-format10-l33.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 33,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format10-l34-unbuffed.lua",
+      "expected": "truncha-format10-l34-unbuffed.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 34,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format10-l34-buffed.lua",
+      "expected": "truncha-format10-l34-buffed.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 34,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format10-l35-clean.lua",
+      "expected": "truncha-format10-l35-clean.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 35,
+      "calibration_mode": "solved_clean"
+    },
+    {
+      "file": "truncha-format10-l35-unknown-a.lua",
+      "expected": "truncha-format10-l35-unknown-a.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 35,
+      "calibration_mode": "last_clean_calibration"
+    },
+    {
+      "file": "truncha-format10-l35-unknown-b.lua",
+      "expected": "truncha-format10-l35-unknown-b.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 35,
+      "calibration_mode": "last_clean_calibration"
+    },
+    {
+      "file": "truncha-format10-l35-unknown-c.lua",
+      "expected": "truncha-format10-l35-unknown-c.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 35,
+      "calibration_mode": "last_clean_calibration"
+    },
+    {
+      "file": "truncha-format10-l36.lua",
+      "expected": "truncha-format10-l36.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 36,
+      "calibration_mode": "solved_from_buffed_sheet"
+    },
+    {
+      "file": "truncha-format10-l37.lua",
+      "expected": "truncha-format10-l37.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 37,
+      "calibration_mode": "solved_from_buffed_sheet"
+    },
+    {
+      "file": "truncha-format10-l38.lua",
+      "expected": "truncha-format10-l38.native-buff-report.json",
+      "origin": "real",
+      "format": 10,
+      "level": 38,
+      "calibration_mode": "solved_from_buffed_sheet"
+    }
+  ],
+  "native_browser_parity": {
+    "file": "native-browser-parity-testchar-l30.json",
+    "made_up": true,
+    "seed": 23,
+    "iterations_per_request": 2000,
+    "worn_dps_relative_tolerance": 1e-9,
+    "fight_ids": [
+      "solo-hit-short",
+      "dungeon-short",
+      "dungeon-long"
+    ]
+  }
+}

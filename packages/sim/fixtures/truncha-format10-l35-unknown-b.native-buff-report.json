@@ -1,0 +1,161 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-18T19:42:46.000Z",
+  "level": 35
+ },
+ "buffs": [
+  {
+   "name": "Camp Benefits",
+   "spell_id": 1229741,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Agility",
+   "spell_id": 8116,
+   "source": "self",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Maelstrom Weapon",
+   "spell_id": 408505,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Improved Stormstrike",
+   "spell_id": 1238931,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Arcane Intellect",
+   "spell_id": 1461,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "last_clean_calibration",
+  "base_health": 435,
+  "base_mana": 820,
+  "notes": [
+   "unknown buff up (Camp Benefits, Maelstrom Weapon, Improved Stormstrike): base health 435 and base mana 820 from the last clean calibration at level 35, not re-solved from this sheet",
+   "spell crit per Intellect 0.0303% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 106,
+  "agility": 78,
+  "stamina": 151,
+  "intellect": 117,
+  "spirit": 84,
+  "attackPower": 397,
+  "meleeCrit": 10.790800094604,
+  "dodge": 9.7508001327515,
+  "meleeHit": 0,
+  "spellCrit": 8.8450994491577,
+  "armor": 835,
+  "health": 1765,
+  "mana": 2295,
+  "healingPower": 49
+ },
+ "unbuffed_sheet": {
+  "strength": 106,
+  "agility": 69,
+  "stamina": 130,
+  "intellect": 101,
+  "spirit": 84,
+  "attack_power": 381,
+  "armor": 817,
+  "health": 1555,
+  "mana": 2055,
+  "melee_crit_pct": 10.08,
+  "spell_crit_pct": 8.36,
+  "dodge_pct": 9.04,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 106.00 vs game 106.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 78.00 vs game 78.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Maelstrom Weapon, Improved Stormstrike (sim 130.00 vs game 151.00 (±1))"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 117.00 vs game 117.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 84.00 vs game 84.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 397.00 vs game 397.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.75 vs game 9.75 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 835.00 vs game 835.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 10.79 (base 1.7% less 0.04% x 1 weapon skill under the cap) vs game 10.79 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.85 vs game 8.85 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Maelstrom Weapon, Improved Stormstrike (sim 1555 vs game 1765; base from the last clean calibration)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Maelstrom Weapon, Improved Stormstrike (sim 2295 vs game 2295; base from the last clean calibration)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "unknown: Camp Benefits (path: unknown) [self]; Agility: modelled from the sim's spell data (path: modelled) [self]; unknown: Maelstrom Weapon (path: unknown) [self]; unknown: Improved Stormstrike (path: unknown) [self]; Arcane Intellect: modelled from the sim's spell data (path: modelled) [other player]"
+  }
+ ]
+}

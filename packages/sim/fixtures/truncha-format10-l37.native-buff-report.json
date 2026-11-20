@@ -1,0 +1,171 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-19T17:26:52.000Z",
+  "level": 37
+ },
+ "buffs": [
+  {
+   "name": "Lightning Shield",
+   "spell_id": 945,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Strength of Earth",
+   "spell_id": 8162,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Flametongue Totem",
+   "spell_id": 8230,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Well Fed",
+   "spell_id": 1248406,
+   "source": "self",
+   "how": "game_numbers",
+   "path": "list (numbers from the game's points)",
+   "numbers": {
+    "stamina": 5
+   }
+  },
+  {
+   "name": "Maelstrom Weapon",
+   "spell_id": 408505,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Improved Stormstrike",
+   "spell_id": 1238931,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_from_buffed_sheet",
+  "base_health": 490,
+  "base_mana": 888,
+  "notes": [
+   "base health 490 and base mana 888 solved from a buffed sheet (unknown buff: Strength of Earth, Flametongue Totem, Maelstrom Weapon, Improved Stormstrike; no clean calibration at level 37 yet): not checked",
+   "spell crit per Intellect 0.0287% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 128,
+  "agility": 73,
+  "stamina": 134,
+  "intellect": 103,
+  "spirit": 86,
+  "attackPower": 431,
+  "meleeCrit": 10.099100112915,
+  "dodge": 9.059100151062,
+  "meleeHit": 0,
+  "spellCrit": 8.2560997009277,
+  "armor": 832,
+  "health": 1650,
+  "mana": 2153,
+  "healingPower": 44
+ },
+ "unbuffed_sheet": {
+  "strength": 114,
+  "agility": 73,
+  "stamina": 129,
+  "intellect": 103,
+  "spirit": 86,
+  "attack_power": 403,
+  "armor": 832,
+  "health": 1600,
+  "mana": 2153,
+  "melee_crit_pct": 10.1,
+  "spell_crit_pct": 8.26,
+  "dodge_pct": 9.06,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Flametongue Totem, Maelstrom Weapon, Improved Stormstrike (sim 114.00 vs game 128.00 (±1))"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 73.00 vs game 73.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 134.00 vs game 134.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 103.00 vs game 103.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 86.00 vs game 86.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Flametongue Totem, Maelstrom Weapon, Improved Stormstrike (sim 403.00 vs game 431.00 (±2))"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.06 vs game 9.06 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 832.00 vs game 832.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 10.10 (base 1.7% less 0.04% x 5 weapon skill under the cap) vs game 10.10 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.26 vs game 8.26 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Flametongue Totem, Maelstrom Weapon, Improved Stormstrike (sim 1650 vs game 1650; base solved from this buffed sheet)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Flametongue Totem, Maelstrom Weapon, Improved Stormstrike (sim 2153 vs game 2153; base solved from this buffed sheet)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "Lightning Shield: doesn't touch the sheet (path: no_stats (name rule)) [self]; unknown: Strength of Earth (path: unknown) [self]; unknown: Flametongue Totem (path: unknown) [self]; Well Fed: removed using the game's own points (stamina 5) (path: list (numbers from the game's points)) [self]; unknown: Maelstrom Weapon (path: unknown) [self]; unknown: Improved Stormstrike (path: unknown) [self]"
+  }
+ ]
+}

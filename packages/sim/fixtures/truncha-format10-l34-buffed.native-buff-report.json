@@ -1,0 +1,129 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-18T05:24:57.000Z",
+  "level": 34
+ },
+ "buffs": [
+  {
+   "name": "Ghost Wolf",
+   "spell_id": 2645,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_clean",
+  "base_health": 419,
+  "base_mana": 786,
+  "notes": [
+   "base health 419 and base mana 786 calibrated from the exported totals",
+   "spell crit per Intellect 0.0314% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 101,
+  "agility": 70,
+  "stamina": 128,
+  "intellect": 100,
+  "spirit": 87,
+  "attackPower": 368,
+  "meleeCrit": 10.355000495911,
+  "dodge": 9.2750015258789,
+  "meleeHit": 0,
+  "spellCrit": 8.4399995803833,
+  "armor": 819,
+  "health": 1519,
+  "mana": 2006,
+  "healingPower": 44
+ },
+ "unbuffed_sheet": {
+  "strength": 101,
+  "agility": 70,
+  "stamina": 128,
+  "intellect": 100,
+  "spirit": 87,
+  "attack_power": 368,
+  "armor": 819,
+  "health": 1519,
+  "mana": 2006,
+  "melee_crit_pct": 10.35,
+  "spell_crit_pct": 8.44,
+  "dodge_pct": 9.28,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 101.00 vs game 101.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 70.00 vs game 70.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 128.00 vs game 128.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 100.00 vs game 100.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 87.00 vs game 87.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 368.00 vs game 368.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.28 vs game 9.28 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 819.00 vs game 819.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 10.35 (base 1.7% less 0.04% x 3 weapon skill under the cap) vs game 10.36 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.44 vs game 8.44 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "checked_pass",
+   "detail": "sim 1519 vs game 1519 (calibrated, not a check)"
+  },
+  {
+   "line": "mana",
+   "status": "checked_pass",
+   "detail": "sim 2006 vs game 2006 (calibrated, not a check)"
+  },
+  {
+   "line": "buffs",
+   "status": "checked_pass",
+   "detail": "Ghost Wolf: doesn't touch the sheet (path: no_stats (name rule)) [self]"
+  }
+ ]
+}

@@ -1,0 +1,153 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-19T21:34:54.000Z",
+  "level": 38
+ },
+ "buffs": [
+  {
+   "name": "Camp Benefits",
+   "spell_id": 1229741,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Improved Stormstrike",
+   "spell_id": 1238931,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Blessing of Kings",
+   "spell_id": 20217,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Mark of the Wild",
+   "spell_id": 8907,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_from_buffed_sheet",
+  "base_health": 509,
+  "base_mana": 922,
+  "notes": [
+   "base health 509 and base mana 922 solved from a buffed sheet (unknown buff: Camp Benefits, Improved Stormstrike; no clean calibration at level 38 yet): not checked",
+   "spell crit per Intellect 0.0278% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 150,
+  "agility": 92,
+  "stamina": 156,
+  "intellect": 128,
+  "spirit": 108,
+  "attackPower": 502,
+  "meleeCrit": 11.359999656677,
+  "dodge": 10.320000648499,
+  "meleeHit": 0,
+  "spellCrit": 8.8583993911743,
+  "armor": 1133,
+  "health": 1889,
+  "mana": 2562,
+  "healingPower": 52
+ },
+ "unbuffed_sheet": {
+  "strength": 115,
+  "agility": 73,
+  "stamina": 131,
+  "intellect": 104,
+  "spirit": 88,
+  "attack_power": 408,
+  "armor": 832,
+  "health": 1639,
+  "mana": 2202,
+  "melee_crit_pct": 9.94,
+  "spell_crit_pct": 8.19,
+  "dodge_pct": 8.9,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Improved Stormstrike (sim 138.00 vs game 150.00 (±1))"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 92.00 vs game 92.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 156.00 vs game 156.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 128.00 vs game 128.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 108.00 vs game 108.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Improved Stormstrike (sim 478.00 vs game 502.00 (±2))"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 10.32 vs game 10.32 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 1133.00 vs game 1133.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 11.36 (base 1.7% less 0.04% x 6 weapon skill under the cap) vs game 11.36 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.86 vs game 8.86 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Improved Stormstrike (sim 1889 vs game 1889; base solved from this buffed sheet)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Camp Benefits, Improved Stormstrike (sim 2562 vs game 2562; base solved from this buffed sheet)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "unknown: Camp Benefits (path: unknown) [self]; unknown: Improved Stormstrike (path: unknown) [self]; Blessing of Kings: modelled from the sim's spell data (path: modelled) [other player]; Mark of the Wild: modelled from the sim's spell data (path: modelled) [other player]"
+  }
+ ]
+}

@@ -1,0 +1,213 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-19T04:40:20.000Z",
+  "level": 36
+ },
+ "buffs": [
+  {
+   "name": "Lightning Shield",
+   "spell_id": 945,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Strength of Earth",
+   "spell_id": 8162,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Windfury Totem",
+   "spell_id": 8515,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Armor",
+   "spell_id": 8095,
+   "source": "self",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Camp Benefits",
+   "spell_id": 1229741,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Well Fed",
+   "spell_id": 1249520,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Improved Stormstrike",
+   "spell_id": 1238931,
+   "source": "self",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  },
+  {
+   "name": "Power Word: Fortitude",
+   "spell_id": 2791,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Divine Spirit",
+   "spell_id": 14752,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Warchief's Blessing",
+   "spell_id": 16609,
+   "source": "not a player",
+   "how": "game_numbers",
+   "path": "list",
+   "numbers": {
+    "health": 300,
+    "mp5": 10,
+    "haste_pct": 15
+   }
+  },
+  {
+   "name": "Battle Shout",
+   "spell_id": 11550,
+   "source": "other player",
+   "how": "unknown",
+   "path": "unknown",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_from_buffed_sheet",
+  "base_health": 592,
+  "base_mana": 974,
+  "notes": [
+   "base health 592 and base mana 974 solved from a buffed sheet (unknown buff: Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout; no clean calibration at level 36 yet): not checked",
+   "spell crit per Intellect 0.0316% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 149,
+  "agility": 77,
+  "stamina": 183,
+  "intellect": 110,
+  "spirit": 110,
+  "attackPower": 556,
+  "meleeCrit": 10.525899887085,
+  "dodge": 9.4459009170532,
+  "meleeHit": 0,
+  "spellCrit": 8.5229997634888,
+  "armor": 1020,
+  "health": 2412,
+  "mana": 2224,
+  "healingPower": 47
+ },
+ "unbuffed_sheet": {
+  "strength": 113,
+  "agility": 72,
+  "stamina": 128,
+  "intellect": 102,
+  "spirit": 85,
+  "attack_power": 398,
+  "armor": 830,
+  "health": 1692,
+  "mana": 2224,
+  "melee_crit_pct": 10.14,
+  "spell_crit_pct": 8.52,
+  "dodge_pct": 9.06,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 113.00 vs game 149.00 (±1))"
+  },
+  {
+   "line": "agility",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 72.00 vs game 77.00 (±1))"
+  },
+  {
+   "line": "stamina",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 170.00 vs game 183.00 (±1))"
+  },
+  {
+   "line": "intellect",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 102.00 vs game 110.00 (±1))"
+  },
+  {
+   "line": "spirit",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 102.00 vs game 110.00 (±1))"
+  },
+  {
+   "line": "attackPower",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 398.00 vs game 556.00 (±2))"
+  },
+  {
+   "line": "dodge",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 9.06 vs game 9.45 (±0.06))"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 1010.00 vs game 1020.00 (±5))"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 10.14 (base 1.7% less 0.04% x 2 weapon skill under the cap) vs game 10.53 (±0.06))"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 8.52 vs game 8.52 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 2412 vs game 2412; base solved from this buffed sheet)"
+  },
+  {
+   "line": "mana",
+   "status": "not_checked",
+   "detail": "not checked: unknown buff Strength of Earth, Windfury Totem, Camp Benefits, Well Fed, Improved Stormstrike, Battle Shout (sim 2224 vs game 2224; base solved from this buffed sheet)"
+  },
+  {
+   "line": "buffs",
+   "status": "not_checked",
+   "detail": "Lightning Shield: doesn't touch the sheet (path: no_stats (name rule)) [self]; unknown: Strength of Earth (path: unknown) [self]; unknown: Windfury Totem (path: unknown) [self]; Armor: modelled from the sim's spell data (path: modelled) [self]; unknown: Camp Benefits (path: unknown) [self]; unknown: Well Fed (path: unknown) [self]; unknown: Improved Stormstrike (path: unknown) [self]; Power Word: Fortitude: modelled from the sim's spell data (path: modelled) [other player]; Divine Spirit: modelled from the sim's spell data (path: modelled) [other player]; Warchief's Blessing: removed using the game's own numbers (health 300, mp5 10, haste_pct 15) (path: list) [not a player]; unknown: Battle Shout (path: unknown) [other player]"
+  }
+ ]
+}

@@ -1,0 +1,153 @@
+{
+ "export": {
+  "format": 9,
+  "saved_at": "2026-11-16T15:45:27.000Z",
+  "level": 33
+ },
+ "buffs": [
+  {
+   "name": "Warchief's Blessing",
+   "spell_id": 16609,
+   "source": "none",
+   "how": "game_numbers",
+   "path": "list + sheet cross-check",
+   "numbers": {
+    "health": 300,
+    "mp5": 10,
+    "haste_pct": 15
+   }
+  },
+  {
+   "name": "Blessing of Wisdom",
+   "spell_id": 19850,
+   "source": "none",
+   "how": "no_stats",
+   "path": "list",
+   "numbers": {
+    "mp5": 18
+   }
+  },
+  {
+   "name": "Thorns",
+   "spell_id": 782,
+   "source": "none",
+   "how": "no_stats",
+   "path": "list",
+   "numbers": {
+    "damage_shield": 6
+   }
+  }
+ ],
+ "calibration": {
+  "mode": "solved_clean",
+  "base_health": 394,
+  "base_mana": 767,
+  "notes": [
+   "base health 394 and base mana 767 calibrated from the exported totals",
+   "spell crit per Intellect 0.0321% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 81,
+  "agility": 75,
+  "stamina": 129,
+  "intellect": 90,
+  "spirit": 88,
+  "attackPower": 328,
+  "meleeCrit": 9.6075000762939,
+  "dodge": 9.6475009918213,
+  "meleeHit": 0,
+  "spellCrit": 7.1889996528625,
+  "armor": 744,
+  "health": 1804,
+  "mana": 1837,
+  "healingPower": 34
+ },
+ "unbuffed_sheet": {
+  "strength": 81,
+  "agility": 75,
+  "stamina": 129,
+  "intellect": 90,
+  "spirit": 88,
+  "attack_power": 328,
+  "armor": 744,
+  "health": 1504,
+  "mana": 1837,
+  "melee_crit_pct": 9.61,
+  "spell_crit_pct": 7.19,
+  "dodge_pct": 9.65,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 81.00 vs game 81.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 75.00 vs game 75.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 129.00 vs game 129.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 90.00 vs game 90.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 88.00 vs game 88.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 328.00 vs game 328.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.65 vs game 9.65 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 744.00 vs game 744.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 9.61 (base 1.7% less 0.04% x 7 weapon skill under the cap) vs game 9.61 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 7.19 vs game 7.19 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "checked_pass",
+   "detail": "sim 1804 vs game 1804 (calibrated, not a check)"
+  },
+  {
+   "line": "mana",
+   "status": "checked_pass",
+   "detail": "sim 1837 vs game 1837 (calibrated, not a check)"
+  },
+  {
+   "line": "buffs",
+   "status": "checked_pass",
+   "detail": "Warchief's Blessing: removed using the reviewed list's numbers, confirmed by the sheet (health 300, mp5 10, haste_pct 15) (path: list + sheet cross-check) [none]; Blessing of Wisdom: doesn't touch the sheet (mp5 18, kept as a note) (path: list) [none]; Thorns: doesn't touch the sheet (damage_shield 6, kept as a note) (path: list) [none]"
+  }
+ ]
+}
