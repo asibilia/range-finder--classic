@@ -1,9 +1,11 @@
 /**
- * The document around the armory planner: the same head the page had before
- * React Router (charset, viewport, title) plus React Router's own tags.
+ * The document around the armory planner: charset, viewport, no-referrer and
+ * the bounded Wowhead/same-origin CSP, plus React Router's own tags.
  */
 import type { ReactNode } from 'react'
 import { Links, Meta, Outlet, Scripts } from 'react-router'
+
+import { ARMORY_CSP, DEV_ARMORY_CSP, REFERRER_POLICY } from './security'
 
 // JetBrains Mono (OFL), self-hosted: Vite bundles its latin woff2 files.
 import '@fontsource/jetbrains-mono/latin-400.css'
@@ -23,6 +25,11 @@ export function Layout({ children }: { children: ReactNode }) {
                 <meta
                     name="viewport"
                     content="width=device-width, initial-scale=1"
+                />
+                <meta name="referrer" content={REFERRER_POLICY} />
+                <meta
+                    httpEquiv="Content-Security-Policy"
+                    content={import.meta.env.DEV ? DEV_ARMORY_CSP : ARMORY_CSP}
                 />
                 <Meta />
                 <Links />

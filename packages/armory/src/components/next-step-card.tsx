@@ -18,6 +18,7 @@ import type { BagItemsOn } from '../planner-state'
 import type { ResultsFile, Slot } from '../results-file'
 import { slotLabel } from '../slot-labels'
 import type { Wishlist } from './item-picker'
+import { ItemLink } from './item-link'
 import { SimBestIcon } from './sim-best-icon'
 
 /** Rows shown before `Show N more`. */
@@ -64,7 +65,13 @@ function BagOne({
     const worn =
         file.slots.find((entry) => entry.slot === upgrade.slot)?.worn ?? null
     const word = slotWord(upgrade.slot, file.character.class)
-    const name = named(upgrade.item)
+    const name = (
+        <ItemLink
+            itemId={upgrade.item.item_id}
+            name={named(upgrade.item)}
+            allowTooltip={upgrade.item.data === 'forever'}
+        />
+    )
     const on = bagOn.includes(upgrade.item.item_id)
     return (
         <div aria-live="polite" className={CARD}>
@@ -136,11 +143,15 @@ function BagMany({
                 {rows.map((upgrade) => (
                     <li key={upgrade.item.item_id}>
                         <b className="font-bold text-foreground">
-                            {itemName(
-                                upgrade.item,
-                                upgrade.slot,
-                                file.character.class
-                            )}
+                            <ItemLink
+                                itemId={upgrade.item.item_id}
+                                name={itemName(
+                                    upgrade.item,
+                                    upgrade.slot,
+                                    file.character.class
+                                )}
+                                allowTooltip={upgrade.item.data === 'forever'}
+                            />
                         </b>
                         {` · ${slotLabel(upgrade.slot, file)} `}
                         <Gain value={upgrade.gain_ep} unit="EP" />
@@ -231,7 +242,11 @@ function GoGet({
         item.source.kind === 'unknown' ? '' : ` (${item.source.text})`
     const name = (
         <b className="font-bold text-foreground">
-            {itemName(item, slot, file.character.class)}
+            <ItemLink
+                itemId={item.item_id}
+                name={itemName(item, slot, file.character.class)}
+                allowTooltip={item.data === 'forever'}
+            />
         </b>
     )
     return (

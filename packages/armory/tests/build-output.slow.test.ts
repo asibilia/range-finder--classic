@@ -1,11 +1,11 @@
 /**
  * The armory planner's production build (`bun run build:armory`): React
  * Router prerenders the page to `build/client/index.html`, which git
- * ignores. The built page asks no other server for anything (every file it
- * loads is its own) and the page's code keeps one thing in the browser: the
- * last results file, under one localStorage key, from one module
- * (`src/remembered-file.ts`). This runs the build once and reads what it
- * wrote.
+ * ignores. Before opt-in the built page loads only its own files; the only
+ * third-party integration is the official Wowhead script, its own Forever
+ * requests and user-opened links. The page keeps one thing in browser storage:
+ * the last results file, under one localStorage key, from one module
+ * (`src/remembered-file.ts`). This runs the build once and reads what it wrote.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -14,7 +14,13 @@ import { join } from 'node:path'
 import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
 import { ART } from '../src/character-art'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
-import { LOADER, LOCAL_LATEST, networkProblems } from './network-rule'
+import { ARMORY_CSP, REFERRER_POLICY } from '../src/security'
+import {
+    LOADER,
+    LOCAL_LATEST,
+    networkProblems,
+    WOWHEAD_LOADER,
+} from './network-rule'
 import { nodeVersionProblem, readNodeVersion } from './node-version'
 
 const REPO_ROOT = join(import.meta.dir, '../../..')
@@ -53,6 +59,13 @@ const NAME_ONLY_HOSTS = new Set([
     'bit.ly',
 ])
 
+/** The approved opt-in script, its own data/images and user-opened item links. */
+const WOWHEAD_HOSTS = new Set([
+    'wow.zamimg.com',
+    'nether.wowhead.com',
+    'www.wowhead.com',
+])
+
 /** Browser storage APIs the page's own code must never use. */
 const STORAGE =
     /\b(sessionStorage|indexedDB|document\.cookie|cookieStore|caches|openDatabase)\b/
@@ -64,7 +77,9 @@ let buildOutput = ''
 
 /** `source` without its comments. */
 function withoutComments(source: string): string {
-    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(?<!:)\/\/.*$/gm, '')
 }
 
 /**
@@ -165,13 +180,17 @@ describe('the build', () => {
         expect(classes.split(/\s+/)).toContain('dark')
     })
 
-    test('the page loads only its own files', () => {
+    test('the prerender loads only its own files and no Wowhead script before opt-in', () => {
         const html = readFileSync(INDEX_HTML, 'utf8')
         const refs = [...html.matchAll(/\b(?:src|href)="([^"]*)"/g)].map(
             (m) => m[1]
         )
         expect(refs.length).toBeGreaterThan(0)
         for (const ref of refs) expect(ref).toMatch(/^\/assets\/[\w.-]+$/)
+        expect(html).toContain('Enable Wowhead tooltips')
+        expect(html).not.toContain(
+            '<script src="https://wow.zamimg.com/js/tooltips.js"'
+        )
 
         // The CSS imports nothing, and its only url()s are the page's own
         // font files (JetBrains Mono, self-hosted) under /assets/.
@@ -184,6 +203,23 @@ describe('the build', () => {
             for (const url of urls)
                 expect(url).toMatch(/^\/assets\/[\w.-]+\.woff2?$/)
         }
+    })
+
+    test('the static page and Cloudflare headers bound network hosts and suppress referrers', () => {
+        const html = readFileSync(INDEX_HTML, 'utf8')
+        expect(html).toContain(
+            `<meta name="referrer" content="${REFERRER_POLICY}"/>`
+        )
+        expect(html).toContain(
+            `<meta http-equiv="Content-Security-Policy" content="${ARMORY_CSP.replaceAll("'", '&#x27;')}"/>`
+        )
+        const headers = readFileSync(join(CLIENT_DIR, '_headers'), 'utf8')
+        expect(headers).toContain(`Content-Security-Policy: ${ARMORY_CSP}`)
+        expect(headers).toContain(`Referrer-Policy: ${REFERRER_POLICY}`)
+        expect(ARMORY_CSP).toContain(
+            "connect-src 'self' https://nether.wowhead.com"
+        )
+        expect(ARMORY_CSP).not.toContain('https://www.wowhead.com')
     })
 
     test("the character art is the page's own: every url in the manifest is a same-origin /art/ path, and the build carries the file", () => {
@@ -248,7 +284,13 @@ describe('the build', () => {
             sources.includes(name) ||
             (/^(group|peer)\//.test(name) &&
                 sources.includes(name.slice(name.indexOf('/'))))
-        expect([...classes].filter((name) => !written(name))).toEqual([])
+        // Wowhead's remote script owns this one; our CSS only layers it over dialogs.
+        const thirdParty = new Set(['wowhead-tooltip'])
+        expect(
+            [...classes].filter(
+                (name) => !written(name) && !thirdParty.has(name)
+            )
+        ).toEqual([])
     })
 
     test('from 90rem the CSS puts the gear and the card side by side', () => {
@@ -288,17 +330,27 @@ describe('the build', () => {
         expect(tooBig).toEqual([])
     })
 
-    test('no URL in the built JavaScript points at a server', () => {
+    test('built JavaScript names no hosts beyond library names and the three approved Wowhead hosts', () => {
         // Go's own wasm_exec.js names github.com in a comment: skipped by name.
         const goRuntime = join(CLIENT_DIR, 'sim/wasm_exec.js')
         const hosts = new Set<string>()
-        for (const file of filesUnder(CLIENT_DIR, '.js')) {
-            if (file === goRuntime) continue
+        const scripts = filesUnder(CLIENT_DIR, '.js').filter(
+            (file) => file !== goRuntime
+        )
+        for (const file of scripts) {
             const js = readFileSync(file, 'utf8')
             for (const m of js.matchAll(/\b(?:https?|wss?):\/\/([\w.-]+)/g))
                 hosts.add(m[1]!)
+            expect(js).not.toContain('/tooltip/item/')
+            expect(js).not.toContain('dataEnv=')
         }
-        expect([...hosts].filter((h) => !NAME_ONLY_HOSTS.has(h))).toEqual([])
+        expect(
+            [...hosts].filter(
+                (h) => !NAME_ONLY_HOSTS.has(h) && !WOWHEAD_HOSTS.has(h)
+            )
+        ).toEqual([])
+        expect(hosts).toContain('wow.zamimg.com')
+        expect(hosts).toContain('www.wowhead.com')
     })
 
     test('carries no trace of the local latest file, though vite.config.ts registers its plugin', () => {
@@ -364,9 +416,11 @@ describe("the page's own code", () => {
             ? fromRepo(file).slice('packages/armory/'.length)
             : fromRepo(file)
 
-    test('asks no server for anything', () => {
+    test('bounds requests to the reviewed same-origin modules and official Wowhead loader', () => {
         const all = sources()
-        expect(all.map(fromRepo)).toContain(LOADER)
+        expect(all.map(fromRepo)).toEqual(
+            expect.arrayContaining([LOADER, WOWHEAD_LOADER])
+        )
         const problems = all.flatMap((file) =>
             networkProblems(
                 fromRepo(file),
@@ -377,10 +431,13 @@ describe("the page's own code", () => {
         expect(problems).toEqual([])
     })
 
-    test('the network rule reports a fetch outside loader.ts or one in it not of new URL(, and passes the loader as written', () => {
+    test('the network rule passes both reviewed loaders and reports other requests or script insertion', () => {
         const loader = code(join(REPO_ROOT, LOADER))
         expect(loader).toContain('fetch(new URL(')
         expect(networkProblems(LOADER, loader)).toEqual([])
+        const wowheadLoader = code(join(REPO_ROOT, WOWHEAD_LOADER))
+        expect(wowheadLoader).toContain('https://wow.zamimg.com/js/tooltips.js')
+        expect(networkProblems(WOWHEAD_LOADER, wowheadLoader)).toEqual([])
         // The worker script, and its copy in the sim's build, are scanned too.
         expect(sources().map(fromRepo)).toEqual(
             expect.arrayContaining([
@@ -407,6 +464,16 @@ describe("the page's own code", () => {
             [
                 'packages/armory/src/app.tsx',
                 "await fetch('/local/latest.json')",
+            ],
+            ['packages/armory/src/app.tsx', "document.createElement('script')"],
+            [
+                WOWHEAD_LOADER,
+                wowheadLoader.replace('wow.zamimg.com', 'example.com'),
+            ],
+            [
+                WOWHEAD_LOADER,
+                wowheadLoader +
+                    "\nfetch('https://nether.wowhead.com/tooltip/item/1?dataEnv=16')",
             ],
         ]
         for (const [path, source] of bad)
