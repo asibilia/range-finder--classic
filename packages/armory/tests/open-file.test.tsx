@@ -476,4 +476,68 @@ describe('the gear pane with a file', () => {
         expect(sheet.querySelectorAll('dt')).toHaveLength(11)
         expect(sheetLine()).toBe('Data exported Nov. 13, as worn.')
     })
+
+    test('filtered_buffs renders Unbuffed sheet., all four how labels, and unsized health/mana note when calibration was not checked', async () => {
+        await openFile(
+            variant((file) => {
+                file.sheet_buffed = false
+                file.filtered_buffs = [
+                    {
+                        name: 'Arcane Intellect',
+                        spell_id: 1461,
+                        source: 'other player',
+                        how: 'modelled',
+                        how_detail: 'modelled',
+                    },
+                    {
+                        name: "Warchief's Blessing",
+                        spell_id: 16609,
+                        source: 'not a player',
+                        how: 'game_numbers',
+                        how_detail: 'list',
+                        numbers: { health: 300, mp5: 10, haste_pct: 15 },
+                    },
+                    {
+                        name: 'Ghost Wolf',
+                        spell_id: 2645,
+                        source: 'self',
+                        how: 'no_stats',
+                        how_detail: 'no_stats (name rule)',
+                    },
+                    {
+                        name: 'Camp Benefits',
+                        spell_id: 1229741,
+                        source: 'self',
+                        how: 'unknown',
+                        how_detail: 'unknown',
+                    },
+                ]
+                ;(file.checks as Json[]).push({
+                    name: 'calibration',
+                    passed: false,
+                    not_checked: true,
+                    detail: "Solved from a sheet with a buff the sim can't size.",
+                })
+            })
+        )
+
+        expect(sheetLine()).toBe('Data exported Nov. 13, as worn.')
+        expect(screen.getByText('Unbuffed sheet.')).toBeDefined()
+        expect(
+            screen.getByText(
+                "Health and mana may include a buff the sim can't size."
+            )
+        ).toBeDefined()
+        expect(screen.getByText('Buffs taken off the sheet:')).toBeDefined()
+        expect(
+            screen.getByText('Arcane Intellect: modelled by the sim')
+        ).toBeDefined()
+        expect(
+            screen.getByText("Warchief's Blessing: the game's numbers")
+        ).toBeDefined()
+        expect(screen.getByText('Ghost Wolf: no stats')).toBeDefined()
+        expect(
+            screen.getByText("Camp Benefits: couldn't size it")
+        ).toBeDefined()
+    })
 })

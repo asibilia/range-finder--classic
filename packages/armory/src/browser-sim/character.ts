@@ -5,6 +5,7 @@
 import type { LevelProfile } from '@goturbo/sim'
 
 import { SLOTS, type Check, type ResultsFile, type Slot } from '../results-file'
+import type { BuffNumbers, FilteredBuff } from './buff-filter'
 
 /** One worn item, as the sim's `ItemSpec` takes it. */
 export type GearPiece = { id: number; enchant?: number; randomSuffix?: number }
@@ -46,6 +47,9 @@ export type SheetBuffs = { stats: number[]; kings: boolean }
 export type Profession = NonNullable<
     ResultsFile['character']['professions']
 >[number]
+
+export type CalibrationMode =
+    'solved_clean' | 'last_clean_calibration' | 'solved_from_buffed_sheet'
 
 export type Character = {
     /** For display only. */
@@ -101,6 +105,12 @@ export type Character = {
      * calibration sim with them; the fights don't.
      */
     sheet_buffs?: SheetBuffs
+    /** Every buff in the export and how it was classified. Absent when none. */
+    filtered_buffs?: FilteredBuff[]
+    /** How base health, base mana and spell crit per Intellect were calibrated. */
+    calibration_mode?: CalibrationMode
+    /** Pending missing-description allow-list cross-checks for `calibrate()`. */
+    buff_cross_checks?: { index: number; numbers: BuffNumbers }[]
     /** True when spell crit came from calibration, not the game's sheet. */
     calibrated_spell_crit?: boolean
     export_saved_at: string
@@ -124,7 +134,6 @@ export function wornGear(character: Character): Gear {
 /** A run that stops before it makes a file. The page words each one. */
 export type SimStop =
     | { kind: 'unsupported'; class: string; spec: string }
-    | { kind: 'buffed'; buffs: string[] }
     | { kind: 'format'; format: number; accepted: number[] }
     | { kind: 'gates'; failed: Check[] }
     | { kind: 'unknown_main_hand'; item_id: number }

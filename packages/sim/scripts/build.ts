@@ -14,7 +14,8 @@
  *   id (`write-spell-names.ts`).
  * - `worker.js`, the pool's worker (from `src/`), `talents/<class>.json`
  *   (upstream's talent trees), `l60-test.in.json` (the level-60 gate's
- *   request) and `weights/` (from `packages/sim/weights/`, when it exists).
+ *   request), `calibrations.json` (clean level calibrations) and `weights/`
+ *   (from `packages/sim/weights/`, when it exists).
  * - `version.json`: `{ upstream_commit, patch_id, go_version, l60_expected_dps }`.
  *   The commit (from `UPSTREAM.md`, its one place) and `patch_id` are also
  *   compiled in (`-X main.upstreamCommit`, `-X main.patchID`), so
@@ -110,6 +111,10 @@ cpSync(join(UPSTREAM, 'ui/sim/talents/trees'), join(BUILD, 'talents'), {
 copyFileSync(
     join(PACKAGE_DIR, 'fixtures/l60-test.in.json'),
     join(BUILD, 'l60-test.in.json')
+)
+copyFileSync(
+    join(PACKAGE_DIR, 'calibrations.json'),
+    join(BUILD, 'calibrations.json')
 )
 
 // The precomputed stat weights, when there are any.

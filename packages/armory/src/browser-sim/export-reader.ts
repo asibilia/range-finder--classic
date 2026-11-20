@@ -2,9 +2,9 @@
  * The export reader: a `TurboCharExport.lua` (the export addon's
  * SavedVariables file) into the character `simCharacter` sims, or a stop.
  * The order: the format check, the known-class check, the class and spec
- * check, the buff check, the unknown main hand check (none of them runs a
- * sim), then one sheet run that calibrates base health and mana, and spell
- * crit per Intellect when the game answered 0.
+ * check, buff classification, the unknown main hand check (none of them
+ * runs a sim), then calibration (at most one sheet run, using read-only
+ * `calibrations.json` for cross-checks or unknown-buff clean fallback).
  */
 import {
     BONUS_STAT_COUNT,
@@ -15,6 +15,16 @@ import {
 } from '@goturbo/sim'
 
 import type { ResultsFile, Slot } from '../results-file'
+import {
+    classifyBuff,
+    readBuff,
+    statsFromNumbers,
+    unknownBuffs,
+    type BuffNumbers,
+    type ClassifiedBuff,
+    type FilteredBuff,
+    type KnownBuffs,
+} from './buff-filter'
 import type {
     BagItem,
     Character,
@@ -27,7 +37,7 @@ import type {
     UnknownPiece,
 } from './character'
 import { gameStats } from './game-stats'
-import { loadItemDb } from './gear'
+import { loadItemDb, type DbItem } from './gear'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT } from './scenarios'
 import { FIGHT_ITERATIONS, FIGHT_SEED } from './session'
@@ -36,7 +46,7 @@ import { talentTrees, type TalentTree } from './talents'
 import { parseSavedVariables, type SavedValue } from './saved-variables'
 
 /** The export formats this reader takes. */
-export const EXPORT_FORMATS: readonly number[] = [7]
+export const EXPORT_FORMATS: readonly number[] = [7, 8, 9, 10]
 
 /**
  * The game's classes. An export's class is checked against them before it
@@ -158,16 +168,7 @@ const REQUIRED_STATS = [
     'critPerAgility',
 ] as const
 
-/** Buffs that change nothing the sheet check reads, by name. */
-const NO_EFFECT_BUFFS = [
-    'Lightning Shield',
-    'Water Shield',
-    'Well-Rested',
-    'Ghost Wolf',
-    'Resting',
-]
-/** Blessing of Kings and Greater Blessing of Kings: the sim's own. */
-const KINGS = [20217, 25898]
+const CROSS_CHECK_TOLERANCE = 1e-6
 
 type Table = { [key: string]: SavedValue }
 
@@ -255,15 +256,31 @@ export function usableKey(key: SavedValue | undefined): string | undefined {
 }
 
 /** One worn item from the export: its id, enchant and random suffix. */
-function gearPiece(entry: Table): GearPiece | null {
-    const link = /\|Hitem:(-?\d+):(-?\d*):(?:-?\d*:){4}(-?\d*)/.exec(
-        str(entry.link)
-    )
+function gearPiece(
+    entry: Table,
+    known?: ReadonlyMap<number, DbItem>
+): GearPiece | null {
+    const linkStr = str(entry.link)
+    const link = /\|Hitem:(-?\d+):(-?\d*):(?:-?\d*:){4}(-?\d*)/.exec(linkStr)
     const id = num(entry.id) || Number(link?.[1] ?? 0)
     if (!id) return null
     const piece: GearPiece = { id }
     const enchant = Number(link?.[2] || 0)
-    const suffix = Number(link?.[3] || 0)
+    let suffix = Number(link?.[3] || 0)
+    if (suffix === 0 && known) {
+        const suffixOptions = known.get(id)?.randomSuffixOptions
+        if (suffixOptions && suffixOptions.length > 0) {
+            const parts = /\|Hitem:([^|]+)/.exec(linkStr)?.[1]?.split(':') ?? []
+            const bonusCount = Number(parts[12] || 0)
+            for (let i = 0; i < bonusCount; i++) {
+                const bonusId = Number(parts[13 + i] || 0)
+                if (bonusId !== 0 && suffixOptions.includes(bonusId)) {
+                    suffix = bonusId
+                    break
+                }
+            }
+        }
+    }
     if (enchant > 0) piece.enchant = enchant
     if (suffix !== 0) piece.randomSuffix = suffix
     return piece
@@ -282,7 +299,7 @@ function readGameStats(value: SavedValue | undefined): GameStats {
  * with the game stats they add as bonus stats (the runner's
  * `characterFromExport`).
  */
-function readGear(gear: Table, known: ReadonlyMap<number, unknown>) {
+function readGear(gear: Table, known: ReadonlyMap<number, DbItem>) {
     const worn: Gear = {}
     const unknown: Partial<Record<Slot, UnknownPiece>> = {}
     const bonus = new Array<number>(BONUS_STAT_COUNT).fill(0)
@@ -293,7 +310,7 @@ function readGear(gear: Table, known: ReadonlyMap<number, unknown>) {
             name ? s.name === name : String(s.inventory) === key
         )
         if (!slot) continue
-        const piece = gearPiece(entry)
+        const piece = gearPiece(entry, known)
         if (!piece) continue
         if (known.has(piece.id)) {
             worn[slot.slot] = piece
@@ -546,16 +563,95 @@ function readProfile(
     return profile
 }
 
-/**
- * Calibration: one sheet run with a guess at base health and mana, then
- * each moved by the gap to the game's sheet (both are linear in it). When
- * the game answered 0 for spell crit per Intellect, the run goes without it
- * and the gap to the game's spell crit is spread over the sim's Intellect.
- * It makes `CALIBRATION_CALLS` calls.
- */
-export async function calibrate(
+type CalibrationRow = {
+    level: number
+    race: string
+    class: string
+    base_health: number
+    base_mana: number
+    spell_crit_per_int: number
+}
+
+function cleanCalibration(
+    rows: unknown,
+    profile: LevelProfile
+): CalibrationRow | undefined {
+    if (!Array.isArray(rows)) return undefined
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const row = rows[i] as Partial<CalibrationRow> | null | undefined
+        if (
+            row &&
+            typeof row === 'object' &&
+            row.level === profile.level &&
+            row.race === profile.race &&
+            row.class === profile.class &&
+            typeof row.base_health === 'number' &&
+            Number.isFinite(row.base_health) &&
+            typeof row.base_mana === 'number' &&
+            Number.isFinite(row.base_mana) &&
+            typeof row.spell_crit_per_int === 'number' &&
+            Number.isFinite(row.spell_crit_per_int)
+        )
+            return row as CalibrationRow
+    }
+    return undefined
+}
+
+function sheetStatDiff(
+    key: keyof BuffNumbers,
+    game: ResultsFile['sheet'],
+    stat: (i: number) => number
+): number | undefined {
+    switch (key) {
+        case 'strength':
+            return game.strength - stat(STAT.strength)
+        case 'agility':
+            return game.agility - stat(STAT.agility)
+        case 'stamina':
+            return game.stamina - stat(STAT.stamina)
+        case 'intellect':
+            return game.intellect - stat(STAT.intellect)
+        case 'spirit':
+            return game.spirit - stat(STAT.spirit)
+        case 'attack_power':
+            return game.attack_power - stat(STAT.attackPower)
+        case 'armor':
+            return game.armor - stat(STAT.armor)
+        case 'health':
+            return game.health - stat(STAT.health)
+        case 'mana':
+            return game.mana - stat(STAT.mana)
+        default:
+            return undefined
+    }
+}
+
+function withCleanCalibration(
     character: Character,
-    pool: SimPool
+    clean: CalibrationRow,
+    askCrit: boolean
+): Character {
+    const useCleanCrit = askCrit && clean.spell_crit_per_int > 0
+    return {
+        ...character,
+        profile: {
+            ...character.profile,
+            baseHealth: clean.base_health,
+            baseMana: clean.base_mana,
+            ...(useCleanCrit
+                ? { spellCritPerInt: clean.spell_crit_per_int }
+                : {}),
+            source: 'The last clean calibration on record (unknown buff up).',
+        },
+        calibration_mode: 'last_clean_calibration',
+        ...(askCrit ? { calibrated_spell_crit: true } : {}),
+    }
+}
+
+async function solveFromSheet(
+    character: Character,
+    pool: SimPool,
+    mode: 'solved_clean' | 'solved_from_buffed_sheet'
 ): Promise<Character> {
     const game = character.sheet
     const askCrit = character.profile.spellCritPerInt <= 0
@@ -597,50 +693,160 @@ export async function calibrate(
     return {
         ...character,
         profile,
+        calibration_mode: mode,
         ...(askCrit ? { calibrated_spell_crit: true } : {}),
     }
 }
 
 /**
- * True when the sim can model a buff that was up at export: the sheet
- * check and calibration sim with it (`sheetBuffs`), so the game's buffed
- * sheet is compared with a sheet buffed the same way. Any other buff
- * stops the run (spec #73, sections 4 and 6). The native runner instead
- * goes on and marks health and mana `not_checked`
- * (`packages/sim/fixtures/buff-filter-nov15-format7.md`); the browser
- * keeps the stop unless the owner decides otherwise.
+ * Calibration: at most `CALIBRATION_CALLS` sheet calls.
+ * - Cross-check: if a missing-description fixed-number allow-list candidate
+ *   is the only unresolved buff and `calibrations.json` has a clean row,
+ *   runs 1 sheet call at the clean base and upgrades if every sheet stat
+ *   matches within `< 1e-6` unrounded; otherwise preserves clean calibration.
+ * - Unknown buff: uses `calibrations.json` clean base in 0 calls when
+ *   present, or falls back to solving from the buffed sheet in 1 call.
+ * - Clean / resolved buffs: solves base health, base mana, and (when 0)
+ *   spell crit per Intellect in 1 call.
  */
-function canModel(buff: Table, known: KnownBuffs): boolean {
-    const spell = num(buff.spellID)
-    return (
-        NO_EFFECT_BUFFS.includes(str(buff.name)) ||
-        KINGS.includes(spell) ||
-        (spell > 0 && String(spell) in known)
-    )
+export async function calibrate(
+    character: Character,
+    pool: SimPool
+): Promise<Character> {
+    const { buff_cross_checks: crossChecks, ...baseCharacter } = character
+    const askCrit = baseCharacter.profile.spellCritPerInt <= 0
+    const hasUnknown = unknownBuffs(baseCharacter.filtered_buffs)
+    const needsClean = (crossChecks?.length ?? 0) > 0 || hasUnknown
+    const clean = needsClean
+        ? cleanCalibration(
+              await pool.data('calibrations.json'),
+              baseCharacter.profile
+          )
+        : undefined
+
+    const crossCheck = crossChecks?.length === 1 ? crossChecks[0] : undefined
+    const otherUnknown =
+        baseCharacter.filtered_buffs?.some(
+            (buff, index) =>
+                index !== crossCheck?.index && buff.how === 'unknown'
+        ) ?? false
+
+    if (crossCheck && clean && !otherUnknown) {
+        const game = baseCharacter.sheet
+        const trial: LevelProfile = {
+            ...baseCharacter.profile,
+            baseHealth: clean.base_health,
+            baseMana: clean.base_mana,
+            spellCritPerInt: askCrit
+                ? 0
+                : baseCharacter.profile.spellCritPerInt,
+        }
+        const simmed = await pool.sheet(
+            buildRequest({ ...baseCharacter, profile: trial }, DEFAULT_FIGHT, {
+                seed: FIGHT_SEED,
+                iterations: FIGHT_ITERATIONS,
+                sheetBuffs: baseCharacter.sheet_buffs,
+            }),
+            trial
+        )
+        const final = (simmed.player.finalStats ?? {}) as {
+            stats?: number[]
+            pseudoStats?: number[]
+        }
+        const stat = (i: number) => final.stats?.[i] ?? 0
+        const pseudo = (i: number) => final.pseudoStats?.[i] ?? 0
+
+        let checkedSheetStat = false
+        let matched = true
+        for (const [key, expected] of Object.entries(crossCheck.numbers)) {
+            if (typeof expected !== 'number') continue
+            const diff = sheetStatDiff(key as keyof BuffNumbers, game, stat)
+            if (diff === undefined) continue
+            checkedSheetStat = true
+            if (!(Math.abs(diff - expected) < CROSS_CHECK_TOLERANCE)) {
+                matched = false
+                break
+            }
+        }
+        if (checkedSheetStat && matched) {
+            const updatedFiltered = (baseCharacter.filtered_buffs ?? []).map(
+                (buff, index) =>
+                    index === crossCheck.index
+                        ? {
+                              ...buff,
+                              how: 'game_numbers' as const,
+                              how_detail: 'list + sheet cross-check',
+                              numbers: { ...crossCheck.numbers },
+                          }
+                        : buff
+            )
+            const added = statsFromNumbers(crossCheck.numbers)
+            const mergedStats = (
+                baseCharacter.sheet_buffs?.stats ??
+                new Array<number>(BONUS_STAT_COUNT).fill(0)
+            ).map((value, i) => value + (added[i] ?? 0))
+            const sheetBuffs: SheetBuffs | undefined =
+                baseCharacter.sheet_buffs?.kings ||
+                mergedStats.some((value) => value !== 0)
+                    ? {
+                          stats: mergedStats,
+                          kings: baseCharacter.sheet_buffs?.kings ?? false,
+                      }
+                    : undefined
+            const intellect = stat(STAT.intellect)
+            const critGap =
+                game.spell_crit_pct - pseudo(PSEUDO_STAT.spellCritPercent)
+            const profile: LevelProfile = {
+                ...trial,
+                spellCritPerInt:
+                    askCrit && intellect > 0
+                        ? critGap / intellect
+                        : trial.spellCritPerInt,
+                source: askCrit
+                    ? 'The export, with base health, base mana and spell crit per Intellect calibrated.'
+                    : 'The export, with base health and base mana calibrated.',
+            }
+            return {
+                ...baseCharacter,
+                profile,
+                ...(sheetBuffs ? { sheet_buffs: sheetBuffs } : {}),
+                filtered_buffs: updatedFiltered,
+                calibration_mode: 'solved_clean',
+                ...(askCrit ? { calibrated_spell_crit: true } : {}),
+            }
+        }
+        return withCleanCalibration(baseCharacter, clean, askCrit)
+    }
+
+    if (hasUnknown) {
+        if (clean) return withCleanCalibration(baseCharacter, clean, askCrit)
+        return solveFromSheet(baseCharacter, pool, 'solved_from_buffed_sheet')
+    }
+
+    return solveFromSheet(baseCharacter, pool, 'solved_clean')
 }
 
-/** `buffs.json`: the stats each buff gives, by spell id. */
-type KnownBuffs = Record<string, { stats: number[] }>
-
-/**
- * What the modelled buffs added to the game's sheet: `buffs.json`'s stats
- * and Kings. None when they changed nothing the sheet check reads.
- */
-function sheetBuffs(buffs: Table[], known: KnownBuffs): SheetBuffs | null {
+function aggregateSheetBuffs(
+    classified: ClassifiedBuff[]
+): SheetBuffs | undefined {
     const stats = new Array<number>(BONUS_STAT_COUNT).fill(0)
     let kings = false
-    for (const buff of buffs) {
-        const spell = num(buff.spellID)
-        if (NO_EFFECT_BUFFS.includes(str(buff.name))) continue
-        if (KINGS.includes(spell)) kings = true
-        else
-            known[String(spell)]?.stats.forEach(
-                (amount, i) => (stats[i] = (stats[i] ?? 0) + amount)
-            )
+    for (const entry of classified) {
+        if (entry.kings) kings = true
+        if (entry.simStats) {
+            entry.simStats.forEach((amount, i) => {
+                stats[i] = (stats[i] ?? 0) + amount
+            })
+        }
+        if (entry.filtered.how === 'game_numbers' && entry.filtered.numbers) {
+            statsFromNumbers(entry.filtered.numbers).forEach((amount, i) => {
+                stats[i] = (stats[i] ?? 0) + amount
+            })
+        }
     }
     return kings || stats.some((amount) => amount !== 0)
         ? { stats, kings }
-        : null
+        : undefined
 }
 
 export type ExportRead = { kind: 'character'; character: Character } | SimStop
@@ -678,15 +884,28 @@ export async function exportCharacter(
     const { stop } = supportedSpec(cls, talents, trees)
     if (stop) return stop
 
-    const buffs = list(db.buffs).map(table)
-    let modelled: SheetBuffs | null = null
-    if (buffs.length > 0) {
+    const rawBuffs = list(db.buffs)
+    let filteredBuffs: FilteredBuff[] | undefined
+    let modelled: SheetBuffs | undefined
+    let crossChecks: { index: number; numbers: BuffNumbers }[] | undefined
+    if (rawBuffs.length > 0) {
         const known = (await pool.data('buffs.json')) as KnownBuffs
-        const unmodelled = buffs
-            .filter((buff) => !canModel(buff, known))
-            .map((buff) => str(buff.name))
-        if (unmodelled.length > 0) return { kind: 'buffed', buffs: unmodelled }
-        modelled = sheetBuffs(buffs, known)
+        const classified = rawBuffs.map((raw) =>
+            classifyBuff(readBuff(raw, format), known)
+        )
+        filteredBuffs = classified.map((c) => c.filtered)
+        const pending = classified
+            .map((c, index) =>
+                c.crossCheck ? { index, numbers: c.crossCheck } : null
+            )
+            .filter(
+                (entry): entry is NonNullable<typeof entry> => entry !== null
+            )
+        const noOtherUnknown = classified.every(
+            (c) => c.crossCheck !== undefined || c.filtered.how !== 'unknown'
+        )
+        if (pending.length === 1 && noOtherUnknown) crossChecks = pending
+        modelled = aggregateSheetBuffs(classified)
     }
 
     // Worn items the sim lacks become bonus stats; a main hand it lacks
@@ -734,7 +953,9 @@ export async function exportCharacter(
         ),
         profile,
         sheet: weaponSkill ? { ...sheet, weapon_skill: weaponSkill } : sheet,
+        ...(filteredBuffs ? { filtered_buffs: filteredBuffs } : {}),
         ...(modelled ? { sheet_buffs: modelled } : {}),
+        ...(crossChecks ? { buff_cross_checks: crossChecks } : {}),
         export_saved_at: new Date(savedAt * 1000).toISOString(),
         game_build: str(identity.gameBuild),
     }
@@ -743,7 +964,7 @@ export async function exportCharacter(
 
 /**
  * Reads a `TurboCharExport.lua` into a calibrated character, or a stop.
- * The format, class and spec, and buff stops come before any sim runs.
+ * The format, class and spec, and unknown main hand stops come before any sim runs.
  */
 export async function readExport(
     text: string,

@@ -31,7 +31,7 @@ const GAME_STAT = [
 const PHYSICAL = 1
 
 const EFFECT =
-    /SpellID: (\d+),.*?Aura: dbcenums\.(A_MOD_STAT|A_MOD_RESISTANCE|A_MOD_ARMOR_NO_MODS),.*?BasePoints: (-?\d+)/
+    /SpellID: (\d+),.*?Type: dbcenums\.E_APPLY_AURA,.*?Aura: dbcenums\.(A_MOD_STAT|A_MOD_RESISTANCE|A_MOD_ARMOR_NO_MODS),.*?BasePoints: (-?\d+)/
 
 /** The buffs in the spell data's Go source, by spell id. */
 export function buffsFrom(source: string): Record<string, { stats: number[] }> {

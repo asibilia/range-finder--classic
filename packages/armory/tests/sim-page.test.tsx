@@ -59,8 +59,7 @@ const PHONE_QUERY = '(pointer: coarse) and (max-width: 768px)'
 const PRECOMPUTED =
     'Stat weights: precomputed for an Enhancement Shaman at level 30–34, not your gear.'
 const YOURS = 'Stat weights: simmed for your gear.'
-const EXPORT_AGAIN =
-    'Export again with no buffs up, out of combat, and drop the new file.'
+const EXPORT_AGAIN = 'Export again out of combat and drop the new file.'
 const REFINE = 'Refine for your gear (about 3 min)'
 const WEIGHTS_FIRST = 'Simming stat weights for your gear first (about 3 min).'
 const REMEMBERED_KEY = 'armory:last-results-file'
@@ -441,19 +440,18 @@ describe('the fight chart for a browser-simmed file', () => {
     })
 })
 
-describe('stops', () => {
-    test('dropping the buffed export of 15 November says to export again without Warchief’s Blessing, and shows no numbers', async () => {
+describe('buffed exports and stops', () => {
+    test('dropping the buffed export of 15 November now sims cleanly via Warchief’s Blessing cross-check and shows the unbuffed sheet and buff list', async () => {
         renderWith(fakePool())
         dropFile(luaFile(await Bun.file(BUFFED).text()))
 
         expect(
-            await screen.findByText(
-                "Your export was saved with buffs up that the sim can't model: Warchief's Blessing. Remove them, type /tbexport in the game, then /reload, and drop the new file.",
-                undefined,
-                LOADS
-            )
+            await screen.findByText('Unbuffed sheet.', undefined, LOADS)
         ).toBeDefined()
-        expectNoNumbers()
+        expect(screen.getByText('Buffs taken off the sheet:')).toBeDefined()
+        expect(
+            screen.getByText("Warchief's Blessing: the game's numbers")
+        ).toBeDefined()
     })
 
     test('an Arms Warrior export says the sim covers Enhancement Shaman only and the character is an Arms Warrior; a Fury Warrior one says a Fury Warrior; neither shows numbers', async () => {
@@ -521,7 +519,7 @@ describe('stops', () => {
         expectNoNumbers()
     })
 
-    test('with the sheet’s Strength off by 10 in the export, the page shows Failed: sheet strength. and Export again with no buffs up, and no numbers', async () => {
+    test('with the sheet’s Strength off by 10 in the export, the page shows Failed: sheet strength. and Export again out of combat, and no numbers', async () => {
         const text = await testcharExport((sheet) => ({
             ...sheet,
             strength: sheet.strength + 10,

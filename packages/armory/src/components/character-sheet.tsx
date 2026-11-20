@@ -89,13 +89,36 @@ export function sheetRows(
     return rows
 }
 
+const HOW_LABEL: Record<
+    NonNullable<ResultsFile['filtered_buffs']>[number]['how'],
+    string
+> = {
+    modelled: 'modelled by the sim',
+    game_numbers: "the game's numbers",
+    no_stats: 'no stats',
+    unknown: "couldn't size it",
+}
+
 /**
  * The sheet.
  *
  * @param file - The loaded results file.
  */
 export function CharacterSheet({ file }: { file: ResultsFile }) {
-    const buffs = file.sheet_buffed ? ', with the buffs you had up' : ''
+    const filtered = file.filtered_buffs
+    const hasFiltered = filtered !== undefined && filtered.length > 0
+    const buffs =
+        !hasFiltered && file.sheet_buffed ? ', with the buffs you had up' : ''
+    const calibration = file.checks.find((c) => c.name === 'calibration')
+    const unsizedHealthOrMana = hasFiltered
+        ? calibration
+            ? Boolean(calibration.not_checked)
+            : file.checks.some(
+                  (c) =>
+                      (c.name === 'health' || c.name === 'mana') &&
+                      c.not_checked
+              ) || filtered.some((b) => b.how === 'unknown')
+        : false
     return (
         <div className="flex w-full flex-col items-center">
             {/* Never wider than the middle column: names stay on one line,
@@ -121,6 +144,29 @@ export function CharacterSheet({ file }: { file: ResultsFile }) {
                 </b>
                 {`, as worn${buffs}.`}
             </p>
+            {hasFiltered && (
+                <>
+                    <p className="mt-1 text-center text-xs text-subtle-foreground">
+                        Unbuffed sheet.
+                    </p>
+                    {unsizedHealthOrMana && (
+                        <p className="mt-1 text-center text-xs text-subtle-foreground">
+                            Health and mana may include a buff the sim
+                            can&apos;t size.
+                        </p>
+                    )}
+                    <p className="mt-2 text-center text-xs text-subtle-foreground">
+                        Buffs taken off the sheet:
+                    </p>
+                    <ul className="mt-1 flex max-w-full flex-col gap-0.5 text-center text-xs break-words text-muted-foreground">
+                        {filtered.map((buff, index) => (
+                            <li key={index}>
+                                {`${buff.name}: ${HOW_LABEL[buff.how]}`}
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
         </div>
     )
 }

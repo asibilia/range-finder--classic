@@ -30,6 +30,8 @@ import {
 import { wornGear, type Character, type Gear, type SimStop } from './character'
 import {
     belowLevel60Check,
+    buffsCheck,
+    calibrationCheck,
     failedChecks,
     level60Check,
     NOTES,
@@ -104,6 +106,27 @@ function cleanWeights(weights: StatWeights, fightIds: string[]): StatWeights {
             fight_id: w.fight_id,
             weights: w.weights.map(({ stat, ep }) => ({ stat, ep })),
         }))
+}
+
+/**
+ * The unbuffed sim sheet shaped for `ResultsFile.sheet`: adjusts
+ * `melee_crit_pct` for `weapon_skill_deficit` and preserves `weapon_skill`.
+ */
+function unbuffedSheetForFile(
+    sheet: Sheet,
+    character: Character
+): ResultsFile['sheet'] {
+    const meleeCrit =
+        Math.round(
+            (sheet.melee_crit_pct - 0.04 * character.weapon_skill_deficit) * 100
+        ) / 100
+    return {
+        ...sheet,
+        melee_crit_pct: meleeCrit,
+        ...(character.sheet.weapon_skill
+            ? { weapon_skill: character.sheet.weapon_skill }
+            : {}),
+    }
 }
 
 /** The sheet's fields a results file takes. */
@@ -183,14 +206,28 @@ export async function runGates(
         buffs ? sheetOf() : null,
     ])
     const l60Dps = await pool.sim(l60Request).then(dpsOf)
+    const unknownNames =
+        character.filtered_buffs
+            ?.filter((b) => b.how === 'unknown')
+            .map((b) => b.name) ?? []
+    const buffsRow = buffsCheck(character.filtered_buffs)
     const checks: Check[] = [
         level60Check(l60Dps, version.l60_expected_dps),
         ...sheetChecks(
             character.sheet,
             sheetFromSim(simmedSheet),
             character.calibrated_spell_crit ?? false,
-            character.weapon_skill_deficit
+            character.weapon_skill_deficit,
+            {
+                unknownBuffs: unknownNames,
+                solvedFromBuffedSheet:
+                    character.calibration_mode === 'solved_from_buffed_sheet',
+            }
         ),
+        ...(character.calibration_mode
+            ? [calibrationCheck(character.calibration_mode)]
+            : []),
+        ...(buffsRow ? [buffsRow] : []),
         noSpellAboveLevelCheck(
             rotationSpells(character),
             character.level,
@@ -458,8 +495,15 @@ export async function simCharacter(
                 ...(character.gender ? { gender: character.gender } : {}),
                 professions: character.professions ?? [],
             },
-            sheet_buffed: character.sheet_buffs !== undefined,
-            sheet: fileSheet(character.sheet),
+            sheet_buffed: false,
+            ...(character.filtered_buffs && character.filtered_buffs.length > 0
+                ? { filtered_buffs: character.filtered_buffs }
+                : {}),
+            sheet: fileSheet(
+                character.filtered_buffs && character.filtered_buffs.length > 0
+                    ? unbuffedSheetForFile(sheet, character)
+                    : character.sheet
+            ),
             fights: scenarios.map((scenario) =>
                 fightEntry(scenario, character, dualWield)
             ),
