@@ -10,6 +10,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { App } from '../src/app'
+import type { WowheadLoader } from '../src/wowhead-loader'
 // The chart drawings are lazy in the page (so Recharts isn't in its first
 // load). Loaded here up front, so a test doesn't pay for Recharts inside
 // its own time limit; `lazy()` then resolves from the module cache.
@@ -59,8 +60,11 @@ export async function chartsLoaded(): Promise<void> {
  * @param userOptions - Passed to `userEvent.setup()`: a test on fake timers
  * passes `{ advanceTimers: jest.advanceTimersByTime }`.
  */
-export function renderApp(userOptions?: UserOptions): User {
-    render(<App />)
+export function renderApp(
+    userOptions?: UserOptions,
+    wowheadLoader?: WowheadLoader
+): User {
+    render(<App wowheadLoader={wowheadLoader} />)
     return userEvent.setup(userOptions)
 }
 
@@ -75,8 +79,11 @@ export async function pick(user: User, file: File): Promise<void> {
  *
  * @param userOptions - Passed to `userEvent.setup()`, as in `renderApp`.
  */
-export async function openSample(userOptions?: UserOptions): Promise<User> {
-    const user = renderApp(userOptions)
+export async function openSample(
+    userOptions?: UserOptions,
+    wowheadLoader?: WowheadLoader
+): Promise<User> {
+    const user = renderApp(userOptions, wowheadLoader)
     await user.click(
         screen.getByRole('button', { name: 'Or look at a sample character' })
     )
@@ -91,9 +98,10 @@ export async function openSample(userOptions?: UserOptions): Promise<User> {
  */
 export async function openFile(
     data: unknown,
-    character = 'Truncha'
+    character = 'Truncha',
+    wowheadLoader?: WowheadLoader
 ): Promise<User> {
-    const user = renderApp()
+    const user = renderApp(undefined, wowheadLoader)
     await pick(user, jsonFile(data))
     await screen.findByRole('heading', { level: 2, name: character })
     await chartsLoaded()

@@ -7,7 +7,8 @@
  * out. What it shows for a loaded file
  * is `PlannerState`, changed only by the pure actions in `planner-state.ts`.
  * The last file picked or dropped is kept in this browser and comes back on
- * reload (`remembered-file.ts`); the sample is never kept.
+ * reload (`remembered-file.ts`); the sample is never kept. Official Wowhead
+ * Forever tooltips load only after the visitor's in-memory opt-in.
  */
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 
@@ -38,6 +39,7 @@ import {
 import { TalentsDialog } from '@/components/talents-dialog'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useWowhead, WowheadOptIn, WowheadProvider } from '@/components/wowhead'
 
 import {
     type Character,
@@ -71,6 +73,7 @@ import { forgetFile, recallFile, rememberFile } from './remembered-file'
 import type { ResultsFile, Slot } from './results-file'
 import { slotLabel } from './slot-labels'
 import { slotEntry } from './slot-view'
+import type { WowheadLoader } from './wowhead-loader'
 import sample from './sample-truncha.json'
 
 /** The file shown, or why the last one didn't read (both null: nothing). */
@@ -186,6 +189,7 @@ function Footer({
     localLine: ReactNode
     onForget: () => void
 }) {
+    const { status } = useWowhead()
     const art = file
         ? characterArt(
               file.character.race,
@@ -198,7 +202,7 @@ function Footer({
             {localLine}
             {file && remembered && (
                 <p>
-                    This file is kept in this browser only.{' '}
+                    This file is kept in this browser.{' '}
                     <Button
                         variant="link"
                         className="h-auto p-0 text-[0.78125rem] font-normal"
@@ -238,6 +242,20 @@ function Footer({
                 <Checks checks={file.checks} leftOut={file.left_out_items} />
             )}
             {credit && <p>{SIM_CREDIT}</p>}
+            {status === 'ready' && (
+                <p>
+                    Item tooltips:{' '}
+                    <a
+                        href="https://www.wowhead.com/forever"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 hover:text-foreground"
+                    >
+                        Wowhead Forever
+                    </a>{' '}
+                    (not affiliated or endorsed).
+                </p>
+            )}
         </footer>
     )
 }
@@ -274,9 +292,11 @@ type Simmed = { character: Character; minutes: number; exportText: string }
 export function App({
     createPool = createSimPool,
     localLatest = import.meta.env.DEV,
+    wowheadLoader,
 }: {
     createPool?: () => SimPool
     localLatest?: boolean
+    wowheadLoader?: WowheadLoader
 } = {}) {
     const [loaded, setLoaded] = useState<Loaded>({ file: null, error: null })
     const [planner, setPlanner] = useState<PlannerState | null>(null)
@@ -703,200 +723,212 @@ export function App({
     ) : null
 
     return (
-        <TooltipProvider>
-            <main className="mx-auto flex max-w-360 flex-col px-4 pt-7.5 pb-9 sm:px-6 lg:px-10">
-                <Header
-                    file={file}
-                    wishlistCount={wishlist.size}
-                    localAction={latest.action}
-                    onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
-                    onOpenPawn={() => setDialog({ kind: 'pawn' })}
-                />
-                {latest.lines}
-                {file?.provisional && (
-                    <p
-                        role="note"
-                        className="mt-4.5 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-base"
-                    >
-                        <InfoIcon className="mt-0.75 size-4 text-muted-foreground" />
-                        <span>
-                            The sim isn&apos;t checked against real fights yet.
-                            Use these numbers to compare gear, not as a promise
-                            of DPS.
-                        </span>
-                    </p>
-                )}
-                <div
-                    data-slot="planner-body"
-                    // The owner's layout v2: the gear card, and under it the
-                    // band, on the left; Simulator Data and its card on the
-                    // right, down both rows (the band's row takes the slack,
-                    // so a tall right column never pushes the band down).
-                    // One column below 90rem: gear, numbers, band.
-                    className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem] min-[90rem]:grid-rows-[auto_1fr]"
-                >
-                    <GearPane
+        <WowheadProvider loadScript={wowheadLoader}>
+            <TooltipProvider>
+                <main className="mx-auto flex max-w-360 flex-col px-4 pt-7.5 pb-9 sm:px-6 lg:px-10">
+                    <Header
                         file={file}
-                        plan={plan}
-                        planShown={planShown}
-                        bagOn={bagOn}
-                        wishlist={wishlist}
-                        onToggleWishlist={toggleWishlist}
-                        headingRef={heading}
-                        onWearBag={(itemId) =>
-                            dispatch({ type: 'wear-bag-item', item_id: itemId })
-                        }
-                        onWearAllBags={() =>
-                            dispatch({ type: 'wear-all-bag-items' })
-                        }
-                        onUndoBag={() => dispatch({ type: 'undo-bag-item' })}
-                        middle={
-                            simming ? (
-                                <Simming
-                                    count={simming}
-                                    phone={phone}
-                                    weightsFirst={weightsFirst}
-                                    onCancel={cancel}
-                                />
-                            ) : (
-                                <BringIn
-                                    error={error}
-                                    notice={forgotten ? FORGOTTEN_NOTE : null}
-                                    stop={stop}
-                                    phone={phone}
-                                    onFile={openPicked}
-                                    onSample={() => {
-                                        latest.leave()
-                                        stopActiveRun()
-                                        open(readResults(sample))
-                                    }}
-                                />
-                            )
-                        }
-                        onShowPlan={() => dispatch({ type: 'show-plan' })}
-                        onShowWorn={() => dispatch({ type: 'show-worn' })}
-                        onOpenSlot={(slot, focusItemId) =>
-                            setDialog({ kind: 'picker', slot, focusItemId })
-                        }
-                        onOpenTalents={() => setDialog({ kind: 'talents' })}
+                        wishlistCount={wishlist.size}
+                        localAction={latest.action}
+                        onOpenWishlist={() => setDialog({ kind: 'wishlist' })}
+                        onOpenPawn={() => setDialog({ kind: 'pawn' })}
                     />
-                    {file && planner ? (
-                        <SimPanel
+                    <WowheadOptIn />
+                    {latest.lines}
+                    {file?.provisional && (
+                        <p
+                            role="note"
+                            className="mt-4.5 flex items-start gap-2 rounded-lg border border-ring/60 bg-muted/40 px-3 py-2 text-base"
+                        >
+                            <InfoIcon className="mt-0.75 size-4 text-muted-foreground" />
+                            <span>
+                                The sim isn&apos;t checked against real fights
+                                yet. Use these numbers to compare gear, not as a
+                                promise of DPS.
+                            </span>
+                        </p>
+                    )}
+                    <div
+                        data-slot="planner-body"
+                        // The owner's layout v2: the gear card, and under it the
+                        // band, on the left; Simulator Data and its card on the
+                        // right, down both rows (the band's row takes the slack,
+                        // so a tall right column never pushes the band down).
+                        // One column below 90rem: gear, numbers, band.
+                        className="mt-5 grid items-start gap-8 min-[90rem]:grid-cols-[minmax(0,1fr)_27.75rem] min-[90rem]:grid-rows-[auto_1fr]"
+                    >
+                        <GearPane
                             file={file}
-                            fightId={planner.fightId}
                             plan={plan}
                             planShown={planShown}
-                            wornOf={wornOf}
-                            className={SIDE_PLACE}
-                            onRunSimulator={
-                                exportText !== null && !refining
-                                    ? () => void runSimulator(exportText)
-                                    : undefined
+                            bagOn={bagOn}
+                            wishlist={wishlist}
+                            onToggleWishlist={toggleWishlist}
+                            headingRef={heading}
+                            onWearBag={(itemId) =>
+                                dispatch({
+                                    type: 'wear-bag-item',
+                                    item_id: itemId,
+                                })
                             }
-                            runNote={
-                                exportText !== null && refining
-                                    ? 'Wait for Refine for your gear to finish.'
-                                    : undefined
+                            onWearAllBags={() =>
+                                dispatch({ type: 'wear-all-bag-items' })
                             }
-                            running={
-                                running && (
-                                    <SimProgress
-                                        count={running}
+                            onUndoBag={() =>
+                                dispatch({ type: 'undo-bag-item' })
+                            }
+                            middle={
+                                simming ? (
+                                    <Simming
+                                        count={simming}
+                                        phone={phone}
+                                        weightsFirst={weightsFirst}
                                         onCancel={cancel}
+                                    />
+                                ) : (
+                                    <BringIn
+                                        error={error}
+                                        notice={
+                                            forgotten ? FORGOTTEN_NOTE : null
+                                        }
+                                        stop={stop}
+                                        phone={phone}
+                                        onFile={openPicked}
+                                        onSample={() => {
+                                            latest.leave()
+                                            stopActiveRun()
+                                            open(readResults(sample))
+                                        }}
                                     />
                                 )
                             }
-                            runProblem={runProblem}
-                            settings={
-                                <FightSettingsForm
-                                    file={file}
-                                    fightId={planner.fightId}
-                                    onSettings={setFightSettings}
-                                    onPickFight={(fightId) =>
-                                        dispatch({
-                                            type: 'pick-fight',
-                                            fight_id: fightId,
-                                        })
-                                    }
-                                />
+                            onShowPlan={() => dispatch({ type: 'show-plan' })}
+                            onShowWorn={() => dispatch({ type: 'show-worn' })}
+                            onOpenSlot={(slot, focusItemId) =>
+                                setDialog({ kind: 'picker', slot, focusItemId })
                             }
-                            sliders={
-                                planner.mix && (
-                                    <RoleControl
-                                        plans={file.plans}
-                                        mix={planner.mix}
-                                        plan={plan}
-                                        inWornView={!planShown}
-                                        switched={planner.switched}
-                                        onChange={(role, value) =>
+                            onOpenTalents={() => setDialog({ kind: 'talents' })}
+                        />
+                        {file && planner ? (
+                            <SimPanel
+                                file={file}
+                                fightId={planner.fightId}
+                                plan={plan}
+                                planShown={planShown}
+                                wornOf={wornOf}
+                                className={SIDE_PLACE}
+                                onRunSimulator={
+                                    exportText !== null && !refining
+                                        ? () => void runSimulator(exportText)
+                                        : undefined
+                                }
+                                runNote={
+                                    exportText !== null && refining
+                                        ? 'Wait for Refine for your gear to finish.'
+                                        : undefined
+                                }
+                                running={
+                                    running && (
+                                        <SimProgress
+                                            count={running}
+                                            onCancel={cancel}
+                                        />
+                                    )
+                                }
+                                runProblem={runProblem}
+                                settings={
+                                    <FightSettingsForm
+                                        file={file}
+                                        fightId={planner.fightId}
+                                        onSettings={setFightSettings}
+                                        onPickFight={(fightId) =>
                                             dispatch({
-                                                type: 'set-sliders',
-                                                mix: { [role]: value },
+                                                type: 'pick-fight',
+                                                fight_id: fightId,
                                             })
                                         }
                                     />
+                                }
+                                sliders={
+                                    planner.mix && (
+                                        <RoleControl
+                                            plans={file.plans}
+                                            mix={planner.mix}
+                                            plan={plan}
+                                            inWornView={!planShown}
+                                            switched={planner.switched}
+                                            onChange={(role, value) =>
+                                                dispatch({
+                                                    type: 'set-sliders',
+                                                    mix: { [role]: value },
+                                                })
+                                            }
+                                        />
+                                    )
+                                }
+                            />
+                        ) : (
+                            <LockedSimPanel className={SIDE_PLACE} />
+                        )}
+                        {file && planner && (
+                            <FightBand
+                                file={file}
+                                plan={plan}
+                                fightId={planner.fightId}
+                                wornOf={wornOf}
+                                weightsAction={refineAction}
+                                className="min-[90rem]:col-start-1 min-[90rem]:row-start-2"
+                            />
+                        )}
+                    </div>
+                    <Footer
+                        file={file}
+                        remembered={remembered}
+                        credit={file !== null || simming !== null}
+                        localLine={latest.footer}
+                        onForget={forget}
+                    />
+                    {file && dialog?.kind === 'picker' && (
+                        <ItemPicker
+                            entry={slotEntry(file, dialog.slot, bagOn)}
+                            slot={dialog.slot}
+                            focusItemId={dialog.focusItemId}
+                            label={slotLabel(dialog.slot, file)}
+                            provisional={file.provisional}
+                            level={file.character.level}
+                            characterClass={file.character.class}
+                            bagItemIds={file.bag_upgrades
+                                .filter(
+                                    (upgrade) => upgrade.slot === dialog.slot
                                 )
-                            }
-                        />
-                    ) : (
-                        <LockedSimPanel className={SIDE_PLACE} />
-                    )}
-                    {file && planner && (
-                        <FightBand
-                            file={file}
-                            plan={plan}
-                            fightId={planner.fightId}
-                            wornOf={wornOf}
-                            weightsAction={refineAction}
-                            className="min-[90rem]:col-start-1 min-[90rem]:row-start-2"
+                                .map((upgrade) => upgrade.item.item_id)}
+                            wishlist={wishlist}
+                            onToggle={toggleWishlist}
+                            onClose={closeDialog}
                         />
                     )}
-                </div>
-                <Footer
-                    file={file}
-                    remembered={remembered}
-                    credit={file !== null || simming !== null}
-                    localLine={latest.footer}
-                    onForget={forget}
-                />
-                {file && dialog?.kind === 'picker' && (
-                    <ItemPicker
-                        entry={slotEntry(file, dialog.slot, bagOn)}
-                        slot={dialog.slot}
-                        focusItemId={dialog.focusItemId}
-                        label={slotLabel(dialog.slot, file)}
-                        provisional={file.provisional}
-                        level={file.character.level}
-                        characterClass={file.character.class}
-                        bagItemIds={file.bag_upgrades
-                            .filter((upgrade) => upgrade.slot === dialog.slot)
-                            .map((upgrade) => upgrade.item.item_id)}
-                        wishlist={wishlist}
-                        onToggle={toggleWishlist}
-                        onClose={closeDialog}
-                    />
-                )}
-                {file && dialog?.kind === 'wishlist' && (
-                    <WishlistDialog
-                        wishlist={wishlist}
-                        characterClass={file.character.class}
-                        onRemove={removeFromWishlist}
-                        onClose={closeDialog}
-                    />
-                )}
-                {file && dialog?.kind === 'talents' && (
-                    <TalentsDialog
-                        talents={file.talents}
-                        fights={file.fights}
-                        sample={file.sample}
-                        provisional={file.provisional}
-                        onClose={closeDialog}
-                    />
-                )}
-                {file && dialog?.kind === 'pawn' && (
-                    <PawnDialog pawn={file.pawn} onClose={closeDialog} />
-                )}
-            </main>
-        </TooltipProvider>
+                    {file && dialog?.kind === 'wishlist' && (
+                        <WishlistDialog
+                            wishlist={wishlist}
+                            characterClass={file.character.class}
+                            onRemove={removeFromWishlist}
+                            onClose={closeDialog}
+                        />
+                    )}
+                    {file && dialog?.kind === 'talents' && (
+                        <TalentsDialog
+                            talents={file.talents}
+                            fights={file.fights}
+                            sample={file.sample}
+                            provisional={file.provisional}
+                            onClose={closeDialog}
+                        />
+                    )}
+                    {file && dialog?.kind === 'pawn' && (
+                        <PawnDialog pawn={file.pawn} onClose={closeDialog} />
+                    )}
+                </main>
+            </TooltipProvider>
+        </WowheadProvider>
     )
 }

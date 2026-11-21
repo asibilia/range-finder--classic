@@ -20,7 +20,7 @@ import {
 } from '../src/remembered-file'
 import sample from '../src/sample-truncha.json'
 
-const KEPT = 'This file is kept in this browser only.'
+const KEPT = 'This file is kept in this browser.'
 const FORGOTTEN =
     'The results file this browser kept no longer reads, so it was forgotten.'
 

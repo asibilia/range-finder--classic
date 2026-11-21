@@ -46,22 +46,29 @@ function classes(element: Element | null | undefined): string[] {
 }
 
 describe('the gear tiles', () => {
-    test("the Best: link sits beside the slot's button, not inside it, and comes right after it in focus order", async () => {
+    test('the item and Best: links sit beside the slot button, in that focus order', async () => {
         await openSample()
 
         const head = screen.getByRole('button', { name: HEAD })
+        const itemLink = within(gearPane()).getByRole('link', {
+            name: "Brawler's Leather Hood",
+        })
         const link = within(gearPane()).getByRole('button', {
             name: `Best: ${HELM}`,
         })
+        expect(head.contains(itemLink)).toBe(false)
         expect(head.contains(link)).toBe(false)
         expect(link.parentElement?.closest('button')).toBeNull()
         // Same tile: the line is laid over the tile's third line.
         const line = link.closest('p')
         expect(line?.parentElement).toBe(head.parentElement)
         expect(classes(line)).toContain('absolute')
-        // Focus order: the slot, then its Best: link.
-        const buttons = [...gearPane().querySelectorAll<HTMLElement>('button')]
-        expect(buttons.indexOf(link)).toBe(buttons.indexOf(head) + 1)
+        // Focus order: the slot, its item link, then its Best: button.
+        const focusable = [
+            ...gearPane().querySelectorAll<HTMLElement>('button, a'),
+        ]
+        expect(focusable.indexOf(itemLink)).toBe(focusable.indexOf(head) + 1)
+        expect(focusable.indexOf(link)).toBe(focusable.indexOf(itemLink) + 1)
         // The slot's own name doesn't change.
         expect(head.getAttribute('aria-label')).toBe(HEAD)
     })

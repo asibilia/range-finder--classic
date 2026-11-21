@@ -8,9 +8,11 @@
  * of the worn item's source. The gap or `BIS` badge sits
  * inside the tile, on the edge facing the figure. The `Best:` (or `Next:`) item is a
  * link-styled button laid over the third line from outside the slot's
- * button, opening the picker on that item. The full name is in the
- * button's accessible name and in a tooltip. The chips describe the button
- * (`aria-describedby`) so the name stays exact.
+ * button, opening the picker on that item. The worn item's name is a sibling
+ * Wowhead anchor laid over the second line, leaving the slot's click action
+ * intact. The full name is also in the button's accessible name and local
+ * tooltip. The chips describe the button (`aria-describedby`) so the name
+ * stays exact.
  */
 import { useId } from 'react'
 
@@ -23,6 +25,7 @@ import {
 import { cn } from '@/lib/utils'
 
 import { formatGap, gainSize, type SlotGap } from '../gains'
+import { ItemLink } from './item-link'
 import type { Slot } from '../results-file'
 import type { SlotShown } from '../slot-view'
 import { SimBestIcon } from './sim-best-icon'
@@ -195,6 +198,7 @@ export function SlotButton({
                     data-slot-name
                     className={cn(
                         'truncate text-base leading-4.75 font-bold',
+                        item && 'invisible',
                         !item && 'font-normal text-muted-foreground italic',
                         empty && 'not-italic'
                     )}
@@ -243,47 +247,65 @@ export function SlotButton({
     ) : (
         button
     )
-    if (!onOpen || !(best || next)) return withTooltip
-    // The `Best:` (or `Next:`) line is the tile's third line, but not inside
-    // the slot's button: a sibling laid over it, so both are focusable in
-    // order and the slot's name stays its own. Only the link takes clicks;
-    // the rest of the line clicks through to the slot.
+    const itemLink = item && shown.itemName && (
+        <span
+            data-slot-item-link
+            className={cn(
+                'pointer-events-none absolute inset-0 grid grid-cols-[2.375rem_minmax(0,1fr)] items-center gap-2.5 px-2.5 py-1.25',
+                gap && badgeRoom(side, gap),
+                shown.sameAsWorn && 'opacity-60'
+            )}
+        >
+            <span aria-hidden="true" />
+            <span className="flex min-w-0 flex-col">
+                <span aria-hidden="true" className="text-xs leading-4">
+                    &nbsp;
+                </span>
+                <ItemLink
+                    itemId={item.item_id}
+                    name={shown.itemName}
+                    allowTooltip={item.data === 'forever'}
+                    className="pointer-events-auto block w-fit max-w-full truncate text-base leading-4.75 font-bold"
+                />
+                {(((best || next) && onOpen) || note) && (
+                    <span aria-hidden="true" className="h-4" />
+                )}
+            </span>
+        </span>
+    )
     const link = best ?? next
-    if (!link) return withTooltip
+    if (!itemLink && (!onOpen || !link)) return withTooltip
     return (
         <div className="relative min-w-0">
             {withTooltip}
-            <p
-                data-best-line={best ? '' : undefined}
-                data-next-line={best ? undefined : ''}
-                className={cn(
-                    'pointer-events-none absolute bottom-1.25 flex min-w-0 items-center gap-1 text-xs leading-4 text-muted-foreground',
-                    // The badge sits mid-tile, above the third line: a
-                    // `Next:` line (muted, with its level) takes the text
-                    // column's whole width.
-                    best ? bestPlace(side, gap) : nextPlace(side, gap)
-                )}
-            >
-                <span className="shrink-0">{best ? 'Best:' : 'Next:'}</span>
-                <button
-                    type="button"
-                    onClick={() => onOpen(shown.slot, link.itemId)}
-                    // The line's label is part of the link's name, so a
-                    // screen reader hears `Best: <item>` or `Next: <item>
-                    // at level N`, not the item alone.
-                    aria-label={
-                        best
-                            ? `Best: ${link.name}`
-                            : `Next: ${link.name} at level ${next?.level}`
-                    }
-                    className="pointer-events-auto min-w-0 truncate rounded-sm text-left text-muted-foreground underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            {itemLink}
+            {onOpen && link && (
+                <p
+                    data-best-line={best ? '' : undefined}
+                    data-next-line={best ? undefined : ''}
+                    className={cn(
+                        'pointer-events-none absolute bottom-1.25 flex min-w-0 items-center gap-1 text-xs leading-4 text-muted-foreground',
+                        best ? bestPlace(side, gap) : nextPlace(side, gap)
+                    )}
                 >
-                    {link.name}
-                </button>
-                {!best && next && (
-                    <span className="shrink-0">{`at level ${next.level}`}</span>
-                )}
-            </p>
+                    <span className="shrink-0">{best ? 'Best:' : 'Next:'}</span>
+                    <button
+                        type="button"
+                        onClick={() => onOpen(shown.slot, link.itemId)}
+                        aria-label={
+                            best
+                                ? `Best: ${link.name}`
+                                : `Next: ${link.name} at level ${next?.level}`
+                        }
+                        className="pointer-events-auto min-w-0 truncate rounded-sm text-left text-muted-foreground underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                        {link.name}
+                    </button>
+                    {!best && next && (
+                        <span className="shrink-0">{`at level ${next.level}`}</span>
+                    )}
+                </p>
+            )}
         </div>
     )
 }

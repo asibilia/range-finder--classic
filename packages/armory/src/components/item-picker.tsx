@@ -15,6 +15,7 @@ import { formatGain, gainOf, type Item, type SlotEntry } from '../gains'
 import { itemName } from '../item-name'
 import type { Slot } from '../results-file'
 import { SLOT_LABELS } from '../slot-labels'
+import { ItemLink } from './item-link'
 import { PlannerDialog } from './planner-dialog'
 import { QualityGem } from './quality-gem'
 import { Provisional } from './readings'
@@ -116,9 +117,15 @@ export function ItemPicker({
                         In this slot now
                     </p>
                     <p className="font-bold">
-                        {worn
-                            ? itemName(worn, slot, characterClass)
-                            : 'Nothing equipped'}
+                        {worn ? (
+                            <ItemLink
+                                itemId={worn.item_id}
+                                name={itemName(worn, slot, characterClass)}
+                                allowTooltip={worn.data === 'forever'}
+                            />
+                        ) : (
+                            'Nothing equipped'
+                        )}
                     </p>
                     {worn && <ClassicData item={worn} />}
                 </div>
@@ -152,7 +159,17 @@ export function ItemPicker({
                                 <QualityGem quality={item.quality} />
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     <p className="font-bold">
-                                        {itemName(item, slot, characterClass)}
+                                        <ItemLink
+                                            itemId={item.item_id}
+                                            name={itemName(
+                                                item,
+                                                slot,
+                                                characterClass
+                                            )}
+                                            allowTooltip={
+                                                item.data === 'forever'
+                                            }
+                                        />
                                     </p>
                                     {bagItemIds.includes(item.item_id) && (
                                         <Badge
@@ -253,7 +270,15 @@ export function WishlistDialog({
                             <QualityGem quality={item.quality} />
                             <div className="flex flex-col gap-0.5">
                                 <p className="font-semibold">
-                                    {itemName(item, slot, characterClass)}
+                                    <ItemLink
+                                        itemId={item.item_id}
+                                        name={itemName(
+                                            item,
+                                            slot,
+                                            characterClass
+                                        )}
+                                        allowTooltip={item.data === 'forever'}
+                                    />
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                     {SLOT_LABELS[slot]}

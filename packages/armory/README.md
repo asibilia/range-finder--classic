@@ -22,10 +22,25 @@ From the repo root, with Go installed (the version in
    or drop a `TurboCharExport.lua` (in the game: `/tbexport`, then
    `/reload`) to sim that character here.
 
-Files are read in the browser only; nothing is sent anywhere. An export is
-simmed in the page's workers and never kept: the page fetches only its own
-files (the sim and its data) and, in dev only, the dev server's `/local/`
-files (below).
+Files are read in the browser, and an export is simmed in the page's workers
+and never kept. Before the optional Wowhead opt-in, the page fetches only its
+own files (the sim and its data) and, in dev only, the dev server's `/local/`
+files (below). Plain Wowhead links make a request only when the visitor opens
+one.
+
+**Optional Wowhead Forever tooltips:** `Enable Wowhead tooltips` explicitly
+loads the official `https://wow.zamimg.com/js/tooltips.js` script for this
+visit; the choice is kept in memory, not storage. Wowhead then receives the
+visit and the item IDs inspected, and its mutable script runs in the armory's
+origin, where it can read the page and the kept results file. Only
+`wow.zamimg.com` (script, styles and images), `nether.wowhead.com` (the
+script's own Forever requests) and user-opened `www.wowhead.com/forever/item=<id>`
+links are allowed. The page sends no referrer and its CSP names those hosts
+only. Product code never scrapes, proxies, caches or directly calls tooltip
+JSON. Local names, sources, warnings and sim values stay authoritative;
+Classic-tagged items remain plain links with their warning, and unknown IDs,
+offline use and script errors retain local content. The opt-in is never
+persisted, and a reload starts with no third-party load.
 
 ### Opening on your latest file (dev only)
 
@@ -99,8 +114,10 @@ dropped) or the browser sim made, if it read OK, in `localStorage` under the
 key `armory:last-results-file`, so a reload brings your character back. The
 export itself is never kept. Opening another file replaces it; the bundled
 sample (`Or look at a sample character`) is never kept. While a kept file is shown the footer says
-`This file is kept in this browser only.` with a `Forget this file` button,
-which clears the key and goes back to the new-visitor state.
+`This file is kept in this browser.` with a `Forget this file` button, which
+clears the key and goes back to the new-visitor state. If Wowhead tooltips are
+enabled, their third-party script can technically read this kept text; the
+opt-in says so before loading it.
 
 - On load the kept text goes through the same checks as a file you open
   (`readResultsFile`), in the browser only, after the page has drawn: the

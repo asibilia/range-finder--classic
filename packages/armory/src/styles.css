@@ -319,4 +319,8 @@
     body {
         @apply bg-background text-base text-foreground;
     }
+    body:has([data-slot='dialog-content']) .wowhead-tooltip {
+        z-index: 60;
+        pointer-events: none;
+    }
 }
