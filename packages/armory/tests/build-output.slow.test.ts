@@ -33,6 +33,7 @@ const SIM_FILES = [
     'db.json',
     'leftover_db.json',
     'item_first_seen.json',
+    'calibrations.json',
 ]
 
 /**

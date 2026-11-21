@@ -17,8 +17,25 @@ const { GlobalRegistrator } = require('@happy-dom/global-registrator')
 
 if (!GlobalRegistrator.isRegistered) GlobalRegistrator.register()
 
+const ORIGINAL_SET_TIMEOUT = globalThis.setTimeout
+const ORIGINAL_SET_IMMEDIATE =
+    typeof globalThis.setImmediate === 'function'
+        ? globalThis.setImmediate
+        : null
+
+/** Lets queued React scheduler callbacks finish before window disappears. */
+async function flushMacrotasks() {
+    for (let i = 0; i < 3; i++) {
+        if (ORIGINAL_SET_IMMEDIATE)
+            await new Promise((resolve) => ORIGINAL_SET_IMMEDIATE(resolve))
+        await new Promise((resolve) => ORIGINAL_SET_TIMEOUT(resolve, 0))
+    }
+}
+
 /** Removes happy-dom's globals. Safe to call more than once. */
 async function teardownDom() {
+    if (!GlobalRegistrator.isRegistered) return
+    await flushMacrotasks()
     if (GlobalRegistrator.isRegistered) await GlobalRegistrator.unregister()
 }
 

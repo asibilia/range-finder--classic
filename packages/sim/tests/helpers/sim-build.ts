@@ -23,6 +23,7 @@ const BUILT = [
     'buffs.json',
     'spell-names.json',
     'l60-test.in.json',
+    'calibrations.json',
     'version.json',
 ]
 

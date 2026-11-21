@@ -30,7 +30,9 @@ import {
     loadItemDb,
     planMaxDamage,
     simCharacter,
+    simExport,
     type Character,
+    type SimExportOutcome,
     type SimOutcome,
     type StatWeights,
 } from '../src/browser-sim'
@@ -104,7 +106,7 @@ function passingRun() {
     return passing
 }
 
-function fileOf(outcome: SimOutcome): ResultsFile {
+function fileOf(outcome: SimOutcome | SimExportOutcome): ResultsFile {
     expect(outcome.kind).toBe('file')
     if (outcome.kind !== 'file') throw new Error(`a ${outcome.kind} stop`)
     return outcome.file
@@ -526,5 +528,71 @@ describe('simCharacter stops and leaves out', () => {
             )
         for (const plan of file.plans)
             expect(Object.values(plan.gear)).not.toContain(MADE_UP_ID)
+    }, 1_200_000)
+
+    test('canonical-base combat parity (#127 §4e): resolvable buffs match unbuffed combat DPS and requests, while unknown-buff fallback alters baseHealth/baseMana with not_checked gates', async () => {
+        const real = pool()
+        const unbuffedLua = await Bun.file(
+            join(SIM_DIR, 'fixtures/truncha-format10-l34-unbuffed.lua')
+        ).text()
+        const resolvedBuffLua = unbuffedLua.replace(
+            /\["buffs"\]\s*=\s*\{\s*\}/,
+            `["buffs"] = {\n{\n["name"] = "Ghost Wolf",\n["spellID"] = 2645,\n["source"] = "self",\n["points"] = {},\n},\n{\n["name"] = "Blessing of Wisdom",\n["spellID"] = 19850,\n["source"] = "other player",\n["points"] = {\n18,\n},\n["description"] = "Places a Blessing on the friendly target, increasing mana regeneration by 18 mana every 5 seconds.  Lasts 10 min.",\n},\n}`
+        )
+        expect(resolvedBuffLua).not.toBe(unbuffedLua)
+
+        const unbuffedRun = await simExport(unbuffedLua, real, () => {})
+        const resolvedRun = await simExport(resolvedBuffLua, real, () => {})
+        const unbuffedFile = fileOf(unbuffedRun)
+        const resolvedFile = fileOf(resolvedRun)
+
+        expect(unbuffedFile.filtered_buffs).toBeUndefined()
+        expect(resolvedFile.filtered_buffs).toHaveLength(2)
+        expect(resolvedFile.sheet_buffed).toBe(false)
+        expect(resolvedFile.results).toEqual(unbuffedFile.results)
+
+        // Unknown buff with no clean calibration (level 36) uses solved_from_buffed_sheet
+        // and emits not_checked on health, mana, calibration, and buffs.
+        const l36Lua = await Bun.file(
+            join(SIM_DIR, 'fixtures/truncha-format10-l36.lua')
+        ).text()
+        const l36Run = await simExport(l36Lua, real, () => {})
+        const l36File = fileOf(l36Run)
+        for (const name of ['health', 'mana', 'calibration', 'buffs']) {
+            const check = l36File.checks.find((c) => c.name === name)
+            expect(check?.not_checked).toBe(true)
+            expect(check?.passed).toBe(false)
+        }
+    }, 1_200_000)
+
+    test('simExport with fight override on format-10 buffed export (#139/#140): overrides dungeon-long and chain-solo without leaking buffs into combat', async () => {
+        const real = pool()
+        const l34BuffedLua = await Bun.file(
+            join(SIM_DIR, 'fixtures/truncha-format10-l34-buffed.lua')
+        ).text()
+        const outcome = await simExport(l34BuffedLua, real, () => {}, {
+            fight: {
+                target_level: 36,
+                duration_s: 60,
+                starting_mana_pct: 50,
+                gap_s: 20,
+            },
+        })
+        const file = fileOf(outcome)
+        expect(file.sheet_buffed).toBe(false)
+        expect(file.filtered_buffs?.map((b) => b.name)).toContain('Ghost Wolf')
+        const long = file.fights.find((f) => f.fight_id === 'dungeon-long')
+        expect(long).toMatchObject({
+            target_level: 36,
+            duration_s: 60,
+            setup: { starting_mana_pct: 50 },
+        })
+        const chain = file.fights.find((f) => f.fight_id === 'chain-solo')
+        expect(chain).toMatchObject({
+            kind: 'chain',
+            target_level: 34,
+            duration_s: 25,
+            setup: { gap_s: 20 },
+        })
     }, 1_200_000)
 })

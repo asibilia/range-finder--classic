@@ -5,6 +5,8 @@
 import type { Sheet } from '@goturbo/sim'
 
 import type { Check } from '../results-file'
+import { buffCheckDetail, unknownBuffs, type FilteredBuff } from './buff-filter'
+import type { CalibrationMode } from './character'
 import { meanCI } from './weights'
 
 /** WASM rounds the last digit differently from native Go. */
@@ -65,6 +67,11 @@ const SLACK = 1e-9
 /** Melee crit lost per point of weapon skill under the level's maximum. */
 const CRIT_PER_SKILL_POINT = 0.04
 
+export type SheetCheckOptions = {
+    unknownBuffs?: readonly string[]
+    solvedFromBuffedSheet?: boolean
+}
+
 /**
  * The sim's sheet against the game's, one check per stat. The game's melee
  * crit is less 0.04% per point of main-hand weapon skill under the level's
@@ -75,8 +82,12 @@ export function sheetChecks(
     game: Sheet,
     sim: Sheet,
     calibratedSpellCrit: boolean,
-    weaponSkillDeficit: number
+    weaponSkillDeficit: number,
+    options?: SheetCheckOptions
 ): Check[] {
+    const unknownNames = options?.unknownBuffs ?? []
+    const hasUnknown = unknownNames.length > 0
+    const unknownList = unknownNames.join(', ')
     const checks = SHEET_STATS.map(({ name, key, within }): Check => {
         if (key === 'spell_crit_pct' && calibratedSpellCrit)
             return {
@@ -84,28 +95,83 @@ export function sheetChecks(
                 passed: true,
                 detail: 'Skipped: spell crit was calibrated from the export.',
             }
+        let passed: boolean
+        let detail: string
         if (key === 'melee_crit_pct') {
             const simCrit = sim[key] - CRIT_PER_SKILL_POINT * weaponSkillDeficit
+            passed = Math.abs(simCrit - game[key]) <= within + SLACK
+            detail = `The sim says ${round2(simCrit)} (${sim[key]} less 0.04% × ${weaponSkillDeficit} points of weapon skill under the cap), the game ${game[key]} (within ±${within}).`
+        } else {
+            const gap = Math.abs(sim[key] - game[key])
+            passed = gap <= within + SLACK
+            detail = `The sim says ${sim[key]}, the game ${game[key]} (within ±${within}).`
+        }
+        if (!passed && hasUnknown)
             return {
                 name: `sheet ${name}`,
-                passed: Math.abs(simCrit - game[key]) <= within + SLACK,
-                detail: `The sim says ${round2(simCrit)} (${sim[key]} less 0.04% × ${weaponSkillDeficit} points of weapon skill under the cap), the game ${game[key]} (within ±${within}).`,
+                passed: false,
+                not_checked: true,
+                detail: `Not checked: unknown buff ${unknownList}. ${detail}`,
             }
-        }
-        const gap = Math.abs(sim[key] - game[key])
-        return {
-            name: `sheet ${name}`,
-            passed: gap <= within + SLACK,
-            detail: `The sim says ${sim[key]}, the game ${game[key]} (within ±${within}).`,
-        }
+        return { name: `sheet ${name}`, passed, detail }
     })
-    for (const name of ['health', 'mana'])
-        checks.push({
-            name: `sheet ${name}`,
-            passed: true,
-            detail: `Calibrated from the export, so the sim's ${name} matches the game's.`,
-        })
+    for (const name of ['health', 'mana'] as const) {
+        if (hasUnknown) {
+            const baseNote = options?.solvedFromBuffedSheet
+                ? 'base solved from this buffed sheet'
+                : 'base from the last clean calibration'
+            checks.push({
+                name,
+                passed: false,
+                not_checked: true,
+                detail: `Not checked: unknown buff ${unknownList} (sim ${sim[name]} vs game ${game[name]}; ${baseNote}).`,
+            })
+        } else {
+            checks.push({
+                name,
+                passed: true,
+                detail: `Calibrated from the export, so the sim's ${name} matches the game's.`,
+            })
+        }
+    }
     return checks
+}
+
+/** How the character's base health, mana and spell crit were calibrated. */
+export function calibrationCheck(mode: CalibrationMode): Check {
+    if (mode === 'solved_from_buffed_sheet')
+        return {
+            name: 'calibration',
+            passed: false,
+            not_checked: true,
+            detail: "Solved from a sheet with a buff the sim can't size.",
+        }
+    if (mode === 'last_clean_calibration')
+        return {
+            name: 'calibration',
+            passed: true,
+            detail: 'Used the last clean calibration on record (not re-solved from this buffed sheet).',
+        }
+    return {
+        name: 'calibration',
+        passed: true,
+        detail: 'Calibrated from the exported totals.',
+    }
+}
+
+/** Summary check of every buff up at export, or null when there were none. */
+export function buffsCheck(
+    buffs: readonly FilteredBuff[] | undefined
+): Check | null {
+    if (!buffs || buffs.length === 0) return null
+    const mutable = [...buffs]
+    const hasUnknown = unknownBuffs(mutable)
+    return {
+        name: 'buffs',
+        passed: !hasUnknown,
+        ...(hasUnknown ? { not_checked: true } : {}),
+        detail: buffCheckDetail(mutable),
+    }
 }
 
 /** The character's DPS is under half the level 60 test build's. */

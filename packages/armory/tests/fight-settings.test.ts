@@ -64,6 +64,60 @@ describe('the settings pick a pre-made fight', () => {
         const chain = settingsOf(sample, fight('chain-4'))
         expect(fightFor(sample, { ...chain, gap_s: 10 })).toBeNull()
     })
+
+    test('prefers an exact matching chain fight over a single fight with the same level, length and starting mana', () => {
+        const both = read(
+            structuredClone({
+                ...sampleJson,
+                fights: sampleJson.fights.map((entry) => {
+                    if (entry.fight_id === 'dungeon-long') {
+                        return {
+                            ...entry,
+                            target_level: 30,
+                            duration_s: 25,
+                            setup: {
+                                ...entry.setup,
+                                starting_mana_pct: 100,
+                                gap_s: 0,
+                            },
+                        }
+                    }
+                    if (entry.fight_id === 'chain-4') {
+                        return {
+                            ...entry,
+                            target_level: 30,
+                            duration_s: 25,
+                            setup: {
+                                ...entry.setup,
+                                starting_mana_pct: 100,
+                                gap_s: 60,
+                            },
+                        }
+                    }
+                    return entry
+                }),
+            })
+        )
+        const mana = both.sheet.mana
+        expect(
+            fightFor(both, {
+                level: 30,
+                length_s: 25,
+                kind: 'pve',
+                mana,
+                gap_s: 60,
+            })?.fight_id
+        ).toBe('chain-4')
+        expect(
+            fightFor(both, {
+                level: 30,
+                length_s: 25,
+                kind: 'pve',
+                mana,
+                gap_s: 12,
+            })?.fight_id
+        ).toBe('dungeon-long')
+    })
 })
 
 describe('what the controls offer', () => {

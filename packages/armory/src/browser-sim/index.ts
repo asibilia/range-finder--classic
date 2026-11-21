@@ -5,6 +5,7 @@
  */
 export type {
     BagItem,
+    CalibrationMode,
     Character,
     GameStats,
     Gear,
@@ -14,6 +15,19 @@ export type {
     UnknownPiece,
 } from './character'
 export {
+    buffCheckDetail,
+    classifyBuff,
+    readBuff,
+    statsFromNumbers,
+    unknownBuffs,
+    type BuffNumbers,
+    type BuffSource,
+    type ClassifiedBuff,
+    type ExportBuff,
+    type FilteredBuff,
+    type KnownBuffs,
+} from './buff-filter'
+export {
     BAG_PREVIEW_FAILURE,
     bagPreviewAllowance,
     bagPreviewGear,
@@ -21,11 +35,14 @@ export {
     simBagPreviews,
 } from './bag-preview'
 export {
+    buffsCheck,
+    calibrationCheck,
     failedChecks,
     L60_TOLERANCE,
     NOTES,
     level60Check,
     sheetChecks,
+    type SheetCheckOptions,
 } from './checks'
 export {
     BASE_RATES,

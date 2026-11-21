@@ -17,7 +17,14 @@ import {
 } from '@goturbo/sim'
 
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
-import { runGates, sheetChecks, type Character } from '../src/browser-sim'
+import {
+    buffsCheck,
+    calibrationCheck,
+    failedChecks,
+    runGates,
+    sheetChecks,
+    type Character,
+} from '../src/browser-sim'
 import { recordedPool } from './helpers/recorded-pool'
 
 const SIM: Sheet = {
@@ -119,5 +126,105 @@ describe('runGates passes the character’s weapon_skill_deficit to the sheet ch
             gatedMeleeCrit(0),
         ])
         expect([under.passed, atCap.passed]).toEqual([true, false])
+    })
+})
+
+describe('#85 health, mana, calibration, buffs, and unknown-buff non-blocking checks', () => {
+    test('health and mana use exact check names (not sheet health / sheet mana) and pass when no unknown buff is up', () => {
+        const checks = sheetChecks(SIM, SIM, false, 0)
+        expect(checks.find((c) => c.name === 'health')).toMatchObject({
+            name: 'health',
+            passed: true,
+        })
+        expect(checks.find((c) => c.name === 'mana')).toMatchObject({
+            name: 'mana',
+            passed: true,
+        })
+        expect(checks.find((c) => c.name === 'sheet health')).toBeUndefined()
+        expect(checks.find((c) => c.name === 'sheet mana')).toBeUndefined()
+    })
+
+    test('ordinary sheet failure with no unknown buff stays blocking in failedChecks', () => {
+        const off = { ...SIM, strength: SIM.strength + 10 }
+        const checks = sheetChecks(off, SIM, false, 0)
+        const strength = checks.find((c) => c.name === 'sheet strength')!
+        expect(strength.passed).toBe(false)
+        expect(strength.not_checked).toBeUndefined()
+        expect(failedChecks(checks).map((c) => c.name)).toEqual([
+            'sheet strength',
+        ])
+    })
+
+    test('with an unknown buff up, health, mana, and failing sheet lines become not_checked (non-blocking), while matching lines stay passed', () => {
+        const game = { ...SIM, stamina: SIM.stamina + 21 }
+        const checks = sheetChecks(game, SIM, false, 0, {
+            unknownBuffs: ['Camp Benefits'],
+            solvedFromBuffedSheet: false,
+        })
+        expect(checks.find((c) => c.name === 'sheet strength')).toMatchObject({
+            passed: true,
+        })
+        expect(checks.find((c) => c.name === 'sheet stamina')).toMatchObject({
+            passed: false,
+            not_checked: true,
+        })
+        expect(checks.find((c) => c.name === 'health')).toMatchObject({
+            passed: false,
+            not_checked: true,
+        })
+        expect(checks.find((c) => c.name === 'mana')).toMatchObject({
+            passed: false,
+            not_checked: true,
+        })
+        expect(failedChecks(checks)).toEqual([])
+    })
+
+    test('calibrationCheck and buffsCheck emit exact names, not_checked flags, and detail strings', () => {
+        expect(calibrationCheck('solved_clean')).toMatchObject({
+            name: 'calibration',
+            passed: true,
+        })
+        expect(calibrationCheck('last_clean_calibration')).toMatchObject({
+            name: 'calibration',
+            passed: true,
+        })
+        expect(calibrationCheck('solved_from_buffed_sheet')).toEqual({
+            name: 'calibration',
+            passed: false,
+            not_checked: true,
+            detail: "Solved from a sheet with a buff the sim can't size.",
+        })
+
+        expect(buffsCheck([])).toBeNull()
+        expect(buffsCheck(undefined)).toBeNull()
+        expect(
+            buffsCheck([
+                {
+                    name: 'Ghost Wolf',
+                    spell_id: 2645,
+                    source: 'self',
+                    how: 'no_stats',
+                    how_detail: 'no_stats (name rule)',
+                },
+            ])
+        ).toMatchObject({
+            name: 'buffs',
+            passed: true,
+        })
+        expect(
+            buffsCheck([
+                {
+                    name: 'Camp Benefits',
+                    spell_id: 1229741,
+                    source: 'self',
+                    how: 'unknown',
+                    how_detail: 'unknown',
+                },
+            ])
+        ).toMatchObject({
+            name: 'buffs',
+            passed: false,
+            not_checked: true,
+        })
     })
 })

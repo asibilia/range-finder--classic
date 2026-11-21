@@ -39,6 +39,8 @@ export type FightOverride = {
     starting_mana_pct?: number
     /** The chain's gap between pulls; absent: its own (12 s). */
     gap_s?: number
+    /** When true, only the chain's gap changes; `dungeon-long` stays fixed. */
+    chain_only?: boolean
 }
 
 /** `30 s`, `2 min`, `90 s`: a length as the fights' labels say it. */
@@ -116,7 +118,7 @@ export function scenariosFor(level: number, fight?: FightOverride): Scenario[] {
             gap_s: 0,
         },
     ]
-    if (!fight) return fixed
+    if (!fight || fight.chain_only) return fixed
     return fixed.map((scenario) =>
         scenario.fight_id === DEFAULT_FIGHT
             ? withOverride(scenario, fight)

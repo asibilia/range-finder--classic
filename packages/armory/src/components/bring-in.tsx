@@ -21,8 +21,7 @@ export type ReadError =
     | { kind: 'sim'; message: string }
 
 /** Said under failed `sheet …` gates: a new export would fix them. */
-export const EXPORT_AGAIN =
-    'Export again with no buffs up, out of combat, and drop the new file.'
+export const EXPORT_AGAIN = 'Export again out of combat and drop the new file.'
 
 /**
  * What the page says for a run that stopped before it made a file, one
@@ -37,10 +36,6 @@ export function stopLines(stop: SimStop): string[] {
         case 'unsupported':
             return [
                 `The sim covers Enhancement Shaman only for now. Your character is ${withArticle(`${stop.spec} ${stop.class}`)}.`,
-            ]
-        case 'buffed':
-            return [
-                `Your export was saved with buffs up that the sim can't model: ${stop.buffs.join(', ')}. Remove them, type /tbexport in the game, then /reload, and drop the new file.`,
             ]
         case 'format':
             return [

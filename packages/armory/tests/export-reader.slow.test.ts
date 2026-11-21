@@ -26,7 +26,9 @@ import {
 import {
     buildRequest,
     chainFor,
+    failedChecks,
     readExport,
+    runGates,
     simExport,
     simSession,
     type Character,
@@ -243,17 +245,48 @@ describe('readExport', () => {
         expect(character.profile.spellCritPerInt).toBeCloseTo(0.0333, 3)
     }, 600_000)
 
-    test("fixtures/truncha-export-buffed.lua returns a buffed stop naming Warchief's Blessing, and no sim or sheet runs", async () => {
-        const calls: string[] = []
-        const outcome = await readExport(
-            await Bun.file(BUFFED).text(),
-            counting(pool(), calls)
+    test("fixtures/truncha-export-buffed.lua cross-checks Warchief's Blessing against calibrations.json level 32 cleanly (370/733, unbuffed health 1470), and falls back to unknown + solved_from_buffed_sheet when no clean calibration matches", async () => {
+        const text = await Bun.file(BUFFED).text()
+        const real = pool()
+        const character = characterOf(await readExport(text, real))
+        expect(character.calibration_mode).toBe('solved_clean')
+        expect(character.profile.baseHealth).toBeCloseTo(370, 0)
+        expect(character.profile.baseMana).toBeCloseTo(733, 0)
+        expect(character.profile.spellCritPerInt).toBeCloseTo(0.0333, 3)
+        expect(character.filtered_buffs).toEqual([
+            {
+                name: "Warchief's Blessing",
+                spell_id: 16609,
+                source: null,
+                how: 'game_numbers',
+                how_detail: 'list + sheet cross-check',
+                numbers: { health: 300, mp5: 10, haste_pct: 15 },
+            },
+        ])
+
+        const withoutCalibrations: SimPool = {
+            ...real,
+            size: real.size,
+            data: (name) =>
+                name === 'calibrations.json'
+                    ? Promise.resolve([])
+                    : real.data(name),
+        }
+        const fallback = characterOf(
+            await readExport(text, withoutCalibrations)
         )
-        expect(outcome).toEqual({
-            kind: 'buffed',
-            buffs: ["Warchief's Blessing"],
-        })
-        expect(calls).toEqual([])
+        expect(fallback.calibration_mode).toBe('solved_from_buffed_sheet')
+        expect(fallback.profile.baseHealth).toBeCloseTo(670, 0)
+        expect(fallback.profile.baseMana).toBeCloseTo(733, 0)
+        expect(fallback.filtered_buffs).toEqual([
+            {
+                name: "Warchief's Blessing",
+                spell_id: 16609,
+                source: null,
+                how: 'unknown',
+                how_detail: 'unknown',
+            },
+        ])
     }, 600_000)
 
     test('an export of format 99 returns a format stop naming 99 and the formats the reader takes, before any sim or sheet call', async () => {
@@ -771,7 +804,7 @@ describe('an export saved with buffs the sim can model', () => {
         }
     }, 600_000)
 
-    test('with the real WASM, that export passes every sheet gate, gives a file with sheet_buffed true, plans the extra unbuffed sheet in pool.batch, and sends the same fight requests as the export with no buffs', async () => {
+    test('with the real WASM, that export passes every sheet gate, gives a file with sheet_buffed false and unbuffed sheet, plans the extra unbuffed sheet in pool.batch, and sends the same fight requests as the export with no buffs', async () => {
         const { on, markStats, plain, buffed } = await buffedExports()
         const plainLog: CallLog = { sims: [], sheets: [], batches: [] }
         const buffedLog: CallLog = { sims: [], sheets: [], batches: [] }
@@ -784,8 +817,43 @@ describe('an export saved with buffs the sim can model', () => {
         const plainFile = fileOf(plainRun)
         const file = fileOf(buffedRun)
 
-        expect(file.sheet_buffed).toBe(true)
+        expect(file.sheet_buffed).toBe(false)
         expect(plainFile.sheet_buffed).toBe(false)
+        expect(file.filtered_buffs).toEqual([
+            {
+                name: 'Mark of the Wild',
+                spell_id: 5232,
+                source: null,
+                how: 'modelled',
+                how_detail: 'modelled',
+            },
+            {
+                name: 'Blessing of Kings',
+                spell_id: 20217,
+                source: null,
+                how: 'modelled',
+                how_detail: 'modelled',
+            },
+        ])
+        expect(file.sheet).toEqual(plainFile.sheet)
+        expect(file.checks.find((c) => c.name === 'buffs')).toMatchObject({
+            name: 'buffs',
+            passed: true,
+        })
+        expect(file.checks.find((c) => c.name === 'health')).toMatchObject({
+            name: 'health',
+            passed: true,
+        })
+        expect(file.checks.find((c) => c.name === 'mana')).toMatchObject({
+            name: 'mana',
+            passed: true,
+        })
+        expect(file.checks.find((c) => c.name === 'calibration')).toMatchObject(
+            {
+                name: 'calibration',
+                passed: true,
+            }
+        )
         expect(file.character.professions).toEqual([
             { name: 'Leatherworking', skill: 165, max: 225 },
             { name: 'First Aid', skill: 60, max: 75 },
@@ -825,5 +893,173 @@ describe('an export saved with buffs the sim can model', () => {
             requests.map((request) => JSON.stringify(request)).sort()
         expect(buffedLog.sims.length).toBeGreaterThan(1)
         expect(sorted(buffedLog.sims)).toEqual(sorted(plainLog.sims))
+    }, 600_000)
+
+    test('all 13 #139 fixtures match their .native-buff-report.json classifications, calibration mode/bases, unbuffed_sheet, and check statuses', async () => {
+        type Manifest = {
+            exports: { file: string; expected: string }[]
+        }
+        type NativeReport = {
+            buffs: {
+                name: string
+                spell_id: number
+                source: string | null
+                how: string
+                path: string
+                numbers: Record<string, number> | null
+            }[]
+            calibration: {
+                mode: string
+                base_health: number
+                base_mana: number
+            }
+            unbuffed_sheet: Record<string, number>
+            lines: { line: string; status: string; detail: string }[]
+        }
+        const manifest = (await Bun.file(
+            join(SIM_DIR, 'fixtures/manifest.json')
+        ).json()) as Manifest
+        const on = pool()
+        for (const entry of manifest.exports) {
+            const lua = await Bun.file(
+                join(SIM_DIR, 'fixtures', entry.file)
+            ).text()
+            const report = (await Bun.file(
+                join(SIM_DIR, 'fixtures', entry.expected)
+            ).json()) as NativeReport
+            const ch = characterOf(await readExport(lua, on))
+            const gates = await runGates(ch, on)
+            expect(failedChecks(gates.checks)).toEqual([])
+            const gotBuffs: {
+                name: string
+                spell_id: number
+                source: string | null
+                how: string
+                path: string
+                numbers: Record<string, number> | null
+            }[] = (ch.filtered_buffs ?? []).map((b) => ({
+                name: b.name,
+                spell_id: b.spell_id,
+                source: b.source,
+                how: b.how,
+                path: b.how_detail,
+                numbers: b.numbers ?? null,
+            }))
+            expect([entry.file, gotBuffs]).toEqual([entry.file, report.buffs])
+            expect([entry.file, ch.calibration_mode]).toEqual([
+                entry.file,
+                report.calibration.mode,
+            ])
+            expect([entry.file, Math.round(ch.profile.baseHealth)]).toEqual([
+                entry.file,
+                report.calibration.base_health,
+            ])
+            expect([entry.file, Math.round(ch.profile.baseMana)]).toEqual([
+                entry.file,
+                report.calibration.base_mana,
+            ])
+
+            const gotMeleeCrit =
+                Math.round(
+                    (gates.sheet.melee_crit_pct -
+                        0.04 * ch.weapon_skill_deficit) *
+                        100
+                ) / 100
+            expect([
+                entry.file,
+                { ...gates.sheet, melee_crit_pct: gotMeleeCrit },
+            ]).toEqual([entry.file, report.unbuffed_sheet as unknown as Sheet])
+
+            for (const line of report.lines) {
+                const checkName = [
+                    'strength',
+                    'agility',
+                    'stamina',
+                    'intellect',
+                    'spirit',
+                    'attackPower',
+                    'dodge',
+                    'meleeHit',
+                    'armor',
+                    'meleeCrit',
+                    'spellCrit',
+                ].includes(line.line)
+                    ? `sheet ${line.line}`
+                    : line.line
+                const found = gates.checks.find((c) => c.name === checkName)
+                expect([entry.file, checkName, found !== undefined]).toEqual([
+                    entry.file,
+                    checkName,
+                    true,
+                ])
+                if (line.status === 'not_checked') {
+                    expect([entry.file, checkName, found!.not_checked]).toEqual(
+                        [entry.file, checkName, true]
+                    )
+                    expect([entry.file, checkName, found!.passed]).toEqual([
+                        entry.file,
+                        checkName,
+                        false,
+                    ])
+                } else {
+                    expect([entry.file, checkName, found!.passed]).toEqual([
+                        entry.file,
+                        checkName,
+                        true,
+                    ])
+                }
+            }
+            if (report.buffs.length === 0) {
+                expect(ch.filtered_buffs).toBeUndefined()
+                expect(
+                    gates.checks.find((c) => c.name === 'buffs')
+                ).toBeUndefined()
+            }
+        }
+    }, 600_000)
+
+    test('the < 1e-6 unrounded sheet cross-check boundary accepts 0.5e-6 and rejects 2e-6 while preserving clean calibration', async () => {
+        const text = await Bun.file(BUFFED).text()
+        const real = pool()
+        const calibrations = (await Bun.file(
+            join(SIM_DIR, 'calibrations.json')
+        ).json()) as {
+            level: number
+            race: string
+            class: string
+            base_health: number
+            base_mana: number
+            spell_crit_per_int: number
+        }[]
+        const poolWithOffset = (delta: number): SimPool => ({
+            ...real,
+            size: real.size,
+            data: (name) =>
+                name === 'calibrations.json'
+                    ? Promise.resolve(
+                          calibrations.map((row) =>
+                              row.level === 32
+                                  ? {
+                                        ...row,
+                                        base_health: row.base_health + delta,
+                                    }
+                                  : row
+                          )
+                      )
+                    : real.data(name),
+        })
+
+        const passed = characterOf(
+            await readExport(text, poolWithOffset(0.5e-6))
+        )
+        expect(passed.calibration_mode).toBe('solved_clean')
+        expect(passed.filtered_buffs?.[0]?.how).toBe('game_numbers')
+
+        const rejected = characterOf(
+            await readExport(text, poolWithOffset(2e-6))
+        )
+        expect(rejected.calibration_mode).toBe('last_clean_calibration')
+        expect(rejected.filtered_buffs?.[0]?.how).toBe('unknown')
+        expect(rejected.profile.baseHealth).toBeCloseTo(370 + 2e-6, 6)
     }, 600_000)
 })

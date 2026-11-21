@@ -87,7 +87,10 @@ sims worn gear and the max damage plan with the precomputed stat weights for
 the character's level band (`packages/sim/weights/`). With no weights file
 for the band it sims the weights on the device first, and says so with a
 time estimate. `Refine for your gear` sims the weights for the character's
-own gear. The file it makes is shown and kept like any results file.
+own gear. `Run Simulator` in the card on the right re-sims the export with
+the fight settings you picked (when a results file is opened on its own
+with no export, the button stays disabled and asks you to bring in your
+export). The file it makes is shown and kept like any results file.
 
 ### What the page keeps in your browser
 
@@ -211,7 +214,9 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   mockup has them. The fight whose level, length, starting mana and (for a
   chain) gap match is shown; any other combination says `Not simmed for
   this combination.`, keeps the chart and readings on the last fight, and
-  lists the file's fights to pick from. Nothing is re-simmed.
+  lists the file's fights to pick from. Changing the controls does not
+  re-sim on its own; `Run Simulator` re-sims the loaded export with those
+  settings (`fightOverride`).
 - **State as plain actions.** What the page shows for a loaded file (the
   fight, the sliders and so the plan, worn or plan view, bag items put on)
   is `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,

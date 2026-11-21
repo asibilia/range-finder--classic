@@ -10,7 +10,14 @@ import './dom'
 import { chooseFight, jsonFile, shownFight, variant } from './open-app'
 import { showBis } from './gear-card'
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    test,
+} from 'bun:test'
 import {
     act,
     cleanup,
@@ -22,8 +29,22 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import {
+    SimCancelled,
+    type LevelProfile,
+    type RaidSimRequest,
+    type RaidSimResult,
+    type SimPool,
+    type SimSheet,
+} from '@goturbo/sim'
+
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import { App } from '../src/app'
 import { REMEMBERED_FILE_KEY } from '../src/remembered-file'
+import { readResultsFile } from '../src/results-file'
+import { exportFromCharacter } from './helpers/export-from-character'
+import { recordedPool } from './helpers/recorded-pool'
 
 const LATEST = '/local/latest.json'
 const STATUS = '/local/latest-status.json'
@@ -167,6 +188,8 @@ function callsTo(path: string): Call[] {
     return server.calls.filter((call) => call.path === path)
 }
 
+beforeAll(() => ensureSimBuild(), 600_000)
+
 beforeEach(() => {
     server.latest = notFound
     server.status = notFound
@@ -189,7 +212,8 @@ beforeEach(() => {
     holdRefreshTimers()
 })
 
-afterEach(() => {
+afterEach(async () => {
+    await settle()
     cleanup()
     globalThis.fetch = ORIGINAL_FETCH
     globalThis.setTimeout = ORIGINAL_SET_TIMEOUT
@@ -201,9 +225,52 @@ afterEach(() => {
 })
 
 /** Renders the page with the local latest file on. */
-function renderLocal() {
-    render(<App localLatest runSimulator />)
+function renderLocal(createPool?: () => SimPool) {
+    render(<App localLatest createPool={createPool} />)
     return userEvent.setup()
+}
+
+type HoldablePool = SimPool & {
+    holding: boolean
+    cancelCalls: number
+    pending(): number
+    release(): void
+}
+
+function holdablePool(base: SimPool): HoldablePool {
+    let held: { go: () => void; stop: (error: Error) => void }[] = []
+    async function waitIfHeld<T>(run: () => Promise<T>): Promise<T> {
+        if (wrapper.holding)
+            await new Promise<void>((go, stop) => held.push({ go, stop }))
+        return run()
+    }
+    const wrapper: HoldablePool = {
+        ...base,
+        size: base.size,
+        holding: false,
+        cancelCalls: 0,
+        sim: (request: RaidSimRequest, profile?: LevelProfile) =>
+            waitIfHeld(() =>
+                base.sim(request, profile)
+            ) as Promise<RaidSimResult>,
+        sheet: (request: RaidSimRequest, profile?: LevelProfile) =>
+            waitIfHeld(() => base.sheet(request, profile)) as Promise<SimSheet>,
+        cancel() {
+            wrapper.cancelCalls += 1
+            const stopping = held
+            held = []
+            for (const call of stopping) call.stop(new SimCancelled())
+            base.cancel()
+        },
+        pending: () => held.length,
+        release() {
+            wrapper.holding = false
+            const going = held
+            held = []
+            for (const call of going) call.go()
+        },
+    }
+    return wrapper
 }
 
 async function waitForName(name: string) {
@@ -493,5 +560,233 @@ describe('Run Simulator with the latest file', () => {
         expect(screen.getByText(NO_EXPORT).id).toBe(
             run.getAttribute('aria-describedby') ?? ''
         )
+    })
+
+    test('leaving the latest for a dropped results file disables Run Simulator with the no-export note, and Back to the latest re-enables it', async () => {
+        server.latest = json(resultsFile('Localchar'))
+        server.export = () =>
+            new Response('TurboCharExportDB = {}', { status: 200 })
+        const user = renderLocal()
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('Dropped'))] },
+        })
+        await waitForName('Dropped')
+        const disabled = screen.getByRole('button', { name: 'Run Simulator' })
+        expect(disabled.hasAttribute('disabled')).toBe(true)
+        expect(screen.getByText(NO_EXPORT).id).toBe(
+            disabled.getAttribute('aria-describedby') ?? ''
+        )
+
+        await user.click(screen.getByRole('button', { name: BACK }))
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+        expect(screen.queryByText(NO_EXPORT)).toBeNull()
+    })
+
+    test('clicking Run Simulator on the latest file with its export sims it, updates localStorage, and stops polling', async () => {
+        const pool = recordedPool()
+        const character = await testcharCharacter(pool)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const local = resultsFile('Localchar')
+        for (const fight of local.fights as Json[]) {
+            if (fight.fight_id === 'dungeon-long') {
+                fight.target_level = character.level + 2
+                ;(fight.setup as Json).starting_mana_pct = 100
+            }
+        }
+        server.latest = json(local)
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitForName('Testchar')
+        expect(screen.queryByText(LOADED_LINE)).toBeNull()
+        const kept = localStorage.getItem(REMEMBERED_FILE_KEY) ?? ''
+        expect(kept).not.toBe('')
+        expect(readResultsFile(JSON.parse(kept) as unknown).ok).toBe(true)
+
+        await settle()
+        const before = localCalls().length
+        await tick()
+        await tick()
+        expect(localCalls().length).toBe(before)
+    })
+
+    test('dropping a .json while Run Simulator is active cancels it and does not overwrite the dropped character', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const pool = holdablePool(base)
+        const local = resultsFile('Localchar')
+        server.latest = json(local)
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0))
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('DroppedJson'))] },
+        })
+        await waitForName('DroppedJson')
+        expect(pool.cancelCalls).toBe(1)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+
+        pool.release()
+        await settle()
+        expect(showsCharacter('DroppedJson')).toBe(true)
+        expect(showsCharacter('Testchar')).toBe(false)
+    })
+
+    test('a Run Simulator failure alert on the latest file clears on a latest refresh', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const failing: SimPool = {
+            ...base,
+            size: base.size,
+            sim: () => Promise.reject(new Error('boom')),
+            sheet: () => Promise.reject(new Error('boom')),
+        }
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => failing)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: boom/, undefined, {
+            timeout: 4000,
+        })
+
+        server.latest = json(resultsFile('Refreshed', '2026-11-17T09:00:00Z'), {
+            'Last-Modified': 'Tue, 17 Nov 2026 09:00:00 GMT',
+        })
+        await tick()
+        await waitForName('Refreshed')
+        expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    test('a Run Simulator failure alert on the latest file clears on dropping a .json', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const failing: SimPool = {
+            ...base,
+            size: base.size,
+            sim: () => Promise.reject(new Error('boom')),
+            sheet: () => Promise.reject(new Error('boom')),
+        }
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => failing)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await screen.findByText(/^The sim failed: boom/, undefined, {
+            timeout: 4000,
+        })
+
+        fireEvent.drop(document.body, {
+            dataTransfer: { files: [jsonFile(resultsFile('DroppedJson'))] },
+        })
+        await waitForName('DroppedJson')
+        expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    test('a 10 s latest refresh while Run Simulator is active cancels it and does not overwrite the new character or localStorage', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const pool = holdablePool(base)
+        server.latest = json(resultsFile('Localchar'), {
+            'Last-Modified': LAST_MODIFIED,
+        })
+        server.export = () => new Response(exportLua, { status: 200 })
+
+        const user = renderLocal(() => pool)
+        await waitForName('Localchar')
+        await waitFor(() =>
+            expect(
+                screen
+                    .getByRole('button', { name: 'Run Simulator' })
+                    .hasAttribute('disabled')
+            ).toBe(false)
+        )
+
+        pool.holding = true
+        await user.click(screen.getByRole('button', { name: 'Run Simulator' }))
+        await waitFor(() => expect(pool.pending()).toBeGreaterThan(0))
+
+        server.latest = json(resultsFile('Newchar', '2026-11-17T09:00:00Z'), {
+            'Last-Modified': 'Tue, 17 Nov 2026 09:00:00 GMT',
+        })
+        await tick()
+        await waitForName('Newchar')
+        expect(pool.cancelCalls).toBe(1)
+        expect(
+            screen.queryByRole('progressbar', { name: 'Sim progress' })
+        ).toBeNull()
+
+        pool.release()
+        await settle()
+        expect(showsCharacter('Newchar')).toBe(true)
+        expect(showsCharacter('Testchar')).toBe(false)
+        expect(localStorage.getItem(REMEMBERED_FILE_KEY)).toBeNull()
     })
 })

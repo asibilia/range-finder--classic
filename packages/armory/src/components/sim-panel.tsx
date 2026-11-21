@@ -8,12 +8,10 @@
  * a character is loaded.`
  *
  * Run Simulator sims the export behind the file again with the fight
- * settings (the page's `onRunSimulator`). It ships off for now: the page
- * passes no handler and the button shows disabled with `Coming soon:
- * running the sim here.` (`runNote`). Turned on, with no export (a results
- * file picked on its own, or a public build) it is disabled and says why:
- * `Bring in your export to run the sim here.` While it runs, the progress
- * and Cancel take its place.
+ * settings (the page's `onRunSimulator`). With no export (a results file
+ * picked on its own, or a remembered session) it is disabled and says why
+ * (`runNote`, defaulting to `Bring in your export to run the sim here.`).
+ * While it runs, the progress and Cancel take its place.
  */
 import { type ReactNode, useId } from 'react'
 
@@ -26,9 +24,6 @@ import { Readings } from './readings'
 
 /** Under Run Simulator when there is no export to sim. */
 export const NO_EXPORT_NOTE = 'Bring in your export to run the sim here.'
-
-/** Shown, with the button disabled, while running the sim here isn't switched on yet. */
-export const COMING_SOON_NOTE = 'Coming soon: running the sim here.'
 
 /**
  * The card with a file loaded.

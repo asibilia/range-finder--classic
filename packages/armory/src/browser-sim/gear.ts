@@ -24,6 +24,7 @@ export type DbItem = {
     /** 1: Alliance only, 2: Horde only. */
     factionRestriction?: number
     weaponSpeed?: number
+    randomSuffixOptions?: number[]
     sources?: Record<string, Record<string, unknown>>[]
     scalingOptions?: Record<
         string,
