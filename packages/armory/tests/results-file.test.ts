@@ -908,6 +908,36 @@ describe('quick_fixes', () => {
     })
 })
 
+describe('checks[].not_checked', () => {
+    test('a fail-safe not-checked row reads, but passed: true with not_checked: true is refused', () => {
+        const f = sample()
+        const row = {
+            name: 'bag_preview',
+            passed: false,
+            not_checked: true,
+            detail: 'Not simmed: the bag preview failed; its Equip control is unavailable.',
+        }
+        f.checks.push(row)
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.checks.at(-1)).toEqual(row)
+
+        const unsafe = sample()
+        unsafe.checks.push({ ...row, passed: true })
+        expect(problemsOf(unsafe)).toContain(
+            'checks.14.passed: A not-checked row must have passed: false.'
+        )
+    })
+
+    test('not_checked is optional and false does not change an ordinary check', () => {
+        const f = sample()
+        f.checks[0].not_checked = false
+        const outcome = readResultsFile(f) as any
+        expect(outcome.ok).toBe(true)
+        expect(outcome.file.checks[0].not_checked).toBe(false)
+    })
+})
+
 describe('bag_upgrades_all', () => {
     /**
      * The full sample with a second bag upgrade (a copy of the first, moved to
@@ -964,5 +994,135 @@ describe('the new optional fields in the JSON Schema', () => {
         const text = readFileSync(SCHEMA_PATH, 'utf8')
         for (const kind of ['"imbue"', '"empty_slot"', '"weapon_skill"'])
             expect(text).toContain(kind)
+    })
+})
+
+describe('filtered_buffs contract (#85)', () => {
+    test('accepts valid filtered_buffs with sheet_buffed: false across all four how kinds', () => {
+        const f = sample()
+        f.sheet_buffed = false
+        f.filtered_buffs = [
+            {
+                name: 'Arcane Intellect',
+                spell_id: 1461,
+                source: 'other player',
+                how: 'modelled',
+                how_detail: 'modelled',
+            },
+            {
+                name: "Warchief's Blessing",
+                spell_id: 16609,
+                source: 'not a player',
+                how: 'game_numbers',
+                how_detail: 'list',
+                numbers: { health: 300, mp5: 10, haste_pct: 15 },
+            },
+            {
+                name: 'Blessing of Wisdom',
+                spell_id: 19850,
+                source: 'none',
+                how: 'no_stats',
+                how_detail: 'list',
+                numbers: { mp5: 18 },
+            },
+            {
+                name: 'Mystery',
+                spell_id: 9999,
+                source: null,
+                how: 'unknown',
+                how_detail: 'unknown',
+            },
+        ]
+        const outcome = readResultsFile(f) as any
+        expect(outcome.problems).toBeUndefined()
+        expect(outcome.ok).toBe(true)
+    })
+
+    test('refuses empty filtered_buffs, sheet_buffed: true with filtered_buffs, and invalid numbers per how', () => {
+        const empty = sample()
+        empty.sheet_buffed = false
+        empty.filtered_buffs = []
+        expect(
+            problemsOf(empty).some((p) => p.includes('filtered_buffs'))
+        ).toBe(true)
+
+        const buffed = sample()
+        buffed.sheet_buffed = true
+        buffed.filtered_buffs = [
+            {
+                name: 'Ghost Wolf',
+                spell_id: 2645,
+                source: 'self',
+                how: 'no_stats',
+                how_detail: 'no_stats (name rule)',
+            },
+        ]
+        expect(problemsOf(buffed)).toContain(
+            'sheet_buffed: sheet_buffed must be false when filtered_buffs is present.'
+        )
+
+        const modelledWithNumbers = sample()
+        modelledWithNumbers.sheet_buffed = false
+        modelledWithNumbers.filtered_buffs = [
+            {
+                name: 'Arcane Intellect',
+                spell_id: 1461,
+                source: 'self',
+                how: 'modelled',
+                how_detail: 'modelled',
+                numbers: { intellect: 15 },
+            },
+        ]
+        expect(problemsOf(modelledWithNumbers)).toContain(
+            'filtered_buffs.0.numbers: modelled and unknown buffs must omit numbers.'
+        )
+
+        const unknownWithNumbers = sample()
+        unknownWithNumbers.sheet_buffed = false
+        unknownWithNumbers.filtered_buffs = [
+            {
+                name: 'Mystery',
+                spell_id: 9999,
+                source: 'self',
+                how: 'unknown',
+                how_detail: 'unknown',
+                numbers: { health: 100 },
+            },
+        ]
+        expect(problemsOf(unknownWithNumbers)).toContain(
+            'filtered_buffs.0.numbers: modelled and unknown buffs must omit numbers.'
+        )
+
+        const noStatsWithSheetStat = sample()
+        noStatsWithSheetStat.sheet_buffed = false
+        noStatsWithSheetStat.filtered_buffs = [
+            {
+                name: 'Thorns',
+                spell_id: 782,
+                source: 'self',
+                how: 'no_stats',
+                how_detail: 'list',
+                numbers: { stamina: 5 },
+            },
+        ]
+        expect(problemsOf(noStatsWithSheetStat)).toContain(
+            'filtered_buffs.0.numbers: no_stats buffs may only carry non-sheet notes in numbers.'
+        )
+
+        const noStatsEmptyNumbers = sample()
+        noStatsEmptyNumbers.sheet_buffed = false
+        noStatsEmptyNumbers.filtered_buffs = [
+            {
+                name: 'Thorns',
+                spell_id: 782,
+                source: 'self',
+                how: 'no_stats',
+                how_detail: 'list',
+                numbers: {},
+            },
+        ]
+        expect(problemsOf(noStatsEmptyNumbers)).toContain(
+            'filtered_buffs.0.numbers: no_stats buffs may only carry non-sheet notes in numbers.'
+        )
     })
 })

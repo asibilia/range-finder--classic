@@ -70,6 +70,10 @@ function toDamageAndSurvival() {
 }
 
 function slider(name: string): HTMLInputElement {
+    const sliders = screen.getByRole('radio', {
+        name: 'Sliders',
+    }) as HTMLInputElement
+    if (!sliders.checked) fireEvent.click(sliders)
     return screen.getByRole('slider', { name }) as HTMLInputElement
 }
 
@@ -360,6 +364,7 @@ describe('the role sliders', () => {
 
     test('each slider says how far it can reach with this mix, and the track past it is hatched', async () => {
         await openSample()
+        slider('Damage')
 
         expect(
             screen.getByText(

@@ -240,6 +240,89 @@ const talent = z.strictObject({
     max_rank: z.int().min(1).max(MAX_RANK),
 })
 
+const check = z
+    .strictObject({
+        name: z.string(),
+        passed: z.boolean(),
+        not_checked: z.boolean().optional().meta({
+            description:
+                'true: the check could not be made, so passed is false. Gates ignore it and ordinary pass/fail counts exclude it; the page counts it separately as not checked.',
+        }),
+        detail: z.string(),
+    })
+    .superRefine((value, ctx) => {
+        if (value.not_checked && value.passed)
+            ctx.addIssue({
+                code: 'custom',
+                path: ['passed'],
+                message: 'A not-checked row must have passed: false.',
+            })
+    })
+
+const SHEET_BUFF_NUMBERS = new Set([
+    'health',
+    'mana',
+    'attack_power',
+    'armor',
+    'strength',
+    'agility',
+    'stamina',
+    'intellect',
+    'spirit',
+])
+
+const filteredBuff = z
+    .strictObject({
+        name: z.string(),
+        spell_id: z.int(),
+        source: z
+            .enum(['self', 'other', 'none', 'other player', 'not a player'])
+            .nullable(),
+        how: z.enum(['modelled', 'game_numbers', 'no_stats', 'unknown']),
+        how_detail: z.string(),
+        numbers: z
+            .strictObject({
+                health: z.number().optional(),
+                mana: z.number().optional(),
+                attack_power: z.number().optional(),
+                armor: z.number().optional(),
+                strength: z.number().optional(),
+                agility: z.number().optional(),
+                stamina: z.number().optional(),
+                intellect: z.number().optional(),
+                spirit: z.number().optional(),
+                mp5: z.number().optional(),
+                haste_pct: z.number().optional(),
+                run_speed_pct: z.number().optional(),
+                damage_shield: z.number().optional(),
+            })
+            .optional(),
+    })
+    .superRefine((buff, ctx) => {
+        if (
+            (buff.how === 'modelled' || buff.how === 'unknown') &&
+            buff.numbers !== undefined
+        )
+            ctx.addIssue({
+                code: 'custom',
+                path: ['numbers'],
+                message: 'modelled and unknown buffs must omit numbers.',
+            })
+        if (buff.how === 'no_stats' && buff.numbers !== undefined) {
+            const keys = Object.keys(buff.numbers)
+            if (
+                keys.length === 0 ||
+                keys.some((key) => SHEET_BUFF_NUMBERS.has(key))
+            )
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['numbers'],
+                    message:
+                        'no_stats buffs may only carry non-sheet notes in numbers.',
+                })
+        }
+    })
+
 const baseSchema = z.strictObject({
     schema_version: z.literal(SCHEMA_VERSION),
     made_at: datetime.meta({
@@ -255,13 +338,7 @@ const baseSchema = z.strictObject({
     provisional: z.boolean().meta({
         description: "true: the sim isn't matched to real fights yet.",
     }),
-    checks: z.array(
-        z.strictObject({
-            name: z.string(),
-            passed: z.boolean(),
-            detail: z.string(),
-        })
-    ),
+    checks: z.array(check),
     left_out_items: z
         .array(
             z.strictObject({
@@ -316,7 +393,11 @@ const baseSchema = z.strictObject({
     }),
     sheet_buffed: z.boolean().meta({
         description:
-            "true: the game's sheet as it showed at export, with the buffs that were up.",
+            "true: the game's sheet as it showed at export, with the buffs that were up. Always false when filtered_buffs is present: that sheet is unbuffed.",
+    }),
+    filtered_buffs: z.array(filteredBuff).min(1).optional().meta({
+        description:
+            "Every buff in the export, including no-effect and unknown ones. Absent: the export had none. modelled and unknown have no numbers; no_stats has only an allow-listed non-sheet note, when one exists. The page lists them under Unbuffed sheet as modelled by the sim, the game's numbers, no stats, or couldn't size it.",
     }),
     sheet: z.strictObject({
         strength: z.int(),
@@ -605,6 +686,12 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
             )
     }
 
+    if (file.filtered_buffs !== undefined && file.sheet_buffed)
+        problem(
+            ['sheet_buffed'],
+            'sheet_buffed must be false when filtered_buffs is present.'
+        )
+
     const skill = file.sheet.weapon_skill
     if (skill && skill.current > skill.max)
         problem(
@@ -671,6 +758,7 @@ function checkCrossFields(file: Base, ctx: z.RefinementCtx): void {
 const FILE_DESCRIPTION = [
     'One file per character per sim run, written by the gear sim and read by the armory planner. Keys are snake_case, and every object is strict.',
     "The page also checks these rules, which this JSON Schema can't express, so a file that passes it can still be refused:",
+    '- A check with not_checked: true has passed: false.',
     '- default_fight_id names a fight in fights.',
     '- Every fight_id in results, bag_upgrades results, bag_upgrades_all results, stat_weights and talents.best names a fight in fights.',
     "- A bag upgrade's results have at most one entry per fight.",
@@ -694,6 +782,8 @@ const FILE_DESCRIPTION = [
     '- A chain fight has a setup.',
     "- timeline is null on a chain fight's results (bag upgrade and bag_upgrades_all results too).",
     "- pulls is null on a single fight's results (bag upgrade and bag_upgrades_all results too).",
+    '- sheet_buffed is false whenever filtered_buffs is present.',
+    '- filtered_buffs entries with how of modelled or unknown omit numbers; no_stats entries only carry non-sheet notes (mp5, haste_pct, run_speed_pct, damage_shield) in numbers.',
     'The runner must also keep these, which nothing checks:',
     "- Each slot's alternatives come best first; the slot's badge shows the gain of the plan's item for that slot.",
     '- talents.yours lists every talent in the tree, at rank 0 or more.',
@@ -713,8 +803,13 @@ export type Fight = ResultsFile['fights'][number]
 export type Result = ResultsFile['results'][number]
 export type Slot = (typeof SLOTS)[number]
 export type Stat = (typeof STATS)[number]
-/** One accuracy check: a gate, or a note that never blocks. */
-export type Check = { name: string; passed: boolean; detail: string }
+/** One accuracy check: a gate, a failure, or a non-blocking not-checked row. */
+export type Check = {
+    name: string
+    passed: boolean
+    not_checked?: boolean
+    detail: string
+}
 
 export type ReadOutcome =
     | { ok: true; file: ResultsFile }

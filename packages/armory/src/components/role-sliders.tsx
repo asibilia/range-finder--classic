@@ -5,8 +5,8 @@
  * When the picked plan has a reach (`plans[].reach`) each slider says how
  * far it can go (`Can reach 35 with this mix`, `No limit with this mix`)
  * and the track past it is hatched. A role no plan has is disabled and
- * reads `Not simmed yet`. Under them: which plan the mix picks, what moving
- * a role does (or that it switched the gear), and that nothing is re-simmed.
+ * reads `Not simmed yet`. `RoleControl` shares the picked-plan, gear-switch
+ * and nothing-re-simmed lines with the Shape view.
  */
 import { useId } from 'react'
 
@@ -88,38 +88,21 @@ function RoleSlider({
     )
 }
 
-/**
- * The sliders.
- *
- * @param plans - The file's plans (at least one).
- * @param mix - Where the sliders sit.
- * @param plan - The plan they pick.
- * @param inWornView - On what you wear, the page says moving a role switches.
- * @param switched - A slider move switched the gear to the plan: says so
- * (the gear card's `View` switch goes back).
- * @param onChange - A role moved to a value.
- */
+/** The slider view of the planner's role mix. */
 export function RoleSliders({
     plans,
     mix,
     plan,
-    inWornView,
-    switched = false,
     onChange,
 }: {
     plans: Plan[]
     mix: Mix
     plan: Plan | null
-    inWornView: boolean
-    switched?: boolean
     onChange: (role: Role, value: number) => void
 }) {
     const reach = plan?.reach ?? null
     return (
-        <section aria-labelledby="roles-heading">
-            <h2 id="roles-heading" className="mb-1 text-xl leading-tight">
-                Stat Priority
-            </h2>
+        <div>
             {reach && (
                 <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">
                     Raising one role lowers how far the others can go. The
@@ -138,35 +121,6 @@ export function RoleSliders({
                     />
                 ))}
             </div>
-            {plan && (
-                <p
-                    aria-live="polite"
-                    className="mt-3 border-l-2 border-chart-1 py-0.5 pl-2.5 text-[0.84375rem] text-muted-foreground"
-                >
-                    Your mix picks the{' '}
-                    <b className="font-bold text-foreground">
-                        {plan.label.toLowerCase()}
-                    </b>{' '}
-                    set.
-                </p>
-            )}
-            <p
-                aria-live="polite"
-                className="mt-2 min-h-4.75 text-[0.8125rem] text-muted-foreground"
-            >
-                {inWornView ? (
-                    "Moving a role switches the gear to the sim's plan."
-                ) : switched ? (
-                    <span className="text-foreground">
-                        Switched the gear to the sim&apos;s plan for this mix.
-                    </span>
-                ) : null}
-            </p>
-            <p className="mt-1 text-[0.78125rem] text-muted-foreground">
-                These pick from plans the sim already made. Nothing is re-simmed
-                here.
-                {plans.length === 1 && ' This file has one plan.'}
-            </p>
-        </section>
+        </div>
     )
 }

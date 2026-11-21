@@ -42,6 +42,10 @@ function slot(prefix: string): HTMLElement {
 }
 
 function setSlider(name: string, value: number) {
+    const sliders = screen.getByRole('radio', {
+        name: 'Sliders',
+    }) as HTMLInputElement
+    if (!sliders.checked) fireEvent.click(sliders)
     fireEvent.change(screen.getByRole('slider', { name }), {
         target: { value: String(value) },
     })

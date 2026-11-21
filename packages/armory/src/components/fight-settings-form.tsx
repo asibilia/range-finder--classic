@@ -117,7 +117,14 @@ export function FightSettingsForm({
     const missId = useId()
     const kindId = useId()
     const lengthId = useId()
-    const picked = settings ? fightFor(file, settings) : null
+    const rawPicked = settings ? fightFor(file, settings) : null
+    const picked =
+        fight?.kind === 'chain' &&
+        settings &&
+        settings.gap_s !== (fight.setup?.gap_s ?? 0) &&
+        rawPicked?.kind !== 'chain'
+            ? null
+            : rawPicked
 
     // A fight picked from elsewhere (a fight in the not-simmed list, an
     // action) moves the controls to it.
@@ -141,7 +148,12 @@ export function FightSettingsForm({
         const updated = { ...settings, ...next }
         setSettings(updated)
         const match = fightFor(file, updated)
-        if (match && match.fight_id !== fightId) onPickFight(match.fight_id)
+        const keepChain =
+            fight.kind === 'chain' &&
+            updated.gap_s !== settings.gap_s &&
+            match?.kind !== 'chain'
+        if (!keepChain && match && match.fight_id !== fightId)
+            onPickFight(match.fight_id)
     }
     const miss = missWords(file, settings.level)
     const lengths = choices.lengths_s.map((length) => ({

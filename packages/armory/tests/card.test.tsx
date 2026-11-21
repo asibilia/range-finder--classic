@@ -654,7 +654,9 @@ describe('how sure the sim is', () => {
         const user = await openFile(sample)
         await user.click(screen.getByText('How sure is this?'))
 
-        expect(screen.getByText('14 checks passed, 0 failed.')).toBeDefined()
+        expect(
+            screen.getByText('14 checks passed, 0 failed, 0 not checked.')
+        ).toBeDefined()
         expect(
             screen.getByText('Passed: sheet strength. Matches the game.')
         ).toBeDefined()
@@ -673,10 +675,36 @@ describe('how sure the sim is', () => {
         )
         await user.click(screen.getByText('How sure is this?'))
 
-        expect(screen.getByText('13 checks passed, 1 failed.')).toBeDefined()
+        expect(
+            screen.getByText('13 checks passed, 1 failed, 0 not checked.')
+        ).toBeDefined()
         expect(screen.getByText(/^Failed: /).textContent).toBe(
             'Failed: sheet strength. Off by 2.'
         )
+    })
+
+    test('a not-checked row has its own count and prefix, outside ordinary passes and failures', async () => {
+        const user = await openFile(
+            variant((file) => {
+                const checks = file.checks as Json[]
+                checks.push({
+                    name: 'bag_preview',
+                    passed: false,
+                    not_checked: true,
+                    detail: 'Not simmed: the bag preview failed; its Equip control is unavailable.',
+                })
+            })
+        )
+        await user.click(screen.getByText('How sure is this?'))
+
+        expect(
+            screen.getByText('14 checks passed, 0 failed, 1 not checked.')
+        ).toBeDefined()
+        expect(
+            screen.getByText(
+                'Not checked: bag_preview. Not simmed: the bag preview failed; its Equip control is unavailable.'
+            )
+        ).toBeDefined()
     })
 
     test('items the sim left out are their own list, apart from the checks, and not counted with them', async () => {
@@ -698,7 +726,9 @@ describe('how sure the sim is', () => {
         )
         await user.click(screen.getByText('How sure is this?'))
 
-        expect(screen.getByText('14 checks passed, 0 failed.')).toBeDefined()
+        expect(
+            screen.getByText('14 checks passed, 0 failed, 0 not checked.')
+        ).toBeDefined()
         const list = screen.getByRole('list', { name: 'Left out of the plan:' })
         expect(
             within(list)

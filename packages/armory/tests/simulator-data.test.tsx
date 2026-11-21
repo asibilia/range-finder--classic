@@ -313,7 +313,8 @@ describe('the Simulator Data card', () => {
 
 describe('the sliders (owner decision D)', () => {
     test('Stat Priority and the fight settings draw a white fill on a grey track, not orange', async () => {
-        await load(sample)
+        const user = await load(sample)
+        await user.click(screen.getByRole('radio', { name: 'Sliders' }))
 
         const ranges = document.querySelectorAll('[data-slot="slider-range"]')
         expect(ranges.length).toBeGreaterThan(0)

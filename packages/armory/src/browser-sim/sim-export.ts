@@ -10,6 +10,7 @@ import { SimCancelled, type SimPool } from '@goturbo/sim'
 
 import { readResultsFile, type ResultsFile } from '../results-file'
 import type { Character, SimStop } from './character'
+import { failedChecks } from './checks'
 import { calibrate, CALIBRATION_CALLS, exportCharacter } from './export-reader'
 import { buildRequest } from './request'
 import { DEFAULT_FIGHT, type FightOverride, scenariosFor } from './scenarios'
@@ -117,6 +118,7 @@ function beforeYourWeightsCalls(character: Character): number {
  */
 function startRun(pool: SimPool, onProgress: Progress) {
     let cancelled = false
+    let ended = false
     let begun = false
     /** The calls `begin` planned. */
     let planned = 0
@@ -127,9 +129,12 @@ function startRun(pool: SimPool, onProgress: Progress) {
     let poolPlanned = 0
     /** Where the current stage's count starts, and the calls it plans. */
     let stage = { start: 0, planned: 0 }
-    const report = () => onProgress(done, Math.max(done, poolPlanned - cut))
+    const report = () => {
+        if (cancelled || ended) return
+        onProgress(done, Math.max(done, poolPlanned - cut))
+    }
     const unsubscribe = pool.onProgress((count, of) => {
-        if (cancelled) return
+        if (cancelled || ended) return
         if (count === 0 && of === 0) {
             cancelled = true
             return
@@ -139,18 +144,18 @@ function startRun(pool: SimPool, onProgress: Progress) {
         report()
     })
     const guard = <T>(value: T): T => {
-        if (cancelled) throw new SimCancelled()
+        if (cancelled || ended) throw new SimCancelled()
         return value
     }
     const guarded: SimPool = {
         ...pool,
         size: pool.size,
         sim: (request, profile) =>
-            cancelled
+            cancelled || ended
                 ? Promise.reject(new SimCancelled())
                 : pool.sim(request, profile).then(guard),
         sheet: (request, profile) =>
-            cancelled
+            cancelled || ended
                 ? Promise.reject(new SimCancelled())
                 : pool.sheet(request, profile).then(guard),
         stats: () =>
@@ -161,11 +166,11 @@ function startRun(pool: SimPool, onProgress: Progress) {
         },
         // A stage hears its own count, from where it started.
         onProgress(callback) {
-            return pool.onProgress((count, of) =>
-                count === 0 && of === 0
-                    ? callback(0, 0)
-                    : callback(count - stage.start, stage.planned)
-            )
+            return pool.onProgress((count, of) => {
+                if (ended) return
+                if (count === 0 && of === 0) callback(0, 0)
+                else callback(count - stage.start, stage.planned)
+            })
         },
     }
     return {
@@ -182,7 +187,7 @@ function startRun(pool: SimPool, onProgress: Progress) {
         },
         /** The run makes at most `remaining` calls more. */
         expect(remaining: number) {
-            if (cancelled) return
+            if (cancelled || ended) return
             const more = planned - done - remaining - cut
             if (more <= 0) return
             cut += more
@@ -190,7 +195,7 @@ function startRun(pool: SimPool, onProgress: Progress) {
         },
         /** The run made its last call: the count ends at its plan. */
         finish() {
-            if (cancelled) return
+            if (cancelled || ended) return
             done = Math.max(done, poolPlanned - cut)
             report()
         },
@@ -202,7 +207,10 @@ function startRun(pool: SimPool, onProgress: Progress) {
                     stats.iterations > 0 ? stats.ms / stats.iterations : 0,
             }
         },
-        end: unsubscribe,
+        end() {
+            ended = true
+            unsubscribe()
+        },
     }
 }
 
@@ -235,7 +243,7 @@ async function beforeYourWeights(
     run.pool.batch(beforeYourWeightsCalls(character))
     const { checks } = await runGates(character, run.pool)
     run.check()
-    const failed = checks.filter((c) => !c.passed)
+    const failed = failedChecks(checks)
     if (failed.length > 0) return { kind: 'gates', failed }
     const before = run.pool.stats()
     await run.pool.sim(

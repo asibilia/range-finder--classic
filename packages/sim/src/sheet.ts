@@ -71,7 +71,7 @@ export function sheetFromSim(sheet: SimSheet): Sheet {
         intellect: Math.round(stat(STAT.intellect)),
         spirit: Math.round(stat(STAT.spirit)),
         attack_power: Math.round(stat(STAT.attackPower)),
-        armor: Math.round(stat(STAT.armor) + stat(STAT.bonusArmor)),
+        armor: Math.round(stat(STAT.armor)),
         health: Math.round(stat(STAT.health)),
         mana: Math.round(stat(STAT.mana)),
         melee_crit_pct: hundredths(pseudo(PSEUDO_STAT.meleeCritPercent)),

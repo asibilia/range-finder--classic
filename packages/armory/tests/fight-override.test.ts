@@ -6,6 +6,7 @@
  * were, so the default run's numbers don't change.
  */
 import { describe, expect, test } from 'bun:test'
+import type { RaidSimRequest, RaidSimResult, Sheet } from '@goturbo/sim'
 
 import { testcharCharacter } from '../../sim/tests/helpers/testchar'
 import {
@@ -15,6 +16,7 @@ import {
     type Character,
 } from '../src/browser-sim'
 import { fightEntry } from '../src/browser-sim/scenarios'
+import { simSession } from '../src/browser-sim/session'
 import { recordedPool } from './helpers/recorded-pool'
 
 const OVERRIDE = {
@@ -44,6 +46,9 @@ describe('the fight settings in the browser sim', () => {
         expect(fightEntry(long).setup?.starting_mana_pct).toBe(50)
         expect(fixed.every((s) => s.starting_mana_pct === undefined)).toBe(true)
         expect(fightEntry(fixed[2]!).setup?.starting_mana_pct).toBe(100)
+        expect(scenariosFor(30, { ...OVERRIDE, chain_only: true })).toEqual(
+            fixed
+        )
     })
 
     test('full mana is no share; the chain takes a gap, and keeps 12 s without one', () => {
@@ -93,5 +98,55 @@ describe('the fight settings in the browser sim', () => {
                 })
             ).startingManaPercent
         ).toBe(20)
+    })
+
+    test('the chain gap changes the next generated pull request through out-of-combat mana regen', async () => {
+        const base = recordedPool()
+        const character: Character = {
+            ...((await testcharCharacter(base)) as Character),
+            ooc_mana_regen: 10,
+        }
+        const answer = {
+            raidMetrics: {
+                parties: [
+                    {
+                        players: [{ dps: { avg: 1 }, timeline: [{ mana: 0 }] }],
+                    },
+                ],
+            },
+        } as RaidSimResult
+        expect(character.ooc_mana_regen).toBeGreaterThan(0)
+        const secondPullMana = async (gap: number) => {
+            const requests: RaidSimRequest[] = []
+            const pool = recordedPool({
+                sim: (request) => {
+                    requests.push(request)
+                    return Promise.resolve(structuredClone(answer))
+                },
+            })
+            await simSession(
+                pool,
+                character,
+                { ...chainFor(character.level, gap), pulls: 2 },
+                {},
+                character.sheet as unknown as Sheet,
+                () => undefined,
+                {}
+            )
+            expect(requests).toHaveLength(2)
+            const player = (
+                requests[1]!.raid as {
+                    parties: {
+                        players: { startingManaPercent?: number }[]
+                    }[]
+                }
+            ).parties[0]!.players[0]!
+            return player.startingManaPercent
+        }
+
+        const withoutGap = await secondPullMana(0)
+        const withGap = await secondPullMana(60)
+        expect(withoutGap).toBe(1)
+        expect(withGap).toBeGreaterThan(withoutGap!)
     })
 })

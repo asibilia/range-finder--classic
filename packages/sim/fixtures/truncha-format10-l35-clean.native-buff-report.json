@@ -1,0 +1,163 @@
+{
+ "export": {
+  "format": 10,
+  "saved_at": "2026-11-18T14:34:14.000Z",
+  "level": 35
+ },
+ "buffs": [
+  {
+   "name": "Ghost Wolf",
+   "spell_id": 2645,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Lightning Shield",
+   "spell_id": 945,
+   "source": "self",
+   "how": "no_stats",
+   "path": "no_stats (name rule)",
+   "numbers": null
+  },
+  {
+   "name": "Well Fed",
+   "spell_id": 1248406,
+   "source": "self",
+   "how": "game_numbers",
+   "path": "list (numbers from the game's points)",
+   "numbers": {
+    "stamina": 5
+   }
+  },
+  {
+   "name": "Mark of the Wild",
+   "spell_id": 5234,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  },
+  {
+   "name": "Arcane Intellect",
+   "spell_id": 1461,
+   "source": "other player",
+   "how": "modelled",
+   "path": "modelled",
+   "numbers": null
+  }
+ ],
+ "calibration": {
+  "mode": "solved_clean",
+  "base_health": 435,
+  "base_mana": 820,
+  "notes": [
+   "base health 435 and base mana 820 calibrated from the exported totals",
+   "spell crit per Intellect 0.0303% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 110,
+  "agility": 78,
+  "stamina": 143,
+  "intellect": 126,
+  "spirit": 97,
+  "attackPower": 414,
+  "meleeCrit": 10.590800285339,
+  "dodge": 9.5908002853394,
+  "meleeHit": 0,
+  "spellCrit": 9.1177997589111,
+  "armor": 1038,
+  "health": 1685,
+  "mana": 2430,
+  "healingPower": 51
+ },
+ "unbuffed_sheet": {
+  "strength": 102,
+  "agility": 70,
+  "stamina": 130,
+  "intellect": 101,
+  "spirit": 89,
+  "attack_power": 373,
+  "armor": 819,
+  "health": 1555,
+  "mana": 2055,
+  "melee_crit_pct": 9.96,
+  "spell_crit_pct": 8.36,
+  "dodge_pct": 8.96,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 110.00 vs game 110.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 78.00 vs game 78.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 143.00 vs game 143.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 126.00 vs game 126.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 97.00 vs game 97.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 414.00 vs game 414.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 9.59 vs game 9.59 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 1038.00 vs game 1038.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 10.59 (base 1.7% less 0.04% x 6 weapon skill under the cap) vs game 10.59 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 9.12 vs game 9.12 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "checked_pass",
+   "detail": "sim 1685 vs game 1685 (calibrated, not a check)"
+  },
+  {
+   "line": "mana",
+   "status": "checked_pass",
+   "detail": "sim 2430 vs game 2430 (calibrated, not a check)"
+  },
+  {
+   "line": "buffs",
+   "status": "checked_pass",
+   "detail": "Ghost Wolf: doesn't touch the sheet (path: no_stats (name rule)) [self]; Lightning Shield: doesn't touch the sheet (path: no_stats (name rule)) [self]; Well Fed: removed using the game's own points (stamina 5) (path: list (numbers from the game's points)) [self]; Mark of the Wild: modelled from the sim's spell data (path: modelled) [other player]; Arcane Intellect: modelled from the sim's spell data (path: modelled) [other player]"
+  }
+ ]
+}

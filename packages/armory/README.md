@@ -22,10 +22,25 @@ From the repo root, with Go installed (the version in
    or drop a `TurboCharExport.lua` (in the game: `/tbexport`, then
    `/reload`) to sim that character here.
 
-Files are read in the browser only; nothing is sent anywhere. An export is
-simmed in the page's workers and never kept: the page fetches only its own
-files (the sim and its data) and, in dev only, the dev server's `/local/`
-files (below).
+Files are read in the browser, and an export is simmed in the page's workers
+and never kept. Before the optional Wowhead opt-in, the page fetches only its
+own files (the sim and its data) and, in dev only, the dev server's `/local/`
+files (below). Plain Wowhead links make a request only when the visitor opens
+one.
+
+**Optional Wowhead Forever tooltips:** `Enable Wowhead tooltips` explicitly
+loads the official `https://wow.zamimg.com/js/tooltips.js` script for this
+visit; the choice is kept in memory, not storage. Wowhead then receives the
+visit and the item IDs inspected, and its mutable script runs in the armory's
+origin, where it can read the page and the kept results file. Only
+`wow.zamimg.com` (script, styles and images), `nether.wowhead.com` (the
+script's own Forever requests) and user-opened `www.wowhead.com/forever/item=<id>`
+links are allowed. The page sends no referrer and its CSP names those hosts
+only. Product code never scrapes, proxies, caches or directly calls tooltip
+JSON. Local names, sources, warnings and sim values stay authoritative;
+Classic-tagged items remain plain links with their warning, and unknown IDs,
+offline use and script errors retain local content. The opt-in is never
+persisted, and a reload starts with no third-party load.
 
 ### Opening on your latest file (dev only)
 
@@ -87,7 +102,10 @@ sims worn gear and the max damage plan with the precomputed stat weights for
 the character's level band (`packages/sim/weights/`). With no weights file
 for the band it sims the weights on the device first, and says so with a
 time estimate. `Refine for your gear` sims the weights for the character's
-own gear. The file it makes is shown and kept like any results file.
+own gear. `Run Simulator` in the card on the right re-sims the export with
+the fight settings you picked (when a results file is opened on its own
+with no export, the button stays disabled and asks you to bring in your
+export). The file it makes is shown and kept like any results file.
 
 ### What the page keeps in your browser
 
@@ -96,8 +114,10 @@ dropped) or the browser sim made, if it read OK, in `localStorage` under the
 key `armory:last-results-file`, so a reload brings your character back. The
 export itself is never kept. Opening another file replaces it; the bundled
 sample (`Or look at a sample character`) is never kept. While a kept file is shown the footer says
-`This file is kept in this browser only.` with a `Forget this file` button,
-which clears the key and goes back to the new-visitor state.
+`This file is kept in this browser.` with a `Forget this file` button, which
+clears the key and goes back to the new-visitor state. If Wowhead tooltips are
+enabled, their third-party script can technically read this kept text; the
+opt-in says so before loading it.
 
 - On load the kept text goes through the same checks as a file you open
   (`readResultsFile`), in the browser only, after the page has drawn: the
@@ -167,8 +187,8 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   UI's. An "i" button (`components/info.tsx`, on `components/ui/popover.tsx`)
   is named `About <label>`, and its popover opens on hover, on click or tap,
   and on Enter or Space; Escape closes it and focus stays on the button. The
-  segmented controls (the `Current` / `BIS` switch, enemy level, kind of
-  fight, which talent build) are native radios in a fieldset
+  segmented controls (the `Current` / `BIS` switch, `Shape` / `Sliders`,
+  enemy level, kind of fight, which talent build) are native radios in a fieldset
   (`components/segmented.tsx`).
 - **Charts: Recharts 3** inside shadcn's `chart` (`ChartContainer`,
   `ChartTooltip`, `ChartLegend`): the fight chart (DPS and mana on two axes,
@@ -190,7 +210,8 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   next step) and the talents pill on the figure; a column on its right
   (Simulator Data: the readings `Solo`, `Dungeon`, `Resource Empty`,
   `Health`, `Armor` and `Lifespan`, with how far what you wear is below the
-  sim's plan; Stat Priority: the role sliders) from 90rem, stacked below that; under
+  sim's plan; Stat Priority: the C2a Shape by default, with a Sliders view)
+  from 90rem, stacked below that; under
   both, a full-width band with the fight chart, the damage split and stat
   weights, and the fight settings; then a footer (the sample note, how sure
   the sim is). The gear pane's doll lays out by the pane's own width (a
@@ -210,7 +231,9 @@ so the tests can't check this. Without `playwright-cli` it says so and exits.
   mockup has them. The fight whose level, length, starting mana and (for a
   chain) gap match is shown; any other combination says `Not simmed for
   this combination.`, keeps the chart and readings on the last fight, and
-  lists the file's fights to pick from. Nothing is re-simmed.
+  lists the file's fights to pick from. Changing the controls does not
+  re-sim on its own; `Run Simulator` re-sims the loaded export with those
+  settings (`fightOverride`).
 - **State as plain actions.** What the page shows for a loaded file (the
   fight, the sliders and so the plan, worn or plan view, bag items put on)
   is `src/planner-state.ts`: pure actions (`set-sliders`, `pick-plan`,
@@ -296,11 +319,16 @@ puts the bucket's host on the build guard's list; no page code changes.
   at 3:01`). `never` reads `keep mana through every pull`; null, the
   not-simmed sentence. The rule is `dryPull` in `src/mana-words.ts`.
 - `left_out_items` (optional) lists items the sim left out of every plan
-  (`{item_id, name, reason}`), apart from `checks`, which are the accuracy
-  gates the `N checks passed` line counts. How sure is this? lists them
-  under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
+  (`{item_id, name, reason}`), apart from `checks`. How sure is this? lists
+  them under `Left out of the plan:`, one line each: `Made-up Hood of Nowhere
   (99901), because it has no source and needs level 1.` Each `item_id`
   appears once (the page refuses a repeat). Absent or empty: no list.
+- `checks[].not_checked` (optional) marks a check that could not be made. It
+  must have `passed: false` (so older readers cannot count it as a pass), never
+  blocks a gate, and is excluded from ordinary pass/fail counts. How sure is
+  this? reports `<p> checks passed, <f> failed, <n> not checked.` and prefixes
+  each row `Passed:`, `Failed:` or `Not checked:`. A failed optional bag preview
+  adds a `bag_preview` not-checked row and hides only its Equip control.
 - `talents.points` is the points spent in the tree (the sum of the ranks in
   `talents.yours`), shown on the talents pill on the character: `22 pts`.
   When `talents.best.dps_gain` shows as 3.0 or more, the pill gets an
@@ -308,8 +336,9 @@ puts the bucket's host on the build guard's list; no page code changes.
 - Nine optional fields (schema version 1 still) carry what the mockup and
   the owner's design (spec #109) show beyond the first contract: the first
   six for the mockup, the last three for the callout card. Absent or null,
-  the page leaves out only the part that needs them. The gear sim's runner
-  doesn't write the last three yet; the page reads them when it does.
+  the page leaves out only the part that needs them. The browser sim writes
+  professions and the bag-preview fields when their data applies; quick fixes
+  remain a contract the page reads when a runner supplies them.
 
   | Field | Shown as | Absent or null |
   | --- | --- | --- |

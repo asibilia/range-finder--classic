@@ -6,12 +6,25 @@
  * the real WASM, on Testchar's export (`exportFromCharacter`) until #83.
  * Weights are simmed at small settings so the file stays quick.
  */
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 
-import { estimateMinutes, WEIGHTS_DEFAULTS } from '../src/browser-sim'
+import type { SimPool } from '@goturbo/sim'
+
+import { ensureSimBuild } from '../../sim/tests/helpers/sim-build'
+import { testcharCharacter } from '../../sim/tests/helpers/testchar'
+import {
+    estimateMinutes,
+    refine,
+    simExport,
+    WEIGHTS_DEFAULTS,
+} from '../src/browser-sim'
+import { exportFromCharacter } from './helpers/export-from-character'
+import { BUILD, callKey, recordedPool } from './helpers/recorded-pool'
 
 const ARMORY = join(import.meta.dir, '..')
+
+beforeAll(() => ensureSimBuild(), 600_000)
 
 describe('weights settings and the estimate', () => {
     test('with no options, simExport and refine sim weights with 5 seeds × 8000 iterations (WEIGHTS_DEFAULTS)', () => {
@@ -39,5 +52,98 @@ describe('bun run check', () => {
         )
         expect(root.scripts['test:slow']).toEndWith(' .slow.test')
         expect(root.scripts['sim:record']).toBeDefined()
+    })
+})
+
+describe('post-rejection progress isolation', () => {
+    test('simExport emits no onProgress after rejecting when loadItemDb resolves late', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const l60 = (await Bun.file(
+            join(BUILD, 'l60-test.in.json')
+        ).json()) as unknown
+        const l60Key = callKey('sim', l60)
+
+        const pool: SimPool = {
+            ...base,
+            size: base.size,
+            sim: (request, profile) =>
+                callKey('sim', request, profile) === l60Key
+                    ? Promise.reject(new Error('boom'))
+                    : base.sim(request, profile),
+            data: (name) =>
+                name === 'db.json'
+                    ? new Promise((resolve, reject) =>
+                          setTimeout(
+                              () => void base.data(name).then(resolve, reject),
+                              25
+                          )
+                      )
+                    : base.data(name),
+        }
+
+        const reports: { done: number; planned: number }[] = []
+        let caught: unknown
+        try {
+            await simExport(exportLua, pool, (done, planned) =>
+                reports.push({ done, planned })
+            )
+        } catch (error) {
+            caught = error
+        }
+
+        expect(caught).toBeInstanceOf(Error)
+        expect((caught as Error).message).toBe('boom')
+        const countAtReject = reports.length
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(reports.length).toBe(countAtReject)
+    })
+
+    test('refine emits no onProgress after rejecting when loadItemDb resolves late', async () => {
+        const base = recordedPool()
+        const character = await testcharCharacter(base)
+        const exportLua = exportFromCharacter(character, character.sheet)
+        const first = await simExport(exportLua, base, () => {})
+        if (first.kind !== 'file') throw new Error(`unexpected ${first.kind}`)
+
+        const l60 = (await Bun.file(
+            join(BUILD, 'l60-test.in.json')
+        ).json()) as unknown
+        const l60Key = callKey('sim', l60)
+
+        const pool: SimPool = {
+            ...base,
+            size: base.size,
+            sim: (request, profile) =>
+                callKey('sim', request, profile) === l60Key
+                    ? Promise.reject(new Error('boom'))
+                    : base.sim(request, profile),
+            data: (name) =>
+                name === 'db.json'
+                    ? new Promise((resolve, reject) =>
+                          setTimeout(
+                              () => void base.data(name).then(resolve, reject),
+                              25
+                          )
+                      )
+                    : base.data(name),
+        }
+
+        const reports: { done: number; planned: number }[] = []
+        let caught: unknown
+        try {
+            await refine(first.file, first.character, pool, (done, planned) =>
+                reports.push({ done, planned })
+            )
+        } catch (error) {
+            caught = error
+        }
+
+        expect(caught).toBeInstanceOf(Error)
+        expect((caught as Error).message).toBe('boom')
+        const countAtReject = reports.length
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(reports.length).toBe(countAtReject)
     })
 })

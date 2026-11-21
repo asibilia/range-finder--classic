@@ -1,0 +1,115 @@
+{
+ "export": {
+  "format": 8,
+  "saved_at": "2026-11-16T14:59:49.000Z",
+  "level": 32
+ },
+ "buffs": [],
+ "calibration": {
+  "mode": "solved_clean",
+  "base_health": 370,
+  "base_mana": 733,
+  "notes": [
+   "base health 370 and base mana 733 calibrated from the exported totals",
+   "spell crit per Intellect 0.0333% calibrated (the game's rate answered 0)"
+  ]
+ },
+ "game_sheet": {
+  "strength": 80,
+  "agility": 75,
+  "stamina": 128,
+  "intellect": 88,
+  "spirit": 87,
+  "attackPower": 322,
+  "meleeCrit": 9.9649991989136,
+  "dodge": 10.005000114441,
+  "meleeHit": 0,
+  "spellCrit": 7.2303996086121,
+  "armor": 744,
+  "health": 1470,
+  "mana": 1773,
+  "healingPower": 20
+ },
+ "unbuffed_sheet": {
+  "strength": 80,
+  "agility": 75,
+  "stamina": 128,
+  "intellect": 88,
+  "spirit": 87,
+  "attack_power": 322,
+  "armor": 744,
+  "health": 1470,
+  "mana": 1773,
+  "melee_crit_pct": 9.97,
+  "spell_crit_pct": 7.23,
+  "dodge_pct": 10.01,
+  "melee_hit_pct": 0
+ },
+ "lines": [
+  {
+   "line": "strength",
+   "status": "checked_pass",
+   "detail": "sim 80.00 vs game 80.00 (±1)"
+  },
+  {
+   "line": "agility",
+   "status": "checked_pass",
+   "detail": "sim 75.00 vs game 75.00 (±1)"
+  },
+  {
+   "line": "stamina",
+   "status": "checked_pass",
+   "detail": "sim 128.00 vs game 128.00 (±1)"
+  },
+  {
+   "line": "intellect",
+   "status": "checked_pass",
+   "detail": "sim 88.00 vs game 88.00 (±1)"
+  },
+  {
+   "line": "spirit",
+   "status": "checked_pass",
+   "detail": "sim 87.00 vs game 87.00 (±1)"
+  },
+  {
+   "line": "attackPower",
+   "status": "checked_pass",
+   "detail": "sim 322.00 vs game 322.00 (±2)"
+  },
+  {
+   "line": "dodge",
+   "status": "checked_pass",
+   "detail": "sim 10.01 vs game 10.01 (±0.06)"
+  },
+  {
+   "line": "meleeHit",
+   "status": "checked_pass",
+   "detail": "sim 0.00 vs game 0.00 (±0.05)"
+  },
+  {
+   "line": "armor",
+   "status": "checked_pass",
+   "detail": "sim 744.00 vs game 744.00 (±5)"
+  },
+  {
+   "line": "meleeCrit",
+   "status": "checked_pass",
+   "detail": "sim 9.97 (base 1.7% less 0.04% x 2 weapon skill under the cap) vs game 9.96 (±0.06)"
+  },
+  {
+   "line": "spellCrit",
+   "status": "checked_pass",
+   "detail": "sim 7.23 vs game 7.23 (calibrated, not a check)"
+  },
+  {
+   "line": "health",
+   "status": "checked_pass",
+   "detail": "sim 1470 vs game 1470 (calibrated, not a check)"
+  },
+  {
+   "line": "mana",
+   "status": "checked_pass",
+   "detail": "sim 1773 vs game 1773 (calibrated, not a check)"
+  }
+ ]
+}

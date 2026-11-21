@@ -1,0 +1,34 @@
+[
+  {
+    "level": 32,
+    "race": "RaceOrc",
+    "class": "ClassShaman",
+    "base_health": 370,
+    "base_mana": 733,
+    "spell_crit_per_int": 0.0333
+  },
+  {
+    "level": 33,
+    "race": "RaceOrc",
+    "class": "ClassShaman",
+    "base_health": 394,
+    "base_mana": 767,
+    "spell_crit_per_int": 0.0321
+  },
+  {
+    "level": 34,
+    "race": "RaceOrc",
+    "class": "ClassShaman",
+    "base_health": 419,
+    "base_mana": 786,
+    "spell_crit_per_int": 0.0314
+  },
+  {
+    "level": 35,
+    "race": "RaceOrc",
+    "class": "ClassShaman",
+    "base_health": 435,
+    "base_mana": 820,
+    "spell_crit_per_int": 0.0303
+  }
+]
